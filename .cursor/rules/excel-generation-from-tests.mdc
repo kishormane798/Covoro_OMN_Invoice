@@ -1,0 +1,33 @@
+---
+description: Choose and use the correct Excel generator from a test or testcase
+globs: utils/invoiceExcel.ts,utils/invoice_excel_writer.py,Helpers/**/*Helper*.ts,testData/**/*.ts,tests/**/testData/**/*.ts,tests/**/*Helper*.ts
+alwaysApply: false
+---
+
+# Excel generation from tests / testcases
+
+## Pick one pipeline (never mix)
+
+| Test / case type | API | Payload shape | Output |
+|------------------|-----|---------------|--------|
+| Formula / calculated totals | `generateInvoiceExcel` | camelCase (`defaultInvoiceData` style) | Thin columns + forced calcs; `clearRow: false` |
+| Field min/max length | `updateExcelField` / `updateExcelFieldWithInvoice` | Excel **header** + length | Patches one column on template clone |
+| Submit / delivery / conditional upload | `generateInvoiceFromSubmitData` | Excel **header keys** | Clears row 6; recalculates totals |
+| Multi-item submit | `generateInvoiceFromSubmitRows` | Array of header-key rows | Line totals aggregated |
+| Bulk single-item batch | `generateBulkSingleItemSubmitInvoices` | One header-key row + count | N invoices in one workbook |
+
+Call sites: formula → `Helpers/formulaValidationHelper.ts` only for `generateInvoiceExcel`. Submit/conditional → helpers that already prepare rows, then submit generator.
+
+## Non-negotiables
+
+- Output under `testData/generated/excel/pw-<worker>/` — never write into `testData/uploads/`.
+- Do not hardcode invoice numbers; use `buildUniqueSubmitInvoiceNumber()`.
+- Submit pipeline **overwrites** calculated totals — do not fight it with manual total cells.
+- Field names for patches / error asserts must match template headers (row 4), via `INVOICE_EXCEL_FIELD_TO_HEADER` when mapping camelCase → header.
+- Prefer extending `testData/` rows/configs; keep specs thin (call helper that generates Excel).
+
+## Agent workflow
+
+1. Load skill `generate-excel-from-testcase` (pipeline choice + generate).
+2. For new row/payload shape, load `author-excel-testcase-data`.
+3. For full scenarios, prefer existing skills: `add-field-validation-case`, `add-formula-validation-case`, `add-submit-test-case`, `add-conditional-validation-case`.

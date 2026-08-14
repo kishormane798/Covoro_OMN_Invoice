@@ -1,0 +1,463 @@
+# Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
+#   06:20 Covoro F+F · (+45m) 07:05 submit · (+1h) 08:05 conditional
+#
+# Manual run: Actions → Oman E-Invoice — Playwright → Run workflow → pick a suite or individual spec.
+# Full run: choose "all" → npx playwright test (chromium + chromium-ui).
+# Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
+name: Oman E-Invoice — Playwright
+
+on:
+  schedule:
+    - cron: "50 0 * * 1-5" # 06:20 IST — Covoro field + formula validation
+    - cron: "35 1 * * 1-5" # 07:05 IST — Covoro submit (+45m)
+    - cron: "35 2 * * 1-5" # 08:05 IST — Covoro conditional (+1h)
+
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Grouped suite, individual spec file, or full run (all)."
+        required: true
+        default: "covoro_field_formula"
+        type: choice
+        options:
+          # Grouped suites
+          - all
+          - covoro_field_formula
+          - covoro_submit
+          - covoro_conditional
+          - covoro
+          - sanity
+          - ui
+          - ui_invoice_creation
+          - ui_invoice_edit
+          - ui_invoice_copy
+          - ui_master
+          - ui_submit
+          - ui_attachment_download
+          # Individual spec files
+          - spec_field_validation_covoro
+          - spec_formula_validation_covoro
+          - spec_conditional_validation_covoro
+          - spec_submit_covoro
+          - spec_submit_multi_covoro
+          - spec_sanity
+          - spec_ui_invoice_creation
+          - spec_ui_invoice_edit_manual
+          - spec_ui_invoice_copy
+          - spec_ui_master
+          - spec_ui_submit
+          - spec_ui_submit_multi
+          - spec_ui_attachment
+          - spec_ui_file_download
+
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Oman E-Invoice — Playwright ({0})', github.event.inputs.suite) || 'Oman E-Invoice — Playwright' }}
+
+concurrency:
+  group: omn-e-invoice-playwright
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CI: true
+  SUBMIT_INVOICE_COMBINATIONS: "all"
+  PW_WORKERS: "5"
+
+jobs:
+  should_run:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Gate scheduled runs if paused (manual or 1 IST day)
+        id: gate
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TODAY_IST=$(TZ=Asia/Kolkata date +%Y-%m-%d)
+          FILE=".github/PLAYWRIGHT_SKIP_SCHEDULE_UNTIL"
+          if [ -f "$FILE" ]; then
+            READ=$(head -1 "$FILE" | tr -d '\r')
+            READ=$(echo "$READ" | xargs)
+            if [ "$READ" = "manual" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::Scheduled Playwright runs are paused until manual resume. Resume: Actions → Oman E-Invoice — Schedule control → resume_scheduled_runs."
+              exit 0
+            fi
+            if [ "$READ" = "$TODAY_IST" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::Scheduled Playwright runs are paused for IST date ${TODAY_IST} (1-day pause). Resume early: Actions → Oman E-Invoice — Schedule control → resume_scheduled_runs."
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: should_run
+    if: needs.should_run.outputs.skip != 'true'
+    timeout-minutes: 360
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Verify pinned Node and Playwright
+        run: |
+          node -v
+          npx playwright --version
+          node -e "const v=require('@playwright/test/package.json').version; if(v!=='1.60.0'){console.error('Expected @playwright/test 1.60.0, got '+v); process.exit(1)}"
+
+      - name: Set up Java (Allure report generator)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Create .env file
+        run: |
+          echo "BASE_URL=${{ secrets.BASE_URL }}" >> .env
+          echo "TEST_USER_EMAIL=${{ secrets.TEST_USER_EMAIL }}" >> .env
+          echo "TEST_USER_PASSWORD=${{ secrets.TEST_USER_PASSWORD }}" >> .env
+
+      - name: Verify required environment variables
+        run: |
+          missing=0
+          for key in BASE_URL TEST_USER_EMAIL TEST_USER_PASSWORD; do
+            val=$(grep -E "^${key}=" .env | cut -d= -f2- || true)
+            if [ -z "${val:-}" ]; then
+              echo "::error::Missing or empty ${key}. Set the ${key} secret in GitHub Actions."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+
+      - name: Resolve test suite (schedule → IST slots · manual → choice)
+        id: suite
+        run: |
+          MODE="all"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ github.event.inputs.suite }}"
+
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            case "${{ github.event.schedule }}" in
+              "50 0 * * 1-5") MODE="covoro_field_formula" ;;
+              "35 1 * * 1-5") MODE="covoro_submit" ;;
+              "35 2 * * 1-5") MODE="covoro_conditional" ;;
+              *)
+                echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — using MODE=all"
+                ;;
+            esac
+          fi
+
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "Running MODE=$MODE"
+
+      - name: Run Playwright — scheduled slice or manual suite/spec
+        run: |
+          MODE="${{ steps.suite.outputs.mode }}"
+          set -e
+
+          case "$MODE" in
+            # --- Full suite (upload + UI) ---
+            all|full)
+              npx playwright test
+              ;;
+            # --- Grouped suites ---
+            covoro_field_formula)
+              npx playwright test \
+                tests/FieldValidation_CovoroTemplate_Test.spec.ts \
+                tests/FormulaValidation_CovoroTemplate_Test.spec.ts \
+                --project=chromium
+              ;;
+            covoro_submit)
+              npx playwright test \
+                tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts \
+                tests/kishorsubmit/SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts \
+                --project=chromium
+              ;;
+            covoro_conditional)
+              npx playwright test tests/ConditionalValidation_CovoroTemplate_Test.spec.ts --project=chromium
+              ;;
+            covoro)
+              npx playwright test tests/**/*CovoroTemplate*.spec.ts --project=chromium
+              ;;
+            sanity|spec_sanity)
+              npx playwright test tests/sanitysubmit/SubmitInvoice_Sanity_Test.spec.ts --project=chromium --workers=1
+              ;;
+            ui)
+              npx playwright test tests/KISHOR_UI/*.spec.ts --project=chromium-ui
+              ;;
+            ui_invoice_creation|spec_ui_invoice_creation)
+              npx playwright test tests/KISHOR_UI/UIInvoiceCreation_Manual_Test.spec.ts --project=chromium-ui
+              ;;
+            ui_invoice_edit|spec_ui_invoice_edit_manual)
+              npx playwright test tests/KISHOR_UI/UIInvoiceEdit_Manual_Test.spec.ts --project=chromium-ui
+              ;;
+            ui_invoice_copy|spec_ui_invoice_copy)
+              npx playwright test tests/KISHOR_UI/UIInvoiceCopy_Manual_Test.spec.ts --project=chromium-ui
+              ;;
+            ui_master|spec_ui_master)
+              npx playwright test tests/KISHOR_UI/UIMaster_BuyerAndItem_Test.spec.ts --project=chromium-ui
+              ;;
+            ui_submit)
+              npx playwright test \
+                tests/KISHOR_UI/UISubmitInvoice_Test.spec.ts \
+                tests/KISHOR_UI/UISubmitInvoice_MultiItem_Test.spec.ts \
+                --project=chromium-ui
+              ;;
+            ui_attachment_download)
+              npx playwright test \
+                tests/KISHOR_UI/UIInvoiceEdit_Attachment_Test.spec.ts \
+                tests/KISHOR_UI/UIInvoiceFileDownload_Test.spec.ts \
+                --project=chromium-ui
+              ;;
+            # --- Individual spec files ---
+            spec_field_validation_covoro)
+              npx playwright test tests/FieldValidation_CovoroTemplate_Test.spec.ts --project=chromium
+              ;;
+            spec_formula_validation_covoro)
+              npx playwright test tests/FormulaValidation_CovoroTemplate_Test.spec.ts --project=chromium
+              ;;
+            spec_conditional_validation_covoro)
+              npx playwright test tests/ConditionalValidation_CovoroTemplate_Test.spec.ts --project=chromium
+              ;;
+            spec_submit_covoro)
+              npx playwright test tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts --project=chromium
+              ;;
+            spec_submit_multi_covoro)
+              npx playwright test tests/kishorsubmit/SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts --project=chromium
+              ;;
+            spec_ui_submit)
+              npx playwright test tests/KISHOR_UI/UISubmitInvoice_Test.spec.ts --project=chromium-ui
+              ;;
+            spec_ui_submit_multi)
+              npx playwright test tests/KISHOR_UI/UISubmitInvoice_MultiItem_Test.spec.ts --project=chromium-ui
+              ;;
+            spec_ui_attachment)
+              npx playwright test tests/KISHOR_UI/UIInvoiceEdit_Attachment_Test.spec.ts --project=chromium-ui
+              ;;
+            spec_ui_file_download)
+              npx playwright test tests/KISHOR_UI/UIInvoiceFileDownload_Test.spec.ts --project=chromium-ui
+              ;;
+            *)
+              npx playwright test
+              ;;
+          esac
+
+      - name: Generate Allure report (single-file HTML)
+        if: always()
+        shell: bash
+        run: |
+          if [ -d allure-results ] && [ -n "$(ls -A allure-results 2>/dev/null)" ]; then
+            npx allure generate allure-results --clean --single-file -o allure-report
+          else
+            echo "No allure-results; skipping Allure HTML"
+          fi
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: allure-report-${{ steps.suite.outputs.mode }}
+          path: allure-report/
+          retention-days: 2
+          if-no-files-found: ignore
+
+      - name: Summarize Playwright results (pass / fail / skip / flaky)
+        id: summary
+        if: always()
+        run: python scripts/playwright_json_summary.py
+
+      - name: Prepare email (Allure attachment)
+        id: email_attach
+        if: always()
+        env:
+          EMAIL_MAX_ATTACHMENT_BYTES: ${{ vars.EMAIL_MAX_ATTACHMENT_BYTES }}
+        shell: bash
+        run: |
+          MAX="${EMAIL_MAX_ATTACHMENT_BYTES:-23068672}"
+          LIST=""
+          rm -f allure-report-email.zip allure-index.html.gz
+
+          if [ -f allure-report/index.html ]; then
+            SZ=$(wc -c < allure-report/index.html | tr -d ' ')
+            if [ "${SZ:-0}" -le "$MAX" ] && [ "${SZ:-0}" -gt 32 ]; then
+              LIST="allure-report/index.html"
+            else
+              (cd allure-report && zip -9 -q "${GITHUB_WORKSPACE}/allure-report-email.zip" index.html)
+              if [ -f allure-report-email.zip ]; then
+                ZSZ=$(wc -c < allure-report-email.zip | tr -d ' ')
+                if [ "${ZSZ:-0}" -le "$MAX" ] && [ "${ZSZ:-0}" -gt 32 ]; then
+                  LIST="allure-report-email.zip"
+                else
+                  rm -f allure-report-email.zip
+                  gzip -9 -c allure-report/index.html > allure-index.html.gz
+                  GSZ=$(wc -c < allure-index.html.gz | tr -d ' ')
+                  if [ "${GSZ:-0}" -le "$MAX" ] && [ "${GSZ:-0}" -gt 32 ]; then
+                    LIST="allure-index.html.gz"
+                  else
+                    rm -f allure-index.html.gz
+                  fi
+                fi
+              fi
+            fi
+          fi
+
+          echo "files=$LIST" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare SMTP email
+        id: mail
+        if: always()
+        shell: bash
+        run: |
+          if [ -z "${SMTP_HOST:-}" ] || [ -z "${SMTP_USER:-}" ] || [ -z "${SMTP_PASS:-}" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Email skipped — set SMTP_HOST, SMTP_USER, and SMTP_PASS in repo Actions secrets."
+            exit 0
+          fi
+
+          R="${EMAIL_RECIPIENTS_BASE:-${EMAIL_TO:-}}"
+          if [ -z "${R:-}" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Email skipped — set repo Variable EMAIL_RECIPIENTS_BASE or secret EMAIL_TO."
+            exit 0
+          fi
+
+          FROM_ADDR="${EMAIL_FROM:-$SMTP_USER}"
+          PORT="${SMTP_PORT:-587}"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+          echo "to=$R" >> "$GITHUB_OUTPUT"
+          echo "from=$FROM_ADDR" >> "$GITHUB_OUTPUT"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
+          if [ "$PORT" = "465" ]; then
+            echo "secure=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "secure=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_RECIPIENTS_BASE: ${{ vars.EMAIL_RECIPIENTS_BASE }}
+
+      - name: Email digest metadata (UTC date)
+        id: mail_body
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "date<<MAILBODY_EOF"
+            date -u +'%d %b %Y'
+            echo "MAILBODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Email subject label by suite mode
+        id: mail_subject
+        if: always()
+        shell: bash
+        run: |
+          MODE="${{ steps.suite.outputs.mode }}"
+          case "$MODE" in
+            all|full) LABEL="Full suite — all specs (upload + UI)" ;;
+            covoro_field_formula|spec_field_validation_covoro|spec_formula_validation_covoro)
+              LABEL="Covoro — Field + Formula validation"
+              ;;
+            covoro_submit|spec_submit_covoro|spec_submit_multi_covoro)
+              LABEL="Covoro — Submit invoice"
+              ;;
+            covoro_conditional|spec_conditional_validation_covoro)
+              LABEL="Covoro — Conditional validation"
+              ;;
+            covoro) LABEL="Covoro — All specs" ;;
+            sanity|spec_sanity) LABEL="Sanity — Submit invoice" ;;
+            ui) LABEL="UI — All specs" ;;
+            ui_invoice_creation|spec_ui_invoice_creation) LABEL="UI — Invoice creation manual" ;;
+            ui_invoice_edit|spec_ui_invoice_edit_manual) LABEL="UI — Invoice edit validation" ;;
+            ui_invoice_copy|spec_ui_invoice_copy) LABEL="UI — Invoice Copy validation" ;;
+            ui_master|spec_ui_master) LABEL="UI — Master buyer and item" ;;
+            ui_submit|spec_ui_submit|spec_ui_submit_multi) LABEL="UI — Submit invoice" ;;
+            ui_attachment_download|spec_ui_attachment|spec_ui_file_download) LABEL="UI — Attachment & file download" ;;
+            *) LABEL="Full suite" ;;
+          esac
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Send email — execution digest
+        if: ${{ !cancelled() && steps.mail.outputs.ok == 'true' }}
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ steps.mail.outputs.port }}
+          secure: ${{ steps.mail.outputs.secure == 'true' }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: >-
+            Oman E-Invoice (${{ steps.mail_subject.outputs.label }}) — PASSED ${{ steps.summary.outputs.passed }}, FAILED ${{ steps.summary.outputs.failed }}, SKIPPED ${{ steps.summary.outputs.skipped }}, FLAKY ${{ steps.summary.outputs.flaky }}
+          to: ${{ steps.mail.outputs.to }}
+          from: ${{ steps.mail.outputs.from }}
+          attachments: ${{ steps.email_attach.outputs.files }}
+          body: |
+            Hi Team — Oman E-Invoice Playwright summary (${{ steps.mail_body.outputs.date }} UTC).
+            Passed ${{ steps.summary.outputs.passed }}, Failed ${{ steps.summary.outputs.failed }}, Skipped ${{ steps.summary.outputs.skipped }}, Flaky ${{ steps.summary.outputs.flaky }} (total ${{ steps.summary.outputs.total }}).
+            Overall: ${{ steps.summary.outputs.overall }}.
+            Suite: ${{ steps.suite.outputs.mode }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          html_body: |
+            <p>Hi Team,</p>
+            <p>Please find below the <strong>automation test execution summary</strong> for the <strong>Oman E-Invoice</strong> framework (Playwright).</p>
+            <h3 style="margin:20px 0 8px 0;font-family:Segoe UI,Arial,sans-serif;">Execution summary</h3>
+            <table style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:14px;max-width:560px;">
+              <tr><td style="padding:6px 16px 6px 0;color:#555;vertical-align:top;">Date (UTC)</td><td style="padding:6px 0;"><strong>${{ steps.mail_body.outputs.date }}</strong></td></tr>
+              <tr><td style="padding:6px 16px 6px 0;color:#555;">Framework</td><td style="padding:6px 0;"><strong>Oman E-Invoice</strong></td></tr>
+              <tr><td style="padding:6px 16px 6px 0;color:#555;">Suite / spec</td><td style="padding:6px 0;"><strong>${{ steps.suite.outputs.mode }}</strong></td></tr>
+              <tr><td style="padding:6px 16px 6px 0;color:#555;">Workflow run</td><td style="padding:6px 0;"><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">Open in GitHub Actions</a></td></tr>
+            </table>
+            <h3 style="margin:20px 0 8px 0;font-family:Segoe UI,Arial,sans-serif;">Test results</h3>
+            <table style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:14px;border:1px solid #e5e7eb;">
+              <tr style="background:#f3f4f6;"><th style="padding:8px 16px;text-align:left;border:1px solid #e5e7eb;">Metric</th><th style="padding:8px 16px;text-align:right;border:1px solid #e5e7eb;">Count</th></tr>
+              <tr><td style="padding:8px 16px;border:1px solid #e5e7eb;">Passed</td><td style="padding:8px 16px;text-align:right;border:1px solid #e5e7eb;color:#15803d;"><strong>${{ steps.summary.outputs.passed }}</strong></td></tr>
+              <tr><td style="padding:8px 16px;border:1px solid #e5e7eb;">Failed</td><td style="padding:8px 16px;text-align:right;border:1px solid #e5e7eb;color:#b91c1c;"><strong>${{ steps.summary.outputs.failed }}</strong></td></tr>
+              <tr><td style="padding:8px 16px;border:1px solid #e5e7eb;">Skipped</td><td style="padding:8px 16px;text-align:right;border:1px solid #e5e7eb;"><strong>${{ steps.summary.outputs.skipped }}</strong></td></tr>
+              <tr><td style="padding:8px 16px;border:1px solid #e5e7eb;">Flaky</td><td style="padding:8px 16px;text-align:right;border:1px solid #e5e7eb;"><strong>${{ steps.summary.outputs.flaky }}</strong></td></tr>
+              <tr style="background:#fafafa;"><td style="padding:8px 16px;border:1px solid #e5e7eb;"><strong>Total</strong></td><td style="padding:8px 16px;text-align:right;border:1px solid #e5e7eb;"><strong>${{ steps.summary.outputs.total }}</strong></td></tr>
+            </table>
+            <p style="margin-top:16px;font-family:Segoe UI,Arial,sans-serif;font-size:14px;">Overall: <strong>${{ steps.summary.outputs.overall }}</strong></p>
+            <p style="margin-top:24px;color:#64748b;font-size:13px;font-family:Segoe UI,Arial,sans-serif;">— Oman E-Invoice Automation · GitHub Actions</p>

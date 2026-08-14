@@ -1,0 +1,79 @@
+# One-click pause/resume for IST-aligned cron slices in playwright.yml.
+name: Oman E-Invoice — Schedule control
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Pause until manual resume stops all scheduled runs until you run Resume. Pause for 1 IST day skips today's slices only (auto-resumes next IST day)."
+        required: true
+        default: pause_until_manual_resume
+        type: choice
+        options:
+          - pause_until_manual_resume
+          - pause_all_scheduled_for_today
+          - resume_scheduled_runs
+
+run-name: ${{ format('Schedule control — {0}', inputs.action) }}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: omn-e-invoice-schedule-control
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pause or resume scheduled Playwright runs
+        env:
+          ACTION: ${{ inputs.action }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          FILE=".github/PLAYWRIGHT_SKIP_SCHEDULE_UNTIL"
+          BRANCH="${GITHUB_REF_NAME}"
+
+          case "$ACTION" in
+            pause_until_manual_resume)
+              mkdir -p .github
+              printf '%s\n' "manual" > "$FILE"
+              git add "$FILE"
+              if git diff --staged --quiet; then
+                echo "::notice::Already paused until manual resume (file unchanged)."
+                exit 0
+              fi
+              git commit -m "chore(ci): pause Playwright cron runs until manual resume"
+              ;;
+            pause_all_scheduled_for_today)
+              TODAY=$(TZ=Asia/Kolkata date +%Y-%m-%d)
+              mkdir -p .github
+              printf '%s\n' "$TODAY" > "$FILE"
+              git add "$FILE"
+              if git diff --staged --quiet; then
+                echo "::notice::Already paused for IST day $TODAY (file unchanged)."
+                exit 0
+              fi
+              git commit -m "chore(ci): pause Playwright cron runs for IST day ${TODAY}"
+              ;;
+            resume_scheduled_runs)
+              if [ ! -f "$FILE" ]; then
+                echo "::notice::No pause file — scheduled runs are not paused."
+                exit 0
+              fi
+              git rm "$FILE"
+              git commit -m "chore(ci): resume Playwright scheduled runs"
+              ;;
+            *)
+              echo "::error::Unknown action: $ACTION"
+              exit 1
+              ;;
+          esac
+
+          git push origin "HEAD:${BRANCH}"

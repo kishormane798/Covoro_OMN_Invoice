@@ -1,0 +1,30 @@
+---
+description: Single-file / single-test agent edits; mandatory diff review before accept
+alwaysApply: true
+---
+
+# Incremental agent edits (QA gate)
+
+## One change per agent turn
+
+- Request **one file** or **one test case** per agent session unless the user explicitly approves a batch.
+- Good: “Add empty Invoice Number case to `FieldValidation_CovoroTemplate_Test.spec.ts`.”
+- Bad: “Fix delivery tests and update all page objects.”
+
+## No refactor-while-fixing
+
+- Fix the stated failure or add the stated case only.
+- Do not rename helpers, move layers, or “clean up” unrelated files in the same diff.
+- If a fix truly needs a second file (spec + page object), say so first; limit to those two paths.
+
+## Mandatory diff review (team standard)
+
+- **Never accept multi-file agent edits without manual diff review.**
+- Before merge: read every changed hunk in Cursor diff or `git diff`; reject drive-by edits.
+- Prefer: author test → commit → push → **Cursor PR / code review on diff** → human sign-off → merge.
+
+## Agent behavior
+
+- Propose the smallest diff that satisfies the prompt.
+- List files to touch **before** editing; stop after the agreed set.
+- Do not read or modify paths outside the scoped task (see `agent-token-scope`).

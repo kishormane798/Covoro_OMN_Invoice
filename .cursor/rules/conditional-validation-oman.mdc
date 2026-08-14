@@ -1,0 +1,39 @@
+---
+description: Oman-only Excel conditional validation (PINT-OM) — no UAE rules
+globs: testData/FieldValidations/ConditionalValidation.ts,Helpers/conditionalValidationHelper.ts,Helpers/conditionalValidationSpecHelpers.ts,tests/ConditionalValidation_*.spec.ts
+alwaysApply: false
+---
+
+# Oman conditional validation
+
+## Source of truth
+
+- Analysis sheet **Conditional Validations** + [PINT OM](https://test-docs.peppol.eu/pint/pint-om/2026-Q2-v1.0.1/pint-om/)
+- Skill: `add-conditional-validation-case` (+ `reference.md` inventory)
+
+## Allowed
+
+- Rule IDs ending in `-OM` / `ALIGNED-IBRP-*-OM` / `IBR-*-OM` (and CL if truly if-then)
+- Every scenario **must** include `ruleId`
+- Titles: `Excel upload · Covoro | {ruleId} | {condition} → {accepted|error file}`
+- Covoro template **header** keys (row 4), Oman dropdown labels from `Master.omnCore.ts`
+
+## Forbidden (UAE)
+
+- Emirates ID, Cabinet Decision, BTUAE-*, UAE TIN 0235, UAE emirate subdivisions
+- FTZ / Beneficiary UAE matrices, AE-only IBR / IBR-*-AE
+- Inventing UAE fillers when an Oman rule is formula/backend-only
+
+## Triage before coding
+
+| Kind | Destination |
+|------|-------------|
+| If A → B required/forbidden | This suite |
+| Σ / taxable amount / tax amount math | Formula suite |
+| Code list only (`CL-*`) | Field validation |
+| Category Backend / no Excel field | Skip + note in skill reference |
+
+## Agent scope
+
+- One rule group (or one `ruleId`) per turn unless the user approved a batch
+- Config in `ConditionalValidation.ts` → builder in `conditionalValidationHelper.ts` → thin describe in spec

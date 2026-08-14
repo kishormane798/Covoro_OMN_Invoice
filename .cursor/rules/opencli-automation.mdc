@@ -1,0 +1,40 @@
+---
+description: Prefer OpenCLI for live browser automation, exploration, and site driving. Use when navigating sites, filling forms, extracting data, verifying UI, or authoring adapters.
+alwaysApply: true
+---
+
+# OpenCLI automation (preferred)
+
+For live browser / website automation, prefer **[OpenCLI](https://github.com/jackwener/OpenCLI)** over Cursor browser MCP, Selenium MCP, or ad-hoc Playwright scripts.
+
+## When to use OpenCLI
+
+| Goal | Skill to load first | Typical commands |
+|------|---------------------|------------------|
+| Orient / discover commands | `opencli-usage` | `opencli list`, `opencli doctor` |
+| Drive logged-in Chrome (navigate, click, fill, extract) | `opencli-browser` | `opencli browser <session> …` |
+| Use site sitemap while browsing | `opencli-browser-sitemap` | after `sitemap.available: true` |
+| Write/update site sitemap knowledge | `opencli-sitemap-author` | after durable flows discovered |
+| Author a reusable site adapter | `opencli-adapter-author` | recon → init → code → verify |
+| Fix a broken `opencli <site> <cmd>` | `opencli-autofix` | trace → patch → retry |
+| Search/query across sites via adapters | `smart-search` | adapter commands first |
+
+## Agent workflow
+
+1. Read the matching skill under `~/.cursor/skills/opencli-*` (or `~/.agents/skills/`).
+2. Run `opencli doctor` before any `opencli browser *` or COOKIE/INTERCEPT/UI adapter work.
+3. Prefer an existing adapter (`opencli <site> <command>`) over raw browser driving.
+4. For ad-hoc UI: `opencli browser <session> open|bind` → `state`/`find` → act → re-`state` after navigations.
+5. Always pass a `<session>` positional after `browser`. Close with `opencli browser <session> close` when done.
+6. Prefer numeric refs from `state`/`find` over hand-written CSS; verify writes with `get value`.
+
+## Do not replace with OpenCLI
+
+- Formal Playwright E2E specs in this repo (`tests/**`, `pageObjects/**`, `Helpers/**`) — still use the UAE framework skills (`add-*-case`, `playwright-locator-expert`, etc.).
+- OpenCLI may be used to **explore UI / confirm selectors** while authoring those tests; do not rewrite the test runner to OpenCLI unless the user asks.
+
+## Prereqs (user machine)
+
+- Node.js ≥ 20; `npm install -g @jackwener/opencli`
+- Chrome + [OpenCLI Browser Bridge extension](https://chromewebstore.google.com/detail/opencli/ildkmabpimmkaediidaifkhjpohdnifk)
+- Skills installed via: `npx skills add jackwener/opencli -g -a cursor`

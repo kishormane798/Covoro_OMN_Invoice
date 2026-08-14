@@ -1,0 +1,38 @@
+---
+description: Conventions for Playwright spec files
+globs: tests/**/*.spec.ts
+alwaysApply: false
+---
+
+# Spec authoring
+
+## Naming
+
+- File pattern: `<Flow>_<Template>_Test.spec.ts` (e.g. `FieldValidation_CovoroTemplate_Test.spec.ts`)
+- Test titles use domain language with template, field, condition, and outcome:
+  - Upload: `Excel upload · Covoro | Document | Invoice Number | empty → error file`
+  - UI: `Create Invoice UI | Document | minimum length (1 char) → validation error`
+
+## Structure
+
+- Keep specs thin: import test data → loop → call one helper function.
+- One end-to-end expectation per test.
+- Use `test.describe.configure({ mode: "parallel" })` unless serial order matters (e.g. sanity).
+- Set explicit `test.setTimeout(...)` only for long backend waits (submit/delivery, dropdown suites).
+
+## Template constants
+
+- Declare `const TEMPLATE = "Covoro"` (or OMN primary template name) in upload specs.
+
+## npm scripts for targeted runs
+
+- Covoro: `npm run test:covoro`
+- UI manual: `npm run test:ui`
+- Sanity: `npm run test:sanity`
+
+## Agent prompts for this layer
+
+- One spec file or one test case per agent turn (`incremental-agent-edits` rule).
+- Prefer skills (`add-field-validation-case`, `add-conditional-validation-case`, `add-submit-test-case`, `generate-excel-from-testcase`, etc.) over broad “fix all specs” prompts.
+- Oman conditional upload: only `*-OM` rule IDs — see `conditional-validation-oman` rule.
+- Explore helpers via graphify query — do not paste entire spec files into chat (`agent-token-scope` rule).

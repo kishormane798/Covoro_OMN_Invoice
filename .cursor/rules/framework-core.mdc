@@ -1,0 +1,47 @@
+---
+description: UAE E-Invoice Playwright framework — architecture and layer boundaries
+alwaysApply: true
+---
+
+# UAE E-Invoice Test Framework
+
+Playwright + TypeScript E2E automation with Python (openpyxl) for Excel generation.
+
+## Layer boundaries (do not blur these)
+
+| Layer | Path | Responsibility |
+|-------|------|----------------|
+| Specs | `tests/` | Scenarios, data loops, expected outcomes only — no raw selectors |
+| Fixture | `Src/baseTest.ts` | Session bootstrap, worker identity, attachments, cleanup, site-unavailable skip |
+| Page Objects | `pageObjects/` | Locators, UI actions, resilient waits only |
+| Helpers | `Helpers/` | Business flows (upload, submit, field/formula/UI validation orchestration) |
+| Utils | `utils/` | Python bridge, Excel generation, global setup, env/config |
+| Test data | `testData/` | Datasets, template headers, static uploads |
+
+## Non-negotiables
+
+- Import `test` from `Src/baseTest.ts` — never directly from `@playwright/test` in specs.
+- Generated workbooks go to worker-isolated paths: `testData/generated/excel/pw-<index>/`.
+- Never commit `.env`, `storageState.json`, or report artifacts (`allure-results/`, `playwright-report/`).
+- Two Excel pipelines — do not mix without understanding:
+  - `generateInvoiceExcel` → formula/min-max field validation (camelCase payload)
+  - `generateInvoiceFromSubmitData` → submit-shaped rows (Excel header keys); totals are recalculated
+- UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under `chromium-ui` project; upload specs use `chromium`.
+
+## Parallel safety
+
+- Default 5 workers map to TIN slots 1779700001–1779700005.
+- Use worker identity helpers (`parallelWorkerSubmitIdentity.ts`, `UAE_EINVOICE_WORKER_INDEX`).
+- Do not hardcode invoice numbers that can collide across workers.
+
+## Docs to consult before large changes
+
+- `docs/framework-overview.md`, `docs/testing-guidelines.md`, `docs/newcomer-guide.md`
+- Upload flow: `docs/upload-flow.md` | Flaky patterns: `docs/troubleshooting.md`
+- QA + Cursor: `docs/qa-cursor-workflow.md`
+
+## Agent context (token controls)
+
+- **Headroom + graphify** — compress logs/diffs; use `/graphify query` for structure instead of full-file reads (`agent-token-scope` rule).
+- **Scoped edits** — one file/test per turn; diff review before accept (`incremental-agent-edits` rule).
+- **Locators** — snapshot/MCP ground truth in `pageObjects/**` only (`locator-verification` rule).

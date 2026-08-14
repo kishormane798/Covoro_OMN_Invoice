@@ -1,0 +1,4 @@
+# Python dependencies for UAE E-Invoice test automation
+# Required by utils/error_excel_reader.py and utils/invoice_excel_writer.py (openpyxl)
+
+openpyxl>=3.1.0

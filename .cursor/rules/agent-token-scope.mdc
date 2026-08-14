@@ -1,0 +1,49 @@
+---
+description: Token controls, graphify exploration, scoped agent paths, skill-first workflows
+alwaysApply: true
+---
+
+# Agent token scope and exploration
+
+Active delivery stack works; keep token use bounded.
+
+## Headroom (proxy + RTK + compress/retrieve)
+
+- Prefer **Headroom** for log/diff compression before context hits the model.
+- **GitNexus** for call-chain / dependency queries via MCP after `gitnexus analyze` (primary structural search for this repo).
+- Windows: `pip install "headroom-ai[mcp,proxy]==0.20.15"` until win_amd64 wheels ship for 0.21+; see `docs/qa-cursor-workflow.md`.
+- Setup: `headroom proxy --port 8787` + point base URL at `http://127.0.0.1:8787/v1`, or use Headroom MCP (`headroom mcp serve` in Cursor).
+
+## Graphify (optional — cross-doc knowledge graph)
+
+- For architecture questions, prefer **GitNexus MCP** (indexed via `gitnexus analyze`) or **graphify** for broader corpus search.
+- Index once: `/graphify .` (or `graphify update .` after changes). Output lives in `graphify-out/` (gitignored).
+- Query: `/graphify query "<question>" --budget 1500` or `graphify path "HelperA" "PageObjectB"`.
+- Read only the **matched nodes + cited `source_file` lines** — never paste full `tests/**/*.spec.ts` or `pageObjects/**` files unless editing that file.
+
+## Scoped paths (stay in layer boundaries)
+
+| Task | Allowed paths | Rule file |
+|------|---------------|-----------|
+| Specs | `tests/**/*.spec.ts` | `spec-authoring` |
+| UI locators / actions | `pageObjects/**` | `page-objects-and-helpers`, `locator-verification` |
+| Excel / Python bridge | `utils/**`, `testData/**` | `excel-and-utils`, `excel-generation-from-tests` |
+| Cross-cutting | `Helpers/**` only when a helper flow is explicitly in scope | `page-objects-and-helpers` |
+
+Do not pull full-repo context. Scope prompts to one flow, one template, or one helper chain.
+
+## Skill-first workflows (prefer over “fix everything”)
+
+Use project skills when the task matches:
+
+- `add-field-validation-case` — Excel field validation
+- `add-conditional-validation-case` — Oman PINT-OM if-then conditionals (no UAE rules)
+- `add-formula-validation-case` — formula / calculated totals
+- `add-submit-test-case` — submit / delivery
+- `add-ui-invoice-test` — Create Invoice UI
+- `generate-excel-from-testcase` — pick pipeline and generate `.xlsx` from a testcase
+- `author-excel-testcase-data` — camelCase vs Excel-header row/payload authoring
+- `playwright-locator-expert` — stable locators for `pageObjects/**`
+- `debug-failing-uae-test` — flakes, timeouts, upload stuck
+
+Open prompts like “refactor the framework” or “fix all failing tests” are out of scope unless the user names a single file or test.

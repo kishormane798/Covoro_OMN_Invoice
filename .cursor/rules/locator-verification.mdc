@@ -1,0 +1,30 @@
+---
+description: Locators require Playwright MCP or browser snapshot — no chat-only guesses
+globs: pageObjects/**
+alwaysApply: false
+---
+
+# Locator verification (ground truth required)
+
+Do **not** trust AI-generated selectors without verification.
+
+**Skill:** Use `playwright-locator-expert` for locator priority, rules, output format, and page object style.
+
+## Before adding or changing a locator
+
+1. Confirm the element with **Playwright MCP** or a **browser snapshot** (accessibility tree / DOM), not chat memory or guessed attributes.
+2. Follow locator priority and rules in `.cursor/skills/playwright-locator-expert/SKILL.md` (`getByTestId` → `getByRole` → …).
+3. Add or update the locator only in `pageObjects/**` — specs stay selector-free.
+
+## When the agent hallucinates
+
+- Reject the suggested locator.
+- Re-run snapshot/MCP on the live page (or trace screenshot from a failed test).
+- Fix manually in the page object; do not patch specs with raw selectors.
+
+## Review checklist
+
+- [ ] Element confirmed in snapshot/MCP output
+- [ ] Locator scoped (not `page.locator('button')` globally)
+- [ ] No duplicate hidden-node matches
+- [ ] Change limited to `pageObjects/**` unless a helper wait strategy also needs adjustment

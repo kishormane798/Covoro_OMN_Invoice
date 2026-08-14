@@ -1,0 +1,45 @@
+---
+description: Superpowers Global Bridge — follow Superpowers skills for build/debug/plan/review work
+alwaysApply: true
+---
+
+# Superpowers Global Bridge
+
+Full library: `~/.cursor/superpowers-global/`  
+Skills (read these): `~/.cursor/skills/` (symlinked from the mirror)
+
+When building software, fixing bugs, planning work, reviewing code, or starting a new feature:
+
+- **Read and follow** the relevant skill from `~/.cursor/skills/`
+- **Start with** `using-superpowers` when unsure which skill applies
+- **Before creative work** → `brainstorming` (no implementation until design approved)
+- **Before debugging** → `systematic-debugging`
+- **During implementation** → `test-driven-development` (RED-GREEN-REFACTOR)
+- **Multi-step work** → `writing-plans` then `executing-plans` or `subagent-driven-development`
+- **Between tasks** → `requesting-code-review`
+- **When done** → `finishing-a-development-branch`
+
+## Skill priority
+
+1. User explicit instructions (highest)
+2. Superpowers skills (override default agent behavior)
+3. Default system behavior (lowest)
+
+## Basic workflow
+
+1. `brainstorming` — refine idea, present design, get approval
+2. `using-git-worktrees` — isolated branch after design approval
+3. `writing-plans` — bite-sized tasks with file paths and verification
+4. `subagent-driven-development` or `executing-plans` — execute with review
+5. `test-driven-development` — tests first during implementation
+6. `requesting-code-review` — review between tasks
+7. `finishing-a-development-branch` — merge/PR/cleanup when complete
+
+## Cursor notes
+
+- Skills load from `~/.cursor/skills/`; session bootstrap via `~/.cursor/hooks.json` → `superpowers-global/hooks/session-start`
+- Update mirror: `git -C ~/.cursor/superpowers-global pull`
+- Reinstall for another OS user: `~/.cursor/superpowers-global/scripts/install-for-user.sh /path/to/home`
+- Optional telemetry opt-out: `SUPERPOWERS_DISABLE_TELEMETRY=1`
+
+**If a skill might apply (even 1% chance), read and follow it before responding or acting.**

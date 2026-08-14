@@ -1,0 +1,28 @@
+---
+description: Excel generation, test data, and Python bridge rules
+globs: utils/**,testData/**
+alwaysApply: false
+---
+
+# Excel and test data
+
+## Test data
+
+- Static templates: `testData/uploads/` (primary: `template.xlsx`)
+- Field validation configs: `testData/FieldValidations/`
+- Submit rows use Excel header keys: `Invoice Type Code`, `Tax Category`, `Tax Rate`, etc.
+- Header mapping lives in one place — avoid duplicating column names across files.
+
+## Excel generation (`utils/invoiceExcel.ts`)
+
+- Calls Python via `utils/pythonRunner.ts` — ensure `requirements.txt` packages are installed.
+- Submit pipeline recalculates totals; do not assume manual totals in input rows persist.
+- Tax category rules: only `Standard rate.` uses sheet Tax Rate for effective VAT; other categories → 0% in totals.
+- Error file validation: `validateErrorFileColumn`, `getErrorFieldExcelDetails` via Python reader.
+- Pipeline choice / testcase → workbook: rule `excel-generation-from-tests`; skills `generate-excel-from-testcase`, `author-excel-testcase-data`.
+
+## Risky changes (require extra review)
+
+- Rounding/tax effective-rate logic in `invoiceExcel.ts` or `invoice_excel_writer.py`
+- Worker output path or cleanup in `baseTest.ts` / `invoiceExcel.ts`
+- Template mapping recovery in `UploadInvoicePage.ensureExpectedTemplateMapping`

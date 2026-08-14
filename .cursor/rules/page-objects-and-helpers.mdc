@@ -1,0 +1,31 @@
+---
+description: Page Object and Helper conventions
+globs: pageObjects/**,Helpers/**
+alwaysApply: false
+---
+
+# Page Objects and Helpers
+
+## Page Objects
+
+- Methods express user intent: `openDashboard`, `waitForAnyStatus`, `uploadFile` — not implementation details.
+- Prefer role, `data-testid`, unique IDs; scope locators to row/container.
+- **Verify locators** with Playwright MCP or browser snapshot before merge — see `locator-verification` rule and `playwright-locator-expert` skill; never ship chat-only guesses.
+- Flaky recovery (refresh, reload, retry clicks) belongs here or in helpers — not in specs.
+- Use `waitForLocatorWithPageRefresh` only when UI may need one controlled refresh; always bounded attempts + clear error.
+
+## Helpers
+
+- Action-oriented names: `runSubmitInvoiceCase`, `uploadAndVerify`, `runUiInvoiceCreationMinMaxCase`.
+- Error messages must include business context: invoice number, expected vs actual status, template mode, TIN if relevant.
+- Submit flow entry points:
+  - Single item: `runSubmitInvoiceCase` in `submitInvoiceCaseHelper.ts`
+  - Multi-item: `runSubmitInvoiceMultiItemCase`
+  - Upload-only sanity: `runSubmitInvoiceUploadSanityCase`
+- Upload navigation: `openUploadPage` from `uploadHelper.ts`.
+
+## Avoid
+
+- Duplicating business logic across specs.
+- Generic throws like "element not found" without invoice/status context.
+- Unbounded `page.waitForTimeout` as first strategy — prefer `expect` polls.
