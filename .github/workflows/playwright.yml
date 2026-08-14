@@ -38,6 +38,9 @@ env:
   CI: true
   SUBMIT_INVOICE_COMBINATIONS: "all"
   PW_WORKERS: "5"
+  # Oman seller VATIN per Playwright worker (slot 0–4). Without this, identity
+  # falls back to numeric UAE TIN 1779700001–1779700005.
+  UAE_EINVOICE_SELLER_TIN_SLOTS: "OM1108202600,OM1108202601,OM1108202602,OM1108202603,OM1108202604"
 
 jobs:
   should_run:
@@ -125,6 +128,7 @@ jobs:
           echo "BASE_URL=${{ secrets.BASE_URL }}" >> .env
           echo "TEST_USER_EMAIL=${{ secrets.TEST_USER_EMAIL }}" >> .env
           echo "TEST_USER_PASSWORD=${{ secrets.TEST_USER_PASSWORD }}" >> .env
+          echo "UAE_EINVOICE_SELLER_TIN_SLOTS=${UAE_EINVOICE_SELLER_TIN_SLOTS}" >> .env
 
       - name: Verify required environment variables
         run: |

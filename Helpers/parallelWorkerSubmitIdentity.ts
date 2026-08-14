@@ -1,20 +1,27 @@
 /**
- * Playwright worker index 0–4 maps to env-specific TIN slots (mod 5). Dashboard card selection must match Python row patch
+ * Playwright worker index 0–4 maps to Oman VATIN slots (mod 5). Dashboard card selection must match Python row patch
  * in `invoice_excel_writer.py` (`_apply_parallel_worker_identity_to_row`).
  *
- * Optional `UAE_EINVOICE_SELLER_TIN_SLOTS` (comma-separated, e.g. Oman
- * `OM1108202600,…,OM1108202604`) overrides numeric `getWorkerTinBase() + slot`.
+ * Default slots: `OM1108202600` … `OM1108202604`. Optional `UAE_EINVOICE_SELLER_TIN_SLOTS`
+ * (comma-separated) overrides that list. Electronic address and TRN/TIN are the same VATIN
+ * (no UAE numeric TIN or `00003` suffix).
  */
 
 import {
   getCounterpartyElectronicAddress,
   getCounterpartyVatIdentifier,
-  getWorkerTinBase,
-  vatIdentifierForElectronicAddress,
 } from "../utils/envPartyIdentity";
 
 /** Five dashboard TIN slots; indexes wrap when `PW_WORKERS` > 5. */
 export const PARALLEL_WORKER_TIN_SLOT_COUNT = 5;
+
+const DEFAULT_OMAN_SELLER_TIN_SLOTS = [
+  "OM1108202600",
+  "OM1108202601",
+  "OM1108202602",
+  "OM1108202603",
+  "OM1108202604",
+];
 
 function parseSellerTinSlotsFromEnv(): string[] {
   const raw = process.env.UAE_EINVOICE_SELLER_TIN_SLOTS?.trim() ?? "";
@@ -29,8 +36,9 @@ function parseSellerTinSlotsFromEnv(): string[] {
     .filter(Boolean);
 }
 
-function vatIdentifierForElectronicTin(workerEl: string): string {
-  return vatIdentifierForElectronicAddress(workerEl);
+function sellerTinSlots(): string[] {
+  const fromEnv = parseSellerTinSlotsFromEnv();
+  return fromEnv.length > 0 ? fromEnv : DEFAULT_OMAN_SELLER_TIN_SLOTS;
 }
 
 /**
@@ -74,24 +82,21 @@ export function isParallelWorkerIdentityEnabled(): boolean {
 }
 
 /**
- * Worker electronic TIN for a Playwright worker index or slot (0–4).
- * Uses `UAE_EINVOICE_SELLER_TIN_SLOTS` when set; else `getWorkerTinBase() + slot`.
+ * Worker electronic address (Oman VATIN) for a Playwright worker index or slot (0–4).
+ * Uses `UAE_EINVOICE_SELLER_TIN_SLOTS` when set; else `OM1108202600` … `OM1108202604`.
  * `getParallelWorkerIndex()` already returns a slot; passing it here is correct.
  */
 export function electronicTinForParallelIndex(parallelIndex: number): string {
   const slot = parallelWorkerTinSlot(parallelIndex);
-  const slots = parseSellerTinSlotsFromEnv();
-  if (slots.length > 0) {
-    return slots[slot % slots.length];
-  }
-  return String(getWorkerTinBase() + slot);
+  const slots = sellerTinSlots();
+  return slots[slot % slots.length];
 }
 
 /**
  * Business card TIN before upload: aligned with `electronicTinForParallelIndex` / Python row patch.
  *
  * - Slot 0: `null` — skip card click (default first card).
- * - Slots 1–4: click the matching `.business-detail` TIN from slots or numeric base.
+ * - Slots 1–4: click the matching `.business-detail` Oman VATIN from slots.
  */
 export function dashboardCardTinForParallelUpload(slotOrParallelIndex: number): string | null {
   const s = parallelWorkerTinSlot(slotOrParallelIndex);
@@ -116,12 +121,11 @@ export function parallelWorkerDashboardOpenOpts(options?: {
 }
 
 /**
- * Worker TRN/TIN for Excel/UI rows. Numeric UAE TINs get `00003`; Oman VATIN stays as-is
- * (`OM1108202604`, not `OM110820260400003`).
+ * Worker TRN/TIN for Excel/UI rows. Oman VATIN equals electronic address
+ * (`OM1108202604`, not a numeric TIN + `00003`).
  */
 export function workerVatIdentifierForParallelIndex(parallelIndex?: number): string {
-  const workerEl = electronicTinForParallelIndex(parallelIndex ?? getParallelWorkerIndex());
-  return vatIdentifierForElectronicTin(workerEl);
+  return electronicTinForParallelIndex(parallelIndex ?? getParallelWorkerIndex());
 }
 
 function normalizeSubmitInvoiceType(value: unknown): string {

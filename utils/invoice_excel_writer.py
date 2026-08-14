@@ -1447,12 +1447,14 @@ def cmd_write_dropdown_batch(args: list[str]) -> None:
     )
 
 
-# Map Playwright worker slot to distinct seller TINs; keep aligned with Helpers/parallelWorkerSubmitIdentity.ts.
-_WORKER_TIN_BASE_BY_ENV = {
-    "dev": 1779700001,
-   # "dev": 1890000001, # Uncomment to test with a different TIN base for dev (e.g., for parallel worker identity testing).
-    "preprod": 1779787001,
-}
+# Map Playwright worker slot to Oman seller VATINs; keep aligned with Helpers/parallelWorkerSubmitIdentity.ts.
+_DEFAULT_OMAN_SELLER_TIN_SLOTS = [
+    "OM1108202600",
+    "OM1108202601",
+    "OM1108202602",
+    "OM1108202603",
+    "OM1108202604",
+]
 _PARALLEL_WORKER_TIN_SLOTS = 5
 # Default counterparty electronic address (not TRN/TIN); normal buyer / self-billed seller.
 _COUNTERPARTY_ELECTRONIC_BY_ENV = {
@@ -1464,11 +1466,6 @@ _COUNTERPARTY_ELECTRONIC_BY_ENV = {
 def _resolve_target_env() -> str:
     url = resolve_base_url().lower()
     return "preprod" if "preprod" in url else "dev"
-
-
-def _worker_tin_base() -> int:
-    """Keep aligned with utils/envPartyIdentity.ts `getWorkerTinBase`."""
-    return _WORKER_TIN_BASE_BY_ENV[_resolve_target_env()]
 
 
 def _seller_tin_slots() -> list[str]:
@@ -1490,15 +1487,13 @@ def _seller_tin_slots() -> list[str]:
 def _electronic_tin_for_worker_index(worker_index: int) -> str:
     """Keep aligned with Helpers/parallelWorkerSubmitIdentity.electronicTinForParallelIndex."""
     slot = int(worker_index) % _PARALLEL_WORKER_TIN_SLOTS
-    slots = _seller_tin_slots()
-    if slots:
-        return slots[slot % len(slots)]
-    return str(_worker_tin_base() + slot)
+    slots = _seller_tin_slots() or _DEFAULT_OMAN_SELLER_TIN_SLOTS
+    return slots[slot % len(slots)]
 
 
 def _worker_vat_for_electronic(worker_el: str) -> str:
-    """Numeric UAE TIN → `{tin}00003`; Oman VATIN stays unchanged."""
-    return worker_el + "00003" if worker_el.isdigit() else worker_el
+    """Oman VATIN equals electronic address (no UAE `{tin}00003` suffix)."""
+    return worker_el
 
 
 def _counterparty_electronic_address() -> str:
@@ -1511,7 +1506,8 @@ def _counterparty_electronic_address() -> str:
 
 def _counterparty_vat() -> str:
     """Keep aligned with utils/envPartyIdentity.ts `getCounterpartyVatIdentifier`."""
-    return _worker_vat_for_electronic(_counterparty_electronic_address())
+    el = _counterparty_electronic_address()
+    return el + "00003" if el.isdigit() else el
 
 
 def _read_data_row_text(
