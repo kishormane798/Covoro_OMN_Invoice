@@ -260,13 +260,13 @@ export function applyPartyIdentifiersByTxnType(
 
   if (IBR_007_SELLER_IDENTIFIER_TXN_TYPES.has(txn)) {
     if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+      // XOR: scheme only (never scheme + textual code together).
       next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
-        FV.SPECIAL_ZONE_LICENSE_SCHEME;
+      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
       next[FV.SELLER_IDENTIFIER_FIELD] = "SZ-SELLER-001";
     } else {
       next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = defaultScheme;
-      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = defaultScheme;
+      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
       next[FV.SELLER_IDENTIFIER_FIELD] = "OM-SELLER-001";
     }
   } else {
@@ -277,11 +277,11 @@ export function applyPartyIdentifiersByTxnType(
 
   if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
     next["Scheme identifier"] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-    next["Buyer Identifier (textual code)"] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
+    next["Buyer Identifier (textual code)"] = "";
     next["Buyer identifier"] = "SZ-BUYER-001";
   } else if (txn === FV.TXN_IMPORT_OF_GOODS) {
     next["Scheme identifier"] = IMPORTER_CUSTOMS_ID_SCHEME;
-    next["Buyer Identifier (textual code)"] = IMPORTER_CUSTOMS_ID_SCHEME;
+    next["Buyer Identifier (textual code)"] = "";
     next["Buyer identifier"] = "IMP-CUST-001";
   } else {
     next["Scheme identifier"] = "";
@@ -836,9 +836,9 @@ export function buildSpecialZoneSellerScenarioRow(
       scenario.invoiceTransactionTypeCode,
   });
   // Scenario values win (including empty seller identifier for error cases).
+  // XOR: scheme only — textual code stays empty.
   row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = scenario.sellerIdentifierTextualCode;
-  row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
-    scenario.sellerIdentifierTextualCode;
+  row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
   row[FV.SELLER_IDENTIFIER_FIELD] = scenario.sellerIdentifier;
   return applySpecialZoneCountrySubdivisions(row);
 }
@@ -1193,8 +1193,9 @@ export function buildBuyerIdentifierSchemeScenarioRow(
       scenario.invoiceTransactionTypeCode,
   });
   // Scenario values win (including empty buyer identifier for error cases).
+  // XOR: scheme only — textual code stays empty.
   row["Scheme identifier"] = scenario.buyerIdentifierScheme;
-  row["Buyer Identifier (textual code)"] = scenario.buyerIdentifierScheme;
+  row["Buyer Identifier (textual code)"] = "";
   row["Buyer identifier"] = scenario.buyerIdentifier;
   if (scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS) {
     row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;

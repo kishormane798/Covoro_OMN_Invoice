@@ -6,3 +6,4 @@ export * from "./TestDataConfig";
 export * from "./submitInvoiceExcelHeaderMap";
 export * from "./ConditionalValidation";
 export * from "./FormatContextFieldValidation";
+export * from "./partyIdentifierCompanionLength";

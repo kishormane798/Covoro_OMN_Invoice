@@ -14,6 +14,7 @@ import {
   generateOmanFieldLengthExcel,
   generateOmanIssueDateExcel,
   generateOmanNumericFieldExcel,
+  generateOmanPartyIdentifierLengthExcel,
   generateOmanPrepaymentPairExcel,
   generateOmanSeededFieldExcel,
   generateOmanSupportingDocumentPairExcel,
@@ -47,6 +48,9 @@ const CONDITIONAL_LENGTH_SKIP = new Set([
   "Prepayment invoice UUID",
   "Supporting document UUID",
   "Tax Rate",
+  // Covered by Party identifier — companion length (XOR scheme/code matrix).
+  "Buyer identifier",
+  "Seller identifier",
 ]);
 
 /** Numeric fields that need FX / accounting-currency / profit-margin txn context. */
@@ -212,6 +216,34 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);
         await uploadAndVerify(page, filePath);
+      });
+    }
+  });
+
+  test.describe("Party identifier — companion length", () => {
+    for (const scenario of FV.PARTY_IDENTIFIER_LENGTH_CASES) {
+      const titleVerb = scenario.shouldAccept
+        ? "is accepted"
+        : "returns an error file";
+      test(`Verify Excel upload ${titleVerb} for ${TEMPLATE} Conditional – ${scenario.identifierField} (${scenario.titleSuffix}).`, async ({
+        page,
+      }) => {
+        const { filePath, invoiceNumber } =
+          await generateOmanPartyIdentifierLengthExcel({
+            party: scenario.party,
+            companion: scenario.companion,
+            length: scenario.length,
+          });
+        if (scenario.shouldAccept) {
+          await uploadAndVerify(page, filePath);
+        } else {
+          await runErrorValidation(page, {
+            filePath,
+            field: scenario.identifierField,
+            invoiceNumber,
+            checkEdit: true,
+          });
+        }
       });
     }
   });

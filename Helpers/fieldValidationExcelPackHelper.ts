@@ -527,8 +527,8 @@ export function applyDependentOverlay(
   };
 
   /**
-   * When testing one of scheme / textual-code / identifier, keep the other two
-   * filled with valid companions so the row matches CL-06 + Full Tax baseline.
+   * When testing one of scheme / textual-code / identifier, fill XOR companions
+   * (scheme OR textual code, never both) plus identifier so CL-06 / Full Tax hold.
    * The case mutation still overwrites only the target column afterward.
    */
   const fillSellerPartyIdentifierCompanions = () => {
@@ -536,8 +536,7 @@ export function applyDependentOverlay(
     const scheme = "Tax Identification Number";
     row["Seller identifier - Scheme identifier"] =
       row["Seller identifier - Scheme identifier"] || scheme;
-    row["Seller Identifier (textual code)"] =
-      row["Seller Identifier (textual code)"] || scheme;
+    row["Seller Identifier (textual code)"] = "";
     row["Seller identifier"] = row["Seller identifier"] || "OM-SELLER-001";
   };
 
@@ -545,8 +544,7 @@ export function applyDependentOverlay(
     fillFullTaxStandardContext();
     const scheme = "Tax Identification Number";
     row["Scheme identifier"] = row["Scheme identifier"] || scheme;
-    row["Buyer Identifier (textual code)"] =
-      row["Buyer Identifier (textual code)"] || scheme;
+    row["Buyer Identifier (textual code)"] = "";
     row["Buyer identifier"] = row["Buyer identifier"] || "OM-BUYER-001";
   };
 

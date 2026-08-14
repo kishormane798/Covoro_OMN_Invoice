@@ -3,10 +3,18 @@
  * current worker seller + buyer identity, then patch one target field.
  */
 import * as FV from "../testData/FieldValidations";
+import type {
+  PartyIdentifierCompanion,
+  PartyIdentifierParty,
+} from "../testData/FieldValidations/partyIdentifierCompanionLength";
 import { applyDependentOverlay, OMAN_BUYER_ELECTRONIC, OMAN_BUYER_VAT } from "./fieldValidationExcelPackHelper";
 import { buildValidOmanFullTaxInvoiceRow } from "./conditionalValidationHelper";
 import { randomAlphaNumeric } from "./fieldValidationHelper";
 import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
+import {
+  buyerSellerIdentifierCodeValidTestData,
+  schemeIdentifierValidTestData,
+} from "../testData/FieldValidations/Master";
 import {
   generateInvoiceFromSubmitData,
   patchInvoiceTextCellInFile,
@@ -51,6 +59,28 @@ function formatIssueDateValue(
 
 const BUYER_VAT_FIELD = "Buyer VAT identifier";
 const BUYER_EL_FIELD = "Buyer electronic address";
+
+const BUYER_SCHEME_FIELD = "Scheme identifier";
+const BUYER_CODE_FIELD = "Buyer Identifier (textual code)";
+const BUYER_IDENTIFIER_FIELD = "Buyer identifier";
+
+const SELLER_SCHEME_FIELD = "Seller identifier - Scheme identifier";
+const SELLER_CODE_FIELD = "Seller Identifier (textual code)";
+const SELLER_IDENTIFIER_FIELD = "Seller identifier";
+
+function masterLabel(
+  list: readonly { label: string }[] | undefined,
+  match: string,
+  fallback: string
+): string {
+  const hit = list?.find((x) =>
+    x.label.toLowerCase().includes(match.toLowerCase())
+  );
+  const fromHit = hit?.label?.trim();
+  if (fromHit) return fromHit;
+  const first = list?.[0]?.label?.trim();
+  return first || fallback;
+}
 
 /**
  * Full Oman row + worker seller TIN + Oman buyer, then patch `field` so identity
@@ -155,6 +185,47 @@ export async function generateOmanSupportingDocumentPairExcel(
     FV.SUPPORTING_DOCUMENT_UUID_FIELD,
     supportingUuid
   );
+  return generated;
+}
+
+/**
+ * Buyer/Seller identifier length with XOR companions (scheme OR code, never both).
+ */
+export async function generateOmanPartyIdentifierLengthExcel(opts: {
+  party: PartyIdentifierParty;
+  companion: PartyIdentifierCompanion;
+  length: number;
+}): Promise<{ filePath: string; invoiceNumber: string }> {
+  const identifierField =
+    opts.party === "buyer" ? BUYER_IDENTIFIER_FIELD : SELLER_IDENTIFIER_FIELD;
+  const schemeField =
+    opts.party === "buyer" ? BUYER_SCHEME_FIELD : SELLER_SCHEME_FIELD;
+  const codeField =
+    opts.party === "buyer" ? BUYER_CODE_FIELD : SELLER_CODE_FIELD;
+
+  const schemeLabel = masterLabel(
+    schemeIdentifierValidTestData,
+    "Oman Value Added Tax",
+    masterLabel(schemeIdentifierValidTestData, "Tax Identification", "Organisationsnummer")
+  );
+  const codeLabel = masterLabel(
+    buyerSellerIdentifierCodeValidTestData,
+    "Tax Identification",
+    "Tax Identification Number"
+  );
+
+  let schemeValue = "";
+  let codeValue = "";
+  if (opts.companion === "scheme") schemeValue = schemeLabel;
+  if (opts.companion === "code") codeValue = codeLabel;
+  const identifierValue = lengthValue(opts.length);
+
+  const generated = await generateOmanSeededFieldExcel(identifierField, identifierValue, {
+    skipDependentOverlay: true,
+  });
+  patchInvoiceTextCellInFile(generated.filePath, schemeField, schemeValue);
+  patchInvoiceTextCellInFile(generated.filePath, codeField, codeValue);
+  patchInvoiceTextCellInFile(generated.filePath, identifierField, identifierValue);
   return generated;
 }
 
