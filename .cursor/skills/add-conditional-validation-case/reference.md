@@ -157,7 +157,7 @@ Cross-check: https://test-docs.peppol.eu/pint/pint-om/2026-Q2-v1.0.1/pint-om/
 
 Matrix path: `testcase/conditional_validation/EINV_OMAN_ConditionalValidation_FullMatrix.xlsx` (copied from Downloads GSP-54396 pack).
 
-### Already in Playwright (`ConditionalValidation_CovoroTemplate_Test.spec.ts`) — FW
+### Already in Playwright (`OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts`) — FW
 
 `ALIGNED-IBRP-028-OM`, `ALIGNED-IBRP-048`, `ALIGNED-IBRP-E-05-OM`, `ALIGNED-IBRP-O-05-OM`, `ALIGNED-IBRP-S-05-OM`, `ALIGNED-IBRP-Z-05-OM`, `ALIGNED-IBRP-S-10-OM`, `IBR-002-OM`, `IBR-003-OM`, `IBR-004-OM`, `IBR-005-OM`, `IBR-012-OM`, `IBR-013-OM`, `IBR-014-OM`, `IBR-017-OM`, `IBR-020-OM`, `IBR-023-OM`, `IBR-032-OM`, `IBR-034-OM`, `IBR-037-OM`, `IBR-047-OM`, `IBR-062-OM`, `IBR-064-OM`, `IBR-069-OM`, `IBR-070-OM`, `IBR-078-OM`, `IBR-079-OM`, `IBR-084-OM`, `IBR-085-OM`, `IBR-086-OM`, `IBR-087-OM`, `IBR-094-OM`, `IBR-151-OM`, `IBR-155-OM`, `IBR-172-OM`, `IBR-176-OM`, `IBR-177-OM`, `IBR-DEC-03-OM`, plus GSP additions: `ALIGNED-IBRP-E-01-OM`, `ALIGNED-IBRP-O-01-OM`, `ALIGNED-IBRP-S-01-OM`, `ALIGNED-IBRP-Z-01-OM` and remaining COND groups listed under FW in code.
 

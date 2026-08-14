@@ -16,7 +16,7 @@ Close the field-validation gap for columns that were skipped because random `AAA
 
 ## Why they were skipped
 
-`tests/FieldValidation_CovoroTemplate_Test.spec.ts` filters:
+`tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` filters:
 
 - `CONDITIONAL_LENGTH_SKIP`: Seller/Buyer/Third Party VATIN, Unique Identifier Number, Prepayment invoice UUID, Supporting document UUID, Tax Rate
 - `NUMERIC_CONTEXT_SKIP`: Currency Exchange Rate, Invoice total tax amount in tax accounting currency, Total amount due (profit margin)
@@ -36,8 +36,8 @@ Do not upload pre-generated matrix packs.
 
 | Layer | Path | Change |
 |---|---|---|
-| Spec | `tests/FieldValidation_CovoroTemplate_Test.spec.ts` | New describe blocks; do not remove skip sets |
-| Spec | `tests/ConditionalValidation_CovoroTemplate_Test.spec.ts` | Thin loop for new UUID scenarios |
+| Spec | `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` | New describe blocks; do not remove skip sets |
+| Spec | `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts` | Thin loop for new UUID scenarios |
 | Config | `testData/FieldValidations/` (new small module or extend existing) | Mutation rows: field, value, overlay, expect |
 | Config | `testData/FieldValidations/ConditionalValidation.ts` | Prepayment + supporting-document UUID scenarios |
 | Helper | `Helpers/fieldValidationHelper.ts` and/or overlay reuse from `Helpers/fieldValidationExcelPackHelper.ts` | Build workbook: overlay + single-field patch |
@@ -154,7 +154,7 @@ Excel upload · Covoro | {ruleId} | {condition} → {accepted|error file}
 
 - Playwright field-validation spec still skips AAAA loops for these columns
 - New tests use `OM`+digits, UUID v5, tax rate `5`, USD+FX, or profit-margin txn as specified
-- No duplicate titles vs current `ConditionalValidation_CovoroTemplate_Test.spec.ts` cases listed in Skip rows
+- No duplicate titles vs current `OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts` cases listed in Skip rows
 - Worker-isolated Excel output under `testData/generated/excel/pw-<index>/`
 - Targeted run: `--grep` on field name (e.g. `Seller VAT`, `Prepayment invoice UUID`)
 

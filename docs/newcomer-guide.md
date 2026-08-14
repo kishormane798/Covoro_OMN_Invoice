@@ -38,8 +38,8 @@ Using Cursor for test work? Follow `docs/qa-cursor-workflow.md` (scoped prompts,
 
 - reads `.env` (`BASE_URL`, `TEST_USER_EMAIL`, `TEST_USER_PASSWORD`)
 - launches Chromium
-- logs in via `pageObjects/LoginPage`
-- saves `storageState.json` **plus** captured **sessionStorage**
+- logs in via `pageObjects/OMN_LoginPage`
+- saves Playwright `storageState.json` (cookies + localStorage) and `sessionStorage.json` (`persist:root` SPA auth)
 
 ### 2) Every spec uses `Src/baseTest.ts`
 
@@ -61,9 +61,9 @@ import { test } from "../Src/baseTest";
 
 Most specs are intentionally thin and delegate to helpers. Example: submit flow:
 
-- Spec: `tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts`
+- Spec: `tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`
 - Helper: `tests/kishorsubmit/Helpers/submitInvoiceCaseHelper.ts`
-- Upload/navigation: `Helpers/uploadHelper.ts` + `pageObjects/DashboardPage.ts` + `pageObjects/UploadInvoicePage.ts`
+- Upload/navigation: `Helpers/uploadHelper.ts` + `pageObjects/OMN_DashboardPage.ts` + `pageObjects/OMN_UploadInvoicePage.ts`
 - Excel generation: `utils/invoiceExcel.ts` (calls Python scripts in `utils/`)
 
 ## The 3 most important user flows in this repo
@@ -176,9 +176,9 @@ In this order:
 3) `playwright.config.ts`
 4) `utils/global-setup.ts`
 5) `Src/baseTest.ts`
-6) `tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts`
+6) `tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`
 7) `tests/kishorsubmit/Helpers/submitInvoiceCaseHelper.ts`
 8) `Helpers/uploadHelper.ts`
-9) `pageObjects/UploadInvoicePage.ts`
+9) `pageObjects/OMN_UploadInvoicePage.ts`
 10) `utils/invoiceExcel.ts` (plus `utils/invoice_excel_writer.py`)
 

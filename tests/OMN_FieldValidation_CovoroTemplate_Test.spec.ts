@@ -125,8 +125,6 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Mandatory fields — valid length", () => {
     for (const config of FV.fieldValidationMandatory) {
-      if (config.field === "Seller electronic address") continue;
-
       test(`Verify Excel upload is accepted for ${TEMPLATE} Mandatory – ${config.field} (minimum length (${config.min} char${config.min === 1 ? "" : "s"})).`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
         await uploadAndVerify(page, filePath);
@@ -174,8 +172,6 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
         await uploadAndVerify(page, filePath);
       });
-
-      if (config.field === "Tax exemption reason text") continue;
 
       test(`Verify Excel upload is accepted for ${TEMPLATE} Optional – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);

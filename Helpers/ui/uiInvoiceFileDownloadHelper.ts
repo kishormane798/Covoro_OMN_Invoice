@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // import { expect, type Page } from "@playwright/test";
@@ -10,7 +10,7 @@
 //   type InvoiceDownloadFormatUi,
 //   type InvoiceFileDownloadResponse,
 //   type ReusableDashboardInvoice,
-// } from "../pageObjects/DashboardPage";
+// } from "../pageObjects/OMN_DashboardPage";
 // import { flowLog } from "./diagnosticLog";
 // 
 // export { INVOICE_DOWNLOAD_FORMAT_LABEL };

@@ -125,7 +125,8 @@ This guide lists common flaky or failing patterns seen in this framework and how
 ### Checks
 
 - Confirm `.env` credentials are valid.
-- Remove stale `storageState.json` and re-run auth setup.
+- Remove stale `storageState.json` **and** `sessionStorage.json`, then re-run so global setup logs in again.
+- CI logs should include `[global-setup] saved sessionStorage (persist:root, …)`. If persist:root is missing, field-validation uploads start logged out.
 - Ensure `BASE_URL` is normalized (no quotes/trailing slash issues).
 
 ## Quick Triage Order

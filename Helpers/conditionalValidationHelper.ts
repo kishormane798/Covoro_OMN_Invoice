@@ -1,6 +1,6 @@
 /**
  * Oman conditional validation row builders for
- * `tests/ConditionalValidation_CovoroTemplate_Test.spec.ts`.
+ * `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts`.
  * No UAE / BTUAE scenario builders.
  */
 import * as FV from "../testData/FieldValidations";

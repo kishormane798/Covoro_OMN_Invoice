@@ -58,10 +58,13 @@ const BUYER_EL_FIELD = "Buyer electronic address";
  */
 export async function generateOmanSeededFieldExcel(
   field: string,
-  value: string
+  value: string,
+  options?: { skipDependentOverlay?: boolean }
 ): Promise<{ filePath: string; invoiceNumber: string }> {
   const seed = buildValidOmanFullTaxInvoiceRow();
-  const overlaid = applyDependentOverlay("", field, seed);
+  const overlaid = options?.skipDependentOverlay
+    ? seed
+    : applyDependentOverlay("", field, seed);
   const identified = applyParallelWorkerIdentityToSubmitRow({
     ...overlaid,
     [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
@@ -159,6 +162,11 @@ export async function generateOmanFieldLengthExcel(
   field: string,
   length: number
 ): Promise<{ filePath: string; invoiceNumber: string }> {
+  // Empty exemption text is valid on Standard rate. Overlay would switch to
+  // Exempt and make empty an error (covered by the Exempt interdependency suite).
+  if (field === FV.TAX_EXEMPTION_REASON_TEXT_FIELD && length === 0) {
+    return generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
+  }
   return generateOmanSeededFieldExcel(field, lengthValue(length));
 }
 

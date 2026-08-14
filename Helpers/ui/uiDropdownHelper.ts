@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // import type { Page } from "@playwright/test";
@@ -7,7 +7,7 @@
 //   UI_MASTER_BUYER_SELLER_DROPDOWN_FIELDS,
 //   UI_MASTER_ITEM_DROPDOWN_FIELDS,
 // } from "../../testData/ui/uiMasterDropdowns";
-// import { UIMasterBuyerAndItemPage } from "../pageObjects/UIMasterBuyerAndItemPage";
+// import { UIMasterBuyerAndItemPage } from "../pageObjects/OMN_UIMasterBuyerAndItemPage";
 // import {
 //   isUiPrefilledLineItemEntry,
 //   openInvoiceForConditionalFlow,

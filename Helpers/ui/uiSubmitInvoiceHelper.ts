@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // /**
@@ -12,8 +12,8 @@
 //  * Row shaping applies tax-category rules only (does not import `submitInvoiceCaseHelper`).
 //  */
 // import type { Page } from "@playwright/test";
-// import { DashboardPage } from "../pageObjects/DashboardPage";
-// import { UIInvoiceCreationManualPage } from "../pageObjects/UIInvoiceCreationManualPage";
+// import { DashboardPage } from "../pageObjects/OMN_DashboardPage";
+// import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
 // import {
 //   CREATE_INVOICE_SEARCH_BUYER_NAME,
 //   CREATE_INVOICE_SEARCH_BUYER_VAT,
@@ -49,7 +49,7 @@
 //  */
 // export const UI_SUBMIT_INVOICE_TEST_TIMEOUT_MS = 12 * 60 * 1000;
 // 
-// /** Per-test timeout for UI multi-item submit specs only (`UISubmitInvoice_MultiItem_Test.spec.ts`). */
+// /** Per-test timeout for UI multi-item submit specs only (`OMN_UISubmitInvoice_MultiItem_Test.spec.ts`). */
 // export const UI_SUBMIT_INVOICE_MULTI_TEST_TIMEOUT_MS = 15 * 60 * 1000;
 // 
 // /** Delivery poll timeout â€” same env knob as Excel submit (`SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS`). */

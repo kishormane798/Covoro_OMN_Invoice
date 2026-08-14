@@ -1,4 +1,4 @@
-﻿---
+---
 name: add-formula-validation-case
 description: Add formula, min-max, and calculated-totals validation tests. Use when extending formula validation suites for Excel upload or Create Invoice UI formula scenarios.
 ---
@@ -25,7 +25,7 @@ Excel formulas do not auto-recalculate in all paths — framework helpers enforc
 
 | Area | Path |
 |------|------|
-| Excel upload formula specs | `tests/FormulaValidation_CovoroTemplate_Test.spec.ts` |
+| Excel upload formula specs | `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts` |
 | Helper | `Helpers/formulaValidationHelper.ts` |
 | Excel bridge | `utils/invoiceExcel.ts`, `utils/invoice_excel_writer.py` |
 | Test data | `testData/FieldValidations/Min_max_field_validation.ts`, formula configs |
@@ -74,7 +74,7 @@ await runUiInvoiceCreationFormulaScenario(page, scenario);
 
 ```bash
 npm run test:ui
-npx playwright test tests/KISHOR_UI/UIInvoiceCreation_Manual_Test.spec.ts --grep "Formula"
+npx playwright test tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts --grep "Formula"
 ```
 
 ## Tax / rounding notes

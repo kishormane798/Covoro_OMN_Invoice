@@ -15,24 +15,63 @@ import path from 'path';
 type SessionStorageMap = { [key: string]: string };
 type LoadedAuthState = { sessionStorage: SessionStorageMap };
 
-function loadAuthState(): LoadedAuthState {
-  if (!existsSync('storageState.json')) {
-    return { sessionStorage: {} };
-  }
+const REPO_ROOT = path.resolve(__dirname, '..');
+const STORAGE_STATE_FILE = path.join(REPO_ROOT, 'storageState.json');
+const SESSION_STORAGE_FILE = path.join(REPO_ROOT, 'sessionStorage.json');
 
+let warnedEmptyPersistedSession = false;
+
+function normalizeSessionMap(source: { [key: string]: unknown } | undefined): SessionStorageMap {
+  const normalizedStorage: SessionStorageMap = {};
+  for (const [key, value] of Object.entries(source ?? {})) {
+    normalizedStorage[key] = String(value);
+  }
+  return normalizedStorage;
+}
+
+function loadAuthState(): LoadedAuthState {
   try {
-    const parsed = JSON.parse(readFileSync('storageState.json', 'utf-8')) as {
+    if (existsSync(SESSION_STORAGE_FILE)) {
+      const parsed = JSON.parse(readFileSync(SESSION_STORAGE_FILE, 'utf-8')) as {
+        [key: string]: unknown;
+      };
+      const sessionStorage = normalizeSessionMap(parsed);
+      if (!sessionStorage['persist:root'] && !warnedEmptyPersistedSession) {
+        warnedEmptyPersistedSession = true;
+        console.warn(
+          '[auth] sessionStorage.json has no persist:root — SPA tests may open logged out.'
+        );
+      }
+      return { sessionStorage };
+    }
+
+    if (!existsSync(STORAGE_STATE_FILE)) {
+      return { sessionStorage: {} };
+    }
+
+    const parsed = JSON.parse(readFileSync(STORAGE_STATE_FILE, 'utf-8')) as {
       sessionStorage?: { [key: string]: unknown };
     };
-    const normalizedStorage: SessionStorageMap = {};
-    const sourceStorage = parsed?.sessionStorage ?? {};
-    for (const [key, value] of Object.entries(sourceStorage)) {
-      normalizedStorage[key] = String(value);
-    }
-    return { sessionStorage: normalizedStorage };
+    return { sessionStorage: normalizeSessionMap(parsed?.sessionStorage) };
   } catch {
     return { sessionStorage: {} };
   }
+}
+
+async function injectSessionStorage(
+  page: Page,
+  storage: SessionStorageMap
+): Promise<void> {
+  if (Object.keys(storage).length === 0) return;
+  await page.evaluate((items) => {
+    try {
+      for (const key in items) {
+        sessionStorage.setItem(key, items[key]);
+      }
+    } catch {
+      /* about:blank / opaque origin */
+    }
+  }, storage);
 }
 
 function resolveDashboardUrl(baseURL: string | undefined): string {
@@ -197,6 +236,19 @@ export const test = base.extend<UaeTestFixtures, UaeWorkerFixtures>({
     },
     { scope: 'worker', auto: true },
   ],
+  context: async ({ context }, use) => {
+    const sessionForInit = loadAuthState().sessionStorage;
+    await context.addInitScript((storage: { [key: string]: string }) => {
+      try {
+        for (const key in storage) {
+          sessionStorage.setItem(key, storage[key]);
+        }
+      } catch {
+        /* about:blank / opaque origin — next same-origin document still runs this */
+      }
+    }, sessionForInit);
+    await use(context);
+  },
   page: async ({ page, baseURL, uaeParallelWorkerSlot }, use, testInfo) => {
     const appOrigin = resolveAppOriginForMarker(baseURL);
     const diagnostics = failureDiagnosticsByTest.get(testInfo) ?? { consoleLines: [], apiLines: [] };
@@ -276,12 +328,6 @@ export const test = base.extend<UaeTestFixtures, UaeWorkerFixtures>({
     ctx.on("response", onResponse);
 
     const sessionForInit = loadAuthState().sessionStorage;
-    await page.addInitScript((storage: { [key: string]: string }) => {
-      const win = window as unknown as { sessionStorage: Storage };
-      for (const key in storage) {
-        win.sessionStorage.setItem(key, storage[key]);
-      }
-    }, sessionForInit);
 
     // Headed/debug: first screen is usable without each spec calling goto immediately.
     const current = page.url();
@@ -289,6 +335,19 @@ export const test = base.extend<UaeTestFixtures, UaeWorkerFixtures>({
       const target = resolveDashboardUrl(baseURL);
       try {
         await page.goto(target, { waitUntil: "domcontentloaded", timeout: 90_000 });
+        const hasRoot = await page
+          .evaluate(() => {
+            try {
+              return sessionStorage.getItem('persist:root') != null;
+            } catch {
+              return false;
+            }
+          })
+          .catch(() => false);
+        if (!hasRoot && sessionForInit['persist:root']) {
+          await injectSessionStorage(page, sessionForInit);
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (isUnreachableNetworkError(msg)) {

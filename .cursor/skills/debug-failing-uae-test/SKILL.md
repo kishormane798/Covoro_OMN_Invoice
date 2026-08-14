@@ -38,7 +38,7 @@ Consult `docs/troubleshooting.md`. Common patterns:
 ### Template mapping / upload input missing
 
 - Flow: Edit → select template → Save/Process & Next → back arrow (`data-testid="back-arrow"`)
-- Fix locators/recovery in `pageObjects/UploadInvoicePage.ts`, not sleeps in spec
+- Fix locators/recovery in `pageObjects/OMN_UploadInvoicePage.ts`, not sleeps in spec
 
 ### Upload status never `completed` / `error`
 
@@ -84,7 +84,7 @@ pip install -r requirements.txt
 ```bash
 npx playwright test <spec> --grep "fragment" --project=chromium
 # UI:
-npx playwright test tests/KISHOR_UI/UIInvoiceCreation_Manual_Test.spec.ts --project=chromium-ui --grep "fragment"
+npx playwright test tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts --project=chromium-ui --grep "fragment"
 ```
 
 Use `--headed` or `--debug` for local reproduction.

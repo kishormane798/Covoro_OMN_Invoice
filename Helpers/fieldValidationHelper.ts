@@ -1,5 +1,5 @@
 import { Page } from "@playwright/test";
-import { UploadInvoicePage } from "../pageObjects/UploadInvoicePage";
+import { UploadInvoicePage } from "../pageObjects/OMN_UploadInvoicePage";
 import { validateErrorFileColumn, printErrorWorkbookMessages } from "../utils/invoiceExcel";
 
 /** Invoice # helpers for min/max and negative field-validation specs. */

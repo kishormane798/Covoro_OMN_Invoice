@@ -1,7 +1,7 @@
 /**
  * ARCHIVED — not run by Playwright (`testDir` is `./tests`; see previous-code/README.md).
  * Empty-template `updateExcelField` / `createInvoiceFileWithInvoiceNumber` path.
- * Live spec: tests/FieldValidation_CovoroTemplate_Test.spec.ts
+ * Live spec: tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts
  */
 import { test } from "../Src/baseTest";
 import { uploadAndVerify, uploadAndVerifyError } from "../Helpers/uploadHelper";

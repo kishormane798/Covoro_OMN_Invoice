@@ -11,7 +11,7 @@ import {
   generateInvoiceFromSubmitData,
   generateInvoiceFromSubmitRows,
 } from "../utils/invoiceExcel";
-import { DashboardPage } from "../pageObjects/DashboardPage";
+import { DashboardPage } from "../pageObjects/OMN_DashboardPage";
 import { flowLog } from "./diagnosticLog";
 
 /** Default 2m: parallel workers queue backend processing; override with SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS (ms). */

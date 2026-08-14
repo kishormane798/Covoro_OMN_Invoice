@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // /**
@@ -18,8 +18,8 @@
 //   type CreateInvoiceFieldRule,
 // } from "../../testData/ui/uiInvoiceCreationFieldMinMax";
 // import { UI_ANGLE_BRACKET_INVALID_VALUE } from "../../testData/ui/uiInvoiceCreationAngleBracketValidation";
-// import { UIInvoiceCreationManualPage } from "../pageObjects/UIInvoiceCreationManualPage";
-// import { UIMasterBuyerAndItemPage } from "../pageObjects/UIMasterBuyerAndItemPage";
+// import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
+// import { UIMasterBuyerAndItemPage } from "../pageObjects/OMN_UIMasterBuyerAndItemPage";
 // import {
 //   assertUiFieldStateAfterSectionSave,
 //   openInvoiceForConditionalFlow,

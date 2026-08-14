@@ -67,6 +67,6 @@ This repository is a Playwright + TypeScript automation framework for the UAE E-
 1. Read `README.md`.
 2. Read `Src/baseTest.ts` lifecycle.
 3. Read one submit spec + `Helpers/submitInvoiceCaseHelper.ts`.
-4. Read `pageObjects/UploadInvoicePage.ts` and `pageObjects/DashboardPage.ts`.
+4. Read `pageObjects/OMN_UploadInvoicePage.ts` and `pageObjects/OMN_DashboardPage.ts`.
 5. Read `utils/invoiceExcel.ts` and Python writer expectations.
 6. QA using Cursor: `docs/qa-cursor-workflow.md` (Headroom, graphify, diff review, Bitbucket PR flow).

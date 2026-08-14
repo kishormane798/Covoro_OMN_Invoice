@@ -1,4 +1,4 @@
-﻿---
+---
 name: add-ui-invoice-test
 description: Add Create Invoice UI tests (manual form, not Excel upload). Use when adding UI field validation, min/max, dropdowns, formula, conditional, or master buyer/item scenarios.
 ---
@@ -14,9 +14,9 @@ description: Add Create Invoice UI tests (manual form, not Excel upload). Use wh
 
 - UI specs run on Playwright project **`chromium-ui`** (see `playwright.config.ts`).
 - Main specs:
-  - `tests/KISHOR_UI/UIInvoiceCreation_Manual_Test.spec.ts`
-  - `tests/KISHOR_UI/UIMaster_BuyerAndItem_Test.spec.ts`
-  - `tests/KISHOR_UI/UISubmitInvoice_Test.spec.ts`, `UISubmitInvoice_MultiItem_Test.spec.ts`
+  - `tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts`
+  - `tests/KISHOR_UI/OMN_UIMaster_BuyerAndItem_Test.spec.ts`
+  - `tests/KISHOR_UI/OMN_UISubmitInvoice_Test.spec.ts`, `OMN_UISubmitInvoice_MultiItem_Test.spec.ts`
 
 ```bash
 npm run test:ui
@@ -27,7 +27,7 @@ npm run test:ui:submit
 
 | Concern | Location |
 |---------|----------|
-| Locators & UI actions | `pageObjects/UIInvoiceCreationManualPage.ts`, `UIMasterBuyerAndItemPage.ts` |
+| Locators & UI actions | `pageObjects/OMN_UIInvoiceCreationManualPage.ts`, `UIMasterBuyerAndItemPage.ts` |
 | Flow orchestration | `Helpers/ui*Helper.ts` (e.g. `uiMinMaxHelper`, `uiDropdownHelper`, `uiInvoiceCreationConditionalHelper`) |
 | Scenarios & rules | `testData/ui/uiInvoiceCreation*.ts`, `uiMaster*.ts` |
 | MUI autocomplete | `Helpers/uiMuiAutocompleteHelper.ts` |
@@ -59,7 +59,7 @@ New UI interaction logic goes in **Page Object**, not spec.
 
 ```ts
 import { test } from "../Src/baseTest";
-import { UIInvoiceCreationManualPage } from "../pageObjects/UIInvoiceCreationManualPage";
+import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
 
 test.describe("Create Invoice UI — ...", () => {
   test.describe.configure({

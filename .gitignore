@@ -63,6 +63,7 @@ yarn-error.log*
 
 # Test data / Playwright persisted auth (paths from repo root)
 /storageState.json
+/sessionStorage.json
 /testData/auth/user.json
 /cookies.json
 /session.json

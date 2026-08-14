@@ -7,8 +7,8 @@ import fs from "fs";
 import path from "path";
 import { Page } from "@playwright/test";
 import { flowLog } from "./diagnosticLog";
-import { UploadInvoicePage } from "../pageObjects/UploadInvoicePage";
-import { DashboardPage } from "../pageObjects/DashboardPage";
+import { UploadInvoicePage } from "../pageObjects/OMN_UploadInvoicePage";
+import { DashboardPage } from "../pageObjects/OMN_DashboardPage";
 import { uploadAndVerifyStatus } from "./uploadHelper";
 import {
   applyInvoiceCalculationsToFile,

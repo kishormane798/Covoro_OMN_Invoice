@@ -12,7 +12,7 @@ description: >-
 ## When to use
 
 - New **if-then** Excel upload rule from Conditional Validations / PINT OM
-- Extending [`tests/ConditionalValidation_CovoroTemplate_Test.spec.ts`](../../tests/ConditionalValidation_CovoroTemplate_Test.spec.ts)
+- Extending [`tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts`](../../tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts)
 
 **Do not use** for min/max/dropdown-only (`add-field-validation-case`) or Σ/totals (`add-formula-validation-case`).
 
@@ -23,7 +23,7 @@ description: >-
 | Scenarios | `testData/FieldValidations/ConditionalValidation.ts` |
 | Row builders | `Helpers/conditionalValidationHelper.ts` |
 | Spec helpers | `Helpers/conditionalValidationSpecHelpers.ts` |
-| Spec | `tests/ConditionalValidation_CovoroTemplate_Test.spec.ts` |
+| Spec | `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts` |
 | Rule inventory | [reference.md](reference.md) |
 | Oman labels | `testData/FieldValidations/Master.omnCore.ts` |
 
@@ -35,7 +35,7 @@ description: >-
 4. Add scenarios with required `ruleId`, `title`, `shouldError`, driving fields, `expectedErrorField`.
 5. Add `build*ScenarioRow` using Oman seed defaults (OMR, Full Tax Invoice, Oman tax labels).
 6. Wire one `test.describe` loop → `verifyConditionalScenario` / `verifyConditionalScenarioAnyOf`.
-7. Run: `npx playwright test tests/ConditionalValidation_CovoroTemplate_Test.spec.ts --grep "{ruleId}"`
+7. Run: `npx playwright test tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts --grep "{ruleId}"`
 
 ## Scenario shape
 

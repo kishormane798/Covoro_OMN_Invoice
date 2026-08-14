@@ -1,4 +1,4 @@
-﻿// UI SUITE DISABLED FOR OMN — entire file commented out (do not execute)
+// UI SUITE DISABLED FOR OMN — entire file commented out (do not execute)
 // import { expect } from "@playwright/test";
 // import { test } from "../../Src/baseTest";
 // import {
@@ -15,7 +15,7 @@
 //   ITEM_ADD_NEW_INPUT_IDS,
 //   UIMasterBuyerAndItemPage,
 //   listMastersFieldsForTab,
-// } from "../../pageObjects/ui/UIMasterBuyerAndItemPage";
+// } from "../../pageObjects/ui/OMN_UIMasterBuyerAndItemPage";
 // import {
 //   UI_MASTER_BUYER_SELLER_FIELD_NAMES,
 //   UI_MASTER_ITEM_FIELD_NAMES,

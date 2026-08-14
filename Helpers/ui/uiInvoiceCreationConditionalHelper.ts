@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // /**
@@ -23,7 +23,7 @@
 //   submitCopyInvoiceAfterSuccessIfNeeded,
 //   type UiConditionalEntry,
 // } from "./uiInvoiceEditEntryHelper";
-// import { UIInvoiceCreationManualPage } from "../pageObjects/UIInvoiceCreationManualPage";
+// import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
 // import {
 //   BUYER_ELECTRONIC_ADDRESS_1_PATTERN,
 //   BUYER_ELECTRONIC_ADDRESS_REQUIRES_LEGAL_REG,

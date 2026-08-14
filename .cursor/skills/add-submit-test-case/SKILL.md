@@ -13,7 +13,7 @@ description: Add or extend submit and delivery test cases for Covoro/OMN templat
 
 ## Prerequisites
 
-- Read `tests/kishorsubmit/Helpers/submitInvoiceCaseHelper.ts` and the target spec (e.g. `tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts`).
+- Read `tests/kishorsubmit/Helpers/submitInvoiceCaseHelper.ts` and the target spec (e.g. `tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`).
 - Confirm template: Covoro/OMN primary (`template.xlsx`).
 
 ## Workflow
@@ -22,7 +22,7 @@ description: Add or extend submit and delivery test cases for Covoro/OMN templat
 
 | Template | Spec example | Dataset |
 |----------|--------------|---------|
-| Covoro | `tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts` | `tests/kishorsubmit/testData/SubmitInvoice.ts` |
+| Covoro | `tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts` | `tests/kishorsubmit/testData/SubmitInvoice.ts` |
 | Multi-item | `tests/kishorsubmit/SubmitInvoice_MultiItem_*_Test.spec.ts` | `SubmitInvoiceMultiItem.ts` / `multiItemInvoiceCases` |
 
 ### 2. Add test data using Excel header keys
@@ -70,7 +70,7 @@ Use `runSubmitInvoiceUploadSanityCase` when asserting upload `completed` only.
 ```bash
 npm run test:covoro
 # single case:
-npx playwright test tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts --grep "your title fragment"
+npx playwright test tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts --grep "your title fragment"
 ```
 
 Delivery timeout: `SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS` (default 2–4 min).

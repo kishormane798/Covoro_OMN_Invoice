@@ -1,6 +1,6 @@
 import { test } from '../Src/baseTest';
 import { expect } from '@playwright/test';
-import { LoginPage } from '../pageObjects/LoginPage';
+import { LoginPage } from '../pageObjects/OMN_LoginPage';
 import { resolveBaseUrl } from '../utils/appConfig';
 import { clearSiteUnavailableMarker } from '../utils/siteUnavailableMarker';
 

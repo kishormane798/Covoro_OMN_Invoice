@@ -26,7 +26,7 @@
 - Create: `testData/FieldValidations/FormatContextFieldValidation.ts`
 - Create: `Helpers/formatContextFieldValidationHelper.ts`
 - Modify: `testData/FieldValidations/index.ts`
-- Modify: `tests/FieldValidation_CovoroTemplate_Test.spec.ts` (append describes before closing of outer describe)
+- Modify: `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` (append describes before closing of outer describe)
 
 **Interfaces:**
 - Consumes: `buildValidOmanFullTaxInvoiceRow`, `applyPartyIdentifiersByTxnType`, `generateInvoiceFromSubmitData`, `patchInvoiceTextCellInFile`, `uploadAndVerify`, `runErrorValidation`

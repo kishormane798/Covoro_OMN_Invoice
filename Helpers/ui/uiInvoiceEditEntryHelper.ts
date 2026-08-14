@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // /**
@@ -11,8 +11,8 @@
 //   COPY_REUSE_INVOICE_STATUSES,
 //   DashboardPage,
 //   EDIT_REUSE_INVOICE_STATUSES,
-// } from "../pageObjects/DashboardPage";
-// import { UIInvoiceCreationManualPage } from "../pageObjects/UIInvoiceCreationManualPage";
+// } from "../pageObjects/OMN_DashboardPage";
+// import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
 // import { uploadAndVerify } from "./uploadHelper";
 // import { flowLog } from "./diagnosticLog";
 // import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";

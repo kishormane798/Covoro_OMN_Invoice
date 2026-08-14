@@ -1,4 +1,4 @@
-﻿// UI SUITE DISABLED FOR OMN — entire file commented out (do not execute)
+// UI SUITE DISABLED FOR OMN — entire file commented out (do not execute)
 // import { expect } from "@playwright/test";
 // import { test } from "../../Src/baseTest";
 // import {
@@ -17,11 +17,7 @@
 //   runUiPaymentMeansAccountIdentifierScenario,
 //   isUiFrequencyBillingScenarioRunnable,
 // } from "../../Helpers/ui/uiInvoiceCreationConditional2Helper";
-// import {
-//   openCopyBaselineFromStatus,
-//   openCopyBaselineInvoiceAndEditor,
-// } from "../../Helpers/ui/uiInvoiceEditEntryHelper";
-// import { DashboardPage } from "../../pageObjects/DashboardPage";
+// import { UIInvoiceCreationManualPage } from "../../pageObjects/ui/OMN_UIInvoiceCreationManualPage";
 // import {
 //   uiAngleBracketTestTitle,
 //   uiConditionalScenarioTitle,
@@ -60,73 +56,8 @@
 //   PAYMENT_MEANS_ACCOUNT_IDENTIFIER_SCENARIOS,
 // } from "../../testData/ui/ConditionalValidation";
 // 
-// const HEADING = "Copy Invoice UI";
-// const ENTRY = "copy" as const;
-// 
-// test.describe(`${HEADING} â€” copy flow`, () => {
-//   test.describe.configure({ mode: "parallel" });
-// 
-//   test(
-//     "When editing an invoice, options â†’ Create Copy (No) â€” the user stays on the dashboard list.",
-//     async ({ page }) => {
-//       const dashboard = new DashboardPage(page);
-//       await openCopyBaselineFromStatus(page, "No");
-// 
-//       await dashboard.waitForEinvoiceDashboardShell(60_000);
-//       await expect(page.locator("main.invoice-content-container")).toHaveCount(0);
-//     }
-//   );
-// 
-//   test(
-//     uiTestTitle(
-//       HEADING,
-//       "Document",
-//       "Options â†’ Create Copy (Yes) without entering invoice number or issue date",
-//       "editor visible"
-//     ),
-//     async ({ page }) => {
-//       const { invoice } = await openCopyBaselineInvoiceAndEditor(page);
-//       await invoice.expectCreateInvoiceEditorLoaded();
-//       await invoice.expectDocumentDetailsVisible();
-//     }
-//   );
-// 
-//   test(
-//     "When editing an invoice, in the Document section, invoice number empty â€” the form should show a field error.",
-//     async ({ page }) => {
-//       const { invoice } = await openCopyBaselineInvoiceAndEditor(page);
-//       const dashboard = new DashboardPage(page);
-// 
-//       await invoice.ensureDocumentEditable();
-//       await invoice.fillDocumentRequiredFields(["invNum"]);
-//       await invoice.replaceInputById("invNum", "");
-//       await invoice.clickDocumentSave();
-// 
-//       const message = await dashboard.readVisibleEditValidationMessageWithFallback();
-//       expect(message).toBeTruthy();
-//     }
-//   );
-// 
-//   test(
-//     "When editing an invoice, in the Document section, invoice issue date empty â€” the form should show a field error.",
-//     async ({ page }) => {
-//       const { invoice } = await openCopyBaselineInvoiceAndEditor(page);
-//       const dashboard = new DashboardPage(page);
-// 
-//       await invoice.ensureDocumentEditable();
-//       await invoice.fillDocumentRequiredFields(["invIssueDate", "invDate"]);
-//       try {
-//         await invoice.clearDocumentDateById("invIssueDate");
-//       } catch {
-//         await invoice.clearDocumentDateById("invDate");
-//       }
-//       await invoice.clickDocumentSave();
-// 
-//       const message = await dashboard.readVisibleEditValidationMessageWithFallback();
-//       expect(message).toBeTruthy();
-//     }
-//   );
-// });
+// const HEADING = "Create Invoice UI";
+// const ENTRY = "create" as const;
 // 
 // test.describe(`${HEADING} â€” field validation`, () => {
 //   test.describe.configure({
@@ -134,10 +65,11 @@
 //     timeout: uiInvoiceConditionalTestTimeoutMs(ENTRY),
 //   });
 // 
-//   test(uiTestTitle(HEADING, "Navigation", "opening Copy from dashboard Options", "editor visible"), async ({
+//   test(uiTestTitle(HEADING, "Navigation", "opening from the dashboard", "editor visible"), async ({
 //     page,
 //   }) => {
-//     const { invoice } = await openCopyBaselineInvoiceAndEditor(page);
+//     const invoice = new UIInvoiceCreationManualPage(page);
+//     await invoice.open();
 //     await invoice.expectCreateInvoiceEditorLoaded();
 //     await invoice.expectDocumentDetailsVisible();
 //   });
@@ -154,7 +86,8 @@
 //         test(uiTestTitle(HEADING, sectionArea, "opening the section editor", "editor visible"), async ({
 //           page,
 //         }) => {
-//           const { invoice } = await openCopyBaselineInvoiceAndEditor(page);
+//           const invoice = new UIInvoiceCreationManualPage(page);
+//           await invoice.open();
 //           await invoice.enterSectionEditor(section);
 //         });
 //       }
@@ -163,7 +96,8 @@
 //         test(uiTestTitle(HEADING, "Document", "opening the document editor", "document fields visible"), async ({
 //           page,
 //         }) => {
-//           const { invoice } = await openCopyBaselineInvoiceAndEditor(page);
+//           const invoice = new UIInvoiceCreationManualPage(page);
+//           await invoice.open();
 //           await invoice.enterSectionEditor("document");
 //         });
 //       }
@@ -226,7 +160,7 @@
 //               for (const scenario of CREATE_INVOICE_FORMULA_SCENARIOS) {
 //                 if (!isScenarioApplicableForMode(mode, scenario)) continue;
 //                 test(uiFormulaTestTitle(HEADING, scenario.name, currency), async ({ page }) => {
-//                   await runUiInvoiceCreationFormulaScenario(page, mode, scenario, { entry: ENTRY });
+//                   await runUiInvoiceCreationFormulaScenario(page, mode, scenario);
 //                 });
 //               }
 //             });
@@ -328,7 +262,7 @@
 //   });
 // 
 //   test.describe("Config check â€” transaction type constants", () => {
-//     test("Copy Invoice config: disclosed-agent and beneficiary transaction type constants should be defined.", async () => {
+//     test("Create Invoice config: disclosed-agent and beneficiary transaction type constants should be defined.", async () => {
 //       expect(INVOICE_TRANSACTION_TYPE_CODE_DISCLOSED_AGENT_BILLING).toBeTruthy();
 //       expect(INVOICE_TRANSACTION_TYPE_CODE_BENEFICIARY_OPTIONAL).toBeTruthy();
 //     });

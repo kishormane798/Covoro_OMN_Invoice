@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // /**
@@ -16,7 +16,7 @@
 //   INVOICE_TRANSACTION_TYPE_CODE_DISCLOSED_AGENT_BILLING,
 // } from "../../testData/ui/ConditionalValidation";
 // import { isUiNullOrEmpty } from "../../testData/ui/uiInvoiceCreationNullEmpty";
-// import { UIInvoiceCreationManualPage } from "../pageObjects/UIInvoiceCreationManualPage";
+// import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
 // import {
 //   electronicTinForParallelIndex,
 //   getParallelWorkerIndex,

@@ -6,9 +6,9 @@
  * `getInvoiceTemplatePath()` (Covoro / full / OMN primary template).
  */
 import type { Page } from '@playwright/test';
-import { DashboardPage } from '../pageObjects/DashboardPage';
-import { UploadInvoicePage } from '../pageObjects/UploadInvoicePage';
-import { LoginPage } from '../pageObjects/LoginPage';
+import { DashboardPage } from '../pageObjects/OMN_DashboardPage';
+import { UploadInvoicePage } from '../pageObjects/OMN_UploadInvoicePage';
+import { LoginPage } from '../pageObjects/OMN_LoginPage';
 import { parallelWorkerDashboardOpenOpts } from "./parallelWorkerSubmitIdentity";
 import { resolveBaseUrl } from "../utils/appConfig";
 import { flowLog } from "./diagnosticLog";
@@ -31,21 +31,45 @@ function buildAppUrl(pathname: string): string {
     return `${resolveBaseUrl()}${normalizedPath}`;
 }
 
+async function hasPersistedAuthSession(page: Page): Promise<boolean> {
+    return page
+        .evaluate(() => {
+            try {
+                return sessionStorage.getItem('persist:root') != null;
+            } catch {
+                return false;
+            }
+        })
+        .catch(() => false);
+}
+
+async function isOnAuthenticatedDashboard(page: Page): Promise<boolean> {
+    const url = page.url();
+    if (url.includes('/login') || !url.includes('business-dashboard')) {
+        return false;
+    }
+    return hasPersistedAuthSession(page);
+}
+
 /** Avoid a second `goto` when baseTest already opened business-dashboard (SPA navigation race). */
 async function ensureLoggedIn(page: Page): Promise<void> {
     const dashboardUrl = buildAppUrl('/business-dashboard');
-    const current = page.url();
-    if (current.includes('business-dashboard') && !current.includes('/login')) {
+
+    const settle = async (): Promise<void> => {
         await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {});
         await page.waitForTimeout(400);
-        return;
+    };
+
+    if (page.url().includes('business-dashboard') && !page.url().includes('/login')) {
+        await settle();
+        if (await isOnAuthenticatedDashboard(page)) {
+            return;
+        }
     }
 
     await page.goto(dashboardUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {});
-    await page.waitForTimeout(400);
-
-    if (!page.url().includes('/login')) {
+    await settle();
+    if (await isOnAuthenticatedDashboard(page)) {
         return;
     }
 

@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // import type { Page } from "@playwright/test";
@@ -7,7 +7,7 @@
 //   UiMasterItemConditionalScenario,
 // } from "../../testData/ui/uiMasterConditionalValidation";
 // import { isUiNullOrEmpty } from "../../testData/ui/uiInvoiceCreationConditionalValidation";
-// import { UIMasterBuyerAndItemPage } from "../pageObjects/UIMasterBuyerAndItemPage";
+// import { UIMasterBuyerAndItemPage } from "../pageObjects/OMN_UIMasterBuyerAndItemPage";
 // 
 // async function applyMasterAuthorityName(
 //   masters: UIMasterBuyerAndItemPage,

@@ -1,2 +1,2 @@
 /** Re-export shared Dashboard page object for the kishorsubmit package. */
-export { DashboardPage } from "../../../pageObjects/DashboardPage";
+export { DashboardPage } from "../../../pageObjects/OMN_DashboardPage";

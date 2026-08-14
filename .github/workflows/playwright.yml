@@ -1,54 +1,27 @@
 # Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
-#   06:20 Covoro F+F · (+45m) 07:05 submit · (+1h) 08:05 conditional
+#   06:20 Covoro field · 07:05 formula · 08:05 conditional
 #
-# Manual run: Actions → Oman E-Invoice — Playwright → Run workflow → pick a suite or individual spec.
-# Full run: choose "all" → npx playwright test (chromium + chromium-ui).
+# Manual run: Actions → Oman E-Invoice — Playwright → Run workflow → pick field / formula / conditional.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
 on:
   schedule:
-    - cron: "50 0 * * 1-5" # 06:20 IST — Covoro field + formula validation
-    - cron: "35 1 * * 1-5" # 07:05 IST — Covoro submit (+45m)
-    - cron: "35 2 * * 1-5" # 08:05 IST — Covoro conditional (+1h)
+    - cron: "50 0 * * 1-5" # 06:20 IST — Covoro field validation
+    - cron: "35 1 * * 1-5" # 07:05 IST — Covoro formula validation
+    - cron: "35 2 * * 1-5" # 08:05 IST — Covoro conditional validation
 
   workflow_dispatch:
     inputs:
       suite:
-        description: "Grouped suite, individual spec file, or full run (all)."
+        description: "Covoro automation suite to run."
         required: true
-        default: "covoro_field_formula"
+        default: "covoro_field"
         type: choice
         options:
-          # Grouped suites
-          - all
-          - covoro_field_formula
-          - covoro_submit
+          - covoro_field
+          - covoro_formula
           - covoro_conditional
-          - covoro
-          - sanity
-          - ui
-          - ui_invoice_creation
-          - ui_invoice_edit
-          - ui_invoice_copy
-          - ui_master
-          - ui_submit
-          - ui_attachment_download
-          # Individual spec files
-          - spec_field_validation_covoro
-          - spec_formula_validation_covoro
-          - spec_conditional_validation_covoro
-          - spec_submit_covoro
-          - spec_submit_multi_covoro
-          - spec_sanity
-          - spec_ui_invoice_creation
-          - spec_ui_invoice_edit_manual
-          - spec_ui_invoice_copy
-          - spec_ui_master
-          - spec_ui_submit
-          - spec_ui_submit_multi
-          - spec_ui_attachment
-          - spec_ui_file_download
 
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('Oman E-Invoice — Playwright ({0})', github.event.inputs.suite) || 'Oman E-Invoice — Playwright' }}
 
@@ -168,18 +141,18 @@ jobs:
       - name: Resolve test suite (schedule → IST slots · manual → choice)
         id: suite
         run: |
-          MODE="all"
+          MODE="covoro_field"
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MODE="${{ github.event.inputs.suite }}"
 
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             case "${{ github.event.schedule }}" in
-              "50 0 * * 1-5") MODE="covoro_field_formula" ;;
-              "35 1 * * 1-5") MODE="covoro_submit" ;;
+              "50 0 * * 1-5") MODE="covoro_field" ;;
+              "35 1 * * 1-5") MODE="covoro_formula" ;;
               "35 2 * * 1-5") MODE="covoro_conditional" ;;
               *)
-                echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — using MODE=all"
+                echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — using MODE=covoro_field"
                 ;;
             esac
           fi
@@ -187,95 +160,24 @@ jobs:
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "Running MODE=$MODE"
 
-      - name: Run Playwright — scheduled slice or manual suite/spec
+      - name: Run Playwright — Covoro field / formula / conditional
         run: |
           MODE="${{ steps.suite.outputs.mode }}"
           set -e
 
           case "$MODE" in
-            # --- Full suite (upload + UI) ---
-            all|full)
-              npx playwright test
+            covoro_field)
+              npx playwright test tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts --project=chromium
               ;;
-            # --- Grouped suites ---
-            covoro_field_formula)
-              npx playwright test \
-                tests/FieldValidation_CovoroTemplate_Test.spec.ts \
-                tests/FormulaValidation_CovoroTemplate_Test.spec.ts \
-                --project=chromium
-              ;;
-            covoro_submit)
-              npx playwright test \
-                tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts \
-                tests/kishorsubmit/SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts \
-                --project=chromium
+            covoro_formula)
+              npx playwright test tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts --project=chromium
               ;;
             covoro_conditional)
-              npx playwright test tests/ConditionalValidation_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            covoro)
-              npx playwright test tests/**/*CovoroTemplate*.spec.ts --project=chromium
-              ;;
-            sanity|spec_sanity)
-              npx playwright test tests/sanitysubmit/SubmitInvoice_Sanity_Test.spec.ts --project=chromium --workers=1
-              ;;
-            ui)
-              npx playwright test tests/KISHOR_UI/*.spec.ts --project=chromium-ui
-              ;;
-            ui_invoice_creation|spec_ui_invoice_creation)
-              npx playwright test tests/KISHOR_UI/UIInvoiceCreation_Manual_Test.spec.ts --project=chromium-ui
-              ;;
-            ui_invoice_edit|spec_ui_invoice_edit_manual)
-              npx playwright test tests/KISHOR_UI/UIInvoiceEdit_Manual_Test.spec.ts --project=chromium-ui
-              ;;
-            ui_invoice_copy|spec_ui_invoice_copy)
-              npx playwright test tests/KISHOR_UI/UIInvoiceCopy_Manual_Test.spec.ts --project=chromium-ui
-              ;;
-            ui_master|spec_ui_master)
-              npx playwright test tests/KISHOR_UI/UIMaster_BuyerAndItem_Test.spec.ts --project=chromium-ui
-              ;;
-            ui_submit)
-              npx playwright test \
-                tests/KISHOR_UI/UISubmitInvoice_Test.spec.ts \
-                tests/KISHOR_UI/UISubmitInvoice_MultiItem_Test.spec.ts \
-                --project=chromium-ui
-              ;;
-            ui_attachment_download)
-              npx playwright test \
-                tests/KISHOR_UI/UIInvoiceEdit_Attachment_Test.spec.ts \
-                tests/KISHOR_UI/UIInvoiceFileDownload_Test.spec.ts \
-                --project=chromium-ui
-              ;;
-            # --- Individual spec files ---
-            spec_field_validation_covoro)
-              npx playwright test tests/FieldValidation_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            spec_formula_validation_covoro)
-              npx playwright test tests/FormulaValidation_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            spec_conditional_validation_covoro)
-              npx playwright test tests/ConditionalValidation_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            spec_submit_covoro)
-              npx playwright test tests/kishorsubmit/SubmitInvoice_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            spec_submit_multi_covoro)
-              npx playwright test tests/kishorsubmit/SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            spec_ui_submit)
-              npx playwright test tests/KISHOR_UI/UISubmitInvoice_Test.spec.ts --project=chromium-ui
-              ;;
-            spec_ui_submit_multi)
-              npx playwright test tests/KISHOR_UI/UISubmitInvoice_MultiItem_Test.spec.ts --project=chromium-ui
-              ;;
-            spec_ui_attachment)
-              npx playwright test tests/KISHOR_UI/UIInvoiceEdit_Attachment_Test.spec.ts --project=chromium-ui
-              ;;
-            spec_ui_file_download)
-              npx playwright test tests/KISHOR_UI/UIInvoiceFileDownload_Test.spec.ts --project=chromium-ui
+              npx playwright test tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts --project=chromium
               ;;
             *)
-              npx playwright test
+              echo "::error::Unknown suite MODE='$MODE'. Expected covoro_field, covoro_formula, or covoro_conditional."
+              exit 1
               ;;
           esac
 
@@ -396,26 +298,10 @@ jobs:
         run: |
           MODE="${{ steps.suite.outputs.mode }}"
           case "$MODE" in
-            all|full) LABEL="Full suite — all specs (upload + UI)" ;;
-            covoro_field_formula|spec_field_validation_covoro|spec_formula_validation_covoro)
-              LABEL="Covoro — Field + Formula validation"
-              ;;
-            covoro_submit|spec_submit_covoro|spec_submit_multi_covoro)
-              LABEL="Covoro — Submit invoice"
-              ;;
-            covoro_conditional|spec_conditional_validation_covoro)
-              LABEL="Covoro — Conditional validation"
-              ;;
-            covoro) LABEL="Covoro — All specs" ;;
-            sanity|spec_sanity) LABEL="Sanity — Submit invoice" ;;
-            ui) LABEL="UI — All specs" ;;
-            ui_invoice_creation|spec_ui_invoice_creation) LABEL="UI — Invoice creation manual" ;;
-            ui_invoice_edit|spec_ui_invoice_edit_manual) LABEL="UI — Invoice edit validation" ;;
-            ui_invoice_copy|spec_ui_invoice_copy) LABEL="UI — Invoice Copy validation" ;;
-            ui_master|spec_ui_master) LABEL="UI — Master buyer and item" ;;
-            ui_submit|spec_ui_submit|spec_ui_submit_multi) LABEL="UI — Submit invoice" ;;
-            ui_attachment_download|spec_ui_attachment|spec_ui_file_download) LABEL="UI — Attachment & file download" ;;
-            *) LABEL="Full suite" ;;
+            covoro_field) LABEL="Covoro — Field validation" ;;
+            covoro_formula) LABEL="Covoro — Formula validation" ;;
+            covoro_conditional) LABEL="Covoro — Conditional validation" ;;
+            *) LABEL="Covoro — Unknown suite" ;;
           esac
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
 

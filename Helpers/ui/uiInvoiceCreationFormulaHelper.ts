@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // import type { Page } from "@playwright/test";
@@ -10,7 +10,7 @@
 //   type FormulaScenarioRow,
 // } from "./formulaValidationHelper";
 // import { calculateInvoiceValuesForGeneratorPayload } from "../utils/invoiceExcel";
-// import { UIInvoiceCreationManualPage } from "../pageObjects/UIInvoiceCreationManualPage";
+// import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
 // import {
 //   CREATE_INVOICE_FORMULA_INPUT_CANDIDATES,
 //   CREATE_INVOICE_INVOICE_FORMULA_INPUT_KEYS,

@@ -15,7 +15,7 @@ description: Add Excel upload field validation tests (accept or error file). Use
 
 | Purpose | Path |
 |---------|------|
-| Covoro spec | `tests/FieldValidation_CovoroTemplate_Test.spec.ts` |
+| Covoro spec | `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` |
 | Configs | `testData/FieldValidations/` |
 | Upload flow | `Helpers/uploadHelper.ts` |
 | Error assert | `Helpers/excelEditMessageCheck.ts`, `Helpers/fieldValidationHelper.ts` |
@@ -71,7 +71,7 @@ Excel upload · Covoro | Document | Invoice Number | empty → error file
 
 ```bash
 npm run test:covoro
-npx playwright test tests/FieldValidation_CovoroTemplate_Test.spec.ts --grep "Invoice Number"
+npx playwright test tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts --grep "Invoice Number"
 ```
 
 Error validation uses `validateErrorFileColumn` via Python reader — field string must match Errors column expectations.
