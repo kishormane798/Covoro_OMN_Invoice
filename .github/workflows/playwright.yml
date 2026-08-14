@@ -1,5 +1,5 @@
-# Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
-#   06:20 Covoro field · 07:05 formula · 08:05 conditional
+# Schedule (Mon & Fri only, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
+#   06:00 Covoro field · 08:00 formula · 10:00 conditional (2h gap)
 #
 # Manual run: Actions → Oman E-Invoice — Playwright → Run workflow → pick field / formula / conditional.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -7,9 +7,9 @@ name: Oman E-Invoice — Playwright
 
 on:
   schedule:
-    - cron: "50 0 * * 1-5" # 06:20 IST — Covoro field validation
-    - cron: "35 1 * * 1-5" # 07:05 IST — Covoro formula validation
-    - cron: "35 2 * * 1-5" # 08:05 IST — Covoro conditional validation
+    - cron: "30 0 * * 1,5" # 06:00 IST Mon/Fri — Covoro field validation
+    - cron: "30 2 * * 1,5" # 08:00 IST Mon/Fri — Covoro formula validation
+    - cron: "30 4 * * 1,5" # 10:00 IST Mon/Fri — Covoro conditional validation
 
   workflow_dispatch:
     inputs:
@@ -152,9 +152,9 @@ jobs:
 
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             case "${{ github.event.schedule }}" in
-              "50 0 * * 1-5") MODE="covoro_field" ;;
-              "35 1 * * 1-5") MODE="covoro_formula" ;;
-              "35 2 * * 1-5") MODE="covoro_conditional" ;;
+              "30 0 * * 1,5") MODE="covoro_field" ;;
+              "30 2 * * 1,5") MODE="covoro_formula" ;;
+              "30 4 * * 1,5") MODE="covoro_conditional" ;;
               *)
                 echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — using MODE=covoro_field"
                 ;;
