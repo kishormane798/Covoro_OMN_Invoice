@@ -26,6 +26,7 @@ import {
   generateInvoiceFromSubmitData,
   patchInvoiceTextCellInFile,
 } from "../utils/invoiceExcel";
+import { formatOmanNumericBoundaryValue } from "../testData/FieldValidations/Min_max_field_validation";
 
 function lengthValue(length: number): string {
   if (length === 0) return "";
@@ -34,12 +35,9 @@ function lengthValue(length: number): string {
   return randomAlphaNumeric(length);
 }
 
-/** Digit-count value for amount/qty rules (matches fieldValidationExcelPackHelper). */
+/** @deprecated Use `formatOmanNumericBoundaryValue` from Min_max_field_validation. */
 export function formatNumericDigitCount(digitCount: number, decimals = 2): string {
-  if (digitCount <= 0) return "";
-  const intPart = "1".repeat(digitCount);
-  if (decimals <= 0) return intPart;
-  return `${intPart}.${"0".repeat(decimals)}`;
+  return formatOmanNumericBoundaryValue(digitCount, decimals);
 }
 
 function toLocalDateOnlyString(value: Date): string {

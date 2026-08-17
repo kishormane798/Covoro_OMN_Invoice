@@ -18,6 +18,20 @@ export type FieldNumericRule = FieldLengthRule & {
   decimals?: number;
 };
 
+/** Smallest positive Oman amount/qty for boundary tests (0.01 @ 2 dp, 0.0000001 @ 7 dp). */
+export function formatOmanNumericBoundaryValue(
+  digitCount: number,
+  decimals = 2
+): string {
+  if (digitCount <= 0) return "";
+  if (digitCount === 1 && decimals > 0) {
+    return (1 / 10 ** decimals).toFixed(decimals);
+  }
+  const intPart = "1".repeat(digitCount);
+  if (decimals <= 0) return intPart;
+  return `${intPart}.${"0".repeat(decimals)}`;
+}
+
 export const fieldInvoice_number: FieldLengthRule[] = [
   { field: "Invoice Number", min: 1, max: 64, belowMin: 0, aboveMax: 65 },
 ];
@@ -100,11 +114,11 @@ export const fieldValidationConditional: FieldLengthRule[] = [
 export const fieldValidationNumeric: FieldNumericRule[] = [
   /** Exchange rate: min 1 digit + 6 decimals; max 7 digits + 7 decimals. */
   { field: "Currency Exchange Rate", min: 1, max: 7, belowMin: 0, aboveMax: 8, decimals: 7 },
-  { field: "Item price base quantity", min: 1, max: 10, belowMin: 0, aboveMax: 11 },
+  { field: "Item price base quantity", min: 1, max: 10, belowMin: 0, aboveMax: 11, decimals: 2 },
   { field: "Item gross price", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
   { field: "Item price discount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
   { field: "Item net price", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Invoiced quantity", min: 1, max: 10, belowMin: 0, aboveMax: 11 },
+  { field: "Invoiced quantity", min: 1, max: 10, belowMin: 0, aboveMax: 11, decimals: 2 },
   { field: "Invoice line charge amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
   { field: "Invoice line allowance amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
   { field: "Invoice line net amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
@@ -165,10 +179,10 @@ export const invoiceFormulaScenarios: InvoiceFormulaScenario[] = [
 {
 expect: "success",
 name: "Base Minimum values",
-itemPriceBaseQty:1,
-itemGrossPrice:1,
+itemPriceBaseQty:0.01,
+itemGrossPrice:0.01,
 itemPriceDiscount:0,
-invoicedQty:1,
+invoicedQty:0.01,
 lineCharge:0,
 lineAllowance:0,
 taxRate:5,

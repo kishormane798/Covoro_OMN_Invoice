@@ -30,6 +30,7 @@ import {
   fieldValidationOptional,
   fieldValidationConditional,
   fieldValidationNumeric,
+  formatOmanNumericBoundaryValue,
   type FieldLengthRule,
   type FieldNumericRule,
 } from "../testData/FieldValidations/Min_max_field_validation";
@@ -438,10 +439,7 @@ function omanVatinOfLength(length: number, valid: string): string {
 }
 
 function formatNumeric(digitCount: number, decimals = 2): string {
-  if (digitCount <= 0) return "";
-  const intPart = "1".repeat(digitCount);
-  if (decimals <= 0) return intPart;
-  return `${intPart}.${"0".repeat(decimals)}`;
+  return formatOmanNumericBoundaryValue(digitCount, decimals);
 }
 
 function toggleCase(s: string): string {

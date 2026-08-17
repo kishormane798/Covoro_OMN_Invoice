@@ -296,7 +296,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Numeric fields — valid digit count", () => {
     for (const config of numericFieldConfigs) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Numeric – ${config.field} (minimum digits (${config.min})).`, async ({ page }) => {
+      test(`Verify Excel upload is accepted for ${TEMPLATE} Numeric – ${config.field} (minimum value (${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)})).`, async ({ page }) => {
         const { filePath } = await generateOmanNumericFieldExcel(
           config.field,
           config.min,

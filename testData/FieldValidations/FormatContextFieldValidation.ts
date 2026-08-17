@@ -10,6 +10,7 @@ import {
   PRECEDING_INVOICE_UUID_SAMPLE,
   TAX_RATE_STANDARD_OMAN,
 } from "./ConditionalValidation";
+import { formatOmanNumericBoundaryValue } from "./Min_max_field_validation";
 
 export type FormatContextOverlay =
   | "none"
@@ -37,10 +38,7 @@ function padUuid(base: string, length: number): string {
 }
 
 function numericDigits(digitCount: number, decimals: number): string {
-  if (digitCount <= 0) return "";
-  const intPart = "1".repeat(digitCount);
-  if (decimals <= 0) return intPart;
-  return `${intPart}.${"0".repeat(decimals)}`;
+  return formatOmanNumericBoundaryValue(digitCount, decimals);
 }
 
 const SELLER_VAT = "Seller VAT Identifier (TRN / TIN)";
@@ -194,7 +192,7 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     field: FX,
     section: "Currency",
     overlay: "usdFx",
-    condition: "minimum digits (1) with 7 decimals",
+    condition: "minimum value (0.0000001) with 7 decimals",
     value: numericDigits(1, 7),
     shouldError: false,
     patchAfterGenerate: true,
@@ -221,7 +219,7 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     field: TAX_ACCT,
     section: "Invoice",
     overlay: "usdFx",
-    condition: "minimum digits (1)",
+    condition: "minimum value (0.01)",
     value: numericDigits(1, 2),
     shouldError: false,
     patchAfterGenerate: true,
@@ -248,7 +246,7 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     field: PM_DUE,
     section: "Invoice",
     overlay: "profitMargin",
-    condition: "minimum digits (1)",
+    condition: "minimum value (0.01)",
     value: numericDigits(1, 2),
     shouldError: false,
     patchAfterGenerate: true,
