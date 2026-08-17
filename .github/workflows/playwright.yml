@@ -1,7 +1,9 @@
 # Schedule (Mon & Fri only, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
 #   One shard per slot, 45 min apart, 45 min job timeout each.
-#   06:30 field 1/5 · 07:15 field 2/5 · 08:00 field 3/5 · 08:45 field 4/5 · 09:30 field 5/5
-#   10:15 conditional 1/3 · 11:00 conditional 2/3 · 11:45 conditional 3/3 · 12:30 formula
+#   Morning: 06:30 field 1/5 · 07:15 field 2/5 · 08:00 field 3/5 · 08:45 field 4/5 · 09:30 field 5/5
+#            10:15 conditional 1/3 · 11:00 conditional 2/3 · 11:45 conditional 3/3 · 12:30 formula
+#   Evening: 17:00 field 1/5 · 17:45 field 2/5 · 18:30 field 3/5 · 19:15 field 4/5 · 20:00 field 5/5
+#            20:45 conditional 1/3 · 21:30 conditional 2/3 · 22:15 conditional 3/3 · 23:00 formula
 #
 # Manual run: pick suite + shard (all runs every shard in parallel; 1–5 runs one chunk ~100 tests).
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -9,6 +11,7 @@ name: Oman E-Invoice — Playwright
 
 on:
   schedule:
+    # Morning wave (06:30 IST)
     - cron: "0 1 * * 1,5" # 06:30 IST — field validation shard 1/5
     - cron: "45 1 * * 1,5" # 07:15 IST — field validation shard 2/5
     - cron: "30 2 * * 1,5" # 08:00 IST — field validation shard 3/5
@@ -18,6 +21,16 @@ on:
     - cron: "30 5 * * 1,5" # 11:00 IST — conditional validation shard 2/3
     - cron: "15 6 * * 1,5" # 11:45 IST — conditional validation shard 3/3
     - cron: "0 7 * * 1,5" # 12:30 IST — formula validation (full suite)
+    # Evening wave (17:00 IST) — same 45 min gaps
+    - cron: "30 11 * * 1,5" # 17:00 IST — field validation shard 1/5
+    - cron: "15 12 * * 1,5" # 17:45 IST — field validation shard 2/5
+    - cron: "0 13 * * 1,5" # 18:30 IST — field validation shard 3/5
+    - cron: "45 13 * * 1,5" # 19:15 IST — field validation shard 4/5
+    - cron: "30 14 * * 1,5" # 20:00 IST — field validation shard 5/5
+    - cron: "15 15 * * 1,5" # 20:45 IST — conditional validation shard 1/3
+    - cron: "0 16 * * 1,5" # 21:30 IST — conditional validation shard 2/3
+    - cron: "45 16 * * 1,5" # 22:15 IST — conditional validation shard 3/3
+    - cron: "30 17 * * 1,5" # 23:00 IST — formula validation (full suite)
 
   workflow_dispatch:
     inputs:
@@ -137,15 +150,15 @@ jobs:
 
           elif [ "${{ github.event_name }}" = "schedule" ]; then
             case "${{ github.event.schedule }}" in
-              "0 1 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="1" ;;
-              "45 1 * * 1,5") MODE="covoro_field";       SHARD_FILTER="2" ;;
-              "30 2 * * 1,5") MODE="covoro_field";       SHARD_FILTER="3" ;;
-              "15 3 * * 1,5") MODE="covoro_field";       SHARD_FILTER="4" ;;
-              "0 4 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="5" ;;
-              "45 4 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="1" ;;
-              "30 5 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="2" ;;
-              "15 6 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="3" ;;
-              "0 7 * * 1,5")  MODE="covoro_formula";     SHARD_FILTER="1" ;;
+              "0 1 * * 1,5"|"30 11 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="1" ;;
+              "45 1 * * 1,5"|"15 12 * * 1,5") MODE="covoro_field";       SHARD_FILTER="2" ;;
+              "30 2 * * 1,5"|"0 13 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="3" ;;
+              "15 3 * * 1,5"|"45 13 * * 1,5") MODE="covoro_field";       SHARD_FILTER="4" ;;
+              "0 4 * * 1,5"|"30 14 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="5" ;;
+              "45 4 * * 1,5"|"15 15 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="1" ;;
+              "30 5 * * 1,5"|"0 16 * * 1,5")  MODE="covoro_conditional"; SHARD_FILTER="2" ;;
+              "15 6 * * 1,5"|"45 16 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="3" ;;
+              "0 7 * * 1,5"|"30 17 * * 1,5")  MODE="covoro_formula";     SHARD_FILTER="1" ;;
               *)
                 echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — defaulting to field shard 1"
                 MODE="covoro_field"
