@@ -7,7 +7,13 @@ import type {
   PartyIdentifierCompanion,
   PartyIdentifierParty,
 } from "../testData/FieldValidations/partyIdentifierCompanionLength";
-import { applyDependentOverlay, OMAN_BUYER_ELECTRONIC, OMAN_BUYER_VAT } from "./fieldValidationExcelPackHelper";
+import {
+  applyDependentOverlay,
+  buildOmanDropdownBaseRow,
+  resolveDropdownTemplateField,
+  OMAN_BUYER_ELECTRONIC,
+  OMAN_BUYER_VAT,
+} from "./fieldValidationExcelPackHelper";
 import { buildValidOmanFullTaxInvoiceRow } from "./conditionalValidationHelper";
 import { randomAlphaNumeric } from "./fieldValidationHelper";
 import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
@@ -16,6 +22,7 @@ import {
   schemeIdentifierValidTestData,
 } from "../testData/FieldValidations/Master";
 import {
+  generateFullRowDropdownFieldExcel,
   generateInvoiceFromSubmitData,
   patchInvoiceTextCellInFile,
 } from "../utils/invoiceExcel";
@@ -80,6 +87,33 @@ function masterLabel(
   if (fromHit) return fromHit;
   const first = list?.[0]?.label?.trim();
   return first || fallback;
+}
+
+function buildOmanDropdownRuntimeBaseRow(field: string): Record<string, string> {
+  const packBase = buildOmanDropdownBaseRow(field);
+  const identified = applyParallelWorkerIdentityToSubmitRow({
+    ...packBase,
+    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
+    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
+  });
+  identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+  identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  return identified;
+}
+
+/**
+ * Dropdown master / invalid batches — same pipeline as TestData dropdown packs
+ * (`buildOmanDropdownBaseRow` + `generateFullRowDropdownFieldExcel`), with worker
+ * TIN identity layered on for parallel Playwright runs.
+ */
+export async function generateOmanDropdownMasterExcel(
+  field: string,
+  masterData: unknown[] | unknown
+): Promise<Array<{ filePath: string; invoiceNumber: string }>> {
+  const values = Array.isArray(masterData) ? masterData : [masterData];
+  const fieldForWrite = resolveDropdownTemplateField(field);
+  const baseRow = buildOmanDropdownRuntimeBaseRow(field);
+  return generateFullRowDropdownFieldExcel(fieldForWrite, values, baseRow);
 }
 
 /**

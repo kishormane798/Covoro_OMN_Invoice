@@ -19,10 +19,9 @@ import { runErrorValidation } from "./excelEditMessageCheck";
 import { defaultInvoiceData } from "../testData/FieldValidations/Min_max_field_validation";
 import {
   applyPartyIdentifiersByTxnType,
-  buildValidOmanFullTaxInvoiceRow,
 } from "./conditionalValidationHelper";
 import {
-  applyOmanSellerBuyerIdentity,
+  buildOmanFullTaxSubmitSeedRow,
   OMAN_BUYER_ELECTRONIC,
   OMAN_BUYER_VAT,
 } from "./fieldValidationExcelPackHelper";
@@ -289,9 +288,15 @@ function formulaPayloadToHeaderOverlay(
 /**
  * Full Oman Full Tax Invoice seed (same as field/conditional), then overlay formula inputs.
  */
+export type BuildFormulaSubmitRowOptions = {
+  /** Parallel Playwright runs patch worker TIN slots (default). TestData packs disable this. */
+  applyWorkerIdentity?: boolean;
+};
+
 export function buildFormulaSubmitRow(
   row: FormulaDataRow,
-  mode: CurrencyMode
+  mode: CurrencyMode,
+  options?: BuildFormulaSubmitRowOptions
 ): Record<string, string> {
   const payload = buildFormulaExcelPayload(row, mode);
   const overlay = formulaPayloadToHeaderOverlay(payload);
@@ -301,12 +306,17 @@ export function buildFormulaSubmitRow(
     overlay["Source currency code"] = overlay["Source currency code"] ?? OMAN_HOME_CURRENCY;
   }
 
-  const seed = applyOmanSellerBuyerIdentity(buildValidOmanFullTaxInvoiceRow());
+  const seed = buildOmanFullTaxSubmitSeedRow();
   const merged = overlayHeaderValues(seed, overlay);
   const withTxn = asStringRow(applyPartyIdentifiersByTxnType(merged));
-  const identified = applyParallelWorkerIdentityToSubmitRow(withTxn);
-  identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  const applyWorkerIdentity = options?.applyWorkerIdentity !== false;
+  const identified = applyWorkerIdentity
+    ? applyParallelWorkerIdentityToSubmitRow(withTxn)
+    : withTxn;
+  if (applyWorkerIdentity) {
+    identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+    identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  }
   // Re-apply formula inputs after identity so discount/qty/rate feed generate totals.
   return overlayHeaderValues(identified, overlay);
 }

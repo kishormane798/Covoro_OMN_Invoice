@@ -45,17 +45,46 @@ ANY_BRACKET_RE = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9\-]*)\]")
 
 YELLOW = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
-# Rule-skip buckets for Skip Reason / yellow
+# Rule-skip buckets for Skip Reason / Automation Triage (sync reference.md + TS helper)
 FORMULA_NOT_NEEDED = {"IBR-033-OM", "IBR-041-OM"}
-BACKEND_RULES = {
+FORMULA_RULE_IDS = FORMULA_NOT_NEEDED | {
+    "ALIGNED-IBRP-E-08-OM",
+    "ALIGNED-IBRP-E-09-OM",
+    "ALIGNED-IBRP-O-08-OM",
+    "ALIGNED-IBRP-O-09-OM",
+    "ALIGNED-IBRP-S-08-OM",
+    "ALIGNED-IBRP-S-09-OM",
+    "ALIGNED-IBRP-S-09-OM-WARN",
+    "ALIGNED-IBRP-Z-08-OM",
+    "ALIGNED-IBRP-Z-09-OM",
+    "IBR-035-OM",
+    "IBR-046-OM",
+    "IBR-065-OM",
+    "IBR-071-OM",
+    "IBR-075-OM",
+    "IBR-082-OM",
+    "IBR-158-OM",
+    "IBR-168-OM",
+    "IBR-168-OM-WARN",
+}
+BACKEND_ONLY_RULE_IDS = {
     "IBR-066-OM",
+    "IBR-095-OM",
     "IBR-096-OM",
     "IBR-097-OM",
-    "IBR-073-OM",
-    "IBR-074-OM",
-    "IBR-173-OM",
-    "IBR-059-OM",
 }
+DEFAULT_RULE_IDS = {"IBR-059-OM"}
+# No Covoro column / user batch — keep in testcase, do not automate
+IGNORE_RULE_IDS = {"IBR-073-OM", "IBR-074-OM", "IBR-173-OM"}
+FIELD_RULE_IDS = {
+    "CL-06-OM",
+    "CL-10-OM",
+    "CL-11-OM",
+    "IBR-CL-05-OM",
+    "IBR-002-OM",
+}
+# Legacy union for INTENTIONAL_SKIP_RULE_IDS overlap checks
+BACKEND_RULES = BACKEND_ONLY_RULE_IDS | DEFAULT_RULE_IDS | IGNORE_RULE_IDS
 
 
 def title_of(row, col: dict[str, int]) -> str:
@@ -279,13 +308,58 @@ def rule_skip_reason(rule: str) -> str | None:
     r = rule.upper()
     if r in FORMULA_NOT_NEEDED:
         return "skip_not_needed"
-    if r in BACKEND_RULES:
-        if r == "IBR-059-OM":
-            return "skip_default"
+    if r in IGNORE_RULE_IDS:
+        return "skip_ignore"
+    if r in DEFAULT_RULE_IDS:
+        return "skip_default"
+    if r in BACKEND_ONLY_RULE_IDS:
         return "skip_backend"
     if r in INTENTIONAL_SKIP_RULE_IDS:
+        if r in FORMULA_NOT_NEEDED:
+            return "skip_not_needed"
+        if r in IGNORE_RULE_IDS:
+            return "skip_ignore"
+        if r in DEFAULT_RULE_IDS:
+            return "skip_default"
         return "skip_backend"
     return None
+
+
+def automation_triage(
+    rule: str, status: str, skip_reason: str | None
+) -> str:
+    """
+    Every FullMatrix row gets a destination — including skip/backend/default/ignore.
+    Values: conditional | formula | backend | default | field | ignore | unmapped | empty
+    """
+    r = (rule or "").upper()
+    if status == "empty":
+        return "empty"
+    if r in FORMULA_RULE_IDS:
+        return "formula"
+    if r in FIELD_RULE_IDS or (r.startswith("CL-") and r.endswith("-OM")):
+        return "field"
+    if r in BACKEND_ONLY_RULE_IDS:
+        return "backend"
+    if r in DEFAULT_RULE_IDS:
+        return "default"
+    if r in IGNORE_RULE_IDS:
+        return "ignore"
+    if status == "skip":
+        if skip_reason == "skip_not_needed":
+            return "formula"
+        if skip_reason == "skip_default":
+            return "default"
+        if skip_reason == "skip_backend":
+            return "backend"
+        if skip_reason == "skip_ignore":
+            return "ignore"
+        return "ignore"
+    if status == "unmapped":
+        return "unmapped"
+    if status == "mapped":
+        return "conditional"
+    return "unmapped"
 
 
 def field_skip_reason(field: str) -> str | None:
@@ -512,6 +586,7 @@ def main() -> None:
     orig_col = ensure_col("Original Filed name")
     status_col = ensure_col("Mapping Status")
     skip_col = ensure_col("Skip Reason")
+    triage_col = ensure_col("Automation Triage")
     resolved_col = ensure_col("Resolved Covoro Header")
     orig_title_col = ensure_col("Original Test Case Title")
     title_desc_col = ensure_col("Test Case Title (Descriptions)")
@@ -535,6 +610,7 @@ def main() -> None:
     max_col = max(col_idx.values())
     stats = Counter()
     skip_reasons = Counter()
+    triage_counts = Counter()
     updated = 0
     unchanged = 0
     yellowed = 0
@@ -674,10 +750,13 @@ def main() -> None:
 
         resolved = join_headers(headers) if headers else None
         new_title, title_changed = rewrite_title_codes_to_descriptions(title)
+        triage = automation_triage(token, status, skip_reason)
+        triage_counts[triage] += 1
 
         ws.cell(r, orig_col, original_s)
         ws.cell(r, status_col, status)
         ws.cell(r, skip_col, skip_reason)
+        ws.cell(r, triage_col, triage)
         ws.cell(r, resolved_col, resolved or "")
         ws.cell(r, orig_title_col, title)
         ws.cell(r, title_desc_col, new_title)
@@ -770,6 +849,7 @@ def main() -> None:
         orig_col,
         status_col,
         skip_col,
+        triage_col,
         resolved_col,
         orig_title_col,
         title_desc_col,
@@ -780,6 +860,88 @@ def main() -> None:
     ws.column_dimensions[get_column_letter(orig_title_col)].width = 55
     ws.column_dimensions[get_column_letter(title_desc_col)].width = 55
     ws.column_dimensions[get_column_letter(resolved_col)].width = 50
+
+    # --- Coverage Summary sheet (all 599 TCs incl. skip/backend/default/ignore) ---
+    if "Coverage Summary" in wb.sheetnames:
+        del wb["Coverage Summary"]
+    cov = wb.create_sheet("Coverage Summary", 0)
+    total_rows = sum(triage_counts.values())
+    cov.append(["Oman conditional FullMatrix — automation triage"])
+    cov.append(["Total test cases", total_rows])
+    cov.append([])
+    cov.append(["Automation Triage", "Count", "Meaning"])
+    triage_blurbs = {
+        "conditional": "Excel upload if-then — Playwright conditional suite",
+        "formula": "Σ / calculated totals — formula validation suite",
+        "backend": "Not exposed on Covoro Excel error file",
+        "default": "Backend default — no need to enter in Excel (e.g. IBT-006)",
+        "field": "Code list / format — field validation suite",
+        "ignore": "Intentional out of scope — tracked, not automated",
+        "unmapped": "Needs Filed name → Covoro header mapping",
+        "empty": "Missing Filed name",
+    }
+    for key in (
+        "conditional",
+        "formula",
+        "backend",
+        "default",
+        "field",
+        "ignore",
+        "unmapped",
+        "empty",
+    ):
+        n = triage_counts.get(key, 0)
+        if n:
+            cov.append([key, n, triage_blurbs.get(key, "")])
+    cov.append([])
+    cov.append(["Mapping Status", "Count"])
+    for k, n in sorted(stats.items()):
+        cov.append([k, n])
+    cov.append([])
+    cov.append(["Skip Reason", "Count"])
+    for k, n in sorted(skip_reasons.items()):
+        cov.append([k or "(blank)", n])
+
+    coverage_md = (
+        root
+        / "testcase"
+        / "conditional_validation"
+        / "COVERAGE_SUMMARY.md"
+    )
+    md_cov: list[str] = [
+        "# Conditional validation — full testcase coverage",
+        "",
+        f"Total matrix rows: **{total_rows}** (includes skip, backend, default, ignore).",
+        "",
+        "## Automation Triage",
+        "",
+        "| Triage | Count | Destination |",
+        "|---|---:|---|",
+    ]
+    for key in (
+        "conditional",
+        "formula",
+        "backend",
+        "default",
+        "field",
+        "ignore",
+        "unmapped",
+        "empty",
+    ):
+        n = triage_counts.get(key, 0)
+        if n:
+            md_cov.append(f"| `{key}` | {n} | {triage_blurbs.get(key, '')} |")
+    md_cov += [
+        "",
+        "## Mapping Status",
+        "",
+        "| Status | Count |",
+        "|---|---:|",
+    ]
+    for k, n in sorted(stats.items()):
+        md_cov.append(f"| {k} | {n} |")
+    coverage_md.parent.mkdir(parents=True, exist_ok=True)
+    coverage_md.write_text("\n".join(md_cov) + "\n", encoding="utf-8")
 
     out_xlsx.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -847,6 +1009,8 @@ def main() -> None:
             "title_samples": title_samples,
             "invoice_type_code_cases": len(invoice_type_381_cases),
             "status_counts": dict(stats),
+            "triage_counts": dict(triage_counts),
+            "coverage_summary_md": str(coverage_md),
             "yellow_rows": yellowed,
             "multi_field_filed_name_rows": multi_field_rows,
             "filed_name_policy": (

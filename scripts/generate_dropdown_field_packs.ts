@@ -23,53 +23,10 @@ import { generateFullRowDropdownFieldExcel } from "../utils/invoiceExcel";
 import {
   PACK_ROOT,
   sectionFolderName,
-  MATRIX_FIELD_TO_ROW_KEY,
-  resolveRowKey,
-  applyOmanSellerBuyerIdentity,
-  applyDependentOverlay,
+  buildOmanDropdownBaseRow,
+  dropdownFieldSection,
+  resolveDropdownTemplateField,
 } from "../Helpers/fieldValidationExcelPackHelper";
-import { buildValidOmanFullTaxInvoiceRow as seedRow } from "../Helpers/conditionalValidationHelper";
-
-/** Matrix field → section (from FullMatrix). */
-const FIELD_TO_SECTION: Record<string, string> = {
-  "Invoice Transaction Type Code": "DOCUMENT DETAILS",
-  "Invoice Type Code": "DOCUMENT DETAILS",
-  "Incoterms": "IMPORT DETAILS",
-  "Invoice Currency Code": "CURRENCY DETAILS",
-  "Source currency code": "CURRENCY DETAILS",
-  "Credit note or Debit Note reason code": "CREDIT NOTE DETAILS",
-  "Seller electronic address Scheme": "SELLER DETAILS",
-  "Seller electronic address scheme": "SELLER DETAILS",
-  "Seller identifier - Scheme identifier": "SELLER DETAILS",
-  "Seller Identifier (textual code)": "SELLER DETAILS",
-  "Seller country subdivision code": "SELLER DETAILS",
-  "Seller country code": "SELLER DETAILS",
-  "Third Party Country Code": "THIRD PARTY DETAILS",
-  "Buyer electronic address Scheme": "BUYER DETAILS",
-  "Buyer electronic scheme identifier": "BUYER DETAILS",
-  "Scheme identifier": "BUYER DETAILS",
-  "Buyer Scheme identifier": "BUYER DETAILS",
-  "Buyer Identifier (textual code)": "BUYER DETAILS",
-  "Buyer country subdivision code": "BUYER DETAILS",
-  "Buyer country code": "BUYER DETAILS",
-  "Deliver to country code": "DELIVERY DETAILS",
-  "Item Type": "ITEM DETAILS",
-  "Industrial Classification Code": "ITEM DETAILS",
-  "Service Type Code": "ITEM DETAILS",
-  "Profit margin item type code": "ITEM DETAILS",
-  "Invoiced quantity unit of measure code": "ITEM DETAILS",
-  "Tax Category": "ITEM TAX DETAILS",
-  "VAT Category": "ITEM TAX DETAILS",
-  "Tax exemption reason code": "ITEM TAX DETAILS",
-  "Tax Exemption Reason Code": "INVOICE DETAILS",
-  "VAT exemption reason code": "ITEM TAX DETAILS",
-  "Item country of origin": "ITEM OTHER DETAILS",
-  "Vat category - charges": "INVOICE DETAILS",
-  "Vat Category Code - Charges": "INVOICE DETAILS",
-  "Vat category - allowances": "INVOICE DETAILS",
-  "Vat Category Code - Allowances": "INVOICE DETAILS",
-  "Payment means type code": "PAYMENT DETAILS",
-};
 
 function casingVariants(label: string): string[] {
   const s = String(label ?? "").trim();
@@ -101,17 +58,7 @@ function safeFilePart(name: string): string {
 }
 
 function templateFieldName(matrixOrConfigField: string): string {
-  const seed = seedRow();
-  return resolveRowKey(
-    MATRIX_FIELD_TO_ROW_KEY[matrixOrConfigField] ?? matrixOrConfigField,
-    seed
-  );
-}
-
-function buildFullOmanBaseRow(section: string, matrixField: string): Record<string, string> {
-  return applyOmanSellerBuyerIdentity(
-    applyDependentOverlay(section, matrixField, seedRow())
-  );
+  return resolveDropdownTemplateField(matrixOrConfigField);
 }
 
 async function writePackWorkbook(opts: {
@@ -127,7 +74,7 @@ async function writePackWorkbook(opts: {
   const dir = path.join(root, sectionFolderName(section), bucket);
   fs.mkdirSync(dir, { recursive: true });
 
-  const baseRow = buildFullOmanBaseRow(section, fieldForWrite);
+  const baseRow = buildOmanDropdownBaseRow(fieldForWrite);
   const files = await generateFullRowDropdownFieldExcel(
     fieldForWrite,
     values.map((label) => ({ label })),
@@ -188,17 +135,7 @@ async function main(): Promise<void> {
   const errors: Array<{ field: string; error: string }> = [];
 
   for (const config of configs) {
-    const section =
-      FIELD_TO_SECTION[config.field] ||
-      FIELD_TO_SECTION[
-        Object.keys(FIELD_TO_SECTION).find(
-          (k) => k.toLowerCase() === config.field.toLowerCase()
-        ) ?? ""
-      ];
-    if (!section) {
-      // Config fields not in field-validation matrix — skip quietly.
-      continue;
-    }
+    const section = dropdownFieldSection(config.field) || "DOCUMENT DETAILS";
     if (cli.section && cli.section.toLowerCase() !== section.toLowerCase()) {
       continue;
     }

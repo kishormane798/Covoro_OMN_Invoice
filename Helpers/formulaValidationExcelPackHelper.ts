@@ -9,11 +9,7 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { buildValidOmanFullTaxInvoiceRow } from "./conditionalValidationHelper";
-import {
-  applyOmanSellerBuyerIdentity,
-  sectionFolderName,
-} from "./fieldValidationExcelPackHelper";
+import { sectionFolderName } from "./fieldValidationExcelPackHelper";
 import {
   CALCULATED_FIELD_MISMATCH_TARGETS,
   CALCULATED_FIELD_TOLERANCE_TARGETS,
@@ -22,6 +18,7 @@ import {
   FORMULA_BAISA_TOLERANCE,
   FORMULA_MONETARY_TOLERANCE,
   buildFormulaExcelPayload,
+  buildFormulaSubmitRow,
   type FormulaDataRow,
 } from "./formulaValidationHelper";
 import {
@@ -284,71 +281,46 @@ export function caseOutputDir(
   return path.join(packRoot, fieldFolderName(tc.field), outcomeBucket(tc));
 }
 
+/** Map matrix input mutation → formula scenario row (same shape runtime specs use). */
+function matrixCaseToFormulaRow(
+  tc: FormulaMatrixCase,
+  mutation: FormulaMutationKind
+): FormulaDataRow {
+  const row = baseFormulaRow(tc);
+  switch (mutation) {
+    case "blank_gross":
+      row.itemGrossPrice = "";
+      break;
+    case "non_numeric_gross":
+      row.itemGrossPrice = "ABC";
+      break;
+    case "blank_discount":
+      row.itemPriceDiscount = "";
+      break;
+    case "tax_rate_percent":
+      row.taxRate = "5%";
+      break;
+    case "tax_rate_wrong":
+      row.taxRate = "4";
+      break;
+    case "blank_exchange_rate":
+      row.currencyRate = null;
+      break;
+    default:
+      break;
+  }
+  return row;
+}
+
 /** Single-line Oman seed with formula matrix tax/currency/line overlays (submit headers). */
 function buildSingleLineSubmitRow(
   tc: FormulaMatrixCase,
   mutation: FormulaMutationKind
 ): Record<string, string> {
-  const seed = applyOmanSellerBuyerIdentity(buildValidOmanFullTaxInvoiceRow());
-  const overlay = taxCategoryOverlay(tc.taxCategory);
-  const taxCat = String(overlay.taxCategory ?? "Standard rate");
-  const taxRate =
-    overlay.taxRate === null || overlay.taxRate === undefined
-      ? ""
-      : String(overlay.taxRate);
-
-  const row: Record<string, string> = {
-    ...seed,
-    "Item gross price": "1000",
-    "Item price discount": "100",
-    "Item price base quantity": "1",
-    "Invoiced quantity": "1",
-    "Tax Category": taxCat,
-    "Tax Rate": taxRate,
-    "Tax exemption reason code": String(overlay.taxExemptionReasonCode ?? ""),
-  };
-
-  if (overlay.invoiceTypeCode) {
-    row["Invoice Type Code"] = String(overlay.invoiceTypeCode);
-  }
-  if (overlay.paymentMeansTypeCode) {
-    row["Payment means type code"] = String(overlay.paymentMeansTypeCode);
-  }
-  if (normKey(tc.field).includes("profit margin")) {
-    row["Invoice Transaction Type Code"] = "Profit Margin Invoice";
-  }
-  if (isForeignCurrency(tc)) {
-    row["Invoice Currency Code"] = FOREIGN_CURRENCY_CODE;
-    row["Currency Exchange Rate"] = String(DEFAULT_FOREIGN_EXCHANGE_RATE);
-    row["Source currency code"] = OMAN_HOME_CURRENCY;
-  }
-
-  switch (mutation) {
-    case "blank_gross":
-      row["Item gross price"] = "";
-      break;
-    case "non_numeric_gross":
-      row["Item gross price"] = "ABC";
-      break;
-    case "blank_discount":
-      row["Item price discount"] = "";
-      break;
-    case "tax_rate_percent":
-      row["Tax Rate"] = "5%";
-      break;
-    case "tax_rate_wrong":
-      row["Tax Rate"] = "4";
-      break;
-    case "blank_exchange_rate":
-      row["Invoice Currency Code"] = FOREIGN_CURRENCY_CODE;
-      row["Currency Exchange Rate"] = "";
-      row["Source currency code"] = OMAN_HOME_CURRENCY;
-      break;
-    default:
-      break;
-  }
-
-  return row;
+  const mode = isForeignCurrency(tc) ? "foreign" : "omr";
+  return buildFormulaSubmitRow(matrixCaseToFormulaRow(tc, mutation), mode, {
+    applyWorkerIdentity: false,
+  });
 }
 
 function pickCorrectCalculated(
@@ -370,15 +342,10 @@ function applyToleranceDelta(base: number, delta: number): number {
 
 /** Multi-item worked example from formula_validation README (Standard rate). */
 function buildMultiItemSubmitRows(tc: FormulaMatrixCase): Record<string, string>[] {
-  const seed = applyOmanSellerBuyerIdentity(buildValidOmanFullTaxInvoiceRow());
-  const overlay = taxCategoryOverlay(
-    tc.taxCategory.includes("+") ? "Standard rate" : tc.taxCategory
-  );
-  const taxCat = String(overlay.taxCategory ?? "Standard rate");
-  const taxRate =
-    overlay.taxRate === null || overlay.taxRate === undefined
-      ? ""
-      : String(overlay.taxRate);
+  const mode = isForeignCurrency(tc) ? "foreign" : "omr";
+  const seed = buildFormulaSubmitRow(baseFormulaRow(tc), mode, {
+    applyWorkerIdentity: false,
+  });
 
   const line1: Record<string, string> = {
     ...seed,
@@ -386,9 +353,6 @@ function buildMultiItemSubmitRows(tc: FormulaMatrixCase): Record<string, string>
     "Item price discount": "100",
     "Item price base quantity": "1",
     "Invoiced quantity": "1",
-    "Tax Category": taxCat,
-    "Tax Rate": taxRate,
-    "Tax exemption reason code": String(overlay.taxExemptionReasonCode ?? ""),
   };
   const line2: Record<string, string> = {
     ...seed,
@@ -397,9 +361,6 @@ function buildMultiItemSubmitRows(tc: FormulaMatrixCase): Record<string, string>
     "Item price discount": "0",
     "Item price base quantity": "1",
     "Invoiced quantity": "2",
-    "Tax Category": taxCat,
-    "Tax Rate": taxRate,
-    "Tax exemption reason code": String(overlay.taxExemptionReasonCode ?? ""),
   };
 
   // Mixed Standard + Zero rated multi-item (matrix Tax Category).
@@ -407,28 +368,6 @@ function buildMultiItemSubmitRows(tc: FormulaMatrixCase): Record<string, string>
     line2["Tax Category"] = "Zero rated";
     line2["Tax Rate"] = "0";
     line2["Tax exemption reason code"] = "Qualifying Food Items";
-  }
-
-  if (isForeignCurrency(tc)) {
-    line1["Invoice Currency Code"] = FOREIGN_CURRENCY_CODE;
-    line1["Currency Exchange Rate"] = String(DEFAULT_FOREIGN_EXCHANGE_RATE);
-    line1["Source currency code"] = OMAN_HOME_CURRENCY;
-    line2["Invoice Currency Code"] = FOREIGN_CURRENCY_CODE;
-    line2["Currency Exchange Rate"] = String(DEFAULT_FOREIGN_EXCHANGE_RATE);
-    line2["Source currency code"] = OMAN_HOME_CURRENCY;
-  }
-
-  if (overlay.invoiceTypeCode) {
-    line1["Invoice Type Code"] = String(overlay.invoiceTypeCode);
-    line2["Invoice Type Code"] = String(overlay.invoiceTypeCode);
-  }
-  if (overlay.paymentMeansTypeCode) {
-    line1["Payment means type code"] = String(overlay.paymentMeansTypeCode);
-    line2["Payment means type code"] = String(overlay.paymentMeansTypeCode);
-  }
-  if (normKey(tc.field).includes("profit margin")) {
-    line1["Invoice Transaction Type Code"] = "Profit Margin Invoice";
-    line2["Invoice Transaction Type Code"] = "Profit Margin Invoice";
   }
 
   return [line1, line2];

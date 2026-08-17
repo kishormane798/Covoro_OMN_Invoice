@@ -715,6 +715,27 @@ export function buildExportDeliveryScenarioRow(
 }
 
 /**
+ * IBR-155-OM: activate Export + Export of Services so Service Type (CL-12) dropdown
+ * sweeps validate the target column instead of unrelated mandatory gaps.
+ */
+export function applyServiceTypeDropdownValidationContext(
+  row: Record<string, string>
+): Record<string, string> {
+  const updated = applyExportOfServicesTrigger(
+    { ...row },
+    {
+      invoiceTransactionTypeCode: FV.TXN_EXPORT_INVOICE,
+      taxExemptionReasonCode: FV.TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
+      serviceTypeCode:
+        row[FV.SERVICE_TYPE_CODE_FIELD]?.trim() || FV.SERVICE_TYPE_CODE_SAMPLE,
+    }
+  );
+  return Object.fromEntries(
+    Object.entries(updated).map(([k, v]) => [k, v == null ? "" : String(v)])
+  );
+}
+
+/**
  * Shared Export + Export of Services (IBT-121) trigger overlay for IBR-012/013/155.
  * Sets Zero-rated line, Services item, non-OM deliver + supporting docs so sibling
  * export rules do not mask the field under test.

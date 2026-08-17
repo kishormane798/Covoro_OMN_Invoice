@@ -1,15 +1,13 @@
 import { test } from "../Src/baseTest";
 import { uploadAndVerify, uploadAndVerifyError } from "../Helpers/uploadHelper";
-import {
-  generateDropdownMasterExcel,
-  generateInvoiceCurrencyExchangeBatchExcel,
-} from "../utils/invoiceExcel";
+import { generateInvoiceCurrencyExchangeBatchExcel } from "../utils/invoiceExcel";
 import * as FV from "../testData/FieldValidations";
 import { unitOfMeasurementValidTestData } from "../testData/FieldValidations/Master";
 import { runErrorValidation } from "../Helpers/excelEditMessageCheck";
 import { buildInvoiceNumber, randomAlphaNumeric } from "../Helpers/fieldValidationHelper";
 import { generateFormatContextFieldExcel } from "../Helpers/formatContextFieldValidationHelper";
 import {
+  generateOmanDropdownMasterExcel,
   generateOmanExemptReasonExcel,
   generateOmanFieldLengthExcel,
   generateOmanIssueDateExcel,
@@ -371,7 +369,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
             ? UNIT_OF_MEASUREMENT_TIMEOUT_MS
             : DROPDOWN_TIMEOUT_MS;
         test.setTimeout(timeoutMs);
-        const files = await generateDropdownMasterExcel(config.field, config.master);
+        const files = await generateOmanDropdownMasterExcel(config.field, config.master);
         for (const { filePath } of files) {
           await uploadAndVerify(page, filePath);
         }
@@ -383,7 +381,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     for (const config of dropdownInvalidOnCovoro) {
       for (const option of config.master) {
         test(`Verify Excel upload returns an error file for ${TEMPLATE} Dropdown – ${config.field} (invalid value "${option.label}").`, async ({ page }) => {
-          const files = await generateDropdownMasterExcel(config.field, option);
+          const files = await generateOmanDropdownMasterExcel(config.field, option);
           for (const { filePath, invoiceNumber } of files) {
             await runErrorValidation(
               page,

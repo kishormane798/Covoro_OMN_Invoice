@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import {
   applyPartyIdentifiersByTxnType,
+  applyServiceTypeDropdownValidationContext,
   buildValidOmanFullTaxInvoiceRow,
 } from "./conditionalValidationHelper";
 import * as FV from "../testData/FieldValidations";
@@ -110,6 +111,84 @@ const PACK_ROOT = path.join(
 );
 
 /** Matrix field label → seed / submit row key used by Oman builders. */
+/** Matrix / config field → FullMatrix section (drives `applyDependentOverlay`). */
+export const DROPDOWN_FIELD_TO_SECTION: Record<string, string> = {
+  "Invoice Transaction Type Code": "DOCUMENT DETAILS",
+  "Invoice Type Code": "DOCUMENT DETAILS",
+  Incoterms: "IMPORT DETAILS",
+  "Invoice Currency Code": "CURRENCY DETAILS",
+  "Source currency code": "CURRENCY DETAILS",
+  "Credit note or Debit Note reason code": "CREDIT NOTE DETAILS",
+  "Seller electronic address Scheme": "SELLER DETAILS",
+  "Seller electronic address scheme": "SELLER DETAILS",
+  "Seller identifier - Scheme identifier": "SELLER DETAILS",
+  "Seller Identifier (textual code)": "SELLER DETAILS",
+  "Seller country subdivision code": "SELLER DETAILS",
+  "Seller country code": "SELLER DETAILS",
+  "Third Party Country Code": "THIRD PARTY DETAILS",
+  "Buyer electronic address Scheme": "BUYER DETAILS",
+  "Buyer electronic scheme identifier": "BUYER DETAILS",
+  "Scheme identifier": "BUYER DETAILS",
+  "Buyer Scheme identifier": "BUYER DETAILS",
+  "Buyer Identifier (textual code)": "BUYER DETAILS",
+  "Buyer country subdivision code": "BUYER DETAILS",
+  "Buyer country code": "BUYER DETAILS",
+  "Deliver to country code": "DELIVERY DETAILS",
+  "Item Type": "ITEM DETAILS",
+  "Industrial Classification Code": "ITEM DETAILS",
+  "Service Type Code": "ITEM OTHER DETAILS",
+  "Profit margin item type code": "ITEM OTHER DETAILS",
+  "Invoiced quantity unit of measure code": "ITEM DETAILS",
+  "Tax Category": "ITEM TAX DETAILS",
+  "VAT Category": "ITEM TAX DETAILS",
+  "Tax exemption reason code": "ITEM TAX DETAILS",
+  "Tax Exemption Reason Code": "INVOICE DETAILS",
+  "VAT exemption reason code": "ITEM TAX DETAILS",
+  "Item country of origin": "ITEM OTHER DETAILS",
+  "Vat category - charges": "INVOICE DETAILS",
+  "Vat Category Code - Charges": "INVOICE DETAILS",
+  "Vat category - allowances": "INVOICE DETAILS",
+  "Vat Category Code - Allowances": "INVOICE DETAILS",
+  "Tax exemption reason - charges": "INVOICE DETAILS",
+  "Tax exemption reason - allowances": "INVOICE DETAILS",
+  "Payment means type code": "PAYMENT DETAILS",
+};
+
+export function dropdownFieldSection(field: string): string {
+  return DROPDOWN_FIELD_TO_SECTION[field] ?? "";
+}
+
+/** Config/matrix field → exact template header (same as TestData dropdown pack script). */
+export function resolveDropdownTemplateField(matrixOrConfigField: string): string {
+  const seed = buildValidOmanFullTaxInvoiceRow();
+  return resolveRowKey(
+    MATRIX_FIELD_TO_ROW_KEY[matrixOrConfigField] ?? matrixOrConfigField,
+    seed
+  );
+}
+
+/** Full Oman submit row + section overlay; only the target dropdown column changes in batch writers. */
+export function buildOmanDropdownSeedRow(matrixOrConfigField: string): Record<string, string> {
+  const seed = buildValidOmanFullTaxInvoiceRow();
+  const rowKey = resolveRowKey(
+    MATRIX_FIELD_TO_ROW_KEY[matrixOrConfigField] ?? matrixOrConfigField,
+    seed
+  );
+  const section =
+    dropdownFieldSection(matrixOrConfigField) || dropdownFieldSection(rowKey);
+  return applyDependentOverlay(section, rowKey, seed);
+}
+
+/**
+ * Same base row as TestData dropdown pack generation:
+ * `buildValidOmanFullTaxInvoiceRow` + dependent overlay + Oman seller/buyer identity.
+ */
+export function buildOmanDropdownBaseRow(
+  matrixOrConfigField: string
+): Record<string, string> {
+  return applyOmanSellerBuyerIdentity(buildOmanDropdownSeedRow(matrixOrConfigField));
+}
+
 export const MATRIX_FIELD_TO_ROW_KEY: Record<string, string> = {
   "Seller VAT Identifier": "Seller VAT Identifier (TRN / TIN)",
   "Seller electronic address scheme": "Seller electronic address Scheme",
@@ -249,6 +328,14 @@ export function applyOmanSellerBuyerIdentity(
     "Seller electronic address Scheme": OMAN_ELECTRONIC_SCHEME,
     "Buyer electronic address Scheme": OMAN_ELECTRONIC_SCHEME,
   };
+}
+
+/**
+ * Full Oman Full Tax Invoice row + seller/buyer identity — shared baseline for
+ * formula packs, dropdown packs, and runtime Playwright Excel generation.
+ */
+export function buildOmanFullTaxSubmitSeedRow(): Record<string, string> {
+  return applyOmanSellerBuyerIdentity(buildValidOmanFullTaxInvoiceRow());
 }
 
 export function resolveRowKey(matrixField: string, seed: Record<string, string>): string {
@@ -676,6 +763,16 @@ export function applyDependentOverlay(
     (sec === "BUYER_DETAILS" && fieldNorm === "scheme identifier");
   if (isSellerPartyIdentifierField) fillSellerPartyIdentifierCompanions();
   if (isBuyerPartyIdentifierField) fillBuyerPartyIdentifierCompanions();
+
+  if (fieldNorm.includes("service type")) {
+    Object.assign(row, applyServiceTypeDropdownValidationContext(row));
+  }
+  if (fieldNorm.includes("profit margin")) {
+    row["Invoice Transaction Type Code"] = FV.TXN_PROFIT_MARGIN_INVOICE;
+    if (!String(row["Profit margin item type code"] ?? "").trim()) {
+      row["Profit margin item type code"] = "Goods";
+    }
+  }
 
   return row;
 }
