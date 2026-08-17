@@ -1,36 +1,17 @@
 # Schedule (Mon & Fri only, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
-#   One shard per slot, 45 min apart, 45 min job timeout each.
-#   Morning: 06:30 field 1/5 · 07:15 field 2/5 · 08:00 field 3/5 · 08:45 field 4/5 · 09:30 field 5/5
-#            10:15 conditional 1/3 · 11:00 conditional 2/3 · 11:45 conditional 3/3 · 12:30 formula
-#   Evening: 17:00 field 1/5 · 17:45 field 2/5 · 18:30 field 3/5 · 19:15 field 4/5 · 20:00 field 5/5
-#            20:45 conditional 1/3 · 21:30 conditional 2/3 · 22:15 conditional 3/3 · 23:00 formula
-#
-# Manual run: pick suite + shard (all runs every shard in parallel; 1–5 runs one chunk ~100 tests).
+#   Two clock starts only. Each shard is 45 min job timeout.
+#   Morning 06:30 IST and evening 17:00 IST start field shard 1.
+#   After that run finishes (pass, fail, cancel, or timeout), playwright-chain.yml
+#   starts the next shard: field 2→5 → conditional 1→3 → formula, then stops.
+#   Manual run: pick suite + shard (all runs every shard in parallel; 1–5 runs one chunk ~100 tests).
+#   Leave "chain" off for manual runs so a one-off does not start the full wave.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
 on:
   schedule:
-    # Morning wave (06:30 IST)
-    - cron: "0 1 * * 1,5" # 06:30 IST — field validation shard 1/5
-    - cron: "45 1 * * 1,5" # 07:15 IST — field validation shard 2/5
-    - cron: "30 2 * * 1,5" # 08:00 IST — field validation shard 3/5
-    - cron: "15 3 * * 1,5" # 08:45 IST — field validation shard 4/5
-    - cron: "0 4 * * 1,5" # 09:30 IST — field validation shard 5/5
-    - cron: "45 4 * * 1,5" # 10:15 IST — conditional validation shard 1/3
-    - cron: "30 5 * * 1,5" # 11:00 IST — conditional validation shard 2/3
-    - cron: "15 6 * * 1,5" # 11:45 IST — conditional validation shard 3/3
-    - cron: "0 7 * * 1,5" # 12:30 IST — formula validation (full suite)
-    # Evening wave (17:00 IST) — same 45 min gaps
-    - cron: "30 11 * * 1,5" # 17:00 IST — field validation shard 1/5
-    - cron: "15 12 * * 1,5" # 17:45 IST — field validation shard 2/5
-    - cron: "0 13 * * 1,5" # 18:30 IST — field validation shard 3/5
-    - cron: "45 13 * * 1,5" # 19:15 IST — field validation shard 4/5
-    - cron: "30 14 * * 1,5" # 20:00 IST — field validation shard 5/5
-    - cron: "15 15 * * 1,5" # 20:45 IST — conditional validation shard 1/3
-    - cron: "0 16 * * 1,5" # 21:30 IST — conditional validation shard 2/3
-    - cron: "45 16 * * 1,5" # 22:15 IST — conditional validation shard 3/3
-    - cron: "30 17 * * 1,5" # 23:00 IST — formula validation (full suite)
+    - cron: "0 1 * * 1,5" # 06:30 IST — start morning wave (field shard 1)
+    - cron: "30 11 * * 1,5" # 17:00 IST — start evening wave (field shard 1)
 
   workflow_dispatch:
     inputs:
@@ -55,15 +36,18 @@ on:
           - "3"
           - "4"
           - "5"
+      chain:
+        description: "Leave off for manual runs. On = continue morning/evening wave after this shard."
+        required: false
+        type: boolean
+        default: false
 
 run-name: >-
-  ${{ github.event_name == 'workflow_dispatch'
-      && format(
-        'Oman E-Invoice — Playwright ({0}{1})',
-        github.event.inputs.suite,
-        github.event.inputs.shard != 'all' && format(' shard {0}', github.event.inputs.shard) || ' all shards'
-      )
-      || 'Oman E-Invoice — Playwright (scheduled slot)' }}
+  ${{ github.event_name != 'workflow_dispatch' && 'Field validation 1'
+      || github.event.inputs.suite == 'covoro_formula' && 'Formula validation'
+      || github.event.inputs.shard == 'all' && (github.event.inputs.suite == 'covoro_conditional' && 'Conditional validation all' || 'Field validation all')
+      || github.event.inputs.suite == 'covoro_conditional' && format('Conditional validation {0}', github.event.inputs.shard)
+      || format('Field validation {0}', github.event.inputs.shard) }}
 
 concurrency:
   group: omn-e-invoice-playwright
@@ -149,22 +133,9 @@ jobs:
             SHARD_FILTER="${{ github.event.inputs.shard }}"
 
           elif [ "${{ github.event_name }}" = "schedule" ]; then
-            case "${{ github.event.schedule }}" in
-              "0 1 * * 1,5"|"30 11 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="1" ;;
-              "45 1 * * 1,5"|"15 12 * * 1,5") MODE="covoro_field";       SHARD_FILTER="2" ;;
-              "30 2 * * 1,5"|"0 13 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="3" ;;
-              "15 3 * * 1,5"|"45 13 * * 1,5") MODE="covoro_field";       SHARD_FILTER="4" ;;
-              "0 4 * * 1,5"|"30 14 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="5" ;;
-              "45 4 * * 1,5"|"15 15 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="1" ;;
-              "30 5 * * 1,5"|"0 16 * * 1,5")  MODE="covoro_conditional"; SHARD_FILTER="2" ;;
-              "15 6 * * 1,5"|"45 16 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="3" ;;
-              "0 7 * * 1,5"|"30 17 * * 1,5")  MODE="covoro_formula";     SHARD_FILTER="1" ;;
-              *)
-                echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — defaulting to field shard 1"
-                MODE="covoro_field"
-                SHARD_FILTER="1"
-                ;;
-            esac
+            # Both clock starts (06:30 / 17:00 IST) begin the wave at field shard 1.
+            MODE="covoro_field"
+            SHARD_FILTER="1"
           fi
 
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
@@ -270,12 +241,31 @@ jobs:
 
           npx playwright test "$SPEC" --project=chromium "${SHARD_ARGS[@]}"
 
+      - name: Report name (matches run name)
+        id: report
+        if: always()
+        shell: bash
+        run: |
+          MODE="${{ needs.resolve.outputs.mode }}"
+          SHARD="${{ matrix.shard }}"
+          case "$MODE" in
+            covoro_field) LABEL="Field validation ${SHARD}" ;;
+            covoro_conditional) LABEL="Conditional validation ${SHARD}" ;;
+            covoro_formula) LABEL="Formula validation" ;;
+            *) LABEL="Playwright ${MODE} ${SHARD}" ;;
+          esac
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "Report name: $LABEL"
+
       - name: Generate Allure report (single-file HTML)
         if: always()
         shell: bash
         run: |
+          LABEL="${{ steps.report.outputs.label }}"
           if [ -d allure-results ] && [ -n "$(ls -A allure-results 2>/dev/null)" ]; then
             npx allure generate allure-results --clean --single-file -o allure-report
+            cp -f allure-report/index.html "${LABEL}.html"
+            cp -f allure-report/index.html "allure-report/${LABEL}.html"
           else
             echo "No allure-results; skipping Allure HTML"
           fi
@@ -284,8 +274,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: allure-report-${{ needs.resolve.outputs.mode }}-shard-${{ matrix.shard }}-of-${{ needs.resolve.outputs.shard_total }}
-          path: allure-report/
+          name: ${{ steps.report.outputs.label }}
+          path: |
+            allure-report/
+            ${{ steps.report.outputs.label }}.html
           retention-days: 2
           if-no-files-found: ignore
 
@@ -304,27 +296,38 @@ jobs:
         shell: bash
         run: |
           MAX="${EMAIL_MAX_ATTACHMENT_BYTES:-23068672}"
+          LABEL="${{ steps.report.outputs.label }}"
+          HTML="${LABEL}.html"
+          ZIP="${LABEL}.zip"
+          GZ="${LABEL}.html.gz"
           LIST=""
-          rm -f allure-report-email.zip allure-index.html.gz
+          rm -f allure-report-email.zip allure-index.html.gz "$ZIP" "$GZ"
 
-          if [ -f allure-report/index.html ]; then
-            SZ=$(wc -c < allure-report/index.html | tr -d ' ')
+          if [ -f "$HTML" ] || [ -f allure-report/index.html ]; then
+            SRC="$HTML"
+            if [ ! -f "$SRC" ]; then
+              SRC="allure-report/index.html"
+            fi
+            SZ=$(wc -c < "$SRC" | tr -d ' ')
             if [ "${SZ:-0}" -le "$MAX" ] && [ "${SZ:-0}" -gt 32 ]; then
-              LIST="allure-report/index.html"
+              if [ "$SRC" != "$HTML" ]; then
+                cp -f "$SRC" "$HTML"
+              fi
+              LIST="$HTML"
             else
-              (cd allure-report && zip -9 -q "${GITHUB_WORKSPACE}/allure-report-email.zip" index.html)
-              if [ -f allure-report-email.zip ]; then
-                ZSZ=$(wc -c < allure-report-email.zip | tr -d ' ')
+              zip -9 -q "$ZIP" "$SRC"
+              if [ -f "$ZIP" ]; then
+                ZSZ=$(wc -c < "$ZIP" | tr -d ' ')
                 if [ "${ZSZ:-0}" -le "$MAX" ] && [ "${ZSZ:-0}" -gt 32 ]; then
-                  LIST="allure-report-email.zip"
+                  LIST="$ZIP"
                 else
-                  rm -f allure-report-email.zip
-                  gzip -9 -c allure-report/index.html > allure-index.html.gz
-                  GSZ=$(wc -c < allure-index.html.gz | tr -d ' ')
+                  rm -f "$ZIP"
+                  gzip -9 -c "$SRC" > "$GZ"
+                  GSZ=$(wc -c < "$GZ" | tr -d ' ')
                   if [ "${GSZ:-0}" -le "$MAX" ] && [ "${GSZ:-0}" -gt 32 ]; then
-                    LIST="allure-index.html.gz"
+                    LIST="$GZ"
                   else
-                    rm -f allure-index.html.gz
+                    rm -f "$GZ"
                   fi
                 fi
               fi
@@ -382,25 +385,6 @@ jobs:
             echo "MAILBODY_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Email subject label by suite mode
-        id: mail_subject
-        if: always()
-        shell: bash
-        run: |
-          MODE="${{ needs.resolve.outputs.mode }}"
-          SHARD="${{ matrix.shard }}"
-          TOTAL="${{ needs.resolve.outputs.shard_total }}"
-          case "$MODE" in
-            covoro_field) LABEL="Covoro — Field validation" ;;
-            covoro_formula) LABEL="Covoro — Formula validation" ;;
-            covoro_conditional) LABEL="Covoro — Conditional validation" ;;
-            *) LABEL="Covoro — Unknown suite" ;;
-          esac
-          if [ "$TOTAL" -gt 1 ]; then
-            LABEL="${LABEL} (shard ${SHARD}/${TOTAL})"
-          fi
-          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
-
       - name: Send email — execution digest
         if: ${{ !cancelled() && steps.mail.outputs.ok == 'true' }}
         continue-on-error: true
@@ -412,7 +396,7 @@ jobs:
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASS }}
           subject: >-
-            Oman E-Invoice (${{ steps.mail_subject.outputs.label }}) — PASSED ${{ steps.summary.outputs.passed }}, FAILED ${{ steps.summary.outputs.failed }}, SKIPPED ${{ steps.summary.outputs.skipped }}, FLAKY ${{ steps.summary.outputs.flaky }}
+            Oman E-Invoice (${{ steps.report.outputs.label }}) — PASSED ${{ steps.summary.outputs.passed }}, FAILED ${{ steps.summary.outputs.failed }}, SKIPPED ${{ steps.summary.outputs.skipped }}, FLAKY ${{ steps.summary.outputs.flaky }}
           to: ${{ steps.mail.outputs.to }}
           from: ${{ steps.mail.outputs.from }}
           attachments: ${{ steps.email_attach.outputs.files }}
@@ -420,7 +404,7 @@ jobs:
             Hi Team — Oman E-Invoice Playwright summary (${{ steps.mail_body.outputs.date }} UTC).
             Passed ${{ steps.summary.outputs.passed }}, Failed ${{ steps.summary.outputs.failed }}, Skipped ${{ steps.summary.outputs.skipped }}, Flaky ${{ steps.summary.outputs.flaky }} (total ${{ steps.summary.outputs.total }}).
             Overall: ${{ steps.summary.outputs.overall }}.
-            Suite: ${{ needs.resolve.outputs.mode }}${{ needs.resolve.outputs.shard_total != '1' && format(' · shard {0}/{1}', matrix.shard, needs.resolve.outputs.shard_total) || '' }}
+            Suite: ${{ steps.report.outputs.label }}
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           html_body: |
             <p>Hi Team,</p>
@@ -429,7 +413,7 @@ jobs:
             <table style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:14px;max-width:560px;">
               <tr><td style="padding:6px 16px 6px 0;color:#555;vertical-align:top;">Date (UTC)</td><td style="padding:6px 0;"><strong>${{ steps.mail_body.outputs.date }}</strong></td></tr>
               <tr><td style="padding:6px 16px 6px 0;color:#555;">Framework</td><td style="padding:6px 0;"><strong>Oman E-Invoice</strong></td></tr>
-              <tr><td style="padding:6px 16px 6px 0;color:#555;">Suite / spec</td><td style="padding:6px 0;"><strong>${{ needs.resolve.outputs.mode }}${{ needs.resolve.outputs.shard_total != '1' && format(' · shard {0}/{1}', matrix.shard, needs.resolve.outputs.shard_total) || '' }}</strong></td></tr>
+              <tr><td style="padding:6px 16px 6px 0;color:#555;">Suite / spec</td><td style="padding:6px 0;"><strong>${{ steps.report.outputs.label }}</strong></td></tr>
               <tr><td style="padding:6px 16px 6px 0;color:#555;">Workflow run</td><td style="padding:6px 0;"><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">Open in GitHub Actions</a></td></tr>
             </table>
             <h3 style="margin:20px 0 8px 0;font-family:Segoe UI,Arial,sans-serif;">Test results</h3>

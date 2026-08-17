@@ -27,6 +27,8 @@ from app_config import resolve_base_url
 INVOICE_TEMPLATE_DATA_ROW = 6
 # Submit `clear_row`: wipe this many columns on the data row (A through column letter for 120).
 INVOICE_SUBMIT_CLEAR_LAST_COL = 120
+# Covoro data validations span A:XFD so openpyxl reports max_column=16384. Never walk that width.
+HEADER_SCAN_HARD_CAP = 256
 
 # Exact template headers (matches testData FieldValidations / Playwright FV constants).
 FIELD_TYPE_OF_GOODS_OR_SERVICES_SUBJECT_TO_RCM = "Type of goods or services subject to RCM"
@@ -121,6 +123,53 @@ def normalize(text: object) -> str:
     return str(text or "").strip().lower()
 
 
+def _header_lookup(
+    ws, header_row: int
+) -> tuple[dict[str, list[int]], dict[str, list[int]], int]:
+    """Exact / case-insensitive header columns and last used col, capped off XFD width."""
+    cached = getattr(ws, "_omn_header_lookup", None)
+    if cached is not None and cached[0] == header_row:
+        return cached[1]
+
+    exact: dict[str, list[int]] = {}
+    lower: dict[str, list[int]] = {}
+    last_nonempty = 0
+    scan_to = min(max(int(ws.max_column or 1), INVOICE_SUBMIT_CLEAR_LAST_COL), HEADER_SCAN_HARD_CAP)
+    for col in range(1, scan_to + 1):
+        val = ws.cell(row=header_row, column=col).value
+        raw = str(val).strip() if val is not None else ""
+        if not raw:
+            continue
+        last_nonempty = col
+        exact.setdefault(raw, []).append(col)
+        lower.setdefault(raw.lower(), []).append(col)
+    last_col = max(last_nonempty, INVOICE_SUBMIT_CLEAR_LAST_COL)
+    payload = (exact, lower, last_col)
+    try:
+        setattr(ws, "_omn_header_lookup", (header_row, payload))
+    except Exception:
+        pass
+    return payload
+
+
+def _header_exists(ws, header_row: int, key: str) -> bool:
+    exact, lower, _last = _header_lookup(ws, header_row)
+    k = str(key).strip()
+    if k in exact or k.lower() in lower:
+        return True
+    want = normalize(k)
+    return any(normalize(raw) == want for raw in exact)
+
+
+def _clone_data_row_used_columns(ws, header_row: int, src_row: int, dst_row: int) -> None:
+    _exact, _lower, last_col = _header_lookup(ws, header_row)
+    for col in range(1, last_col + 1):
+        src = ws.cell(row=src_row, column=col)
+        dst = ws.cell(row=dst_row, column=col)
+        dst.value = src.value
+        dst.number_format = src.number_format
+
+
 def is_profit_margin_transaction_type(value: object) -> bool:
     """True when Invoice Transaction Type Code requires Total Amount Due (Profit Margin)."""
     normalized = " ".join(str(value or "").split()).strip().lower()
@@ -156,17 +205,9 @@ def resolve_header_column(ws, header_row: int, field_name: str) -> int:
     wanted = str(field_name).strip()
     if not wanted:
         fail("Empty field name for column resolution")
-    wanted_lower = wanted.lower()
-    exact_cols: list[int] = []
-    ci_cols: list[int] = []
-    for cell in ws[header_row]:
-        raw = str(cell.value if cell.value is not None else "").strip()
-        if not raw:
-            continue
-        if raw == wanted:
-            exact_cols.append(cell.column)
-        elif raw.lower() == wanted_lower:
-            ci_cols.append(cell.column)
+    exact, lower, _last = _header_lookup(ws, header_row)
+    exact_cols = exact.get(wanted, [])
+    ci_cols = lower.get(wanted.lower(), [])
     if exact_cols:
         return _pick_duplicate_header_column(wanted, exact_cols)
     if ci_cols:
@@ -179,9 +220,10 @@ def resolve_header_column(ws, header_row: int, field_name: str) -> int:
 
 def read_header_row_cells(ws, header_row: int) -> list[str]:
     """Row 4-style headers; strip trailing empty cells (same spirit as ExcelJS reader)."""
+    _exact, _lower, last_col = _header_lookup(ws, header_row)
     headers: list[str] = []
-    for cell in ws[header_row]:
-        val = cell.value
+    for col in range(1, last_col + 1):
+        val = ws.cell(row=header_row, column=col).value
         text = "" if val is None else str(val).strip()
         headers.append(text)
     while headers and headers[-1] == "":
@@ -220,10 +262,11 @@ def random_string(length: int) -> str:
 
 def get_header_map(sheet, header_row: int) -> dict[str, int]:
     mapping: dict[str, int] = {}
-    for cell in sheet[header_row]:
-        key = normalize(cell.value)
+    _exact, _lower, last_col = _header_lookup(sheet, header_row)
+    for col in range(1, last_col + 1):
+        key = normalize(sheet.cell(row=header_row, column=col).value)
         if key:
-            mapping[key] = cell.column
+            mapping[key] = col
     return mapping
 
 
@@ -483,10 +526,12 @@ def cmd_apply_calculations(args: list[str]) -> None:
     Read numeric inputs from data row, mirror utils/invoiceExcel.ts (calculateInvoiceValues), write calculated columns.
     """
     if len(args) < 4:
-        fail("Usage: apply_calculations <filePath> <sheetName> <headerRow> <dataRow>")
+        fail("Usage: apply_calculations <filePath> <sheetName> <headerRow> <dataRow> [rowCount]")
     file_path, sheet_name, header_row_s, data_row_s = args[:4]
     header_row = int(header_row_s)
     data_row = int(data_row_s)
+    row_count = int(args[4]) if len(args) > 4 else 1
+    row_count = max(1, min(row_count, 500))
 
     if not os.path.exists(file_path):
         fail(f"File not found: {file_path}")
@@ -495,10 +540,11 @@ def cmd_apply_calculations(args: list[str]) -> None:
     if sheet_name not in wb.sheetnames:
         fail(f"Sheet '{sheet_name}' not found")
     ws = wb[sheet_name]
-    apply_invoice_calculations_to_data_row(ws, header_row, data_row)
+    for i in range(row_count):
+        apply_invoice_calculations_to_data_row(ws, header_row, data_row + i)
 
     wb.save(file_path)
-    print(json.dumps({"ok": True, "filePath": os.path.abspath(file_path), "dataRow": data_row}))
+    print(json.dumps({"ok": True, "filePath": os.path.abspath(file_path), "dataRow": data_row, "rowCount": row_count}))
 
 
 def save_result(wb, output_dir: str, file_name: str, invoice_number: str) -> None:
@@ -619,6 +665,51 @@ def cmd_patch_invoice_text_cell(args: list[str]) -> None:
     set_text_value(ws, data_row, target_col, value)
     wb.save(file_path)
     print(json.dumps({"ok": True, "filePath": os.path.abspath(file_path)}))
+
+
+def cmd_patch_invoice_text_cells_from_file(args: list[str]) -> None:
+    """
+    Patch many text cells in one load/save.
+    JSON file: array of { "header": str, "value": str, "dataRow": int }.
+    """
+    if len(args) < 4:
+        fail(
+            "Usage: patch_invoice_text_cells_from_file <filePath> <sheetName> <headerRow> <patchesJsonPath>"
+        )
+    file_path, sheet_name, header_row_s, patches_json_path = args[:4]
+    if not os.path.isfile(file_path):
+        fail(f"File not found: {file_path}")
+    if not os.path.isfile(patches_json_path):
+        fail(f"Patches JSON file not found: {patches_json_path}")
+    header_row = int(header_row_s)
+    try:
+        with open(patches_json_path, encoding="utf-8") as f:
+            patches = json.load(f)
+    except json.JSONDecodeError as e:
+        fail(f"Invalid patches JSON file: {e}")
+    if not isinstance(patches, list) or len(patches) == 0:
+        fail("Invalid patches JSON: expected non-empty array")
+
+    wb = load_workbook(file_path)
+    if sheet_name not in wb.sheetnames:
+        fail(f"Sheet '{sheet_name}' not found")
+    ws = wb[sheet_name]
+    stripped_cols: set[int] = set()
+    for i, patch in enumerate(patches):
+        if not isinstance(patch, dict):
+            fail(f"Invalid patch at index {i}: expected object")
+        field_name = str(patch.get("header") or "").strip()
+        if not field_name:
+            fail(f"Invalid patch at index {i}: missing header")
+        data_row = int(patch.get("dataRow") or INVOICE_TEMPLATE_DATA_ROW)
+        value = "" if patch.get("value") is None else str(patch.get("value"))
+        target_col = resolve_header_column(ws, header_row, field_name)
+        if target_col not in stripped_cols:
+            strip_column_validation(ws, target_col)
+            stripped_cols.add(target_col)
+        set_text_value(ws, data_row, target_col, value)
+    wb.save(file_path)
+    print(json.dumps({"ok": True, "filePath": os.path.abspath(file_path), "patched": len(patches)}))
 
 
 def cmd_read_invoice_text_cell(args: list[str]) -> None:
@@ -798,17 +889,9 @@ def _set_by_header_name(ws, header_row: int, data_row: int, header_name: str, va
     # (Scheme Identifier / Custom 1/2) use request-key casing: sentence/lower → first, Title Case → last.
     target_exact = str(header_name).strip()
     target_lower = target_exact.lower()
-    exact_cols: list[int] = []
-    ci_cols: list[int] = []
-
-    for cell in ws[header_row]:
-        raw = str(cell.value or "").strip()
-        if not raw:
-            continue
-        if raw == target_exact:
-            exact_cols.append(cell.column)
-        elif raw.lower() == target_lower:
-            ci_cols.append(cell.column)
+    exact, lower, _last = _header_lookup(ws, header_row)
+    exact_cols = list(exact.get(target_exact, []))
+    ci_cols = list(lower.get(target_lower, []))
 
     cols = exact_cols or ci_cols
     if not cols:
@@ -883,12 +966,8 @@ def cmd_write_row_json(args: list[str]) -> None:
         if value is None:
             continue
         _set_by_header_name(ws, header_row, data_row, str(key), value)
-        if strict_headers:
-            # Strict mode verifies at least one matching column exists for the header.
-            has_exact = any(str(c.value or "").strip() == str(key).strip() for c in ws[header_row])
-            has_normalized = any(normalize(c.value) == normalize(key) for c in ws[header_row])
-            if not has_exact and not has_normalized:
-                fail(f"Column not found: {key}")
+        if strict_headers and not _header_exists(ws, header_row, str(key)):
+            fail(f"Column not found: {key}")
 
     tax_after_write = cell_value(ws, data_row, header_map, FIELD_TAX_CATEGORY)
     if normalize_category(tax_after_write) == normalize_category(VAT_REVERSE_CHARGE_TAX_CATEGORY):
@@ -961,11 +1040,7 @@ def cmd_write_rows_json(args: list[str]) -> None:
         # For multi-line invoices, the template's row-6 formatting/validations should be cloned down,
         # otherwise later line rows may miss data validation / formats and the app parser can behave differently.
         if i > 0:
-            for col in range(1, ws.max_column + 1):
-                src = ws.cell(row=data_row, column=col)
-                dst = ws.cell(row=row_number, column=col)
-                dst.value = src.value
-                dst.number_format = src.number_format
+            _clone_data_row_used_columns(ws, header_row, data_row, row_number)
 
         if clear_row:
             if data_row != INVOICE_TEMPLATE_DATA_ROW:
@@ -986,11 +1061,8 @@ def cmd_write_rows_json(args: list[str]) -> None:
             if value is None:
                 continue
             _set_by_header_name(ws, header_row, row_number, str(key), value)
-            if strict_headers:
-                has_exact = any(str(c.value or "").strip() == str(key).strip() for c in ws[header_row])
-                has_normalized = any(normalize(c.value) == normalize(key) for c in ws[header_row])
-                if not has_exact and not has_normalized:
-                    fail(f"Column not found: {key}")
+            if strict_headers and not _header_exists(ws, header_row, str(key)):
+                fail(f"Column not found: {key}")
 
         tax_after_write = cell_value(ws, row_number, header_map, FIELD_TAX_CATEGORY)
         if normalize_category(tax_after_write) == normalize_category(VAT_REVERSE_CHARGE_TAX_CATEGORY):
@@ -1367,11 +1439,7 @@ def _run_write_dropdown_batch(
     for i, value in enumerate(values):
         row_number = data_row + i
         if i > 0:
-            for col in range(1, ws.max_column + 1):
-                src = ws.cell(row=data_row, column=col)
-                dst = ws.cell(row=row_number, column=col)
-                dst.value = src.value
-                dst.number_format = src.number_format
+            _clone_data_row_used_columns(ws, header_row, data_row, row_number)
 
         ws.cell(row=row_number, column=invoice_col).value = f"INV-{seed}-{i}"
         ws.cell(row=row_number, column=date_col).value = today_offset_date()
@@ -1805,11 +1873,7 @@ def cmd_write_currency_exchange_batch_from_file(args: list[str]) -> None:
             fail(f"Currency batch: empty currency at index {i}")
         row_number = data_row + i
         if i > 0:
-            for col in range(1, ws.max_column + 1):
-                src = ws.cell(row=data_row, column=col)
-                dst = ws.cell(row=row_number, column=col)
-                dst.value = src.value
-                dst.number_format = src.number_format
+            _clone_data_row_used_columns(ws, header_row, data_row, row_number)
 
         ws.cell(row=row_number, column=invoice_col).value = f"INV-{seed}-{i}"
         ws.cell(row=row_number, column=date_col).value = today_offset_date()
@@ -1905,11 +1969,7 @@ def _run_write_regression_batch(
             row_number = data_row + current_row_offset
 
             if i > 0:
-                for col in range(1, ws.max_column + 1):
-                    src = ws.cell(row=data_row, column=col)
-                    dst = ws.cell(row=row_number, column=col)
-                    dst.value = src.value
-                    dst.number_format = src.number_format
+                _clone_data_row_used_columns(ws, header_row, data_row, row_number)
 
             if clear_row and i == 0:
                 if data_row != INVOICE_TEMPLATE_DATA_ROW:
@@ -2101,6 +2161,9 @@ def main() -> None:
         return
     if command == "patch_invoice_text_cell":
         cmd_patch_invoice_text_cell(args)
+        return
+    if command == "patch_invoice_text_cells_from_file":
+        cmd_patch_invoice_text_cells_from_file(args)
         return
     if command == "read_invoice_text_cell":
         cmd_read_invoice_text_cell(args)

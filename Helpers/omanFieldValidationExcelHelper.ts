@@ -22,12 +22,19 @@ import {
   schemeIdentifierValidTestData,
 } from "../testData/FieldValidations/Master";
 import {
+  generateDistinctSubmitInvoices,
   generateFullRowDropdownFieldExcel,
   generateInvoiceFromSubmitData,
+  INVOICE_TEMPLATE_DATA_ROW,
   patchInvoiceTextCellInFile,
+  patchInvoiceTextCellsInFile,
   readInvoiceTextCellFromFile,
 } from "../utils/invoiceExcel";
-import { formatOmanNumericBoundaryValue } from "../testData/FieldValidations/Min_max_field_validation";
+import {
+  formatOmanNumericBoundaryValue,
+  type FieldLengthRule,
+  type FieldNumericRule,
+} from "../testData/FieldValidations/Min_max_field_validation";
 
 function lengthValue(length: number): string {
   if (length === 0) return "";
@@ -317,6 +324,134 @@ export async function generateOmanNumericFieldExcel(
     field,
     formatNumericDigitCount(digitCount, decimals ?? 2)
   );
+}
+
+export type OmanAllFieldsBoundaryVariant = "min" | "max";
+
+/**
+ * Dummy min/max strings are not valid on these columns (login TIN, IBR format,
+ * UUID, tax rate). Dropdowns stay on the Oman seed — they have no char min/max.
+ */
+const ALL_FIELDS_BOUNDARY_SKIP = new Set([
+  "Seller electronic address",
+  "Buyer electronic address",
+  "Seller VAT Identifier (TRN / TIN)",
+  "Buyer VAT identifier",
+  "Third Party VATIN",
+  "Unique Identifier Number",
+  "Prepayment invoice UUID",
+  "Supporting document UUID",
+  "Tax Rate",
+  "Invoice total tax amount in tax accounting currency",
+  "Buyer identifier",
+  "Seller identifier",
+]);
+
+function normBoundaryField(s: string): string {
+  return s.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function dropdownBoundaryFieldNames(): Set<string> {
+  const configs = FV.mergeDropdownFieldConfigs(
+    FV.dropdownFieldMasterConfig,
+    FV.conditionalDropdownFieldMasterConfig
+  );
+  return new Set(configs.map((c) => normBoundaryField(c.field)));
+}
+
+type AllFieldsBoundaryCase = { field: string; value: string };
+
+function allFieldsBoundaryCases(
+  variant: OmanAllFieldsBoundaryVariant
+): AllFieldsBoundaryCase[] {
+  const dropdowns = dropdownBoundaryFieldNames();
+  const skip = new Set(
+    [...ALL_FIELDS_BOUNDARY_SKIP].map((field) => normBoundaryField(field))
+  );
+  const seen = new Set<string>();
+  const cases: AllFieldsBoundaryCase[] = [];
+
+  const pushLength = (rule: FieldLengthRule) => {
+    const key = normBoundaryField(rule.field);
+    if (seen.has(key) || skip.has(key) || dropdowns.has(key)) return;
+    seen.add(key);
+    const length = variant === "min" ? rule.min : rule.max;
+    cases.push({ field: rule.field, value: lengthValue(length) });
+  };
+
+  const pushNumeric = (rule: FieldNumericRule) => {
+    const key = normBoundaryField(rule.field);
+    if (seen.has(key) || skip.has(key) || dropdowns.has(key)) return;
+    seen.add(key);
+    const digits = variant === "min" ? rule.min : rule.max;
+    cases.push({
+      field: rule.field,
+      value: formatOmanNumericBoundaryValue(digits, rule.decimals ?? 2),
+    });
+  };
+
+  for (const rule of FV.fieldInvoice_number) pushLength(rule);
+  for (const rule of FV.fieldValidationMandatory) pushLength(rule);
+  for (const rule of FV.fieldValidationOptional) pushLength(rule);
+  for (const rule of FV.fieldValidationConditional) pushLength(rule);
+  for (const rule of FV.fieldValidationNumeric) pushNumeric(rule);
+  return cases;
+}
+
+function identifiedBoundarySeedRow(field: string): Record<string, string> {
+  const seed = buildValidOmanFullTaxInvoiceRow();
+  const overlaid = applyDependentOverlay("", field, seed);
+  const identified = applyParallelWorkerIdentityToSubmitRow({
+    ...overlaid,
+    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
+    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
+  });
+  identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+  identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  return identified;
+}
+
+/**
+ * One workbook, one invoice row per non-dropdown length/numeric field.
+ * Row 1 = Invoice Number at min or max; row 2 = Purchase Order Number; etc.
+ * Dropdowns remain valid Oman seed values on every row.
+ */
+export async function generateOmanAllFieldsBoundaryPackExcel(
+  variant: OmanAllFieldsBoundaryVariant
+): Promise<{ filePath: string; invoiceNumbers: string[] }> {
+  const cases = allFieldsBoundaryCases(variant);
+  if (!cases.length) {
+    throw new Error("generateOmanAllFieldsBoundaryPackExcel: no boundary fields");
+  }
+
+  const rows = cases.map((tc) => {
+    const row = identifiedBoundarySeedRow(tc.field);
+    row[tc.field] = tc.value;
+    return row;
+  });
+
+  const generated = await generateDistinctSubmitInvoices(rows, {
+    fileName: `all-fields-${variant}-${Date.now()}.xlsx`,
+  });
+
+  const patches: Array<{ header: string; value: string; dataRow: number }> = [];
+  for (let i = 0; i < cases.length; i++) {
+    const dataRow = INVOICE_TEMPLATE_DATA_ROW + i;
+    if (cases[i].field !== BUYER_VAT_FIELD) {
+      patches.push({ header: BUYER_VAT_FIELD, value: OMAN_BUYER_VAT, dataRow });
+    }
+    if (cases[i].field !== BUYER_EL_FIELD) {
+      patches.push({
+        header: BUYER_EL_FIELD,
+        value: OMAN_BUYER_ELECTRONIC,
+        dataRow,
+      });
+    }
+    patches.push({ header: cases[i].field, value: cases[i].value, dataRow });
+  }
+  patchInvoiceTextCellsInFile(generated.filePath, patches);
+
+  return { filePath: generated.filePath, invoiceNumbers: generated.invoiceNumbers };
 }
 
 export async function generateOmanIssueDateExcel(

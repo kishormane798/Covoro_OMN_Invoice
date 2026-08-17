@@ -1,0 +1,115 @@
+# Starts the next Playwright shard after the previous run finishes.
+# Triggers on pass, fail, cancel, or timeout — not on a clock.
+# Manual runs (chain left off) do not continue the wave.
+name: Oman E-Invoice — Playwright chain
+
+on:
+  workflow_run:
+    workflows:
+      - Oman E-Invoice — Playwright
+    types:
+      - completed
+
+concurrency:
+  group: omn-e-invoice-playwright-chain
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  queue-next:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event.workflow_run.conclusion == 'failure' ||
+      github.event.workflow_run.conclusion == 'cancelled' ||
+      github.event.workflow_run.conclusion == 'timed_out'
+    steps:
+      - name: Queue next shard after previous run finishes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          REF: ${{ github.event.workflow_run.head_branch }}
+          ACTOR: ${{ github.event.workflow_run.actor.login }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TITLE="$(printf '%s' "$TITLE" | tr -d '\r' | xargs)"
+
+          echo "Completed run $RUN_ID event=$RUN_EVENT conclusion=$CONCLUSION actor=$ACTOR"
+          echo "Title: $TITLE"
+          echo "Ref: $REF"
+
+          if [ "$CONCLUSION" = "success" ]; then
+            TEST_RAN=$(gh run view "$RUN_ID" --json jobs --jq \
+              '[.jobs[] | select(.name | startswith("test")) | select(.conclusion == "success" or .conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")] | length')
+            if [ "${TEST_RAN:-0}" = "0" ]; then
+              echo "No test job ran (paused or skipped) — not chaining."
+              exit 0
+            fi
+          fi
+
+          SUITE=""
+          SHARD=""
+
+          if [ "$RUN_EVENT" = "schedule" ]; then
+            SUITE="covoro_field"
+            SHARD="1"
+          elif [ "$RUN_EVENT" = "workflow_dispatch" ] && [ "$ACTOR" = "github-actions[bot]" ]; then
+            if [[ "$TITLE" == "Field validation all" || "$TITLE" == "Conditional validation all" ]]; then
+              echo "All-shards run — not chaining."
+              exit 0
+            fi
+            if [ "$TITLE" = "Formula validation" ]; then
+              SUITE="covoro_formula"
+              SHARD="1"
+            elif [[ "$TITLE" =~ ^Field\ validation\ ([1-5])$ ]]; then
+              SUITE="covoro_field"
+              SHARD="${BASH_REMATCH[1]}"
+            elif [[ "$TITLE" =~ ^Conditional\ validation\ ([1-3])$ ]]; then
+              SUITE="covoro_conditional"
+              SHARD="${BASH_REMATCH[1]}"
+            fi
+          else
+            echo "Manual or non-chain run — not chaining."
+            exit 0
+          fi
+
+          if [ -z "${SUITE:-}" ] || [ -z "${SHARD:-}" ]; then
+            echo "::warning::Could not parse suite/shard from title; not chaining."
+            exit 0
+          fi
+
+          NEXT_SUITE=""
+          NEXT_SHARD=""
+          case "$SUITE-$SHARD" in
+            covoro_field-1) NEXT_SUITE="covoro_field"; NEXT_SHARD="2" ;;
+            covoro_field-2) NEXT_SUITE="covoro_field"; NEXT_SHARD="3" ;;
+            covoro_field-3) NEXT_SUITE="covoro_field"; NEXT_SHARD="4" ;;
+            covoro_field-4) NEXT_SUITE="covoro_field"; NEXT_SHARD="5" ;;
+            covoro_field-5) NEXT_SUITE="covoro_conditional"; NEXT_SHARD="1" ;;
+            covoro_conditional-1) NEXT_SUITE="covoro_conditional"; NEXT_SHARD="2" ;;
+            covoro_conditional-2) NEXT_SUITE="covoro_conditional"; NEXT_SHARD="3" ;;
+            covoro_conditional-3) NEXT_SUITE="covoro_formula"; NEXT_SHARD="1" ;;
+            covoro_formula-*)
+              echo "Formula finished — morning/evening wave complete."
+              exit 0
+              ;;
+            *)
+              echo "::warning::No next shard for $SUITE shard $SHARD — stopping."
+              exit 0
+              ;;
+          esac
+
+          echo "Queueing next: $NEXT_SUITE shard $NEXT_SHARD (after $CONCLUSION)"
+          gh workflow run playwright.yml \
+            --ref "$REF" \
+            -f suite="$NEXT_SUITE" \
+            -f shard="$NEXT_SHARD" \
+            -f chain=true

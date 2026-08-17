@@ -591,6 +591,62 @@ export function patchInvoiceTextCellInFile(
   }
 }
 
+export function patchInvoiceTextCellsInFile(
+  filePath: string,
+  patches: Array<{ header: string; value: string; dataRow?: number }>,
+  timeoutMs = 300_000
+): void {
+  if (!patches.length) return;
+  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Python writer script not found at: ${scriptPath}`);
+  }
+  const outDir = getGeneratedInvoiceExcelDir();
+  fs.mkdirSync(outDir, { recursive: true });
+  const patchesJsonPath = path.join(
+    outDir,
+    `_patch_text_cells_${Date.now()}_${Math.random().toString(36).slice(2, 10)}.json`
+  );
+  fs.writeFileSync(
+    patchesJsonPath,
+    JSON.stringify(
+      patches.map((p) => ({
+        header: p.header,
+        value: p.value,
+        dataRow: p.dataRow ?? DATA_ROW,
+      }))
+    ),
+    "utf8"
+  );
+  let stdout: string;
+  try {
+    stdout = runPythonForStdout(
+      scriptPath,
+      [
+        "patch_invoice_text_cells_from_file",
+        filePath,
+        SHEET_NAME,
+        String(HEADER_ROW),
+        patchesJsonPath,
+      ],
+      timeoutMs
+    );
+  } finally {
+    try {
+      fs.unlinkSync(patchesJsonPath);
+    } catch {}
+  }
+  let parsed: { ok?: boolean };
+  try {
+    parsed = JSON.parse(stdout.trim()) as { ok?: boolean };
+  } catch {
+    throw new Error(`Invalid patch_invoice_text_cells_from_file output: ${stdout}`);
+  }
+  if (!parsed.ok) {
+    throw new Error(`patch_invoice_text_cells_from_file failed: ${stdout}`);
+  }
+}
+
 export function readInvoiceTextCellFromFile(
   filePath: string,
   exactHeaderTitle: string,
@@ -889,13 +945,15 @@ function writeSubmitFlowRowsWithPython(input: {
 export function applyInvoiceCalculationsToFile(
   filePath: string,
   dataRow = DATA_ROW,
-  timeoutMs?: number
+  timeoutMs?: number,
+  rowCount = 1
 ): void {
   // Same numeric rules as calculateInvoiceValues; Python writers do not evaluate Excel formulas.
   const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
+  const count = Math.max(1, Math.min(Math.floor(rowCount) || 1, 500));
   const stdout = runPythonForStdout(
     scriptPath,
     [
@@ -904,6 +962,7 @@ export function applyInvoiceCalculationsToFile(
       SHEET_NAME,
       String(HEADER_ROW),
       String(dataRow),
+      String(count),
     ],
     timeoutMs
   );
@@ -1476,9 +1535,7 @@ export async function generateBulkSingleItemSubmitInvoices(
     timeoutMs: 300_000,
   });
 
-  for (let i = 0; i < count; i++) {
-    applyInvoiceCalculationsToFile(filePath, DATA_ROW + i, 300_000);
-  }
+  applyInvoiceCalculationsToFile(filePath, DATA_ROW, 300_000, count);
 
   generatedFiles.push(filePath);
   if (testFiles) testFiles.push(filePath);
@@ -1526,9 +1583,7 @@ export async function generateDistinctSubmitInvoices(
     timeoutMs: writeTimeoutMs,
   });
 
-  for (let i = 0; i < rows.length; i++) {
-    applyInvoiceCalculationsToFile(filePath, DATA_ROW + i, writeTimeoutMs);
-  }
+  applyInvoiceCalculationsToFile(filePath, DATA_ROW, writeTimeoutMs, rows.length);
 
   generatedFiles.push(filePath);
   if (options?.testFiles) options.testFiles.push(filePath);
