@@ -253,7 +253,7 @@ jobs:
       - name: Run Playwright — Covoro field / formula / conditional
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-shard-${{ matrix.shard }}-of-${{ needs.resolve.outputs.shard_total }}.json
-          PW_WORKERS: ${{ needs.resolve.outputs.shard_total != '1' && '3' || '5' }}
+          PW_WORKERS: "5"
         run: |
           SPEC="${{ needs.resolve.outputs.spec }}"
           SHARD="${{ matrix.shard }}"
