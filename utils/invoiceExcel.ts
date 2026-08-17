@@ -591,6 +591,43 @@ export function patchInvoiceTextCellInFile(
   }
 }
 
+export function readInvoiceTextCellFromFile(
+  filePath: string,
+  exactHeaderTitle: string,
+  dataRow = INVOICE_TEMPLATE_DATA_ROW,
+  timeoutMs = 300_000
+): { value: string; dropdownPresent: boolean } {
+  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Python writer script not found at: ${scriptPath}`);
+  }
+  const stdout = runPythonForStdout(scriptPath, [
+    "read_invoice_text_cell",
+    filePath,
+    SHEET_NAME,
+    String(HEADER_ROW),
+    String(dataRow),
+    exactHeaderTitle,
+  ], timeoutMs);
+  let parsed: { ok?: boolean; value?: string; dropdownPresent?: boolean };
+  try {
+    parsed = JSON.parse(stdout.trim()) as {
+      ok?: boolean;
+      value?: string;
+      dropdownPresent?: boolean;
+    };
+  } catch {
+    throw new Error(`Invalid read_invoice_text_cell output: ${stdout}`);
+  }
+  if (!parsed.ok) {
+    throw new Error(`read_invoice_text_cell failed: ${stdout}`);
+  }
+  return {
+    value: parsed.value ?? "",
+    dropdownPresent: Boolean(parsed.dropdownPresent),
+  };
+}
+
 function getTodayDate(): Date {
   const today = new Date();
   // Slightly past dates avoid “future issue date” validation noise; still recent enough for business rules.

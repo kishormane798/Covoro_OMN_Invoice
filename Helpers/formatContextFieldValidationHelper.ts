@@ -72,6 +72,10 @@ function applyOverlay(
     row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
     row[PROFIT_MARGIN_ITEM_TYPE_FIELD] = "Tangible Movable Property";
     row[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] = "1.00";
+    // IBR-175-OM: Profit Margin Invoice requires preceding invoice reference + UUID.
+    row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "PREV-OMN-001";
+    row[FV.PRECEDING_INVOICE_UUID_FIELD] = FV.PRECEDING_INVOICE_UUID_SAMPLE;
+    row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "2026-06-01";
     row = applyPartyIdentifiersByTxnType(row);
   }
 

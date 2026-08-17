@@ -1115,6 +1115,38 @@ export function buildBuyerAddressRequiredScenarioRow(
   });
 }
 
+/** IBR-040-OM: write the full Deliver To address group (complete or partial). */
+export function buildDeliverToAddressRequiredScenarioRow(
+  scenario: FV.DeliverToAddressRequiredScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  const deliverValues = [
+    scenario.addressLine1,
+    scenario.addressLine2,
+    scenario.addressLine3,
+    scenario.city,
+    scenario.postCode,
+    scenario.countrySubDivision,
+    scenario.countryCode,
+  ];
+  const hasCompleteDeliverToAddress = deliverValues.every((value) =>
+    String(value ?? "").trim()
+  );
+  return applyPartyIdentifiersByTxnType({
+    ...seed,
+    [FV.DELIVER_TO_ADDRESS_LINE_1_FIELD]: scenario.addressLine1,
+    [FV.DELIVER_TO_ADDRESS_LINE_2_FIELD]: scenario.addressLine2,
+    [FV.DELIVER_TO_ADDRESS_LINE_3_FIELD]: scenario.addressLine3,
+    [FV.DELIVER_TO_CITY_FIELD]: scenario.city,
+    [FV.DELIVER_TO_POST_CODE_FIELD]: scenario.postCode,
+    [FV.DELIVER_TO_COUNTRY_SUBDIVISION_FIELD]: scenario.countrySubDivision,
+    [FV.DELIVER_TO_COUNTRY_CODE_FIELD]: scenario.countryCode,
+    "Deliver to party name": hasCompleteDeliverToAddress
+      ? seed["Deliver to party name"] || "Oman Delivery Partner"
+      : "",
+  });
+}
+
 export function buildInvoicingPeriodConditionalScenarioRow(
   scenario: FV.InvoicingPeriodScenario
 ): Record<string, string | null> {

@@ -72,6 +72,22 @@ export const TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD =
 export const BUYER_VAT_IDENTIFIER_FIELD = "Buyer VAT identifier";
 export const DELIVER_TO_COUNTRY_CODE_FIELD = "Deliver to country code";
 export const DELIVER_TO_POST_CODE_FIELD = "Deliver to post code";
+export const DELIVER_TO_ADDRESS_LINE_1_FIELD = "Deliver to address line 1";
+export const DELIVER_TO_ADDRESS_LINE_2_FIELD = "Deliver to address line 2";
+export const DELIVER_TO_ADDRESS_LINE_3_FIELD = "Deliver to address line 3";
+export const DELIVER_TO_CITY_FIELD = "Deliver to city";
+export const DELIVER_TO_COUNTRY_SUBDIVISION_FIELD =
+  "Deliver to country sub-division";
+/** IBR-040-OM: if any Deliver To address cell is filled, all of these must be filled. */
+export const DELIVER_TO_ADDRESS_GROUP_FIELDS = [
+  DELIVER_TO_ADDRESS_LINE_1_FIELD,
+  DELIVER_TO_ADDRESS_LINE_2_FIELD,
+  DELIVER_TO_ADDRESS_LINE_3_FIELD,
+  DELIVER_TO_CITY_FIELD,
+  DELIVER_TO_POST_CODE_FIELD,
+  DELIVER_TO_COUNTRY_SUBDIVISION_FIELD,
+  DELIVER_TO_COUNTRY_CODE_FIELD,
+] as const;
 export const SELLER_IDENTIFIER_SCHEME_FIELD =
   "Seller identifier - Scheme identifier";
 export const SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD =
@@ -310,6 +326,17 @@ export type BuyerIdOrVatinScenario = OmanConditionalScenario & {
 export type BuyerAddressRequiredScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   buyerAddressLine1: string;
+};
+
+/** IBR-040-OM: Deliver To address group is all-or-nothing when any cell is entered. */
+export type DeliverToAddressRequiredScenario = OmanConditionalScenario & {
+  addressLine1: string;
+  addressLine2: string;
+  addressLine3: string;
+  city: string;
+  postCode: string;
+  countrySubDivision: string;
+  countryCode: string;
 };
 
 /** IBR-029 / IBR-CO-19: invoicing period start/end consistency. */
@@ -2742,6 +2769,60 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
     expectedErrorField: "Buyer address line 1",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// deliverToAddressRequired (IBR-040-OM)
+// ---------------------------------------------------------------------------
+const DELIVER_TO_ADDRESS_COMPLETE = {
+  addressLine1: "Warehouse 9",
+  addressLine2: "Industrial Area",
+  addressLine3: "Ghala",
+  city: "Muscat",
+  postCode: "130",
+  countrySubDivision: "Mainland Oman.",
+  countryCode: OMAN_COUNTRY_CODE,
+} as const;
+
+/** IBR-040-OM: if any Deliver To address field is entered, all group columns are required. */
+export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScenario[] =
+  [
+    {
+      ruleId: "IBR-040-OM",
+      title:
+        "Excel upload · Covoro | IBR-040-OM | all Deliver To address fields → accepted",
+      ...DELIVER_TO_ADDRESS_COMPLETE,
+      shouldError: false,
+      expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
+    },
+    {
+      ruleId: "IBR-040-OM",
+      title:
+        "Excel upload · Covoro | IBR-040-OM | only Address Line 1 entered → error file",
+      addressLine1: DELIVER_TO_ADDRESS_COMPLETE.addressLine1,
+      addressLine2: "",
+      addressLine3: "",
+      city: "",
+      postCode: "",
+      countrySubDivision: "",
+      countryCode: "",
+      shouldError: true,
+      expectedErrorField: DELIVER_TO_ADDRESS_LINE_2_FIELD,
+    },
+    {
+      ruleId: "IBR-040-OM",
+      title:
+        "Excel upload · Covoro | IBR-040-OM | empty Deliver To address group → accepted",
+      addressLine1: "",
+      addressLine2: "",
+      addressLine3: "",
+      city: "",
+      postCode: "",
+      countrySubDivision: "",
+      countryCode: "",
+      shouldError: false,
+      expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
+    },
+  ];
 
 // ---------------------------------------------------------------------------
 // invoicingPeriod (IBR-029 / IBR-CO-19)

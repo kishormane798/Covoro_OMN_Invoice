@@ -25,6 +25,7 @@ import {
   generateFullRowDropdownFieldExcel,
   generateInvoiceFromSubmitData,
   patchInvoiceTextCellInFile,
+  readInvoiceTextCellFromFile,
 } from "../utils/invoiceExcel";
 import { formatOmanNumericBoundaryValue } from "../testData/FieldValidations/Min_max_field_validation";
 
@@ -99,10 +100,22 @@ function buildOmanDropdownRuntimeBaseRow(field: string): Record<string, string> 
   return identified;
 }
 
+function dropdownValueLabel(item: unknown): string {
+  if (typeof item === "string" || typeof item === "number") return String(item);
+  if (item && typeof item === "object") {
+    const rec = item as { label?: unknown; value?: unknown };
+    return String(rec.label ?? rec.value ?? "");
+  }
+  return "";
+}
+
 /**
  * Dropdown master / invalid batches — same pipeline as TestData dropdown packs
  * (`buildOmanDropdownBaseRow` + `generateFullRowDropdownFieldExcel`), with worker
  * TIN identity layered on for parallel Playwright runs.
+ *
+ * Invalid (single-value) cases use the min/max path: one workbook, invalid label
+ * written on the target column. Do not build a valid seed plus a second batch file.
  */
 export async function generateOmanDropdownMasterExcel(
   field: string,
@@ -110,7 +123,26 @@ export async function generateOmanDropdownMasterExcel(
 ): Promise<Array<{ filePath: string; invoiceNumber: string }>> {
   const values = Array.isArray(masterData) ? masterData : [masterData];
   const fieldForWrite = resolveDropdownTemplateField(field);
+  const labels = values.map(dropdownValueLabel);
   const baseRow = buildOmanDropdownRuntimeBaseRow(field);
+
+  if (labels.length === 1) {
+    baseRow[fieldForWrite] = labels[0];
+    const generated = await generateInvoiceFromSubmitData(baseRow);
+    patchInvoiceTextCellInFile(generated.filePath, fieldForWrite, labels[0]);
+    const saved = readInvoiceTextCellFromFile(generated.filePath, fieldForWrite);
+    console.log(
+      `[dropdown excel] ${fieldForWrite} saved=${JSON.stringify(saved.value)} expected=${JSON.stringify(labels[0])} dropdownPresent=${saved.dropdownPresent}`
+    );
+    if (saved.value !== labels[0]) {
+      throw new Error(
+        `Dropdown Excel did not keep invalid value for ${fieldForWrite}: ` +
+          `saved ${JSON.stringify(saved.value)} expected ${JSON.stringify(labels[0])}`
+      );
+    }
+    return [generated];
+  }
+
   return generateFullRowDropdownFieldExcel(fieldForWrite, values, baseRow);
 }
 

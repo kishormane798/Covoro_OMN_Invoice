@@ -523,7 +523,29 @@ def strip_cell_validation(ws, row_number: int, column_number: int) -> None:
             ws.data_validations.dataValidation.remove(dv)
 
 
+def strip_column_validation(ws, column_number: int) -> None:
+    """Remove list/dropdown data-validation from an entire column.
+
+    Covoro template dropdowns use errorStyle=stop over the whole data column
+    (e.g. BM6:BM18 plus BM20:BM1048576). Stripping only the current cell leaves
+    the rest of the column as a list, so Excel still refuses values that are not
+    in the dedicated master. Invalid dropdown tests must clear the column list
+    first, then write the junk label as plain text.
+    """
+    for dv in list(ws.data_validations.dataValidation):
+        kept_ranges = []
+        for cell_range in list(dv.ranges.ranges):
+            if cell_range.min_col <= column_number <= cell_range.max_col:
+                continue
+            kept_ranges.append(str(cell_range))
+        if kept_ranges:
+            dv.ranges = " ".join(kept_ranges)
+        else:
+            ws.data_validations.dataValidation.remove(dv)
+
+
 def force_text_cell(ws, row_number: int, column_number: int) -> None:
+    strip_column_validation(ws, column_number)
     strip_cell_validation(ws, row_number, column_number)
     cell = ws.cell(row=row_number, column=column_number)
     cell.value = ""
@@ -593,9 +615,50 @@ def cmd_patch_invoice_text_cell(args: list[str]) -> None:
         fail(f"Sheet '{sheet_name}' not found")
     ws = wb[sheet_name]
     target_col = resolve_header_column(ws, header_row, field_name)
+    strip_column_validation(ws, target_col)
     set_text_value(ws, data_row, target_col, value)
     wb.save(file_path)
     print(json.dumps({"ok": True, "filePath": os.path.abspath(file_path)}))
+
+
+def cmd_read_invoice_text_cell(args: list[str]) -> None:
+    """Read one data-row cell by header. Used to verify invalid dropdown values before upload."""
+    if len(args) < 5:
+        fail(
+            "Usage: read_invoice_text_cell <filePath> <sheetName> <headerRow> <dataRow> "
+            "<fieldNameExact>"
+        )
+    file_path, sheet_name, header_row_s, data_row_s, field_name = args[:5]
+    if not os.path.isfile(file_path):
+        fail(f"File not found: {file_path}")
+    header_row = int(header_row_s)
+    data_row = int(data_row_s)
+
+    wb = load_workbook(file_path)
+    if sheet_name not in wb.sheetnames:
+        fail(f"Sheet '{sheet_name}' not found")
+    ws = wb[sheet_name]
+    target_col = resolve_header_column(ws, header_row, field_name)
+    cell = ws.cell(row=data_row, column=target_col)
+    value = "" if cell.value is None else str(cell.value)
+    dropdown_present = False
+    for dv in ws.data_validations.dataValidation:
+        for cell_range in list(dv.ranges.ranges):
+            if cell_range.min_col <= target_col <= cell_range.max_col:
+                dropdown_present = True
+                break
+        if dropdown_present:
+            break
+    wb.close()
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "value": value,
+                "dropdownPresent": dropdown_present,
+            }
+        )
+    )
 
 
 def cmd_update_field(args: list[str]) -> None:
@@ -1277,6 +1340,9 @@ def _run_write_dropdown_batch(
     date_col = get_col(header_map, "Invoice Issue Date")
     invoice_col = get_col(header_map, "Invoice Number")
     target_col = resolve_header_column(ws, header_row, field_name)
+    # Clear the template list on this column so valid and invalid labels are
+    # written as text (non-master values cannot be entered while the dropdown remains).
+    strip_column_validation(ws, target_col)
 
     seed = int(time.time() * 1000)
     apply_credit_note_preceding_rule = (
@@ -2035,6 +2101,9 @@ def main() -> None:
         return
     if command == "patch_invoice_text_cell":
         cmd_patch_invoice_text_cell(args)
+        return
+    if command == "read_invoice_text_cell":
+        cmd_read_invoice_text_cell(args)
         return
     fail(f"Unknown command: {command}")
 

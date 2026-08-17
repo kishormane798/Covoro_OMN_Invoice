@@ -2,6 +2,7 @@ import { test } from "../Src/baseTest";
 import {
   patchSellerVatFromRow,
   verifyConditionalScenario,
+  verifyConditionalScenarioAnyOf,
 } from "../Helpers/conditionalValidationSpecHelpers";
 import * as ConditionalRows from "../Helpers/conditionalValidationHelper";
 import * as FV from "../testData/FieldValidations";
@@ -532,6 +533,21 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
           page,
           rowData,
           scenario.expectedErrorField ?? "Buyer address line 1",
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-040-OM — Deliver To address all-or-nothing", () => {
+    for (const scenario of FV.DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildDeliverToAddressRequiredScenarioRow(scenario);
+        await verifyConditionalScenarioAnyOf(
+          page,
+          rowData,
+          FV.DELIVER_TO_ADDRESS_GROUP_FIELDS,
           scenario.shouldError
         );
       });
