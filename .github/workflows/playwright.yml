@@ -1,15 +1,23 @@
 # Schedule (Mon & Fri only, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
-#   06:00 Covoro field · 08:00 formula · 10:00 conditional (2h gap)
+#   One shard per slot, 45 min apart, 45 min job timeout each.
+#   06:30 field 1/5 · 07:15 field 2/5 · 08:00 field 3/5 · 08:45 field 4/5 · 09:30 field 5/5
+#   10:15 conditional 1/3 · 11:00 conditional 2/3 · 11:45 conditional 3/3 · 12:30 formula
 #
-# Manual run: Actions → Oman E-Invoice — Playwright → Run workflow → pick field / formula / conditional.
+# Manual run: pick suite + shard (all runs every shard in parallel; 1–5 runs one chunk ~100 tests).
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
 on:
   schedule:
-    - cron: "30 0 * * 1,5" # 06:00 IST Mon/Fri — Covoro field validation
-    - cron: "30 2 * * 1,5" # 08:00 IST Mon/Fri — Covoro formula validation
-    - cron: "30 4 * * 1,5" # 10:00 IST Mon/Fri — Covoro conditional validation
+    - cron: "0 1 * * 1,5" # 06:30 IST — field validation shard 1/5
+    - cron: "45 1 * * 1,5" # 07:15 IST — field validation shard 2/5
+    - cron: "30 2 * * 1,5" # 08:00 IST — field validation shard 3/5
+    - cron: "15 3 * * 1,5" # 08:45 IST — field validation shard 4/5
+    - cron: "0 4 * * 1,5" # 09:30 IST — field validation shard 5/5
+    - cron: "45 4 * * 1,5" # 10:15 IST — conditional validation shard 1/3
+    - cron: "30 5 * * 1,5" # 11:00 IST — conditional validation shard 2/3
+    - cron: "15 6 * * 1,5" # 11:45 IST — conditional validation shard 3/3
+    - cron: "0 7 * * 1,5" # 12:30 IST — formula validation (full suite)
 
   workflow_dispatch:
     inputs:
@@ -22,8 +30,27 @@ on:
           - covoro_field
           - covoro_formula
           - covoro_conditional
+      shard:
+        description: "Shard chunk (~100 tests). Field has 5 shards, conditional has 3. Formula ignores shard."
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
 
-run-name: ${{ github.event_name == 'workflow_dispatch' && format('Oman E-Invoice — Playwright ({0})', github.event.inputs.suite) || 'Oman E-Invoice — Playwright' }}
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch'
+      && format(
+        'Oman E-Invoice — Playwright ({0}{1})',
+        github.event.inputs.suite,
+        github.event.inputs.shard != 'all' && format(' shard {0}', github.event.inputs.shard) || ' all shards'
+      )
+      || 'Oman E-Invoice — Playwright (scheduled slot)' }}
 
 concurrency:
   group: omn-e-invoice-playwright
@@ -38,8 +65,8 @@ env:
   CI: true
   SUBMIT_INVOICE_COMBINATIONS: "all"
   PW_WORKERS: "5"
-  # Oman seller VATIN per Playwright worker (slot 0–4). Without this, identity
-  # falls back to numeric UAE TIN 1779700001–1779700005.
+  PW_CI_SHARD_SIZE: "100"
+  PW_CI_JOB_TIMEOUT_MINUTES: "45"
   UAE_EINVOICE_SELLER_TIN_SLOTS: "OM1108202600,OM1108202601,OM1108202602,OM1108202603,OM1108202604"
 
 jobs:
@@ -76,11 +103,79 @@ jobs:
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-  test:
+  resolve:
     needs: should_run
     if: needs.should_run.outputs.skip != 'true'
-    timeout-minutes: 360
     runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+      spec: ${{ steps.plan.outputs.spec }}
+      shard_total: ${{ steps.plan.outputs.shard_total }}
+      shard_indices: ${{ steps.plan.outputs.shard_indices }}
+      shard_size: ${{ steps.plan.outputs.shard_size }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install Node dependencies (shard plan)
+        run: npm ci
+
+      - name: Resolve suite + shard (schedule slots · manual dropdown)
+        id: mode
+        shell: bash
+        run: |
+          MODE="covoro_field"
+          SHARD_FILTER="1"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ github.event.inputs.suite }}"
+            SHARD_FILTER="${{ github.event.inputs.shard }}"
+
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            case "${{ github.event.schedule }}" in
+              "0 1 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="1" ;;
+              "45 1 * * 1,5") MODE="covoro_field";       SHARD_FILTER="2" ;;
+              "30 2 * * 1,5") MODE="covoro_field";       SHARD_FILTER="3" ;;
+              "15 3 * * 1,5") MODE="covoro_field";       SHARD_FILTER="4" ;;
+              "0 4 * * 1,5")  MODE="covoro_field";       SHARD_FILTER="5" ;;
+              "45 4 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="1" ;;
+              "30 5 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="2" ;;
+              "15 6 * * 1,5") MODE="covoro_conditional"; SHARD_FILTER="3" ;;
+              "0 7 * * 1,5")  MODE="covoro_formula";     SHARD_FILTER="1" ;;
+              *)
+                echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — defaulting to field shard 1"
+                MODE="covoro_field"
+                SHARD_FILTER="1"
+                ;;
+            esac
+          fi
+
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "shard_filter=$SHARD_FILTER" >> "$GITHUB_OUTPUT"
+          echo "Running MODE=$MODE shard_filter=$SHARD_FILTER"
+
+      - name: Plan Playwright shards (~100 tests per job)
+        id: plan
+        shell: bash
+        run: |
+          bash scripts/ci_playwright_shard_plan.sh \
+            "${{ steps.mode.outputs.mode }}" \
+            "${{ steps.mode.outputs.shard_filter }}"
+
+  test:
+    needs: [should_run, resolve]
+    if: needs.should_run.outputs.skip != 'true'
+    name: test (shard ${{ matrix.shard }}/${{ needs.resolve.outputs.shard_total }})
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.resolve.outputs.shard_indices) }}
 
     steps:
       - uses: actions/checkout@v5
@@ -142,48 +237,25 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
 
-      - name: Resolve test suite (schedule → IST slots · manual → choice)
-        id: suite
-        run: |
-          MODE="covoro_field"
-
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            MODE="${{ github.event.inputs.suite }}"
-
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
-            case "${{ github.event.schedule }}" in
-              "30 0 * * 1,5") MODE="covoro_field" ;;
-              "30 2 * * 1,5") MODE="covoro_formula" ;;
-              "30 4 * * 1,5") MODE="covoro_conditional" ;;
-              *)
-                echo "::warning::Unexpected schedule '${{ github.event.schedule }}' — using MODE=covoro_field"
-                ;;
-            esac
-          fi
-
-          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
-          echo "Running MODE=$MODE"
-
       - name: Run Playwright — Covoro field / formula / conditional
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-shard-${{ matrix.shard }}-of-${{ needs.resolve.outputs.shard_total }}.json
+          PW_WORKERS: ${{ needs.resolve.outputs.shard_total != '1' && '3' || '5' }}
         run: |
-          MODE="${{ steps.suite.outputs.mode }}"
+          SPEC="${{ needs.resolve.outputs.spec }}"
+          SHARD="${{ matrix.shard }}"
+          TOTAL="${{ needs.resolve.outputs.shard_total }}"
           set -e
 
-          case "$MODE" in
-            covoro_field)
-              npx playwright test tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            covoro_formula)
-              npx playwright test tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            covoro_conditional)
-              npx playwright test tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts --project=chromium
-              ;;
-            *)
-              echo "::error::Unknown suite MODE='$MODE'. Expected covoro_field, covoro_formula, or covoro_conditional."
-              exit 1
-              ;;
-          esac
+          SHARD_ARGS=()
+          if [ "$TOTAL" -gt 1 ]; then
+            SHARD_ARGS=(--shard="${SHARD}/${TOTAL}")
+            echo "Running shard ${SHARD}/${TOTAL} (~${{ needs.resolve.outputs.shard_size }} tests per shard) on ${SPEC}"
+          else
+            echo "Running full suite (no shard) on ${SPEC}"
+          fi
+
+          npx playwright test "$SPEC" --project=chromium "${SHARD_ARGS[@]}"
 
       - name: Generate Allure report (single-file HTML)
         if: always()
@@ -199,7 +271,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: allure-report-${{ steps.suite.outputs.mode }}
+          name: allure-report-${{ needs.resolve.outputs.mode }}-shard-${{ matrix.shard }}-of-${{ needs.resolve.outputs.shard_total }}
           path: allure-report/
           retention-days: 2
           if-no-files-found: ignore
@@ -207,6 +279,8 @@ jobs:
       - name: Summarize Playwright results (pass / fail / skip / flaky)
         id: summary
         if: always()
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-shard-${{ matrix.shard }}-of-${{ needs.resolve.outputs.shard_total }}.json
         run: python scripts/playwright_json_summary.py
 
       - name: Prepare email (Allure attachment)
@@ -300,13 +374,18 @@ jobs:
         if: always()
         shell: bash
         run: |
-          MODE="${{ steps.suite.outputs.mode }}"
+          MODE="${{ needs.resolve.outputs.mode }}"
+          SHARD="${{ matrix.shard }}"
+          TOTAL="${{ needs.resolve.outputs.shard_total }}"
           case "$MODE" in
             covoro_field) LABEL="Covoro — Field validation" ;;
             covoro_formula) LABEL="Covoro — Formula validation" ;;
             covoro_conditional) LABEL="Covoro — Conditional validation" ;;
             *) LABEL="Covoro — Unknown suite" ;;
           esac
+          if [ "$TOTAL" -gt 1 ]; then
+            LABEL="${LABEL} (shard ${SHARD}/${TOTAL})"
+          fi
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
 
       - name: Send email — execution digest
@@ -328,7 +407,7 @@ jobs:
             Hi Team — Oman E-Invoice Playwright summary (${{ steps.mail_body.outputs.date }} UTC).
             Passed ${{ steps.summary.outputs.passed }}, Failed ${{ steps.summary.outputs.failed }}, Skipped ${{ steps.summary.outputs.skipped }}, Flaky ${{ steps.summary.outputs.flaky }} (total ${{ steps.summary.outputs.total }}).
             Overall: ${{ steps.summary.outputs.overall }}.
-            Suite: ${{ steps.suite.outputs.mode }}
+            Suite: ${{ needs.resolve.outputs.mode }}${{ needs.resolve.outputs.shard_total != '1' && format(' · shard {0}/{1}', matrix.shard, needs.resolve.outputs.shard_total) || '' }}
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           html_body: |
             <p>Hi Team,</p>
@@ -337,7 +416,7 @@ jobs:
             <table style="border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:14px;max-width:560px;">
               <tr><td style="padding:6px 16px 6px 0;color:#555;vertical-align:top;">Date (UTC)</td><td style="padding:6px 0;"><strong>${{ steps.mail_body.outputs.date }}</strong></td></tr>
               <tr><td style="padding:6px 16px 6px 0;color:#555;">Framework</td><td style="padding:6px 0;"><strong>Oman E-Invoice</strong></td></tr>
-              <tr><td style="padding:6px 16px 6px 0;color:#555;">Suite / spec</td><td style="padding:6px 0;"><strong>${{ steps.suite.outputs.mode }}</strong></td></tr>
+              <tr><td style="padding:6px 16px 6px 0;color:#555;">Suite / spec</td><td style="padding:6px 0;"><strong>${{ needs.resolve.outputs.mode }}${{ needs.resolve.outputs.shard_total != '1' && format(' · shard {0}/{1}', matrix.shard, needs.resolve.outputs.shard_total) || '' }}</strong></td></tr>
               <tr><td style="padding:6px 16px 6px 0;color:#555;">Workflow run</td><td style="padding:6px 0;"><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">Open in GitHub Actions</a></td></tr>
             </table>
             <h3 style="margin:20px 0 8px 0;font-family:Segoe UI,Arial,sans-serif;">Test results</h3>
