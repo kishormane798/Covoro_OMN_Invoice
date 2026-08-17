@@ -26,6 +26,7 @@ import {
   generateInvoiceFromSubmitData,
   getCachedInvoiceTemplateHeaders,
   patchInvoiceTextCellInFile,
+  applyInvoiceCalculationsToFile,
 } from "../utils/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "./packProgressReporter";
 import { runPythonForStdout } from "../utils/pythonRunner";
@@ -527,6 +528,28 @@ function intentionalSkipReason(
 
 function normKey(s: string): string {
   return s.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/** Headers that feed line/document totals — patching them requires applyInvoiceCalculationsToFile. */
+const FORMULA_INPUT_HEADER_NORMS = new Set([
+  "item price discount",
+  "item gross price",
+  "item price base quantity",
+  "invoiced quantity",
+  "invoice line charge amount",
+  "invoice line allowance amount",
+  "charges on document level",
+  "allowances on document level",
+  "paid amount",
+  "rounding amount",
+  "tax rate",
+  "currency exchange rate",
+  "invoice currency code",
+  "tax category",
+]);
+
+function isInvoiceFormulaInputHeader(header: string): boolean {
+  return FORMULA_INPUT_HEADER_NORMS.has(normKey(header));
 }
 
 /** True when matrix title/description is about invoice line period (IBT-134/135). */
@@ -1855,6 +1878,33 @@ export async function generateConditionalValidationExcelPack(options: {
                     companionErr instanceof Error
                       ? companionErr.message
                       : String(companionErr),
+                  rowKey: job.meta.rowKey,
+                  mutatedValue: job.meta.mutatedValue,
+                });
+                progress.tick();
+                continue;
+              }
+            }
+            if (
+              isInvoiceFormulaInputHeader(job.field) ||
+              (job.meta.companionPatch &&
+                isInvoiceFormulaInputHeader(job.meta.companionPatch.header))
+            ) {
+              try {
+                applyInvoiceCalculationsToFile(job.destPath);
+              } catch (calcErr) {
+                results.push({
+                  id: job.meta.tc.id,
+                  section: job.meta.tc.section,
+                  field: job.meta.tc.field,
+                  title: job.meta.tc.title,
+                  ruleId: job.meta.tc.ruleId,
+                  polarity: job.meta.polarity,
+                  status: "error",
+                  reason:
+                    calcErr instanceof Error
+                      ? calcErr.message
+                      : String(calcErr),
                   rowKey: job.meta.rowKey,
                   mutatedValue: job.meta.mutatedValue,
                 });

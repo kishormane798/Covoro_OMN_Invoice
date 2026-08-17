@@ -118,7 +118,7 @@ function applyTransactionTypeDependents(
 
   if (txn === FV.TXN_THIRD_PARTY_INVOICE) {
     next["Third Party Name"] = next["Third Party Name"] || "Oman Third Party LLC";
-    next["Third Party VATIN"] = next["Third Party VATIN"] || "200009191900";
+    next["Third Party VATIN"] = next["Third Party VATIN"] || FV.IBR_003_VALID_THIRD_PARTY_VATIN;
     next["Third Party Address Line 1"] =
       next["Third Party Address Line 1"] || "TP Building 1";
     next["Third Party Address Line 2"] =

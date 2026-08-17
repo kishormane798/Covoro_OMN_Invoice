@@ -28,6 +28,7 @@ import {
   calculateInvoiceValuesForGeneratorPayload,
   generateInvoiceFromSubmitData,
   generateInvoiceFromSubmitRows,
+  applyInvoiceCalculationsToFile,
   OMAN_HOME_CURRENCY,
 } from "../utils/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "./packProgressReporter";
@@ -474,6 +475,27 @@ const INPUT_MUTATIONS = new Set<FormulaMutationKind>([
   "blank_exchange_rate",
 ]);
 
+function inputMutationPatch(
+  mutation: FormulaMutationKind
+): { header: string; value: string } | null {
+  switch (mutation) {
+    case "blank_gross":
+      return { header: "Item Gross Price", value: "" };
+    case "non_numeric_gross":
+      return { header: "Item Gross Price", value: "ABC" };
+    case "blank_discount":
+      return { header: "Item Price Discount", value: "" };
+    case "tax_rate_percent":
+      return { header: "Tax Rate", value: "5%" };
+    case "tax_rate_wrong":
+      return { header: "Tax Rate", value: "4" };
+    case "blank_exchange_rate":
+      return { header: "Currency Exchange Rate", value: "" };
+    default:
+      return null;
+  }
+}
+
 type BaseCacheEntry = { filePath: string; invoiceNumber: string };
 
 function profileKey(tc: FormulaMatrixCase, mutation: FormulaMutationKind): string {
@@ -702,15 +724,17 @@ export async function generateFormulaValidationExcelPack(options: {
         excelHeader ||
         resolveExcelHeader("Item Net Price") ||
         "Item Net Price";
-      const patchValue = INPUT_MUTATIONS.has(mutation)
-        ? // Base already mutated; clone with idempotent Item Net Price rewrite.
-          resolvePatchValue(tc, "positive_keep", "Item Net Price")
+      const inputPatch = INPUT_MUTATIONS.has(mutation)
+        ? inputMutationPatch(mutation)
+        : null;
+      const patchValue = inputPatch
+        ? inputPatch.value
         : resolvePatchValue(tc, mutation, headerForPatch);
       prepared.push({
         tc,
         polarity,
         mutation,
-        excelHeader: headerForPatch,
+        excelHeader: inputPatch?.header ?? headerForPatch,
         patchValue,
         profile: profileKey(tc, mutation),
       });
@@ -839,6 +863,28 @@ export async function generateFormulaValidationExcelPack(options: {
             mutatedValue: job.meta.patchValue,
           });
         } else {
+          try {
+            if (INPUT_MUTATIONS.has(job.meta.mutation)) {
+              applyInvoiceCalculationsToFile(job.destPath);
+            }
+          } catch (calcErr) {
+            results.push({
+              id: job.meta.tc.id,
+              section: job.meta.tc.section,
+              field: job.meta.tc.field,
+              title: job.meta.tc.title,
+              ruleId: job.meta.tc.ruleId,
+              polarity: job.meta.polarity,
+              mutation: job.meta.mutation,
+              status: "error",
+              reason:
+                calcErr instanceof Error ? calcErr.message : String(calcErr),
+              excelHeader: job.meta.excelHeader,
+              mutatedValue: job.meta.patchValue,
+            });
+            progress.tick();
+            continue;
+          }
           results.push({
             id: job.meta.tc.id,
             section: job.meta.tc.section,

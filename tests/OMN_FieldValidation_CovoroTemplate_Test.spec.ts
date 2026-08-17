@@ -129,13 +129,35 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Mandatory fields — valid length", () => {
     for (const config of FV.fieldValidationMandatory) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Mandatory – ${config.field} (minimum length (${config.min} char${config.min === 1 ? "" : "s"})).`, async ({ page }) => {
-        const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
+      // Dummy min/max strings are not the logged-in seller TIN → error file.
+      const mustBeLoginTin = config.field === "Seller electronic address";
+      const outcome = mustBeLoginTin ? "returns an error file" : "is accepted";
+
+      test(`Verify Excel upload ${outcome} for ${TEMPLATE} Mandatory – ${config.field} (minimum length (${config.min} char${config.min === 1 ? "" : "s"})).`, async ({ page }) => {
+        const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
+          config.field,
+          config.min
+        );
+        if (mustBeLoginTin) {
+          await runErrorValidation(
+            page,
+            { filePath, field: config.field, invoiceNumber, checkEdit: true });
+          return;
+        }
         await uploadAndVerify(page, filePath);
       });
 
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Mandatory – ${config.field} (maximum length (${config.max} chars)).`, async ({ page }) => {
-        const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
+      test(`Verify Excel upload ${outcome} for ${TEMPLATE} Mandatory – ${config.field} (maximum length (${config.max} chars)).`, async ({ page }) => {
+        const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
+          config.field,
+          config.max
+        );
+        if (mustBeLoginTin) {
+          await runErrorValidation(
+            page,
+            { filePath, field: config.field, invoiceNumber, checkEdit: true });
+          return;
+        }
         await uploadAndVerify(page, filePath);
       });
     }

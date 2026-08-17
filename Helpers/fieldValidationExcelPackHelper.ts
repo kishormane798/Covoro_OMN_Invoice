@@ -19,7 +19,9 @@ import {
 } from "../testData/FieldValidations/TestDataConfig";
 import {
   InvalidTestData,
+  buyerSellerIdentifierCodeValidTestData,
   electronicAddressSchemeValidTestData,
+  schemeIdentifierValidTestData,
 } from "../testData/FieldValidations/Master";
 import {
   fieldInvoice_number,
@@ -168,6 +170,17 @@ const DROPDOWN_CONFIGS = mergeDropdownFieldConfigs(
 
 function normKey(s: string): string {
   return s.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function pickMasterLabel(
+  list: readonly { label: string }[] | undefined,
+  match: string,
+  fallback: string
+): string {
+  const hit = list?.find((x) =>
+    x.label.toLowerCase().includes(match.toLowerCase())
+  );
+  return hit?.label?.trim() || list?.[0]?.label?.trim() || fallback;
 }
 
 /** Line-item exemption columns — not document charges/allowances. */
@@ -330,6 +343,13 @@ function repeatChars(n: number, digitField: boolean): string {
   return "A".repeat(n);
 }
 
+/** IBR-003-OM: VATIN is OM + digits, never a 12-digit numeric string. */
+function omanVatinOfLength(length: number, valid: string): string {
+  if (length <= 0) return "";
+  if (length <= valid.length) return valid.slice(0, length);
+  return valid + "0".repeat(length - valid.length);
+}
+
 function formatNumeric(digitCount: number, decimals = 2): string {
   if (digitCount <= 0) return "";
   const intPart = "1".repeat(digitCount);
@@ -377,12 +397,16 @@ export function buildMutatedValue(
     case "dropdown_trim":
       return `  ${validLabel}  `;
     case "length_min":
+      if (digit) return omanVatinOfLength(lengthRule.min, FV.IBR_003_VALID_THIRD_PARTY_VATIN);
       return repeatChars(lengthRule.min, digit);
     case "length_max":
+      if (digit) return omanVatinOfLength(lengthRule.max, FV.IBR_003_VALID_THIRD_PARTY_VATIN);
       return repeatChars(lengthRule.max, digit);
     case "length_above_max":
+      if (digit) return omanVatinOfLength(lengthRule.aboveMax, FV.IBR_003_VALID_THIRD_PARTY_VATIN);
       return repeatChars(lengthRule.aboveMax, digit);
     case "length_below_min":
+      if (digit) return omanVatinOfLength(lengthRule.belowMin, FV.IBR_003_VALID_THIRD_PARTY_VATIN);
       return repeatChars(lengthRule.belowMin, digit);
     case "format_min": {
       const rule = numericRule ?? { ...lengthRule, decimals: 2 };
@@ -439,7 +463,7 @@ export function applyDependentOverlay(
   const fillThirdParty = () => {
     row["Invoice Transaction Type Code"] = "Third-party Invoice";
     row["Third Party Name"] = "Oman Third Party LLC";
-    row["Third Party VATIN"] = "200009191900";
+    row["Third Party VATIN"] = FV.IBR_003_VALID_THIRD_PARTY_VATIN;
     row["Third Party Address Line 1"] = "TP Building 1";
     row["Third Party Address Line 2"] = "TP Street";
     row["Third Party Address Line 3"] = "TP Area";
@@ -542,9 +566,31 @@ export function applyDependentOverlay(
 
   const fillBuyerPartyIdentifierCompanions = () => {
     fillFullTaxStandardContext();
-    const scheme = "Tax Identification Number";
-    row["Scheme identifier"] = row["Scheme identifier"] || scheme;
+    const icdScheme = pickMasterLabel(
+      schemeIdentifierValidTestData,
+      "Oman Value Added Tax",
+      "Oman Value Added Tax Identification Number (VATIN) (OM:VAT) - Issuing agency: Tax Authority, Oman."
+    );
+    const textualCode = pickMasterLabel(
+      buyerSellerIdentifierCodeValidTestData,
+      "Tax Identification",
+      "Tax Identification Number"
+    );
+    const isIdentifierField = fieldNorm === "buyer identifier";
+    const isTextualCodeField =
+      fieldNorm.includes("buyer identifier") && fieldNorm.includes("textual code");
+
+    row["Scheme identifier"] = "";
     row["Buyer Identifier (textual code)"] = "";
+    if (isIdentifierField) {
+      // XOR none: empty identifier is accepted only with both dropdowns blank.
+      return;
+    }
+    if (isTextualCodeField) {
+      row["Buyer Identifier (textual code)"] = textualCode;
+    } else {
+      row["Scheme identifier"] = icdScheme;
+    }
     row["Buyer identifier"] = row["Buyer identifier"] || "OM-BUYER-001";
   };
 

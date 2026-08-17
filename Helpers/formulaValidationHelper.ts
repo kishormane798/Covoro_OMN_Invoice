@@ -307,7 +307,8 @@ export function buildFormulaSubmitRow(
   const identified = applyParallelWorkerIdentityToSubmitRow(withTxn);
   identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
   identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
-  return identified;
+  // Re-apply formula inputs after identity so discount/qty/rate feed generate totals.
+  return overlayHeaderValues(identified, overlay);
 }
 
 async function generateFormulaWorkbook(

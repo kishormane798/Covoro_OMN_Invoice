@@ -83,8 +83,10 @@ function masterLabel(
 }
 
 /**
- * Full Oman row + worker seller TIN + Oman buyer, then patch `field` so identity
- * stamp cannot overwrite the value under test.
+ * Full Oman row + worker seller TIN + Oman buyer. The value under test is applied
+ * on the row before generate so formula inputs (discount, qty, charges, …) are
+ * included in totals; then patched again so identity/writer cannot overwrite it.
+ * Calculated outputs are overwritten during generate and restored by that patch.
  */
 export async function generateOmanSeededFieldExcel(
   field: string,
@@ -102,6 +104,7 @@ export async function generateOmanSeededFieldExcel(
   });
   identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
   identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  identified[field] = value;
   const generated = await generateInvoiceFromSubmitData(identified);
   if (field !== BUYER_VAT_FIELD) {
     patchInvoiceTextCellInFile(generated.filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);

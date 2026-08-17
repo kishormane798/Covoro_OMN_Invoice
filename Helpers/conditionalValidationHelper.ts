@@ -552,8 +552,8 @@ export function buildAmountDecimalPrecisionScenarioRow(
   const seed = getSeedInvoiceRow();
   return {
     ...seed,
-    "Item Gross Price": scenario.itemGrossPrice,
-    "Item Price Discount": "0",
+    "Item gross price": scenario.itemGrossPrice,
+    "Item price discount": "0",
   };
 }
 

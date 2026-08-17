@@ -29,6 +29,28 @@ export function playwrightTitleFromScenarioTitle(title: string): string {
   return title.replace(/^TC_\d+\s+/, "");
 }
 
+/**
+ * Collapse Title-Case duplicates onto the first spelling (seed keys). Later values win
+ * so formula inputs like Item gross price are what generateInvoiceFromSubmitData totals use.
+ */
+function collapseSubmitRowHeaderKeys(
+  row: Record<string, string | null>
+): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  const byNorm = new Map<string, string>();
+  for (const [key, value] of Object.entries(row)) {
+    const norm = key.trim().toLowerCase().replace(/\s+/g, " ");
+    const existing = byNorm.get(norm);
+    if (existing !== undefined) {
+      out[existing] = value;
+    } else {
+      byNorm.set(norm, key);
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 /** Patch generated workbook seller VAT cell from row data. */
 export function patchSellerVatFromRow(
   filePath: string,
@@ -49,7 +71,9 @@ export async function verifyConditionalScenario(
   options: ConditionalErrorOptions = {},
   transformRow?: ConditionalRowTransform
 ): Promise<void> {
-  const prepared = transformRow ? transformRow(rowData) : rowData;
+  const prepared = collapseSubmitRowHeaderKeys(
+    transformRow ? transformRow(rowData) : rowData
+  );
   const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(prepared);
   options.patchFile?.(filePath, prepared);
 
@@ -76,7 +100,9 @@ export async function verifyConditionalScenarioAnyOf(
   options: ConditionalErrorOptions = {},
   transformRow?: ConditionalRowTransform
 ): Promise<void> {
-  const prepared = transformRow ? transformRow(rowData) : rowData;
+  const prepared = collapseSubmitRowHeaderKeys(
+    transformRow ? transformRow(rowData) : rowData
+  );
   const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(prepared);
   options.patchFile?.(filePath, prepared);
 
