@@ -1,20 +1,32 @@
 /**
- * **Formula validation only** — `generateInvoiceExcel` + `defaultInvoiceData` / scenario rows.
- * Does not use `generateInvoiceFromSubmitData` or `conditionalValidationHelper`.
+ * **Formula validation** — full Oman seed (same as field/conditional) + formula input overlay.
+ * Workbooks: `generateInvoiceFromSubmitData` (clears row 6, writes seed + overlay, recalculates totals).
+ * CamelCase `buildFormulaExcelPayload` stays for calculated-field baselines / pack helper.
  *
- * Excel artifacts: `generateInvoiceExcel` registers paths in `generatedFiles`; `Src/baseTest`
+ * Excel artifacts: generator registers paths in `generatedFiles`; `Src/baseTest`
  * attaches workbooks only on failure/timeout in `afterEach`, then deletes them from disk.
  */
 import type { Page } from "@playwright/test";
 import {
   calculateInvoiceValuesForGeneratorPayload,
-  generateInvoiceExcel,
+  generateInvoiceFromSubmitData,
   OMAN_HOME_CURRENCY,
   patchInvoiceDataCellInFile,
+  patchInvoiceTextCellInFile,
 } from "../utils/invoiceExcel";
 import { uploadAndVerify } from "./uploadHelper";
 import { runErrorValidation } from "./excelEditMessageCheck";
 import { defaultInvoiceData } from "../testData/FieldValidations/Min_max_field_validation";
+import {
+  applyPartyIdentifiersByTxnType,
+  buildValidOmanFullTaxInvoiceRow,
+} from "./conditionalValidationHelper";
+import {
+  applyOmanSellerBuyerIdentity,
+  OMAN_BUYER_ELECTRONIC,
+  OMAN_BUYER_VAT,
+} from "./fieldValidationExcelPackHelper";
+import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
 
 export const FOREIGN_CURRENCY_CODE = "USD";
 export const DEFAULT_FOREIGN_EXCHANGE_RATE = 3.67;
@@ -33,7 +45,7 @@ export const FORMULA_MONETARY_TOLERANCE = 0.01;
 type InvoiceCalcSnapshot = ReturnType<typeof calculateInvoiceValuesForGeneratorPayload>;
 
 /**
- * Calculated numeric columns written by `generateInvoiceExcel`.
+ * Calculated numeric columns written after formula workbook generation.
  * `foreignOnly` marks columns used only for non-OMR invoices.
  */
 export type CalculatedFieldMismatchTarget = {
@@ -166,11 +178,9 @@ async function generatePatchedCalculatedFieldWorkbook(
       `Calculated field "${target.shortName}" is foreign-only; do not run in OMR mode.`
     );
   }
-  const payload = buildFormulaExcelPayload(
-    formulaMismatchBaseRow(target.shortName),
-    mode
-  );
-  const { filePath, invoiceNumber } = await generateInvoiceExcel(payload);
+  const baseRow = formulaMismatchBaseRow(target.shortName);
+  const payload = buildFormulaExcelPayload(baseRow, mode);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(baseRow, mode);
   const calc = calculateInvoiceValuesForGeneratorPayload(payload);
   const correctRaw = target.pickCorrect(calc);
   if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
@@ -204,6 +214,110 @@ export function buildFormulaExcelPayload(
   }
 
   return payload;
+}
+
+/** CamelCase formula payload keys → Excel header text (row 4). */
+const FORMULA_CAMEL_TO_HEADER: Record<string, string> = {
+  invoiceCurrencyCode: "Invoice Currency Code",
+  currencyRate: "Currency Exchange Rate",
+  invoiceTransactionTypeCode: "Invoice Transaction Type Code",
+  itemPriceBaseQty: "Item Price Base Quantity",
+  itemGrossPrice: "Item Gross Price",
+  itemPriceDiscount: "Item Price Discount",
+  invoicedQty: "Invoiced Quantity",
+  lineCharge: "Invoice Line Charge Amount",
+  lineAllowance: "Invoice Line Allowance Amount",
+  taxCategory: "Tax Category",
+  taxRate: "Tax Rate",
+  taxExemptionReasonCode: "Tax Exemption Reason Code",
+  taxExemptionReasonText: "Tax Exemption Reason Text",
+  invoiceTypeCode: "Invoice Type Code",
+  paymentMeansTypeCode: "Payment Means Type Code",
+  docCharges: "Charges On Document Level",
+  docAllowances: "Allowances On Document Level",
+  paidAmount: "Paid Amount",
+  roundingAmount: "Rounding Amount",
+  invoiceLineIdentifier: "Invoice Line Identifier",
+  itemName: "Item Name",
+  itemDescription: "Item Description",
+  itemClassificationIdentifier: "Item Classification Identifier",
+};
+
+const BUYER_VAT_FIELD = "Buyer VAT identifier";
+const BUYER_EL_FIELD = "Buyer electronic address";
+
+function asStringRow(row: Record<string, string | null>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(row)) {
+    out[key] = value ?? "";
+  }
+  return out;
+}
+
+function overlayHeaderValues(
+  seed: Record<string, string>,
+  overlay: Record<string, string>
+): Record<string, string> {
+  const next = { ...seed };
+  const byNorm = new Map(
+    Object.keys(next).map((key) => [key.trim().toLowerCase(), key])
+  );
+  for (const [header, value] of Object.entries(overlay)) {
+    const existing = byNorm.get(header.trim().toLowerCase());
+    if (existing) {
+      next[existing] = value;
+    } else {
+      next[header] = value;
+      byNorm.set(header.trim().toLowerCase(), header);
+    }
+  }
+  return next;
+}
+
+function formulaPayloadToHeaderOverlay(
+  payload: Record<string, unknown>
+): Record<string, string> {
+  const overlay: Record<string, string> = {};
+  for (const [camel, header] of Object.entries(FORMULA_CAMEL_TO_HEADER)) {
+    if (!Object.prototype.hasOwnProperty.call(payload, camel)) continue;
+    const value = payload[camel];
+    overlay[header] = value === null || value === undefined ? "" : String(value);
+  }
+  return overlay;
+}
+
+/**
+ * Full Oman Full Tax Invoice seed (same as field/conditional), then overlay formula inputs.
+ */
+export function buildFormulaSubmitRow(
+  row: FormulaDataRow,
+  mode: CurrencyMode
+): Record<string, string> {
+  const payload = buildFormulaExcelPayload(row, mode);
+  const overlay = formulaPayloadToHeaderOverlay(payload);
+  if (mode === "omr") {
+    overlay["Currency Exchange Rate"] = overlay["Currency Exchange Rate"] ?? "";
+  } else {
+    overlay["Source currency code"] = overlay["Source currency code"] ?? OMAN_HOME_CURRENCY;
+  }
+
+  const seed = applyOmanSellerBuyerIdentity(buildValidOmanFullTaxInvoiceRow());
+  const merged = overlayHeaderValues(seed, overlay);
+  const withTxn = asStringRow(applyPartyIdentifiersByTxnType(merged));
+  const identified = applyParallelWorkerIdentityToSubmitRow(withTxn);
+  identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+  identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  return identified;
+}
+
+async function generateFormulaWorkbook(
+  row: FormulaDataRow,
+  mode: CurrencyMode
+): Promise<{ filePath: string; invoiceNumber: string }> {
+  const generated = await generateInvoiceFromSubmitData(buildFormulaSubmitRow(row, mode));
+  patchInvoiceTextCellInFile(generated.filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
+  patchInvoiceTextCellInFile(generated.filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+  return generated;
 }
 
 export const CURRENCY_SUITES: { mode: CurrencyMode; label: string }[] = [
@@ -260,8 +374,7 @@ export async function runPositiveFormulaScenario(
   mode: CurrencyMode,
   row: FormulaScenarioRow
 ) {
-  const payload = buildFormulaExcelPayload(row as FormulaDataRow, mode);
-  const { filePath } = await generateInvoiceExcel(payload);
+  const { filePath } = await generateFormulaWorkbook(row as FormulaDataRow, mode);
   await uploadAndVerify(page, filePath);
 }
 
@@ -393,8 +506,7 @@ export async function runZeroLineVatForcedNonZeroErrorScenario(
     paidAmount: 0,
     roundingAmount: 0,
   };
-  const payload = buildFormulaExcelPayload(row, mode);
-  const { filePath, invoiceNumber } = await generateInvoiceExcel(payload);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, mode);
   patchInvoiceDataCellInFile(filePath, "Line Item VAT Amount", 1);
   await runErrorValidation(page, {
     filePath,
@@ -413,8 +525,10 @@ export async function runNegativeFormulaScenario(
     throw new Error(`Negative row "${row.name}" is missing errorField`);
   }
 
-  const payload = buildFormulaExcelPayload(row as FormulaDataRow, mode);
-  const { filePath, invoiceNumber } = await generateInvoiceExcel(payload);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(
+    row as FormulaDataRow,
+    mode
+  );
   await runErrorValidation(page, {
     filePath,
     field: row.errorField,
