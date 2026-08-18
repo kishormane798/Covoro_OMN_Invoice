@@ -1,4 +1,4 @@
-# Schedule (Mon & Fri only, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
+# Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
 #   Two clock starts only. Each shard is 45 min job timeout.
 #   Morning 06:30 IST and evening 17:00 IST start field shard 1.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
@@ -10,8 +10,8 @@ name: Oman E-Invoice — Playwright
 
 on:
   schedule:
-    - cron: "0 1 * * 1,5" # 06:30 IST — start morning wave (field shard 1)
-    - cron: "30 11 * * 1,5" # 17:00 IST — start evening wave (field shard 1)
+    - cron: "0 1 * * 1-5" # 06:30 IST — start morning wave (field shard 1)
+    - cron: "30 11 * * 1-5" # 17:00 IST — start evening wave (field shard 1)
 
   workflow_dispatch:
     inputs:
@@ -440,6 +440,7 @@ jobs:
       - name: Queue next shard after this run finishes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_SUITE: ${{ github.event.inputs.suite }}
           INPUT_SHARD: ${{ github.event.inputs.shard }}
@@ -493,6 +494,7 @@ jobs:
 
           echo "Queueing next: $NEXT_SUITE shard $NEXT_SHARD"
           gh workflow run playwright.yml \
+            --repo "$GITHUB_REPOSITORY" \
             --ref "$GITHUB_REF_NAME" \
             -f suite="$NEXT_SUITE" \
             -f shard="$NEXT_SHARD" \
