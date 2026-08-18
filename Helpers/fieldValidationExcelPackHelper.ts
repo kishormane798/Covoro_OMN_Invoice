@@ -626,6 +626,12 @@ export function applyDependentOverlay(
     row["Supporting document UUID"] = "supp-uuid-oman-001";
   };
 
+  /** IBR-CO-21: if either item attribute cell is written, the other must be present. */
+  const fillItemAttributePair = () => {
+    row["Item attribute name"] = row["Item attribute name"] || "Color";
+    row["Item attribute value"] = row["Item attribute value"] || "Black";
+  };
+
   const fillPeriod = () => {
     row["Invoice Transaction Type Code"] = FV.TXN_SUMMARY_INVOICE;
     row["Invoicing period start date"] = "2026-01-01";
@@ -660,10 +666,31 @@ export function applyDependentOverlay(
    */
   const fillSellerPartyIdentifierCompanions = () => {
     fillFullTaxStandardContext();
-    const scheme = "Tax Identification Number";
-    row["Seller identifier - Scheme identifier"] =
-      row["Seller identifier - Scheme identifier"] || scheme;
+    const icdScheme = pickMasterLabel(
+      schemeIdentifierValidTestData,
+      "Oman Value Added Tax",
+      "Oman Value Added Tax Identification Number (VATIN) (OM:VAT) - Issuing agency: Tax Authority, Oman."
+    );
+    const textualCode = pickMasterLabel(
+      buyerSellerIdentifierCodeValidTestData,
+      "Tax Identification",
+      "Tax Identification Number"
+    );
+    const isIdentifierField = fieldNorm === "seller identifier";
+    const isTextualCodeField =
+      fieldNorm.includes("seller identifier") && fieldNorm.includes("textual code");
+
+    row["Seller identifier - Scheme identifier"] = "";
     row["Seller Identifier (textual code)"] = "";
+    if (isIdentifierField) {
+      // XOR none: empty identifier is accepted only with both dropdowns blank.
+      return;
+    }
+    if (isTextualCodeField) {
+      row["Seller Identifier (textual code)"] = textualCode;
+    } else {
+      row["Seller identifier - Scheme identifier"] = icdScheme;
+    }
     row["Seller identifier"] = row["Seller identifier"] || "OM-SELLER-001";
   };
 
@@ -740,8 +767,7 @@ export function applyDependentOverlay(
         fillProfitMargin();
       }
       if (fieldNorm.includes("attribute")) {
-        row["Item attribute name"] = "Color";
-        row["Item attribute value"] = "Black";
+        fillItemAttributePair();
       }
       break;
     default:
@@ -759,6 +785,7 @@ export function applyDependentOverlay(
     fillCurrencyFx();
   }
   if (fieldNorm.includes("supporting document")) fillSupporting();
+  if (fieldNorm.includes("attribute")) fillItemAttributePair();
   if (fieldNorm.includes("invoicing period")) fillPeriod();
   if (fieldNorm.startsWith("deliver to")) fillDelivery();
   // Line exemption reason text/code: only valid when Tax Category is Exempt from tax.

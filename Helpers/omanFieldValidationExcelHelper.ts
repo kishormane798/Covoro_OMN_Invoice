@@ -711,6 +711,32 @@ export async function generateOmanSupportingDocumentPairExcel(
 }
 
 /**
+ * Item attribute name + value pair (IBR-CO-21: both-or-neither).
+ * Both cells are patched afterward so one-without-the-other error cases stay empty.
+ */
+export async function generateOmanItemAttributePairExcel(
+  itemAttributeName: string,
+  itemAttributeValue: string
+): Promise<{ filePath: string; invoiceNumber: string }> {
+  const generated = await generateOmanSeededFieldExcel(
+    FV.ITEM_ATTRIBUTE_NAME_FIELD,
+    itemAttributeName,
+    { skipDependentOverlay: true }
+  );
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    FV.ITEM_ATTRIBUTE_NAME_FIELD,
+    itemAttributeName
+  );
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    FV.ITEM_ATTRIBUTE_VALUE_FIELD,
+    itemAttributeValue
+  );
+  return generated;
+}
+
+/**
  * Buyer/Seller identifier length with XOR companions (scheme OR code, never both).
  */
 export async function generateOmanPartyIdentifierLengthExcel(opts: {
@@ -751,6 +777,20 @@ export async function generateOmanPartyIdentifierLengthExcel(opts: {
   return generated;
 }
 
+/** IBR-CO-21: name and value are both-or-neither. Length tests must not leave a dash/empty companion. */
+function itemAttributeCompanion(
+  field: string
+): { field: string; value: string } | null {
+  const n = field.replace(/\s+/g, " ").trim().toLowerCase();
+  if (n === FV.ITEM_ATTRIBUTE_NAME_FIELD.toLowerCase()) {
+    return { field: FV.ITEM_ATTRIBUTE_VALUE_FIELD, value: "Black" };
+  }
+  if (n === FV.ITEM_ATTRIBUTE_VALUE_FIELD.toLowerCase()) {
+    return { field: FV.ITEM_ATTRIBUTE_NAME_FIELD, value: "Color" };
+  }
+  return null;
+}
+
 export async function generateOmanFieldLengthExcel(
   field: string,
   length: number
@@ -759,6 +799,25 @@ export async function generateOmanFieldLengthExcel(
   // Dedicated prepayment suites cover the transaction-type-required behavior.
   if (field === PREPAY_NUMBER_FIELD && length === 0) {
     return generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
+  }
+  // IBR-079-OM: Goods requires Item classification identifier except Simplified Tax Invoice.
+  // Empty (below minimum) is accepted on Simplified; Full Tax + Goods keeps a value (min/max).
+  if (field === FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD && length === 0) {
+    const generated = await generateOmanSeededFieldExcel(field, "", {
+      skipDependentOverlay: true,
+    });
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+      FV.TXN_SIMPLIFIED_TAX_INVOICE
+    );
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      FV.ITEM_TYPE_FIELD,
+      FV.ITEM_TYPE_GOODS
+    );
+    patchInvoiceTextCellInFile(generated.filePath, field, "");
+    return generated;
   }
   // When testing any deliver-to field empty (below minimum), the overlay
   // populates ALL delivery fields (IBR-040-OM: any one field present → all required).
@@ -775,7 +834,21 @@ export async function generateOmanFieldLengthExcel(
   if (field === FV.TAX_EXEMPTION_REASON_TEXT_FIELD && length === 0) {
     return generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
   }
-  return generateOmanSeededFieldExcel(field, lengthValue(length));
+  // Item attribute name/value: empty both is accepted; a non-empty name needs a real
+  // value companion (not "-"/blank) and vice versa.
+  const attributeCompanion = itemAttributeCompanion(field);
+  if (attributeCompanion && length === 0) {
+    return generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
+  }
+  const generated = await generateOmanSeededFieldExcel(field, lengthValue(length));
+  if (attributeCompanion && length > 0) {
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      attributeCompanion.field,
+      attributeCompanion.value
+    );
+  }
+  return generated;
 }
 
 export async function generateOmanNumericFieldExcel(

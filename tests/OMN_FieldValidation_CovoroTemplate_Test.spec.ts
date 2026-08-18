@@ -17,6 +17,7 @@ import {
   generateOmanIssueDateExcel,
   generateOmanNumericFieldExcel,
   generateOmanPartyIdentifierLengthExcel,
+  generateOmanItemAttributePairExcel,
   generateOmanPrepaymentPairExcel,
   generateOmanSeededFieldExcel,
   generateOmanSupportingDocumentPairExcel,
@@ -576,6 +577,51 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await runErrorValidation(page, {
         filePath,
         field: FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD,
+        invoiceNumber,
+        checkEdit: true,
+      });
+    });
+  });
+
+  test.describe("Item attribute name / value interdependency", () => {
+    const attributeName = "Color";
+    const attributeValue = "Black";
+
+    test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – Item attribute name (name and value).`, async ({
+      page,
+    }) => {
+      const { filePath } = await generateOmanItemAttributePairExcel(
+        attributeName,
+        attributeValue
+      );
+      await uploadAndVerify(page, filePath);
+    });
+
+    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Item attribute value (name without value).`, async ({
+      page,
+    }) => {
+      const { filePath, invoiceNumber } = await generateOmanItemAttributePairExcel(
+        attributeName,
+        ""
+      );
+      await runErrorValidation(page, {
+        filePath,
+        field: FV.ITEM_ATTRIBUTE_VALUE_FIELD,
+        invoiceNumber,
+        checkEdit: true,
+      });
+    });
+
+    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Item attribute name (value without name).`, async ({
+      page,
+    }) => {
+      const { filePath, invoiceNumber } = await generateOmanItemAttributePairExcel(
+        "",
+        attributeValue
+      );
+      await runErrorValidation(page, {
+        filePath,
+        field: FV.ITEM_ATTRIBUTE_NAME_FIELD,
         invoiceNumber,
         checkEdit: true,
       });

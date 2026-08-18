@@ -5,10 +5,10 @@
  */
 import * as FV from "../testData/FieldValidations";
 import {
-  buyerSellerIdentifierCodeValidTestData,
   industrialClassificationIsicValidTestData,
   omanCountrySubdivisionValidTestData,
   paymentMeansTypeValidTestData,
+  schemeIdentifierValidTestData,
   unitOfMeasurementValidTestData,
 } from "../testData/FieldValidations/Master";
 
@@ -315,14 +315,11 @@ const IBR_007_SELLER_IDENTIFIER_TXN_TYPES = new Set<string>([
   FV.TXN_SPECIAL_ZONE_SUPPLIES,
 ]);
 
-const IMPORTER_CUSTOMS_ID_SCHEME = "Importer Customs ID";
-
 /**
  * Fill or clear seller/buyer party identifiers from Invoice transaction type.
  * - Seller (IBR-007-OM): Import of Goods / Import of Services (RCM) /
  *   Profit Margin Self-Invoice / Special Zone Supplies
- * - Buyer (IBR-152/153-OM): Special Zone → Special Zone License Number;
- *   Import of Goods → Importer Customs ID
+ * - Buyer/seller scheme: ICD master (VATIN label) for Special Zone and Import of Goods
  * Scenario builders may overwrite these afterward (including empty for error cases).
  */
 export function applyPartyIdentifiersByTxnType(
@@ -331,15 +328,15 @@ export function applyPartyIdentifiersByTxnType(
   const txn = String(row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] ?? "").trim();
   const next: Record<string, string | null> = { ...row };
   const defaultScheme = masterLabelIncluding(
-    buyerSellerIdentifierCodeValidTestData,
-    "Tax Identification",
-    "Tax Identification Number"
+    schemeIdentifierValidTestData,
+    "Oman Value Added Tax",
+    "Oman Value Added Tax Identification Number (VATIN) (OM:VAT) - Issuing agency: Tax Authority, Oman."
   );
 
   if (IBR_007_SELLER_IDENTIFIER_TXN_TYPES.has(txn)) {
     if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
-      // XOR: scheme only (never scheme + textual code together).
-      next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
+      // XOR: ICD scheme only (never scheme + textual code together).
+      next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = defaultScheme;
       next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
       next[FV.SELLER_IDENTIFIER_FIELD] = "SZ-SELLER-001";
     } else {
@@ -354,11 +351,11 @@ export function applyPartyIdentifiersByTxnType(
   }
 
   if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
-    next["Scheme identifier"] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
+    next["Scheme identifier"] = defaultScheme;
     next["Buyer Identifier (textual code)"] = "";
     next["Buyer identifier"] = "SZ-BUYER-001";
   } else if (txn === FV.TXN_IMPORT_OF_GOODS) {
-    next["Scheme identifier"] = IMPORTER_CUSTOMS_ID_SCHEME;
+    next["Scheme identifier"] = defaultScheme;
     next["Buyer Identifier (textual code)"] = "";
     next["Buyer identifier"] = "IMP-CUST-001";
   } else {
