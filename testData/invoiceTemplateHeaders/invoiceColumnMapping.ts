@@ -97,8 +97,8 @@ export const FULL_TEMPLATE_HEADERS: readonly string[] = [
   "Item Country Of Origin",
   "Item Attribute Name",
   "Item Attribute Value",
-  "Custom 1",
-  "Custom 2",
+  "Item Custom 1",
+  "Item Custom 2",
   "Charges On Document Level",
   "VAT Category - Charges",
   "Tax Exemption Reason - Charges",
@@ -121,7 +121,7 @@ export const FULL_TEMPLATE_HEADERS: readonly string[] = [
   "Invoicing Period Start Date",
   "Invoicing Period End Date",
   "Payment Means Type Code",
-  "Scheme Identifier",
+  "Scheme Identifier - Payment",
   "Payment Account Identifier",
   "Payment Due Date",
   "Payment Card Primary Account Number",
@@ -138,14 +138,128 @@ export const FULL_TEMPLATE_HEADERS_DOCUMENT: InvoiceTemplateHeadersDocument = {
   source: "full-template",
   description:
     "Row-4 column labels for testData/uploads/template.xlsx. uploads/ holds only template workbooks. " +
-    "Note: Scheme Identifier and Custom 1/2 appear twice (buyer/item vs payment/trailing); " +
-    "writers disambiguate via legacy request-key casing (sentence/lower → first, Title Case → last).",
+    "Note: buyer `Scheme Identifier`, item `Item Custom 1/2`, payment `Scheme Identifier - Payment`, " +
+    "and trailing `Custom 1/2` are distinct headers on the current Oman template.",
   headers: [...FULL_TEMPLATE_HEADERS],
 };
 
 /** Convenience list used by filtering helpers/spec registration. */
 export const FULL_TEMPLATE_HEADER_LABELS: readonly string[] =
   FULL_TEMPLATE_HEADERS_DOCUMENT.headers;
+
+/** Row-4 column labels for `testData/uploads/SimplifiedTemplate.xlsx`. */
+export const SIMPLIFIED_TEMPLATE_HEADERS: readonly string[] = [
+  "Invoice Transaction Type Code",
+  "Invoice Type Code",
+  "Invoice Number",
+  "Invoice Issue Date",
+  "Purchase Order Number",
+  "Incoterms",
+  "Import Date",
+  "Customs Declaration Number",
+  "Invoice Currency Code",
+  "Source Currency Code",
+  "Currency Exchange Rate",
+  "Credit Note Or Debit Note Reason Code",
+  "Preceding Invoice Reference",
+  "Unique Identifier Number",
+  "Preceding Invoice Issue Date",
+  "Seller Name",
+  "Seller Electronic Address Scheme",
+  "Seller Electronic Address",
+  "Third Party Name",
+  "Third Party VATin",
+  "Third Party Address Line 1",
+  "Third Party Address Line 2",
+  "Third Party Address Line 3",
+  "Third Party City",
+  "Third Party Postal Code - Po Box Number",
+  "Third Party Country Code",
+  "Buyer Name",
+  "Buyer Electronic Address Scheme",
+  "Buyer Electronic Address",
+  "Deliver To Party Name",
+  "Deliver To Address Line 1",
+  "Deliver To Address Line 2",
+  "Deliver To Address Line 3",
+  "Deliver To City",
+  "Deliver To Post Code",
+  "Deliver To Country Sub-Division",
+  "Deliver To Country Code",
+  "Invoice Line Identifier",
+  "Item Name",
+  "Item Description",
+  "Item Type",
+  "Item Classification Identifier",
+  "Industrial Classification Code",
+  "Service Type Code",
+  "Profit Margin Item Type Code",
+  "Item Price Base Quantity",
+  "Item Gross Price",
+  "Item Price Discount",
+  "Item Net Price",
+  "Invoiced Quantity",
+  "Invoiced Quantity Unit Of Measure Code",
+  "Invoice Line Charge Amount",
+  "Invoice Line Allowance Amount",
+  "Invoice Line Net Amount",
+  "Tax Category",
+  "Tax Rate",
+  "Tax Exemption Reason Text",
+  "Tax Exemption Reason Code",
+  "Line Item VAT Amount",
+  "Total Amount Including VAT",
+  "Item Country Of Origin",
+  "Item Attribute Name",
+  "Item Attribute Value",
+  "Item Custom 1",
+  "Item Custom 2",
+  "Charges On Document Level",
+  "VAT Category - Charges",
+  "Tax Exemption Reason - Charges",
+  "Allowances On Document Level",
+  "VAT Category - Allowances",
+  "Tax Exemption Reason - Allowances",
+  "Sum Of Invoice Line Net Amount",
+  "Invoice Total Amount Without Tax",
+  "Invoice Total Tax Amount",
+  "Invoice Total Amount With Tax",
+  "Invoice Total Tax Amount In Tax Accounting Currency",
+  "Paid Amount",
+  "Rounding Amount",
+  "Amount Due For Payment",
+  "Total Amount Due (Profit Margin)",
+  "Prepayment Invoice Number",
+  "Prepayment Invoice Uuid",
+  "Supporting Document Reference",
+  "Supporting Document Uuid",
+  "Invoicing Period Start Date",
+  "Invoicing Period End Date",
+  "Payment Means Type Code",
+  "Scheme Identifier - Payment",
+  "Payment Account Identifier",
+  "Payment Due Date",
+  "Payment Card Primary Account Number",
+  "Payment Account Name",
+  "Custom 1",
+  "Custom 2",
+  "Custom 3",
+  "Custom 4",
+  "Custom 5",
+] as const;
+
+/** Row-4 headers document for `testData/uploads/SimplifiedTemplate.xlsx`. */
+export const SIMPLIFIED_TEMPLATE_HEADERS_DOCUMENT: InvoiceTemplateHeadersDocument = {
+  source: "simplified-template",
+  description:
+    "Row-4 column labels for testData/uploads/SimplifiedTemplate.xlsx. Omits seller/buyer " +
+    "address and identifier columns present on the full Oman template.",
+  headers: [...SIMPLIFIED_TEMPLATE_HEADERS],
+};
+
+/** Convenience list used by simplified template specs and row filtering. */
+export const SIMPLIFIED_TEMPLATE_HEADER_LABELS: readonly string[] =
+  SIMPLIFIED_TEMPLATE_HEADERS_DOCUMENT.headers;
 
 const SUBMIT_INVOICE_IDENTITY_HEADER_ALIASES: Record<string, string[]> =
   Object.fromEntries(
@@ -161,11 +275,13 @@ const SUBMIT_INVOICE_IDENTITY_HEADER_ALIASES: Record<string, string[]> =
 export const SUBMIT_INVOICE_TEST_KEY_TO_EXCEL_HEADERS: Record<string, string[]> =
   {
     ...SUBMIT_INVOICE_IDENTITY_HEADER_ALIASES,
-    /**
-     * Buyer scheme dropdown key. Template now uses Title Case `Scheme Identifier` for both
-     * buyer (col ~39) and payment (col ~110); writers keep legacy key casing to pick first vs last.
-     */
+    /** Buyer scheme dropdown key. */
     "Scheme identifier": ["Scheme identifier", "Scheme Identifier"],
+    /** Legacy payment key kept for backward compatibility with existing row data. */
+    "Scheme Identifier": ["Scheme Identifier - Payment", "Scheme Identifier"],
+    /** Legacy item-custom keys kept for backward compatibility with existing row data. */
+    "custom 1": ["Item Custom 1", "Custom 1"],
+    "custom 2": ["Item Custom 2", "Custom 2"],
     /** Aliases for electronic address column wording across template versions. */
     "Seller electronic address": [
       "Seller Electronic Address",

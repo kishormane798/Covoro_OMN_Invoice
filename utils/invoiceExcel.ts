@@ -26,15 +26,19 @@ import { runPythonForStatus, runPythonForStdout } from "./pythonRunner";
 
 const DEFAULT_TEMPLATE_RELATIVE = path.join("testData", "uploads", "template.xlsx");
 const GENERATED_INVOICE_EXCEL_RELATIVE = path.join("testData", "generated", "excel");
-const UPLOADS_RESERVED_TEMPLATE_BASENAMES = ["template.xlsx"] as const;
+const UPLOADS_RESERVED_TEMPLATE_BASENAMES = [
+  "template.xlsx",
+  "SimplifiedTemplate.xlsx",
+] as const;
 
 const SHEET_NAME = "E Invoice";
 const HEADER_ROW = 4;
 /** Template data row (Excel row 6). Submit-generated files always clear this row before writing test data. */
 export const INVOICE_TEMPLATE_DATA_ROW = 6;
 const DATA_ROW = INVOICE_TEMPLATE_DATA_ROW;
-// Master dropdown batch files: row count must cover the longest shared list (e.g. country ≈251) so one workbook can hold a full sweep without splitting.
-const BATCH_SIZE = 275;
+// Master dropdown batch files: one workbook per chunk (1250 rows). Most lists fit in a
+// single file; unit of measure (~2162) still splits across workbooks.
+const BATCH_SIZE = 1250;
 
 export const generatedFiles: string[] = [];
 
@@ -139,7 +143,7 @@ export function readInvoiceTemplateHeadersSync(absoluteTemplatePath: string): st
  * Key for matching config `field` names and row keys to template column titles.
  * Collapses whitespace only; case is preserved so legacy test keys can still
  * disambiguate duplicate Title Case columns in the Python writer
- * (`Scheme identifier` → buyer/first, `Scheme Identifier` → payment/last).
+ * (`Scheme identifier` → buyer, `Scheme Identifier` legacy payment alias → `Scheme Identifier - Payment`).
  */
 export function normalizeInvoiceHeader(name: string): string {
   return name.replace(/\s+/g, " ").trim();
@@ -200,8 +204,8 @@ function buildSubmitRowValuesExplicitPerTemplateHeader(
     [...SUBMIT_ROW_PYTHON_OWNED_HEADER_NORM].map((h) => h.toLowerCase())
   );
 
-  // Preserve sparse key casing so Python can disambiguate duplicate Title Case columns
-  // (e.g. buyer `Scheme identifier` → first col, payment `Scheme Identifier` → last).
+  // Preserve sparse key casing for legacy aliases; current Oman template uses
+  // distinct buyer/item/payment header titles so exact names are preferred.
   for (const [key, value] of Object.entries(sparseRow)) {
     const matchKey = invoiceHeaderMatchKey(key);
     if (!matchKey || owned.has(matchKey) || !templateMatchKeys.has(matchKey)) {
@@ -1259,7 +1263,7 @@ export async function generateDropdownMasterExcel(
           clearItemTypeForRcmFlag,
           clearRcmForItemTypeFlag,
         ],
-        300_000
+        1_200_000
       );
     } finally {
       try {
@@ -1383,7 +1387,7 @@ async function buildSubmitFlowRowValuesForWrite(
     isDeemedSupplyTxn(rowData["Invoice Transaction Type Code"])
   ) {
     rowValues["Payment means type code"] = "";
-    rowValues["Scheme Identifier"] = "";
+    rowValues["Scheme Identifier - Payment"] = "";
     rowValues["Payment account identifier"] = "";
     rowValues["Payment account name"] = "";
     rowValues["Payment service provider identifier"] = "";
@@ -1395,7 +1399,7 @@ async function buildSubmitFlowRowValuesForWrite(
     allowedColumnsMatchKeys.has(invoiceHeaderMatchKey("Scheme identifier"));
   if (hasBuyerSchemeValue) {
     rowValues["Scheme identifier"] = rowData["Scheme identifier"];
-    rowValues["Scheme Identifier"] = "";
+    rowValues["Scheme Identifier - Payment"] = "";
   }
 
   const calcSourceRow = isVatReverseChargeTaxCategory(rowData["Tax Category"])

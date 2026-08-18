@@ -7,7 +7,7 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { buildValidOmanFullTaxInvoiceRow, expandRowByMultiValueSpec } from "./conditionalValidationHelper";
+import { buildValidOmanFullTaxInvoiceRow, expandRowByMultiValueSpec, applyOmanDeliveryOverlay } from "./conditionalValidationHelper";
 import {
   applyDependentOverlay,
   applyOmanSellerBuyerIdentity,
@@ -1301,14 +1301,7 @@ export function applyConditionalTriggerOverlay(
         FV.TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES;
       row["Item Type"] = FV.ITEM_TYPE_SERVICES;
       row["Item classification identifier"] = "";
-      row["Deliver to country code"] =
-        row["Deliver to country code"] || FV.UAE_COUNTRY_CODE;
-      row["Deliver to party name"] =
-        row["Deliver to party name"] || "Export Consignee";
-      row["Deliver to address line 1"] =
-        row["Deliver to address line 1"] || "Export Street 1";
-      row["Deliver to city"] = row["Deliver to city"] || "Dubai";
-      row["Deliver to post code"] = row["Deliver to post code"] || "00000";
+      Object.assign(row, applyOmanDeliveryOverlay(row, "export"));
       row["Supporting document reference"] =
         row["Supporting document reference"] ||
         FV.SUPPORTING_DOCUMENT_REFERENCE_SAMPLE;
@@ -1353,8 +1346,7 @@ export function applyConditionalTriggerOverlay(
           FV.SUPPORTING_DOCUMENT_UUID_SAMPLE;
       }
       if (ruleId === "IBR-012-OM") {
-        row["Deliver to country code"] =
-          row["Deliver to country code"] || FV.UAE_COUNTRY_CODE;
+        Object.assign(row, applyOmanDeliveryOverlay(row, "export"));
       }
     }
   }

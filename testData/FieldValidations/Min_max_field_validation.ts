@@ -16,7 +16,40 @@ export type FieldLengthRule = {
 export type FieldNumericRule = FieldLengthRule & {
   /** Decimal places allowed (Oman amount fields use 2; exchange rate uses 6–7). */
   decimals?: number;
+  /**
+   * Isolated minimum-value patch fails Peppol formula (wrong calculation).
+   * Default false: length-valid min is accepted.
+   */
+  minExpectsError?: boolean;
+  /**
+   * Isolated maximum-digit patch fails Peppol formula (wrong calculation).
+   * Default false: length-valid max is accepted.
+   */
+  maxExpectsError?: boolean;
+  /**
+   * Empty (belowMin === 0) fails length ("should be more than …").
+   * Default false: empty is accepted for optional amounts.
+   */
+  emptyExpectsError?: boolean;
 };
+
+/** Formula output columns — isolated min/max patches fail calculation; empty fails length. */
+export const FORMULA_OUTPUT_NUMERIC_FIELDS = [
+  "Item net price",
+  "Invoice line net amount",
+  "Line item VAT amount",
+  "Total amount including VAT",
+  "Sum of Invoice line net amount",
+  "Invoice total amount without tax",
+  "Invoice total tax amount",
+  "Invoice total amount with tax",
+  "Amount due for payment",
+] as const;
+
+/** Error-file fields to accept for a formula numeric case (patched column or a related total). */
+export function formulaNumericRelatedErrorFields(targetField: string): string[] {
+  return [...new Set([targetField, ...FORMULA_OUTPUT_NUMERIC_FIELDS])];
+}
 
 /** Smallest positive Oman amount/qty for boundary tests (0.01 @ 2 dp, 0.0000001 @ 7 dp). */
 export function formatOmanNumericBoundaryValue(
@@ -61,8 +94,8 @@ export const fieldValidationOptional: FieldLengthRule[] = [
   { field: "Deliver to country sub-division", min: 1, max: 64, belowMin: 0, aboveMax: 65 },
   { field: "Item description", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
   { field: "Tax exemption reason text", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
-  { field: "custom 1", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
-  { field: "custom 2", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
+  { field: "Item Custom 1", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
+  { field: "Item Custom 2", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
   { field: "Payment card primary account number", min: 1, max: 50, belowMin: 0, aboveMax: 51 },
   { field: "Custom 1", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
   { field: "Custom 2", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
@@ -100,7 +133,7 @@ export const fieldValidationConditional: FieldLengthRule[] = [
   { field: "Item attribute value", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
   { field: "Supporting document reference", min: 1, max: 64, belowMin: 0, aboveMax: 65 },
   { field: "Supporting document UUID", min: 1, max: 64, belowMin: 0, aboveMax: 65 },
-  { field: "Scheme Identifier", min: 1, max: 10, belowMin: 0, aboveMax: 11 },
+  { field: "Scheme Identifier - Payment", min: 1, max: 10, belowMin: 0, aboveMax: 11 },
   { field: "Payment account identifier", min: 1, max: 35, belowMin: 0, aboveMax: 36 },
   /** Tax Rate: Oman length rule 1–1 (single character / single digit). */
   { field: "Tax Rate", min: 1, max: 1, belowMin: 0, aboveMax: 2 },
@@ -114,25 +147,190 @@ export const fieldValidationConditional: FieldLengthRule[] = [
 export const fieldValidationNumeric: FieldNumericRule[] = [
   /** Exchange rate: min 1 digit + 6 decimals; max 7 digits + 7 decimals. */
   { field: "Currency Exchange Rate", min: 1, max: 7, belowMin: 0, aboveMax: 8, decimals: 7 },
-  { field: "Item price base quantity", min: 1, max: 10, belowMin: 0, aboveMax: 11, decimals: 2 },
-  { field: "Item gross price", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Item price discount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Item net price", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Invoiced quantity", min: 1, max: 10, belowMin: 0, aboveMax: 11, decimals: 2 },
+  {
+    field: "Item price base quantity",
+    min: 1,
+    max: 10,
+    belowMin: 0,
+    aboveMax: 11,
+    decimals: 2,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Item gross price",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Item price discount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    maxExpectsError: true,
+  },
+  {
+    field: "Item net price",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Invoiced quantity",
+    min: 1,
+    max: 10,
+    belowMin: 0,
+    aboveMax: 11,
+    decimals: 2,
+    emptyExpectsError: true,
+  },
   { field: "Invoice line charge amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Invoice line allowance amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Invoice line net amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Line item VAT amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Total amount including VAT", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Sum of Invoice line net amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Charges on document level", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Allowances on document level", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Invoice total amount without tax", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Invoice total tax amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Invoice total amount with tax", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Paid amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Rounding amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
-  { field: "Amount due for payment", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
+  {
+    field: "Invoice line allowance amount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    maxExpectsError: true,
+  },
+  {
+    field: "Invoice line net amount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Line item VAT amount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Total amount including VAT",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Sum of Invoice line net amount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Charges on document level",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+  },
+  {
+    field: "Allowances on document level",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+  },
+  {
+    field: "Invoice total amount without tax",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Invoice total tax amount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Invoice total amount with tax",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Paid amount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+  },
+  {
+    field: "Rounding amount",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    emptyExpectsError: true,
+  },
+  {
+    field: "Amount due for payment",
+    min: 1,
+    max: 13,
+    belowMin: 0,
+    aboveMax: 14,
+    decimals: 2,
+    minExpectsError: true,
+    maxExpectsError: true,
+    emptyExpectsError: true,
+  },
   {
     field: "Invoice total tax amount in tax accounting currency",
     min: 1,

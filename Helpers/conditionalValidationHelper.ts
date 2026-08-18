@@ -161,8 +161,8 @@ export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
     "Item country of origin": "",
     "Item attribute name": "",
     "Item attribute value": "",
-    "custom 1": "",
-    "custom 2": "",
+    "Item Custom 1": "",
+    "Item Custom 2": "",
 
     // Document charges/allowances — empty (no IBR charge/exemption rules)
     "Charges on document level": "",
@@ -193,7 +193,7 @@ export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
 
     // Payment — Master payment means
     "Payment means type code": paymentMeans,
-    "Scheme Identifier": "",
+    "Scheme Identifier - Payment": "",
     "Payment account identifier": "",
     "Payment due date": "2026-12-31",
     "Payment card primary account number": "",
@@ -204,6 +204,84 @@ export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
     "Custom 4": "",
     "Custom 5": "",
   };
+}
+
+/** All Deliver-to columns (IBR-040-OM: section is all-or-nothing). */
+export const OMAN_DELIVERY_FIELD_KEYS = [
+  "Deliver to party name",
+  "Deliver to address line 1",
+  "Deliver to address line 2",
+  "Deliver to address line 3",
+  "Deliver to city",
+  "Deliver to post code",
+  "Deliver to country sub-division",
+  "Deliver to country code",
+] as const;
+
+export function isOmanDeliveryField(field: string): boolean {
+  const want = field.replace(/\s+/g, " ").trim().toLowerCase();
+  return OMAN_DELIVERY_FIELD_KEYS.some(
+    (key) => key.toLowerCase() === want
+  );
+}
+
+/** Clear every deliver-to column so the section is fully absent. */
+export function clearOmanDeliveryFields(
+  row: Record<string, string | null>
+): Record<string, string | null> {
+  const next = { ...row };
+  for (const key of OMAN_DELIVERY_FIELD_KEYS) {
+    next[key] = "";
+  }
+  return next;
+}
+
+export type OmanDeliveryOverlayProfile = "domestic" | "export";
+
+/**
+ * IBR-040-OM: when any deliver-to field is in play, populate the full section.
+ * Use profile `export` for Export + Export of Services contexts (non-OM country).
+ */
+export function applyOmanDeliveryOverlay(
+  row: Record<string, string | null>,
+  profile: OmanDeliveryOverlayProfile = "domestic",
+  opts?: { countryCode?: string }
+): Record<string, string | null> {
+  const next = { ...row };
+  if (profile === "export") {
+    next["Deliver to party name"] =
+      next["Deliver to party name"] || "Export Consignee";
+    next["Deliver to address line 1"] =
+      next["Deliver to address line 1"] || "Export Street 1";
+    next["Deliver to address line 2"] =
+      next["Deliver to address line 2"] || "Export Street 2";
+    next["Deliver to address line 3"] =
+      next["Deliver to address line 3"] || "Export Street 3";
+    next["Deliver to city"] = next["Deliver to city"] || "Dubai";
+    next["Deliver to post code"] = next["Deliver to post code"] || "00000";
+    next["Deliver to country sub-division"] =
+      next["Deliver to country sub-division"] || "Dubai";
+    next["Deliver to country code"] =
+      opts?.countryCode ??
+      (next["Deliver to country code"] || FV.UAE_COUNTRY_CODE);
+  } else {
+    next["Deliver to party name"] =
+      next["Deliver to party name"] || "Oman Delivery Partner";
+    next["Deliver to address line 1"] =
+      next["Deliver to address line 1"] || "Warehouse 9";
+    next["Deliver to address line 2"] =
+      next["Deliver to address line 2"] || "Industrial Area";
+    next["Deliver to address line 3"] =
+      next["Deliver to address line 3"] || "Ghala";
+    next["Deliver to city"] = next["Deliver to city"] || "Muscat";
+    next["Deliver to post code"] = next["Deliver to post code"] || "130";
+    next["Deliver to country sub-division"] =
+      next["Deliver to country sub-division"] || "Mainland Oman.";
+    next["Deliver to country code"] =
+      opts?.countryCode ??
+      (next["Deliver to country code"] || FV.OMAN_COUNTRY_CODE);
+  }
+  return next;
 }
 
 function getSeedInvoiceRow(): Record<string, string> {
@@ -702,7 +780,7 @@ export function buildExportDeliveryScenarioRow(
   scenario: FV.ExportDeliveryScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
+  const base = applyPartyIdentifiersByTxnType({
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
       scenario.invoiceTransactionTypeCode,
@@ -710,24 +788,32 @@ export function buildExportDeliveryScenarioRow(
     [FV.INVOICED_ITEM_TAX_RATE_FIELD]: FV.TAX_RATE_ZERO,
     [FV.TAX_EXEMPTION_REASON_CODE_FIELD]:
       FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
-    [FV.DELIVER_TO_COUNTRY_CODE_FIELD]: scenario.deliverToCountryCode,
   });
+  const country = String(scenario.deliverToCountryCode ?? "").trim();
+  if (!country) {
+    return clearOmanDeliveryFields(base);
+  }
+  return applyOmanDeliveryOverlay(base, "export", { countryCode: country });
 }
 
 /**
- * IBR-155-OM: activate Export + Export of Services so Service Type (CL-12) dropdown
- * sweeps validate the target column instead of unrelated mandatory gaps.
+ * IBR-155-OM: activate Export + Export of Services so Service Type (CL-12) tests
+ * validate the target column with the correct trigger (BTOM-001 + IBT-121 → BTOM-015).
  */
 export function applyServiceTypeDropdownValidationContext(
-  row: Record<string, string>
+  row: Record<string, string>,
+  options?: { serviceTypeCode?: string }
 ): Record<string, string> {
+  const serviceTypeCode =
+    options?.serviceTypeCode !== undefined
+      ? options.serviceTypeCode
+      : row[FV.SERVICE_TYPE_CODE_FIELD]?.trim() || FV.SERVICE_TYPE_CODE_SAMPLE;
   const updated = applyExportOfServicesTrigger(
     { ...row },
     {
       invoiceTransactionTypeCode: FV.TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: FV.TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
-      serviceTypeCode:
-        row[FV.SERVICE_TYPE_CODE_FIELD]?.trim() || FV.SERVICE_TYPE_CODE_SAMPLE,
+      serviceTypeCode,
     }
   );
   return Object.fromEntries(
@@ -783,30 +869,27 @@ function applyExportOfServicesTrigger(
 
   const deliver =
     opts.deliverToCountryCode ?? FV.UAE_COUNTRY_CODE;
-  return applyPartyIdentifiersByTxnType({
-    ...row,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
-      opts.invoiceTransactionTypeCode,
-    [FV.TAX_CATEGORY_FIELD]: FV.ZERO_RATED_TAX_CATEGORY_CODE,
-    [FV.INVOICED_ITEM_TAX_RATE_FIELD]: FV.TAX_RATE_ZERO,
-    [FV.TAX_EXEMPTION_REASON_CODE_FIELD]: opts.taxExemptionReasonCode,
-    [FV.ITEM_TYPE_FIELD]: FV.ITEM_TYPE_SERVICES,
-    [FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD]: "",
-    [FV.SERVICE_TYPE_CODE_FIELD]:
-      opts.serviceTypeCode ?? FV.SERVICE_TYPE_CODE_SAMPLE,
-    [FV.DELIVER_TO_COUNTRY_CODE_FIELD]: deliver,
-    "Deliver to party name":
-      row["Deliver to party name"] || "Export Consignee",
-    "Deliver to address line 1":
-      row["Deliver to address line 1"] || "Export Street 1",
-    "Deliver to city": row["Deliver to city"] || "Dubai",
-    "Deliver to post code": row["Deliver to post code"] || "00000",
-    [FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD]:
-      opts.supportingDocumentReference ??
-      FV.SUPPORTING_DOCUMENT_REFERENCE_SAMPLE,
-    [FV.SUPPORTING_DOCUMENT_UUID_FIELD]:
-      opts.supportingDocumentUuid ?? FV.SUPPORTING_DOCUMENT_UUID_SAMPLE,
-  });
+  return applyOmanDeliveryOverlay(
+    applyPartyIdentifiersByTxnType({
+      ...row,
+      [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
+        opts.invoiceTransactionTypeCode,
+      [FV.TAX_CATEGORY_FIELD]: FV.ZERO_RATED_TAX_CATEGORY_CODE,
+      [FV.INVOICED_ITEM_TAX_RATE_FIELD]: FV.TAX_RATE_ZERO,
+      [FV.TAX_EXEMPTION_REASON_CODE_FIELD]: opts.taxExemptionReasonCode,
+      [FV.ITEM_TYPE_FIELD]: FV.ITEM_TYPE_SERVICES,
+      [FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD]: "",
+      [FV.SERVICE_TYPE_CODE_FIELD]:
+        opts.serviceTypeCode ?? FV.SERVICE_TYPE_CODE_SAMPLE,
+      [FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD]:
+        opts.supportingDocumentReference ??
+        FV.SUPPORTING_DOCUMENT_REFERENCE_SAMPLE,
+      [FV.SUPPORTING_DOCUMENT_UUID_FIELD]:
+        opts.supportingDocumentUuid ?? FV.SUPPORTING_DOCUMENT_UUID_SAMPLE,
+    }),
+    "export",
+    { countryCode: deliver }
+  );
 }
 
 /** IBR-155-OM: Export + Export of Services → Service Type mandatory. */
@@ -1134,6 +1217,9 @@ export function buildDeliverToAddressRequiredScenarioRow(
   );
   return applyPartyIdentifiersByTxnType({
     ...seed,
+    ...(scenario.invoiceTransactionTypeCode
+      ? { "Invoice Transaction Type Code": scenario.invoiceTransactionTypeCode }
+      : {}),
     [FV.DELIVER_TO_ADDRESS_LINE_1_FIELD]: scenario.addressLine1,
     [FV.DELIVER_TO_ADDRESS_LINE_2_FIELD]: scenario.addressLine2,
     [FV.DELIVER_TO_ADDRESS_LINE_3_FIELD]: scenario.addressLine3,
@@ -1234,6 +1320,17 @@ export function buildProfitMarginPrecedingScenarioRow(
       ? "2026-01-15"
       : "",
   });
+}
+
+export function buildItemAttributeConditionalScenarioRow(
+  scenario: FV.ItemAttributeConditionalScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  return {
+    ...seed,
+    [FV.ITEM_ATTRIBUTE_NAME_FIELD]: scenario.itemAttributeName,
+    [FV.ITEM_ATTRIBUTE_VALUE_FIELD]: scenario.itemAttributeValue,
+  };
 }
 
 export function buildBuyerIdentifierSchemeScenarioRow(

@@ -675,4 +675,19 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
       });
     }
   });
+
+  test.describe("IBR-CO-21 — Item attribute name ↔ value", () => {
+    for (const scenario of FV.ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildItemAttributeConditionalScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.ITEM_ATTRIBUTE_VALUE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
 });

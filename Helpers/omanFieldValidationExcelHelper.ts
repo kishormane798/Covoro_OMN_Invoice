@@ -14,11 +14,20 @@ import {
   OMAN_BUYER_ELECTRONIC,
   OMAN_BUYER_VAT,
 } from "./fieldValidationExcelPackHelper";
-import { buildValidOmanFullTaxInvoiceRow } from "./conditionalValidationHelper";
+import {
+  applyOmanDeliveryOverlay,
+  applyPartyIdentifiersByTxnType,
+  buildValidOmanFullTaxInvoiceRow,
+  isOmanDeliveryField,
+  OMAN_DELIVERY_FIELD_KEYS,
+  applyServiceTypeDropdownValidationContext,
+} from "./conditionalValidationHelper";
 import { randomAlphaNumeric } from "./fieldValidationHelper";
 import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
 import {
   buyerSellerIdentifierCodeValidTestData,
+  omanCountrySubdivisionValidTestData,
+  profitMarginItemTypeValidTestData,
   schemeIdentifierValidTestData,
 } from "../testData/FieldValidations/Master";
 import {
@@ -116,13 +125,315 @@ function dropdownValueLabel(item: unknown): string {
   return "";
 }
 
+function asStringRow(
+  row: Record<string, string | null | undefined>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(row)) {
+    out[key] = value == null ? "" : String(value);
+  }
+  return out;
+}
+
+function isInvoiceTransactionTypeCodeField(field: string): boolean {
+  return (
+    field.replace(/\s+/g, " ").trim().toLowerCase() ===
+    "invoice transaction type code"
+  );
+}
+
+function isInvoiceTypeCodeField(field: string): boolean {
+  return (
+    field.replace(/\s+/g, " ").trim().toLowerCase() === "invoice type code"
+  );
+}
+
+function isTaxCategoryField(field: string): boolean {
+  return field.replace(/\s+/g, " ").trim().toLowerCase() === "tax category";
+}
+
+function isInvoiceCurrencyCodeField(field: string): boolean {
+  return (
+    field.replace(/\s+/g, " ").trim().toLowerCase() ===
+    FV.INVOICE_CURRENCY_CODE_FIELD.toLowerCase()
+  );
+}
+
+function isOmanHomeCurrency(value: string): boolean {
+  const n = value.replace(/\s+/g, " ").trim().toLowerCase();
+  return n === "omr" || n === "rial omani";
+}
+
+/**
+ * Companion columns for Invoice Currency Code dropdown rows:
+ * - OMR / Rial Omani → Currency Exchange Rate blank (IBR-172-OM)
+ * - any other allowed code/name → Currency Exchange Rate 0.385 (IBR-004-OM)
+ * Source currency stays OMR (tax accounting currency).
+ */
+function applyInvoiceCurrencyDropdownColumns(
+  seed: Record<string, string>,
+  invoiceCurrency: string
+): Record<string, string> {
+  const isOmr = isOmanHomeCurrency(invoiceCurrency);
+  return asStringRow({
+    ...seed,
+    [FV.INVOICE_CURRENCY_CODE_FIELD]: invoiceCurrency,
+    [FV.SOURCE_CURRENCY_CODE_FIELD]:
+      seed[FV.SOURCE_CURRENCY_CODE_FIELD] || FV.OMAN_CURRENCY_OMR,
+    [FV.EXCHANGE_RATE_FIELD]: isOmr ? "" : "0.385",
+  });
+}
+
+function taxCategoryKey(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * Companion columns for Tax Category dropdown master rows:
+ * - Standard rate → Tax Rate 5, no exemption reason
+ * - Zero rated → Tax Rate 0 + Zero-rated exemption reason code/text
+ * - Exempt from tax → Tax Rate omitted + Exemption-* reason code/text
+ * - Not subject to tax → Tax Rate omitted, no exemption reason
+ * Exempt / not-subject lines also use Invoice out of scope of tax
+ * (Commercial invoice cannot contain only E/O lines).
+ */
+function applyTaxCategoryDropdownColumns(
+  seed: Record<string, string>,
+  taxCategory: string
+): Record<string, string | null> {
+  const row: Record<string, string | null> = {
+    ...seed,
+    [FV.TAX_CATEGORY_FIELD]: taxCategory,
+  };
+  const cat = taxCategoryKey(taxCategory);
+  const isStandard = cat === "standard rate" || cat === "standard rate.";
+  const isZero = cat === taxCategoryKey(FV.ZERO_RATED_TAX_CATEGORY_CODE);
+  const isExempt = cat === taxCategoryKey(FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE);
+  const isNotSubject =
+    cat === taxCategoryKey(FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE) ||
+    cat.includes("not subject");
+
+  if (isStandard) {
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_STANDARD_OMAN;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    return row;
+  }
+  if (isZero) {
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] =
+      FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] =
+      FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    return row;
+  }
+  if (isExempt) {
+    row[FV.INVOICE_TYPE_CODE_FIELD] =
+      FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = FV.TAX_EXEMPTION_REASON_SAMPLE;
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "Exempt supply under Oman VAT";
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = null;
+    return row;
+  }
+  if (isNotSubject) {
+    row[FV.INVOICE_TYPE_CODE_FIELD] =
+      FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+  }
+  return row;
+}
+
+function specialZoneSubdivisionLabel(): string {
+  const hit = omanCountrySubdivisionValidTestData.find((x) =>
+    x.label.toLowerCase().includes("sohar")
+  );
+  return hit?.label?.trim() || "Sohar Free Zone.";
+}
+
+function profitMarginItemTypeLabel(): string {
+  return (
+    profitMarginItemTypeValidTestData[0]?.label?.trim() ||
+    "Tangible Movable Property"
+  );
+}
+
+/**
+ * Fill companion columns required by each Invoice Transaction Type Code so a
+ * dropdown master sweep is a valid Oman invoice for that type (not a Full Tax clone).
+ */
+function applyInvoiceTransactionTypeDropdownColumns(
+  seed: Record<string, string>,
+  txn: string
+): Record<string, string> {
+  let row: Record<string, string | null> = {
+    ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
+  };
+
+  if (txn === FV.TXN_IMPORT_OF_GOODS) {
+    row["Import date"] = row["Import date"] || "2026-06-15";
+    row["Customs Declaration number"] =
+      row["Customs Declaration number"] || "CUST-OMN-001";
+    row["Incoterms"] = row["Incoterms"] || "Cost, Insurance, and Freight";
+    row[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_GOODS;
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = FV.OMAN_HS_CODE_12;
+    row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] =
+      row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] || FV.UAE_COUNTRY_CODE;
+  } else if (txn === FV.TXN_EXPORT_INVOICE) {
+    row[FV.TAX_CATEGORY_FIELD] = FV.ZERO_RATED_TAX_CATEGORY_CODE;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] =
+      FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] =
+      FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    row = applyOmanDeliveryOverlay(row, "export");
+  } else if (txn === FV.TXN_THIRD_PARTY_INVOICE) {
+    row["Third Party Name"] = row["Third Party Name"] || "Oman Third Party LLC";
+    row["Third Party VATIN"] =
+      row["Third Party VATIN"] || FV.IBR_003_VALID_THIRD_PARTY_VATIN;
+    row["Third Party Address Line 1"] =
+      row["Third Party Address Line 1"] || "TP Building 1";
+    row["Third Party Address Line 2"] =
+      row["Third Party Address Line 2"] || "TP Street";
+    row["Third Party Address Line 3"] =
+      row["Third Party Address Line 3"] || "TP Area";
+    row["Third Party City"] = row["Third Party City"] || "Muscat";
+    row["Third Party Postal Code - PO Box Number"] =
+      row["Third Party Postal Code - PO Box Number"] || "100";
+    row["Third Party Country Code"] =
+      row["Third Party Country Code"] || FV.OMAN_COUNTRY_CODE;
+  } else if (txn === FV.TXN_PREPAYMENT_INVOICE) {
+    row["Prepayment invoice number"] =
+      row["Prepayment invoice number"] || "PRE-OMN-001";
+    row["Prepayment invoice UUID"] =
+      row["Prepayment invoice UUID"] || "prepay-uuid-oman-001";
+  } else if (
+    txn === FV.TXN_SUMMARY_INVOICE ||
+    txn === FV.TXN_CONTINUOUS_SUPPLY
+  ) {
+    row["Invoicing period start date"] =
+      row["Invoicing period start date"] || "2026-01-01";
+    row["Invoicing period end date"] =
+      row["Invoicing period end date"] || "2026-01-31";
+  } else if (
+    txn === FV.TXN_PROFIT_MARGIN_INVOICE ||
+    txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE
+  ) {
+    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    row["Profit margin item type code"] =
+      row["Profit margin item type code"] || profitMarginItemTypeLabel();
+    if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
+      row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] =
+        row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] || "PREV-OMN-001";
+      row[FV.PRECEDING_INVOICE_UUID_FIELD] =
+        row[FV.PRECEDING_INVOICE_UUID_FIELD] || FV.PRECEDING_INVOICE_UUID_SAMPLE;
+      row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] =
+        row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
+    }
+  } else if (txn === FV.TXN_SELF_BILLED_INVOICE) {
+    row[FV.INVOICE_TYPE_CODE_FIELD] = FV.INVOICE_TYPE_SELF_BILLED_INVOICE;
+  } else if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
+    row[FV.ITEM_TYPE_FIELD] = "";
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+    row[FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD] = "";
+  } else if (txn === FV.TXN_IMPORT_OF_SERVICES_RCM) {
+    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
+    row[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_SERVICES;
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+  } else if (txn === FV.TXN_ECOMMERCE_TRANSACTION) {
+    row = applyOmanDeliveryOverlay(row, "domestic");
+  } else if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    const subdivision = specialZoneSubdivisionLabel();
+    row["Seller country subdivision code"] = subdivision;
+    row["Buyer country subdivision code"] = subdivision;
+  }
+
+  return asStringRow(applyPartyIdentifiersByTxnType(row));
+}
+
+function fillCreditDebitNoteCompanions(row: Record<string, string>): void {
+  row[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] =
+    row[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] || FV.CREDIT_DEBIT_REASON_SAMPLE;
+  row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] =
+    row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] || "PREV-OMN-001";
+  row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] =
+    row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
+  row[FV.PRECEDING_INVOICE_UUID_FIELD] =
+    row[FV.PRECEDING_INVOICE_UUID_FIELD] || FV.PRECEDING_INVOICE_UUID_SAMPLE;
+}
+
+/**
+ * Invoice Type Code dropdown sweep companions:
+ * - IBR-177-OM: 261 / 389 must use an allowed self-bill txn (Self-billed Invoice,
+ *   Import of Services (RCM), Profit Margin Self-Invoice, or Import of Goods).
+ *   Sweep uses Self-billed Invoice (simplest valid companions).
+ * - IBR-023-OM: 381 / 383 / 261 must provide Credit note or Debit Note reason code.
+ *   IBR-032-OM preceding-invoice fields are filled so the valid workbook is accepted.
+ */
+function applyInvoiceTypeCodeDropdownColumns(
+  seed: Record<string, string>,
+  invoiceType: string
+): Record<string, string> {
+  const isSelfBilledDocument =
+    invoiceType === FV.INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE ||
+    invoiceType === FV.INVOICE_TYPE_SELF_BILLED_INVOICE;
+  const needsCreditDebitReason =
+    invoiceType === FV.INVOICE_TYPE_CREDIT_NOTE ||
+    invoiceType === FV.INVOICE_TYPE_DEBIT_NOTE ||
+    invoiceType === FV.INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE;
+
+  let row: Record<string, string> = {
+    ...seed,
+    [FV.INVOICE_TYPE_CODE_FIELD]: invoiceType,
+  };
+
+  if (isSelfBilledDocument) {
+    row = applyInvoiceTransactionTypeDropdownColumns(
+      row,
+      FV.TXN_SELF_BILLED_INVOICE
+    );
+    // Txn overlay sets type 389 for Self-billed Invoice; restore 261 when needed.
+    row[FV.INVOICE_TYPE_CODE_FIELD] = invoiceType;
+  }
+
+  if (needsCreditDebitReason) {
+    fillCreditDebitNoteCompanions(row);
+  } else if (invoiceType === FV.INVOICE_TYPE_SELF_BILLED_INVOICE) {
+    row[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] = "";
+    row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "";
+    row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "";
+    row[FV.PRECEDING_INVOICE_UUID_FIELD] = "";
+  }
+
+  return asStringRow(applyPartyIdentifiersByTxnType(row));
+}
+
 /**
  * Dropdown master / invalid batches — same pipeline as TestData dropdown packs
  * (`buildOmanDropdownBaseRow` + `generateFullRowDropdownFieldExcel`), with worker
  * TIN identity layered on for parallel Playwright runs.
  *
- * Invalid (single-value) cases use the min/max path: one workbook, invalid label
- * written on the target column. Do not build a valid seed plus a second batch file.
+ * Invoice Transaction Type Code builds one full invoice row per master label with
+ * type-specific companion columns (import, export, period, third party, …).
+ *
+ * Invoice Type Code builds one full invoice row per master label with IBR-177
+ * txn + IBR-023/032 credit-note companions where those types require them.
+ *
+ * Tax Category builds one full invoice row per master label with matching
+ * Tax Rate (5 / 0 / omitted) and Tax exemption reason code for Exempt / Zero.
+ *
+ * Invoice Currency Code pairs Currency Exchange Rate on every row (blank for
+ * OMR / Rial Omani, 0.385 otherwise).
+ *
+ * Invalid (single-value) cases for other fields use the min/max path: one workbook,
+ * invalid label written on the target column. Do not build a valid seed plus a
+ * second batch file.
  */
 export async function generateOmanDropdownMasterExcel(
   field: string,
@@ -132,6 +443,132 @@ export async function generateOmanDropdownMasterExcel(
   const fieldForWrite = resolveDropdownTemplateField(field);
   const labels = values.map(dropdownValueLabel);
   const baseRow = buildOmanDropdownRuntimeBaseRow(field);
+
+  const perRowTxnType =
+    isInvoiceTransactionTypeCodeField(field) ||
+    isInvoiceTransactionTypeCodeField(fieldForWrite);
+  const perRowInvoiceType =
+    isInvoiceTypeCodeField(field) || isInvoiceTypeCodeField(fieldForWrite);
+  const perRowTaxCategory =
+    isTaxCategoryField(field) || isTaxCategoryField(fieldForWrite);
+  const perRowInvoiceCurrency =
+    isInvoiceCurrencyCodeField(field) ||
+    isInvoiceCurrencyCodeField(fieldForWrite);
+
+  if (perRowInvoiceCurrency) {
+    const files = await generateFullRowDropdownFieldExcel(
+      fieldForWrite,
+      labels,
+      baseRow
+    );
+    let labelOffset = 0;
+    for (const file of files) {
+      const patches: Array<{ header: string; value: string; dataRow: number }> =
+        [];
+      // One data row per remaining label, starting at template row 6.
+      const remaining = labels.slice(labelOffset);
+      for (let i = 0; i < remaining.length; i++) {
+        const label = remaining[i];
+        const dataRow = INVOICE_TEMPLATE_DATA_ROW + i;
+        const companions = applyInvoiceCurrencyDropdownColumns(
+          { ...baseRow },
+          label
+        );
+        patches.push({ header: fieldForWrite, value: label, dataRow });
+        const fx = String(companions[FV.EXCHANGE_RATE_FIELD] ?? "").trim();
+        // OMR / Rial Omani: leave exchange rate unset (IBR-172-OM). Do not write "".
+        if (fx) {
+          patches.push({
+            header: FV.EXCHANGE_RATE_FIELD,
+            value: fx,
+            dataRow,
+          });
+        }
+      }
+      patchInvoiceTextCellsInFile(file.filePath, patches);
+      labelOffset += remaining.length;
+    }
+    return files;
+  }
+
+  if (perRowTxnType || perRowInvoiceType || perRowTaxCategory) {
+    const rows = labels.map((label) => {
+      const row = perRowInvoiceType
+        ? applyInvoiceTypeCodeDropdownColumns({ ...baseRow }, label)
+        : perRowTxnType
+          ? applyInvoiceTransactionTypeDropdownColumns({ ...baseRow }, label)
+          : applyTaxCategoryDropdownColumns({ ...baseRow }, label);
+      row[fieldForWrite] = label;
+      return row;
+    });
+    const fileNamePrefix = perRowInvoiceType
+      ? "invoice-type"
+      : perRowTxnType
+        ? "txn-type"
+        : "tax-category";
+    const generated = await generateDistinctSubmitInvoices(rows, {
+      fileName: `${fileNamePrefix}-dropdown-${Date.now()}.xlsx`,
+    });
+    const patches: Array<{ header: string; value: string; dataRow: number }> =
+      [];
+    for (let i = 0; i < labels.length; i++) {
+      const dataRow = INVOICE_TEMPLATE_DATA_ROW + i;
+      patches.push({ header: fieldForWrite, value: labels[i], dataRow });
+      if (!perRowTaxCategory) continue;
+      const companions = applyTaxCategoryDropdownColumns(
+        { ...baseRow },
+        labels[i]
+      );
+      const rate = companions[FV.INVOICED_ITEM_TAX_RATE_FIELD];
+      if (rate != null && String(rate).trim() !== "") {
+        patches.push({
+          header: FV.INVOICED_ITEM_TAX_RATE_FIELD,
+          value: String(rate),
+          dataRow,
+        });
+      }
+      patches.push({
+        header: FV.TAX_EXEMPTION_REASON_CODE_FIELD,
+        value: String(companions[FV.TAX_EXEMPTION_REASON_CODE_FIELD] ?? ""),
+        dataRow,
+      });
+      patches.push({
+        header: FV.TAX_EXEMPTION_REASON_TEXT_FIELD,
+        value: String(companions[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] ?? ""),
+        dataRow,
+      });
+      const invoiceType = companions[FV.INVOICE_TYPE_CODE_FIELD];
+      if (invoiceType) {
+        patches.push({
+          header: FV.INVOICE_TYPE_CODE_FIELD,
+          value: invoiceType,
+          dataRow,
+        });
+      }
+    }
+    patchInvoiceTextCellsInFile(generated.filePath, patches);
+    if (labels.length === 1) {
+      const saved = readInvoiceTextCellFromFile(
+        generated.filePath,
+        fieldForWrite
+      );
+      console.log(
+        `[dropdown excel] ${fieldForWrite} saved=${JSON.stringify(saved.value)} expected=${JSON.stringify(labels[0])} dropdownPresent=${saved.dropdownPresent}`
+      );
+      if (saved.value !== labels[0]) {
+        throw new Error(
+          `Dropdown Excel did not keep invalid value for ${fieldForWrite}: ` +
+            `saved ${JSON.stringify(saved.value)} expected ${JSON.stringify(labels[0])}`
+        );
+      }
+    }
+    return [
+      {
+        filePath: generated.filePath,
+        invoiceNumber: generated.invoiceNumbers[0],
+      },
+    ];
+  }
 
   if (labels.length === 1) {
     baseRow[fieldForWrite] = labels[0];
@@ -165,9 +602,20 @@ export async function generateOmanSeededFieldExcel(
   options?: { skipDependentOverlay?: boolean }
 ): Promise<{ filePath: string; invoiceNumber: string }> {
   const seed = buildValidOmanFullTaxInvoiceRow();
-  const overlaid = options?.skipDependentOverlay
-    ? seed
-    : applyDependentOverlay("", field, seed);
+  const isServiceTypeCodeField =
+    field.replace(/\s+/g, " ").trim().toLowerCase() ===
+    FV.SERVICE_TYPE_CODE_FIELD.toLowerCase();
+  let overlaid: Record<string, string>;
+  if (isServiceTypeCodeField) {
+    // IBR-155-OM: Export invoice + Export of Services + full delivery/supporting docs.
+    overlaid = applyServiceTypeDropdownValidationContext(seed, {
+      serviceTypeCode: value,
+    });
+  } else {
+    overlaid = options?.skipDependentOverlay
+      ? seed
+      : applyDependentOverlay("", field, seed);
+  }
   const identified = applyParallelWorkerIdentityToSubmitRow({
     ...overlaid,
     [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
@@ -307,6 +755,21 @@ export async function generateOmanFieldLengthExcel(
   field: string,
   length: number
 ): Promise<{ filePath: string; invoiceNumber: string }> {
+  // Empty prepayment reference is valid in the baseline non-prepayment context.
+  // Dedicated prepayment suites cover the transaction-type-required behavior.
+  if (field === PREPAY_NUMBER_FIELD && length === 0) {
+    return generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
+  }
+  // When testing any deliver-to field empty (below minimum), the overlay
+  // populates ALL delivery fields (IBR-040-OM: any one field present → all required).
+  // Skip the overlay and clear every delivery field so the entire section is absent.
+  if (isOmanDeliveryField(field) && length === 0) {
+    const generated = await generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
+    for (const df of OMAN_DELIVERY_FIELD_KEYS) {
+      patchInvoiceTextCellInFile(generated.filePath, df, "");
+    }
+    return generated;
+  }
   // Empty exemption text is valid on Standard rate. Overlay would switch to
   // Exempt and make empty an error (covered by the Exempt interdependency suite).
   if (field === FV.TAX_EXEMPTION_REASON_TEXT_FIELD && length === 0) {

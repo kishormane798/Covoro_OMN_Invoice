@@ -59,6 +59,14 @@ FIELD_LINE_ITEM_VAT_AMOUNT = "Line Item VAT Amount"
 FIELD_TOTAL_AMOUNT_INCLUDING_VAT = "Total Amount Including VAT"
 FIELD_TOTAL_AMOUNT_DUE_PROFIT_MARGIN = "Total Amount Due (Profit Margin)"
 OMAN_HOME_CURRENCY = "OMR"
+# ISO code or Covoro Masters display name (IBR-172-OM: FX must be absent).
+_OMAN_HOME_CURRENCY_KEYS = frozenset({"omr", "rial omani"})
+
+
+def is_oman_home_currency(value: object) -> bool:
+    return normalize(value) in _OMAN_HOME_CURRENCY_KEYS
+
+
 # Covoro / PINT-OM labels that require BTOM-020 (IBR-082-OM). Keep in sync with
 # utils/invoiceExcel.ts `isProfitMarginTransactionType`.
 _PROFIT_MARGIN_TRANSACTION_TYPE_LABELS = frozenset(
@@ -462,7 +470,7 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
     total_without_raw = fix6(line_net_raw + doc_charges - doc_allowances)
     invoice_total_without_tax = ceil2(total_without_raw)
     invoice_total_tax = ceil2(invoice_total_tax_raw)
-    if invoice_currency == OMAN_HOME_CURRENCY:
+    if is_oman_home_currency(invoice_currency):
         invoice_total_tax_accounting = None
     else:
         invoice_total_tax_accounting = ceil2(fix6(invoice_total_tax_raw * currency_rate))
@@ -1412,9 +1420,10 @@ def _run_write_dropdown_batch(
     date_col = get_col(header_map, "Invoice Issue Date")
     invoice_col = get_col(header_map, "Invoice Number")
     target_col = resolve_header_column(ws, header_row, field_name)
-    # Clear the template list on this column so valid and invalid labels are
-    # written as text (non-master values cannot be entered while the dropdown remains).
-    strip_column_validation(ws, target_col)
+    # Valid master labels are the same strings as the template dropdown
+    # (e.g. Masters!AH for Invoiced Quantity Unit Of Measure Code). Keep the
+    # list so Excel accepts a value the user could pick. Invalid junk values
+    # use a different writer path that strips validation.
 
     seed = int(time.time() * 1000)
     apply_credit_note_preceding_rule = (
@@ -1444,7 +1453,22 @@ def _run_write_dropdown_batch(
         ws.cell(row=row_number, column=invoice_col).value = f"INV-{seed}-{i}"
         ws.cell(row=row_number, column=date_col).value = today_offset_date()
         ws.cell(row=row_number, column=date_col).number_format = "yyyy-mm-dd"
-        set_text_value(ws, row_number, target_col, value)
+        cell = ws.cell(row=row_number, column=target_col)
+        cell.number_format = "@"
+        cell.value = "" if value is None else str(value)
+        # IBR-172-OM: exchange rate must be absent when invoice currency is OMR / Rial Omani.
+        # IBR-004-OM: exchange rate required when invoice currency is not OMR.
+        if normalize(str(field_name)) == normalize("Invoice Currency Code"):
+            if is_oman_home_currency(value):
+                clear_cell_optional(ws, row_number, header_map, "Currency Exchange Rate")
+            else:
+                fx = _read_data_row_text(
+                    ws, row_number, header_map, "Currency Exchange Rate"
+                )
+                if not fx:
+                    _set_by_header_name(
+                        ws, header_row, row_number, "Currency Exchange Rate", "0.385"
+                    )
         # Oman: Source Currency is mandatory — fill OMR unless this batch is testing that field.
         if normalize(str(field_name)) != normalize("Source Currency Code"):
             _set_by_header_name(ws, header_row, row_number, "Source Currency Code", "OMR")
@@ -1830,8 +1854,8 @@ def cmd_write_currency_exchange_batch_from_file(args: list[str]) -> None:
     """
     Build one workbook with many rows for Invoice Currency Code + Currency Exchange Rate validation.
     mode:
-      - allowed: AED -> blank exchange rate, non-AED -> "3.67"
-      - invalid_blank_non_aed: every provided currency gets blank exchange rate (use non-AED list)
+      - allowed: OMR / Rial Omani -> blank exchange rate, other currencies -> "0.385"
+      - invalid_blank_non_aed: every provided currency gets blank exchange rate (use non-OMR list)
     """
     if len(args) < 7:
         fail(
@@ -1882,8 +1906,11 @@ def cmd_write_currency_exchange_batch_from_file(args: list[str]) -> None:
 
         exchange_value = ""
         if mode_norm == "allowed":
-            exchange_value = "" if currency == "AED" else "3.67"
-        set_text_value(ws, row_number, exchange_col, exchange_value)
+            exchange_value = "" if is_oman_home_currency(currency) else "0.385"
+        if exchange_value == "":
+            clear_cell_optional(ws, row_number, header_map, "Currency Exchange Rate")
+        else:
+            set_text_value(ws, row_number, exchange_col, exchange_value)
 
     for i in range(len(currencies)):
         apply_invoice_calculations_to_data_row(ws, header_row, data_row + i)

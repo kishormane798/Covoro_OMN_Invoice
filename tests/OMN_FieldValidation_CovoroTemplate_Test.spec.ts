@@ -1,9 +1,13 @@
+import type { Page } from "@playwright/test";
 import { test } from "../Src/baseTest";
 import { uploadAndVerify, uploadAndVerifyError } from "../Helpers/uploadHelper";
 import { generateInvoiceCurrencyExchangeBatchExcel } from "../utils/invoiceExcel";
 import * as FV from "../testData/FieldValidations";
 import { unitOfMeasurementValidTestData } from "../testData/FieldValidations/Master";
-import { runErrorValidation } from "../Helpers/excelEditMessageCheck";
+import {
+  runErrorValidation,
+  runErrorValidationForAnyOfFields,
+} from "../Helpers/excelEditMessageCheck";
 import { buildInvoiceNumber, randomAlphaNumeric } from "../Helpers/fieldValidationHelper";
 import { generateFormatContextFieldExcel } from "../Helpers/formatContextFieldValidationHelper";
 import {
@@ -28,8 +32,8 @@ const dropdownInvalidOnCovoro = FV.mergeDropdownFieldConfigs(
   FV.documentChargesAllowancesDropdownInvalidConfig,
   FV.conditionalDropdownFieldInvalidConfig
 );
-const NON_AED_INVOICE_CURRENCY_CODES = FV.INVOICE_CURRENCY_DROPDOWN_CODES.filter(
-  (code) => code !== "AED"
+const NON_OMR_INVOICE_CURRENCY_CODES = FV.INVOICE_CURRENCY_DROPDOWN_CODES.filter(
+  (code) => code !== "OMR"
 );
 const DROPDOWN_TIMEOUT_MS = 6 * 60 * 1000;
 const UNIT_OF_MEASUREMENT_TIMEOUT_MS = 10 * 60 * 1000;
@@ -39,6 +43,8 @@ const UNIT_OF_MEASUREMENT_TIMEOUT_MS = 10 * 60 * 1000;
  * not random length strings.
  */
 const CONDITIONAL_LENGTH_SKIP = new Set([
+  // Covered by explicit accepted/error cases in the prepayment interdependency suite.
+  "Prepayment invoice number",
   "Seller VAT Identifier (TRN / TIN)",
   "Buyer VAT identifier",
   "Third Party VATIN",
@@ -232,6 +238,8 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
       // Credit Note overlay (ALIGNED-IBRP-028-OM / IBR-032-OM): empty is required → error file.
       if (config.field === "Preceding Invoice reference") continue;
+      // IBR-155-OM: Export + Export of Services → empty Service Type is mandatory → error file.
+      if (config.field === "Service Type Code") continue;
 
       test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);
@@ -280,7 +288,10 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
           { filePath, field: config.field, invoiceNumber, checkEdit: true });
       });
 
-      if (config.field === "Preceding Invoice reference") {
+      if (
+        config.field === "Preceding Invoice reference" ||
+        config.field === "Service Type Code"
+      ) {
         test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
           const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
             config.field,
@@ -295,33 +306,45 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   });
 
   test.describe("Numeric fields — valid digit count", () => {
-    for (const config of numericFieldConfigs) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Numeric – ${config.field} (minimum value (${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)})).`, async ({ page }) => {
-        const { filePath } = await generateOmanNumericFieldExcel(
-          config.field,
-          config.min,
-          config.decimals
-        );
+    const titleVerb = (expectsError?: boolean) =>
+      expectsError ? "returns an error file" : "is accepted";
+
+    const runNumericBoundary = async (
+      page: Page,
+      config: (typeof numericFieldConfigs)[number],
+      digitCount: number,
+      expectsError?: boolean
+    ) => {
+      const { filePath, invoiceNumber } = await generateOmanNumericFieldExcel(
+        config.field,
+        digitCount,
+        config.decimals
+      );
+      if (!expectsError) {
         await uploadAndVerify(page, filePath);
+        return;
+      }
+      // Formula fields: min/max → wrong calculation; empty → length ("should be more/less than").
+      await runErrorValidationForAnyOfFields(page, {
+        filePath,
+        fields: FV.formulaNumericRelatedErrorFields(config.field),
+        invoiceNumber,
+        checkEdit: true,
+      });
+    };
+
+    for (const config of numericFieldConfigs) {
+      test(`Verify Excel upload ${titleVerb(config.minExpectsError)} for ${TEMPLATE} Numeric – ${config.field} (minimum value (${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)})).`, async ({ page }) => {
+        await runNumericBoundary(page, config, config.min, config.minExpectsError);
       });
 
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Numeric – ${config.field} (maximum digits (${config.max})).`, async ({ page }) => {
-        const { filePath } = await generateOmanNumericFieldExcel(
-          config.field,
-          config.max,
-          config.decimals
-        );
-        await uploadAndVerify(page, filePath);
+      test(`Verify Excel upload ${titleVerb(config.maxExpectsError)} for ${TEMPLATE} Numeric – ${config.field} (maximum digits (${config.max})).`, async ({ page }) => {
+        await runNumericBoundary(page, config, config.max, config.maxExpectsError);
       });
 
       if (config.belowMin === 0) {
-        test(`Verify Excel upload is accepted for ${TEMPLATE} Numeric – ${config.field} (empty (below minimum)).`, async ({ page }) => {
-          const { filePath } = await generateOmanNumericFieldExcel(
-            config.field,
-            config.belowMin,
-            config.decimals
-          );
-          await uploadAndVerify(page, filePath);
+        test(`Verify Excel upload ${titleVerb(config.emptyExpectsError)} for ${TEMPLATE} Numeric – ${config.field} (empty (below minimum)).`, async ({ page }) => {
+          await runNumericBoundary(page, config, config.belowMin, config.emptyExpectsError);
         });
       }
     }
@@ -344,17 +367,20 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Invoice Currency dropdown", () => {
     test(`Verify Excel upload is accepted for ${TEMPLATE} Dropdown – Invoice Currency Code (all allowed codes).`, async ({ page }) => {
-      const { filePath } = await generateInvoiceCurrencyExchangeBatchExcel(
-        FV.INVOICE_CURRENCY_DROPDOWN_CODES,
-        "allowed"
+      test.setTimeout(DROPDOWN_TIMEOUT_MS);
+      const files = await generateOmanDropdownMasterExcel(
+        FV.INVOICE_CURRENCY_CODE_FIELD,
+        FV.INVOICE_CURRENCY_DROPDOWN_CODES
       );
-      await uploadAndVerify(page, filePath);
+      for (const { filePath } of files) {
+        await uploadAndVerify(page, filePath);
+      }
     });
 
-    test(`Verify Excel upload is rejected for ${TEMPLATE} Dropdown – Invoice Currency Code (non-AED with blank exchange rate).`, async ({ page }) => {
+    test(`Verify Excel upload is rejected for ${TEMPLATE} Dropdown – Invoice Currency Code (non-OMR with blank exchange rate).`, async ({ page }) => {
       test.setTimeout(DROPDOWN_TIMEOUT_MS);
       const { filePath } = await generateInvoiceCurrencyExchangeBatchExcel(
-        NON_AED_INVOICE_CURRENCY_CODES,
+        NON_OMR_INVOICE_CURRENCY_CODES,
         "invalid_blank_non_aed"
       );
       await uploadAndVerifyError(page, filePath);
@@ -452,6 +478,13 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     const prepayNumber = "PRE-OMN-001";
     const prepayUuid = FV.PRECEDING_INVOICE_UUID_SAMPLE;
 
+    test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – Prepayment invoice number (empty (below minimum)).`, async ({
+      page,
+    }) => {
+      const { filePath } = await generateOmanFieldLengthExcel(prepayNumberField, 0);
+      await uploadAndVerify(page, filePath);
+    });
+
     test(`Verify Excel upload is accepted for ${TEMPLATE} Prepayment – Prepayment invoice number (number and UUID).`, async ({
       page,
     }) => {
@@ -472,6 +505,21 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await runErrorValidation(page, {
         filePath,
         field: prepayUuidField,
+        invoiceNumber,
+        checkEdit: true,
+      });
+    });
+
+    test(`Verify Excel upload returns an error file for ${TEMPLATE} Prepayment – Prepayment invoice number (transaction type without number and UUID).`, async ({
+      page,
+    }) => {
+      const { filePath, invoiceNumber } = await generateOmanPrepaymentPairExcel(
+        "",
+        ""
+      );
+      await runErrorValidation(page, {
+        filePath,
+        field: prepayNumberField,
         invoiceNumber,
         checkEdit: true,
       });

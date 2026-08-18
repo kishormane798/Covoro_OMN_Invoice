@@ -128,9 +128,12 @@ export class UploadInvoicePage {
         }
         const loose =
             /covoro\s+template\s*-\s*excel/i.test(expected) &&
-            (/COVORO\s+Template\s*-\s*Excel/i.test(label) ||
-              (/COVORO\s+Template\s*-\s*Excel/i.test(block) &&
-                !/Simplified/i.test(block)));
+            !/simplified/i.test(expected)
+                ? /COVORO\s+Template\s*-\s*Excel/i.test(label) ||
+                  (/COVORO\s+Template\s*-\s*Excel/i.test(block) &&
+                    !/Simplified/i.test(block))
+                : /COVORO.*Simplified.*Template|OMAN.*Simplified/i.test(label) ||
+                  /COVORO.*Simplified.*Template|OMAN.*Simplified/i.test(block);
         return Boolean(loose);
     }
 
@@ -467,11 +470,17 @@ export class UploadInvoicePage {
         if ((await exactOption.count()) > 0) {
             await exactOption.click();
         } else {
-            const loose = listbox
-                .locator('[role="option"]')
-                .filter({ hasText: /COVORO Template - Excel/i })
-                .filter({ hasNotText: /Simplified/i })
-                .first();
+            const loose =
+                mode === 'simplified'
+                    ? listbox
+                          .locator('[role="option"]')
+                          .filter({ hasText: /COVORO.*Simplified.*Template|OMAN.*Simplified/i })
+                          .first()
+                    : listbox
+                          .locator('[role="option"]')
+                          .filter({ hasText: /COVORO Template - Excel/i })
+                          .filter({ hasNotText: /Simplified/i })
+                          .first();
             if ((await loose.count()) === 0) {
                 const fromListbox = await listbox.locator('[role="option"]').allTextContents();
                 throw new Error(

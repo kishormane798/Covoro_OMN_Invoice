@@ -2,28 +2,36 @@
  * Upload navigation and status verification — session-safe path from login through
  * dashboard **Go to E-Invoicing**, template dropdown mapping, and upload dialog.
  *
- * Template label (`UPLOAD_TEMPLATE_LABEL_NORMAL`) must match the workbook from
- * `getInvoiceTemplatePath()` (Covoro / full / OMN primary template).
+ * Template labels (`UPLOAD_TEMPLATE_LABEL_*`) must match the workbook from
+ * `getInvoiceTemplatePath()` (Covoro full vs Simplified).
  */
+import path from "node:path";
 import type { Page } from '@playwright/test';
 import { DashboardPage } from '../pageObjects/OMN_DashboardPage';
 import { UploadInvoicePage } from '../pageObjects/OMN_UploadInvoicePage';
 import { LoginPage } from '../pageObjects/OMN_LoginPage';
+import { getInvoiceTemplatePath } from "../utils/invoiceExcel";
 import { parallelWorkerDashboardOpenOpts } from "./parallelWorkerSubmitIdentity";
 import { resolveBaseUrl } from "../utils/appConfig";
 import { flowLog } from "./diagnosticLog";
 import { printErrorWorkbookMessages } from "../utils/invoiceExcel";
 
-export type UploadTemplateUiMode = "normal";
+export type UploadTemplateUiMode = "normal" | "simplified";
 
 export const UPLOAD_TEMPLATE_LABEL_NORMAL = "COVORO Template - Excel";
+export const UPLOAD_TEMPLATE_LABEL_SIMPLIFIED =
+  "COVORO - OMAN E-Invoice Simplified Template";
 
 export function getExpectedUploadTemplateMode(): UploadTemplateUiMode {
-  return "normal";
+  const resolved = getInvoiceTemplatePath();
+  const base = path.basename(resolved).toLowerCase();
+  return base.includes("simplified") ? "simplified" : "normal";
 }
 
-export function labelForUploadTemplateMode(_mode: UploadTemplateUiMode = "normal"): string {
-  return UPLOAD_TEMPLATE_LABEL_NORMAL;
+export function labelForUploadTemplateMode(mode: UploadTemplateUiMode): string {
+  return mode === "normal"
+    ? UPLOAD_TEMPLATE_LABEL_NORMAL
+    : UPLOAD_TEMPLATE_LABEL_SIMPLIFIED;
 }
 
 function buildAppUrl(pathname: string): string {

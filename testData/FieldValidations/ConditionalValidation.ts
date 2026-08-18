@@ -330,6 +330,7 @@ export type BuyerAddressRequiredScenario = OmanConditionalScenario & {
 
 /** IBR-040-OM: Deliver To address group is all-or-nothing when any cell is entered. */
 export type DeliverToAddressRequiredScenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode?: string;
   addressLine1: string;
   addressLine2: string;
   addressLine3: string;
@@ -2783,13 +2784,20 @@ const DELIVER_TO_ADDRESS_COMPLETE = {
   countryCode: OMAN_COUNTRY_CODE,
 } as const;
 
-/** IBR-040-OM: if any Deliver To address field is entered, all group columns are required. */
+/**
+ * IBR-040-OM: if any Deliver To address field is entered, all group columns are required.
+ * E-commerce: delivery section is REQUIRED (all empty → error).
+ * Non-ecommerce: delivery section is OPTIONAL (all empty → accepted, all filled → accepted).
+ * Both: partial fill → error (group rule).
+ */
 export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScenario[] =
   [
+    // --- E-commerce: delivery required; group rule applies ---
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | all Deliver To address fields → accepted",
+        "Excel upload · Covoro | IBR-040-OM | e-commerce + all Deliver To address fields → accepted",
+      invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
       ...DELIVER_TO_ADDRESS_COMPLETE,
       shouldError: false,
       expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
@@ -2797,7 +2805,8 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | only Address Line 1 entered → error file",
+        "Excel upload · Covoro | IBR-040-OM | e-commerce + only Address Line 1 entered → error file",
+      invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
       addressLine1: DELIVER_TO_ADDRESS_COMPLETE.addressLine1,
       addressLine2: "",
       addressLine3: "",
@@ -2811,7 +2820,48 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | empty Deliver To address group → accepted",
+        "Excel upload · Covoro | IBR-040-OM | e-commerce + empty Deliver To address group → error file",
+      invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
+      addressLine1: "",
+      addressLine2: "",
+      addressLine3: "",
+      city: "",
+      postCode: "",
+      countrySubDivision: "",
+      countryCode: "",
+      shouldError: true,
+      expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
+    },
+    // --- Non-ecommerce: delivery optional; group rule applies if any field present ---
+    {
+      ruleId: "IBR-040-OM",
+      title:
+        "Excel upload · Covoro | IBR-040-OM | non-ecommerce + all Deliver To address fields → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      ...DELIVER_TO_ADDRESS_COMPLETE,
+      shouldError: false,
+      expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
+    },
+    {
+      ruleId: "IBR-040-OM",
+      title:
+        "Excel upload · Covoro | IBR-040-OM | non-ecommerce + only Address Line 1 entered → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      addressLine1: DELIVER_TO_ADDRESS_COMPLETE.addressLine1,
+      addressLine2: "",
+      addressLine3: "",
+      city: "",
+      postCode: "",
+      countrySubDivision: "",
+      countryCode: "",
+      shouldError: true,
+      expectedErrorField: DELIVER_TO_ADDRESS_LINE_2_FIELD,
+    },
+    {
+      ruleId: "IBR-040-OM",
+      title:
+        "Excel upload · Covoro | IBR-040-OM | non-ecommerce + empty Deliver To address group → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       addressLine1: "",
       addressLine2: "",
       addressLine3: "",
@@ -2895,6 +2945,46 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
     shouldError: true,
     expectedErrorField: "Prepayment invoice number",
   },
+  {
+    ruleId: "IBR-058-OM",
+    title:
+      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + prepayment ref/UUID → accepted",
+    paidAmount: "0",
+    prepaymentInvoiceNumber: "PREPAY-001",
+    prepaymentInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+    shouldError: false,
+    expectedErrorField: "Prepayment invoice number",
+  },
+  {
+    ruleId: "IBR-058-OM",
+    title:
+      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + empty prepayment ref/UUID → error file",
+    paidAmount: "0",
+    prepaymentInvoiceNumber: "",
+    prepaymentInvoiceUuid: "",
+    shouldError: true,
+    expectedErrorField: "Prepayment invoice number",
+  },
+  {
+    ruleId: "IBR-058-OM",
+    title:
+      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + empty prepayment UUID → error file",
+    paidAmount: "0",
+    prepaymentInvoiceNumber: "PREPAY-001",
+    prepaymentInvoiceUuid: "",
+    shouldError: true,
+    expectedErrorField: "Prepayment invoice UUID",
+  },
+  {
+    ruleId: "IBR-058-OM",
+    title:
+      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + empty prepayment number → error file",
+    paidAmount: "0",
+    prepaymentInvoiceNumber: "",
+    prepaymentInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+    shouldError: true,
+    expectedErrorField: "Prepayment invoice number",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -2904,7 +2994,7 @@ export const HS_CODE_LENGTH_SCENARIOS: HsCodeLengthScenario[] = [
   {
     ruleId: "IBR-080-OM",
     title:
-      "Excel upload · Covoro | IBR-080-OM | HS classification 12 digits → accepted",
+      "Excel upload · Covoro | IBR-080-OM | HS dropdown value with 12 digits → accepted",
     itemClassificationIdentifier: OMAN_HS_CODE_12,
     shouldError: false,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2914,6 +3004,14 @@ export const HS_CODE_LENGTH_SCENARIOS: HsCodeLengthScenario[] = [
     title:
       "Excel upload · Covoro | IBR-080-OM | HS classification 6 digits → error file",
     itemClassificationIdentifier: "123456",
+    shouldError: true,
+    expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+  },
+  {
+    ruleId: "IBR-080-OM",
+    title:
+      "Excel upload · Covoro | IBR-080-OM | Non-HS classification value → error file",
+    itemClassificationIdentifier: "FREE-TEXT-CODE",
     shouldError: true,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
   },
@@ -3073,6 +3171,113 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
       buyerIdentifier: "",
       shouldError: true,
       expectedErrorField: "Buyer identifier",
+    },
+  ];
+
+// ---------------------------------------------------------------------------
+// itemAttributeNameValue (IBR-CO-21)
+// If Item attribute name is provided → Item attribute value MUST be provided,
+// and vice versa. Max length 300 chars each.
+// ---------------------------------------------------------------------------
+export type ItemAttributeConditionalScenario = {
+  ruleId: string;
+  title: string;
+  itemAttributeName: string;
+  itemAttributeValue: string;
+  shouldError: boolean;
+  expectedErrorField: string;
+};
+
+export const ITEM_ATTRIBUTE_NAME_FIELD = "Item attribute name";
+export const ITEM_ATTRIBUTE_VALUE_FIELD = "Item attribute value";
+
+export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScenario[] =
+  [
+    // --- Conditional presence ---
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute name provided + attribute value empty → error file",
+      itemAttributeName: "Color",
+      itemAttributeValue: "",
+      shouldError: true,
+      expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
+    },
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute value provided + attribute name empty → error file",
+      itemAttributeName: "",
+      itemAttributeValue: "Black",
+      shouldError: true,
+      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
+    },
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | both attribute name and value empty → accepted",
+      itemAttributeName: "",
+      itemAttributeValue: "",
+      shouldError: false,
+      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
+    },
+
+    // --- Item attribute name length boundaries (min 1, max 300) ---
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute name minimum length (1 char) → accepted",
+      itemAttributeName: "A",
+      itemAttributeValue: "SomeValue",
+      shouldError: false,
+      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
+    },
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute name maximum length (300 chars) → accepted",
+      itemAttributeName: "A".repeat(300),
+      itemAttributeValue: "SomeValue",
+      shouldError: false,
+      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
+    },
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute name above maximum length (301 chars) → error file",
+      itemAttributeName: "A".repeat(301),
+      itemAttributeValue: "SomeValue",
+      shouldError: true,
+      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
+    },
+
+    // --- Item attribute value length boundaries (min 1, max 300) ---
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute value minimum length (1 char) → accepted",
+      itemAttributeName: "Color",
+      itemAttributeValue: "B",
+      shouldError: false,
+      expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
+    },
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute value maximum length (300 chars) → accepted",
+      itemAttributeName: "Color",
+      itemAttributeValue: "B".repeat(300),
+      shouldError: false,
+      expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
+    },
+    {
+      ruleId: "IBR-CO-21",
+      title:
+        "Excel upload · Covoro | IBR-CO-21 | attribute value above maximum length (301 chars) → error file",
+      itemAttributeName: "Color",
+      itemAttributeValue: "B".repeat(301),
+      shouldError: true,
+      expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
     },
   ];
 

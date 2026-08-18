@@ -17,6 +17,7 @@ import {
 import { uploadAndVerify } from "./uploadHelper";
 import { runErrorValidation } from "./excelEditMessageCheck";
 import { defaultInvoiceData } from "../testData/FieldValidations/Min_max_field_validation";
+import * as FV from "../testData/FieldValidations/ConditionalValidation";
 import {
   applyPartyIdentifiersByTxnType,
 } from "./conditionalValidationHelper";
@@ -140,6 +141,48 @@ export type FormulaDataRow = {
   [key: string]: unknown;
 };
 
+/**
+ * Optional amount inputs. A written `0` is “present” (IBR-058-OM paid amount,
+ * charge/allowance reason rules, etc.). Keep `0` only when this scenario is
+ * actually testing that field; otherwise leave the cell empty.
+ */
+const OPTIONAL_AMOUNT_ZERO_HINTS: Record<string, readonly string[]> = {
+  itemPriceDiscount: ["discount"],
+  lineCharge: ["line charge", "invoice line charge"],
+  lineAllowance: ["line allowance", "invoice line allowance"],
+  docCharges: ["document charge", "charges on document"],
+  docAllowances: ["document allowance", "allowances on document"],
+  paidAmount: ["paid amount"],
+  roundingAmount: ["rounding"],
+};
+
+function isNumericZero(value: unknown): boolean {
+  if (value === 0 || value === "0") return true;
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  return trimmed !== "" && Number(trimmed) === 0;
+}
+
+function scenarioTargetsOptionalAmount(
+  row: FormulaDataRow,
+  hints: readonly string[]
+): boolean {
+  const haystack = `${row.name ?? ""} ${row.errorField ?? ""}`.toLowerCase();
+  return hints.some((hint) => haystack.includes(hint));
+}
+
+/** Replace filler `0` with `null` so Excel cells stay blank (not present). */
+function blankUntestedZeroOptionalAmounts(
+  payload: Record<string, unknown>,
+  row: FormulaDataRow
+): void {
+  for (const [key, hints] of Object.entries(OPTIONAL_AMOUNT_ZERO_HINTS)) {
+    if (!isNumericZero(payload[key])) continue;
+    if (scenarioTargetsOptionalAmount(row, hints)) continue;
+    payload[key] = null;
+  }
+}
+
 function applyToleranceDelta(base: number, delta: number): number {
   const places = Math.abs(delta) > 0 && Math.abs(delta) < 0.01 ? 3 : 2;
   return Number((base + delta).toFixed(places));
@@ -162,9 +205,45 @@ function formulaMismatchBaseRow(shortName: string): FormulaDataRow {
   };
   // IBR-082-OM: this calculated column is only populated for Profit Margin txn types.
   if (shortName === "Total Amount Due (Profit Margin)") {
-    base.invoiceTransactionTypeCode = "Profit Margin Invoice";
+    base.invoiceTransactionTypeCode = FV.TXN_PROFIT_MARGIN_INVOICE;
+    // Align camelCase baseline with Excel companions (Not subject → 0% VAT).
+    base.taxCategory = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    base.taxRate = 0;
   }
   return base;
+}
+
+/**
+ * Profit Margin Invoice / Self-Invoice require companions the Full Tax seed does not have:
+ * CL-11 item type, IBR-175-OM preceding ref/UUID (invoice only), tax category O.
+ */
+function applyProfitMarginRequiredFields(
+  row: Record<string, string>
+): Record<string, string> {
+  const txn = (row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] || "").trim();
+  if (
+    txn !== FV.TXN_PROFIT_MARGIN_INVOICE &&
+    txn !== FV.TXN_PROFIT_MARGIN_SELF_INVOICE
+  ) {
+    return row;
+  }
+
+  const next = { ...row };
+  next[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+  next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+  next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+  next[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+  next["Profit margin item type code"] =
+    next["Profit margin item type code"] || "Tangible Movable Property";
+  if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
+    next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] =
+      next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] || "PREV-OMN-001";
+    next[FV.PRECEDING_INVOICE_UUID_FIELD] =
+      next[FV.PRECEDING_INVOICE_UUID_FIELD] || FV.PRECEDING_INVOICE_UUID_SAMPLE;
+    next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] =
+      next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
+  }
+  return next;
 }
 
 async function generatePatchedCalculatedFieldWorkbook(
@@ -199,6 +278,7 @@ export function buildFormulaExcelPayload(
 ): Record<string, unknown> {
   const { name: _n, errorField: _ef, nonOmrOnly: _no, ...fields } = row;
   const payload: Record<string, unknown> = { ...defaultInvoiceData, ...fields };
+  blankUntestedZeroOptionalAmounts(payload, row);
 
   if (mode === "omr") {
     payload.invoiceCurrencyCode = OMAN_HOME_CURRENCY;
@@ -318,7 +398,8 @@ export function buildFormulaSubmitRow(
     identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
   }
   // Re-apply formula inputs after identity so discount/qty/rate feed generate totals.
-  return overlayHeaderValues(identified, overlay);
+  // Then fill Profit Margin companions (overlay only has camelCase formula keys).
+  return applyProfitMarginRequiredFields(overlayHeaderValues(identified, overlay));
 }
 
 async function generateFormulaWorkbook(

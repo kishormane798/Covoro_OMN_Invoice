@@ -7,6 +7,7 @@
  */
 import {
   applyCnDnSelfBilledInvoiceType,
+  applyOmanDeliveryOverlay,
   applySelfBilledDocumentInvoiceType,
   buildValidOmanFullTaxInvoiceRow,
 } from "./conditionalValidationHelper";
@@ -105,14 +106,7 @@ function applyTransactionTypeDependents(
         applyTaxCategoryDependents(next, FV.ZERO_RATED_TAX_CATEGORY_CODE)
       );
     }
-    next[FV.DELIVER_TO_COUNTRY_CODE_FIELD] =
-      next[FV.DELIVER_TO_COUNTRY_CODE_FIELD] || FV.UAE_COUNTRY_CODE;
-    next["Deliver to party name"] =
-      next["Deliver to party name"] || "Export Delivery Partner";
-    next["Deliver to address line 1"] =
-      next["Deliver to address line 1"] || "Warehouse 9";
-    next["Deliver to city"] = next["Deliver to city"] || "Dubai";
-    next["Deliver to post code"] = next["Deliver to post code"] || "00000";
+    Object.assign(next, applyOmanDeliveryOverlay(next, "export"));
     return next;
   }
 

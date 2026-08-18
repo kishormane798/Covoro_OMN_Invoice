@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import {
   applyPartyIdentifiersByTxnType,
+  applyOmanDeliveryOverlay,
   applyServiceTypeDropdownValidationContext,
   buildValidOmanFullTaxInvoiceRow,
 } from "./conditionalValidationHelper";
@@ -207,8 +208,8 @@ export const MATRIX_FIELD_TO_ROW_KEY: Record<string, string> = {
   "The VAT amount for each line item.": "Line item VAT amount",
   "The total amount of the line including VAT.": "Total amount including VAT",
   "Deliver to country subdivision code": "Deliver to country sub-division",
-  "Custom 1 for Item": "custom 1",
-  "Custom 2 for Item": "custom 2",
+  "Custom 1 for Item": "Item Custom 1",
+  "Custom 2 for Item": "Item Custom 2",
   "Import date": "Import date",
   "Customs Declaration number": "Customs Declaration number",
   "Source currency code": "Source currency code",
@@ -558,14 +559,7 @@ export function applyDependentOverlay(
   };
 
   const fillDelivery = () => {
-    row["Deliver to party name"] = "Oman Delivery Partner";
-    row["Deliver to address line 1"] = "Warehouse 9";
-    row["Deliver to address line 2"] = "Industrial Area";
-    row["Deliver to address line 3"] = "Ghala";
-    row["Deliver to city"] = "Muscat";
-    row["Deliver to post code"] = "130";
-    row["Deliver to country sub-division"] = "Mainland Oman.";
-    row["Deliver to country code"] = FV.OMAN_COUNTRY_CODE;
+    Object.assign(row, applyOmanDeliveryOverlay(row, "domestic"));
   };
 
   const fillCreditNote = () => {
@@ -574,6 +568,30 @@ export function applyDependentOverlay(
     row["Preceding Invoice reference"] = "PREV-OMN-001";
     row["Unique Identifier Number"] = "a1b2c3d4-e5f6-5a90-8bcd-ef1234567890";
     row["Preceding Invoice issue date"] = "2026-06-01";
+  };
+
+  /** IBR-175-OM: Profit Margin Invoice requires preceding ref + UUID. */
+  const fillProfitMargin = () => {
+    row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] = FV.TXN_PROFIT_MARGIN_INVOICE;
+    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    row["Profit margin item type code"] =
+      row["Profit margin item type code"] || "Tangible Movable Property";
+    row[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] =
+      row[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] || "1.00";
+    row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] =
+      row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] || "PREV-OMN-001";
+    row[FV.PRECEDING_INVOICE_UUID_FIELD] =
+      row[FV.PRECEDING_INVOICE_UUID_FIELD] || FV.PRECEDING_INVOICE_UUID_SAMPLE;
+    row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] =
+      row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
+    const withPartyIds = applyPartyIdentifiersByTxnType(row);
+    for (const [key, value] of Object.entries(withPartyIds)) {
+      row[key] = value == null ? "" : String(value);
+    }
   };
 
   const fillPrepayment = () => {
@@ -714,17 +732,12 @@ export function applyDependentOverlay(
         row["Payment means type code"] || "Instrument not defined";
       row["Payment account identifier"] =
         row["Payment account identifier"] || "OM-PAY-001";
-      row["Scheme Identifier"] = row["Scheme Identifier"] || "IBAN";
+      row["Scheme Identifier - Payment"] =
+        row["Scheme Identifier - Payment"] || "IBAN";
       break;
     case "ITEM_OTHER_DETAILS":
-      if (fieldNorm.includes("service")) {
-        row["Item Type"] = "Services";
-        row["Item classification identifier"] = "";
-        row["Service Type Code"] = "SVC-001";
-      }
       if (fieldNorm.includes("profit margin")) {
-        row["Invoice Transaction Type Code"] = FV.TXN_PROFIT_MARGIN_INVOICE;
-        row["Profit margin item type code"] = "Goods";
+        fillProfitMargin();
       }
       if (fieldNorm.includes("attribute")) {
         row["Item attribute name"] = "Color";
@@ -766,10 +779,7 @@ export function applyDependentOverlay(
     Object.assign(row, applyServiceTypeDropdownValidationContext(row));
   }
   if (fieldNorm.includes("profit margin")) {
-    row["Invoice Transaction Type Code"] = FV.TXN_PROFIT_MARGIN_INVOICE;
-    if (!String(row["Profit margin item type code"] ?? "").trim()) {
-      row["Profit margin item type code"] = "Goods";
-    }
+    fillProfitMargin();
   }
 
   return row;
