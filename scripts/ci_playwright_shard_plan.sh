@@ -32,29 +32,27 @@ shard_total_for_count() {
   echo $(( (count + SHARD_SIZE - 1) / SHARD_SIZE ))
 }
 
-# Formula stays a single job unless test count exceeds shard size.
-if [ "$MODE" = "covoro_formula" ]; then
-  SHARD_TOTAL=1
-else
-  SHARD_TOTAL=1
-  if command -v npx >/dev/null 2>&1 && [ -f "$SPEC" ]; then
-    COUNT="$(npx playwright test "$SPEC" --project=chromium --list 2>/dev/null \
-      | sed -n 's/^Total: \([0-9][0-9]*\) tests.*/\1/p' | head -1 || true)"
-    if [ -n "${COUNT:-}" ]; then
-      SHARD_TOTAL="$(shard_total_for_count "$COUNT")"
-    else
-      # Fallback when --list is unavailable in plan job (keep in sync with playwright --list).
-      case "$MODE" in
-        covoro_field) SHARD_TOTAL=5 ;;
-        covoro_conditional) SHARD_TOTAL=3 ;;
-      esac
-    fi
+# Formula, field, and conditional all shard to ≈100 tests per job.
+SHARD_TOTAL=1
+if command -v npx >/dev/null 2>&1 && [ -f "$SPEC" ]; then
+  COUNT="$(npx playwright test "$SPEC" --project=chromium --list 2>/dev/null \
+    | sed -n 's/^Total: \([0-9][0-9]*\) tests.*/\1/p' | head -1 || true)"
+  if [ -n "${COUNT:-}" ]; then
+    SHARD_TOTAL="$(shard_total_for_count "$COUNT")"
   else
+    # Fallback when --list is unavailable in plan job (keep in sync with playwright --list).
     case "$MODE" in
       covoro_field) SHARD_TOTAL=5 ;;
       covoro_conditional) SHARD_TOTAL=3 ;;
+      covoro_formula) SHARD_TOTAL=5 ;;
     esac
   fi
+else
+  case "$MODE" in
+    covoro_field) SHARD_TOTAL=5 ;;
+    covoro_conditional) SHARD_TOTAL=3 ;;
+    covoro_formula) SHARD_TOTAL=5 ;;
+  esac
 fi
 
 if [ "$SHARD_TOTAL" -lt 1 ]; then

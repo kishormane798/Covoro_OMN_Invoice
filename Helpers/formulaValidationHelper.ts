@@ -10,6 +10,8 @@ import type { Page } from "@playwright/test";
 import {
   calculateInvoiceValuesForGeneratorPayload,
   generateInvoiceFromSubmitData,
+  generateInvoiceFromSubmitRows,
+  INVOICE_TEMPLATE_DATA_ROW,
   OMAN_HOME_CURRENCY,
   patchInvoiceDataCellInFile,
   patchInvoiceTextCellInFile,
@@ -141,6 +143,114 @@ export type FormulaDataRow = {
   [key: string]: unknown;
 };
 
+export type FormulaLineCount = 1 | 2;
+
+export type FormulaRunOptions = {
+  lineCount?: FormulaLineCount;
+  taxOverlay?: Partial<FormulaDataRow>;
+};
+
+export type FormulaTaxCategorySweepCase = {
+  shortName: string;
+  taxCategory: string;
+  taxRate: number | null;
+  taxExemptionReasonCode?: string;
+  invoiceTypeCode?: string;
+  paymentMeansTypeCode?: string;
+};
+
+/** All Oman line tax categories (Master.omnCore). Same tax on both 2-line rows. */
+export const FORMULA_TAX_CATEGORY_SWEEP: FormulaTaxCategorySweepCase[] = [
+  {
+    shortName: "Standard rate",
+    taxCategory: FV.STANDARD_TAX_CATEGORY_CODE,
+    taxRate: 5,
+  },
+  {
+    shortName: "Zero rated",
+    taxCategory: FV.ZERO_RATED_TAX_CATEGORY_CODE,
+    taxRate: 0,
+    taxExemptionReasonCode: "Qualifying Food Items",
+  },
+  {
+    shortName: "Exempt from tax",
+    taxCategory: FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: "Qualifying Financial Services",
+    invoiceTypeCode: "Invoice out of scope of tax",
+    paymentMeansTypeCode: "Instrument not defined",
+  },
+  {
+    shortName: "Not subject to tax",
+    taxCategory: FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: "",
+    invoiceTypeCode: "Invoice out of scope of tax",
+    paymentMeansTypeCode: "Instrument not defined",
+  },
+];
+
+const LINE_LEVEL_CALCULATED_HEADERS = new Set([
+  "Item Net Price",
+  "Invoice Line Net Amount",
+  "Line Item VAT Amount",
+  "Total Amount Including VAT",
+]);
+
+const PROFIT_MARGIN_DUE_HEADER = "Total Amount Due (Profit Margin)";
+
+export function isInvoiceLevelCalculatedTarget(
+  target: CalculatedFieldMismatchTarget
+): boolean {
+  return !LINE_LEVEL_CALCULATED_HEADERS.has(target.excelHeader);
+}
+
+export function invoiceLevelSweepTargetsForMode(
+  mode: CurrencyMode
+): CalculatedFieldMismatchTarget[] {
+  return mismatchTargetsForMode(mode).filter(
+    (t) =>
+      isInvoiceLevelCalculatedTarget(t) && t.excelHeader !== PROFIT_MARGIN_DUE_HEADER
+  );
+}
+
+export function invoiceLevelSweepToleranceTargetsForMode(
+  mode: CurrencyMode
+): CalculatedFieldToleranceTarget[] {
+  return toleranceTargetsForMode(mode).filter(
+    (t) =>
+      isInvoiceLevelCalculatedTarget(t) && t.excelHeader !== PROFIT_MARGIN_DUE_HEADER
+  );
+}
+
+export function taxSweepOverlay(
+  category: FormulaTaxCategorySweepCase
+): Partial<FormulaDataRow> {
+  return {
+    taxCategory: category.taxCategory,
+    taxRate: category.taxRate,
+    taxExemptionReasonCode: category.taxExemptionReasonCode,
+    invoiceTypeCode: category.invoiceTypeCode,
+    paymentMeansTypeCode: category.paymentMeansTypeCode,
+  };
+}
+
+/** Line 1 amounts for tax-category 2-line aggregation (line 2 copies the same columns). */
+export const FORMULA_TWO_LINE_SWEEP_BASE_ROW: FormulaDataRow = {
+  name: "Two-line same-tax aggregation",
+  itemPriceBaseQty: 1,
+  itemGrossPrice: 1000,
+  itemPriceDiscount: 0,
+  invoicedQty: 1,
+  lineCharge: 0,
+  lineAllowance: 0,
+  taxRate: 5,
+  docCharges: 0,
+  docAllowances: 0,
+  paidAmount: 0,
+  roundingAmount: 0,
+};
+
 /**
  * Optional amount inputs. A written `0` is “present” (IBR-058-OM paid amount,
  * charge/allowance reason rules, etc.). Keep `0` only when this scenario is
@@ -246,21 +356,131 @@ function applyProfitMarginRequiredFields(
   return next;
 }
 
+function mergeTaxOverlay(
+  row: FormulaDataRow,
+  overlay?: Partial<FormulaDataRow>
+): FormulaDataRow {
+  return overlay ? { ...row, ...overlay } : row;
+}
+
+/**
+ * Line 2 copies every formula column from line 1 (tax, amounts, charges, item text).
+ * Only Invoice Line Identifier differs so the two Excel rows stay distinct.
+ */
+function buildSameTaxSecondLine(line1: FormulaDataRow): FormulaDataRow {
+  return {
+    ...line1,
+    name: `${line1.name} — line 2`,
+    invoiceLineIdentifier: "2",
+  };
+}
+
+function roundMoney2(n: number): number {
+  return Number((Math.round(n * 100) / 100).toFixed(2));
+}
+
+function pickCorrectTwoLine(
+  target: CalculatedFieldMismatchTarget,
+  c1: InvoiceCalcSnapshot,
+  c2: InvoiceCalcSnapshot
+): number | null {
+  if (!isInvoiceLevelCalculatedTarget(target)) {
+    return target.pickCorrect(c1);
+  }
+  const line2Vat = c2.lineItemVatAmount ?? 0;
+  const sumNet = roundMoney2(c1.invoiceLineNetAmount + c2.invoiceLineNetAmount);
+  const totalWithoutTax = roundMoney2(c1.invoiceTotalWithoutTax + c2.invoiceLineNetAmount);
+  const totalTax = roundMoney2(c1.invoiceTotalTax + line2Vat);
+  const totalWithTax = roundMoney2(totalWithoutTax + totalTax);
+  const snapshot: InvoiceCalcSnapshot = {
+    ...c1,
+    sumInvoiceLineNetAmount: sumNet,
+    invoiceTotalWithoutTax: totalWithoutTax,
+    invoiceTotalTax: totalTax,
+    invoiceTotalWithTax: totalWithTax,
+    amountDue: roundMoney2(c1.amountDue + c2.invoiceLineNetAmount + line2Vat),
+    invoiceTotalTaxAccountingCurrency:
+      c1.invoiceTotalTaxAccountingCurrency === null
+        ? null
+        : roundMoney2(
+            (c1.invoiceTotalTaxAccountingCurrency / Math.max(c1.invoiceTotalTax, 0.000001)) *
+              totalTax
+          ),
+    totalAmountDueProfitMargin:
+      c1.totalAmountDueProfitMargin === null
+        ? null
+        : roundMoney2(
+            (c1.totalAmountIncludingVat ?? 0) + (c2.totalAmountIncludingVat ?? 0)
+          ),
+  };
+  return target.pickCorrect(snapshot);
+}
+
+function pickCorrectForWorkbook(
+  target: CalculatedFieldMismatchTarget,
+  mode: CurrencyMode,
+  baseRow: FormulaDataRow,
+  lineCount: FormulaLineCount
+): number | null {
+  const payload1 = buildFormulaExcelPayload(baseRow, mode);
+  const c1 = calculateInvoiceValuesForGeneratorPayload(payload1);
+  if (lineCount !== 2) {
+    return target.pickCorrect(c1);
+  }
+  const line2 = buildSameTaxSecondLine(baseRow);
+  const payload2 = buildFormulaExcelPayload(line2, mode);
+  payload2.docCharges = 0;
+  payload2.docAllowances = 0;
+  payload2.paidAmount = 0;
+  payload2.roundingAmount = 0;
+  const c2 = calculateInvoiceValuesForGeneratorPayload(payload2);
+  return pickCorrectTwoLine(target, c1, c2);
+}
+
+function patchCalculatedFieldCells(
+  filePath: string,
+  target: CalculatedFieldMismatchTarget,
+  patched: number,
+  lineCount: FormulaLineCount
+): void {
+  patchInvoiceDataCellInFile(
+    filePath,
+    target.excelHeader,
+    patched,
+    INVOICE_TEMPLATE_DATA_ROW
+  );
+  if (lineCount === 2 && isInvoiceLevelCalculatedTarget(target)) {
+    patchInvoiceDataCellInFile(
+      filePath,
+      target.excelHeader,
+      patched,
+      INVOICE_TEMPLATE_DATA_ROW + 1
+    );
+  }
+}
+
 async function generatePatchedCalculatedFieldWorkbook(
   mode: CurrencyMode,
   target: CalculatedFieldMismatchTarget,
-  deltaFromCorrect: number
+  deltaFromCorrect: number,
+  options?: FormulaRunOptions
 ): Promise<{ filePath: string; invoiceNumber: string; correct: number; patched: number }> {
   if (target.foreignOnly && mode === "omr") {
     throw new Error(
       `Calculated field "${target.shortName}" is foreign-only; do not run in OMR mode.`
     );
   }
-  const baseRow = formulaMismatchBaseRow(target.shortName);
-  const payload = buildFormulaExcelPayload(baseRow, mode);
-  const { filePath, invoiceNumber } = await generateFormulaWorkbook(baseRow, mode);
-  const calc = calculateInvoiceValuesForGeneratorPayload(payload);
-  const correctRaw = target.pickCorrect(calc);
+  const lineCount = options?.lineCount ?? 1;
+  const baseRow = mergeTaxOverlay(
+    formulaMismatchBaseRow(target.shortName),
+    options?.taxOverlay
+  );
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(
+    baseRow,
+    mode,
+    lineCount
+  );
+  const correctRaw = pickCorrectForWorkbook(target, mode, baseRow, lineCount);
   if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
     throw new Error(
       `No numeric baseline for "${target.shortName}" (correct=${String(correctRaw)})`
@@ -268,7 +488,7 @@ async function generatePatchedCalculatedFieldWorkbook(
   }
   const correct = Number(correctRaw);
   const patched = applyToleranceDelta(correct, deltaFromCorrect);
-  patchInvoiceDataCellInFile(filePath, target.excelHeader, patched);
+  patchCalculatedFieldCells(filePath, target, patched, lineCount);
   return { filePath, invoiceNumber, correct, patched };
 }
 
@@ -404,11 +624,49 @@ export function buildFormulaSubmitRow(
 
 async function generateFormulaWorkbook(
   row: FormulaDataRow,
-  mode: CurrencyMode
+  mode: CurrencyMode,
+  lineCount: FormulaLineCount = 1
 ): Promise<{ filePath: string; invoiceNumber: string }> {
-  const generated = await generateInvoiceFromSubmitData(buildFormulaSubmitRow(row, mode));
-  patchInvoiceTextCellInFile(generated.filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
-  patchInvoiceTextCellInFile(generated.filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+  if (lineCount !== 2) {
+    const generated = await generateInvoiceFromSubmitData(buildFormulaSubmitRow(row, mode));
+    patchInvoiceTextCellInFile(generated.filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
+    patchInvoiceTextCellInFile(generated.filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+    return generated;
+  }
+
+  const line1: FormulaDataRow = {
+    ...row,
+    invoiceLineIdentifier: row.invoiceLineIdentifier ?? "1",
+  };
+  const line2 = buildSameTaxSecondLine(line1);
+  const generated = await generateInvoiceFromSubmitRows([
+    buildFormulaSubmitRow(line1, mode),
+    buildFormulaSubmitRow(line2, mode),
+  ]);
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    BUYER_VAT_FIELD,
+    OMAN_BUYER_VAT,
+    INVOICE_TEMPLATE_DATA_ROW
+  );
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    BUYER_EL_FIELD,
+    OMAN_BUYER_ELECTRONIC,
+    INVOICE_TEMPLATE_DATA_ROW
+  );
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    BUYER_VAT_FIELD,
+    OMAN_BUYER_VAT,
+    INVOICE_TEMPLATE_DATA_ROW + 1
+  );
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    BUYER_EL_FIELD,
+    OMAN_BUYER_ELECTRONIC,
+    INVOICE_TEMPLATE_DATA_ROW + 1
+  );
   return generated;
 }
 
@@ -416,7 +674,7 @@ export const CURRENCY_SUITES: { mode: CurrencyMode; label: string }[] = [
   { mode: "omr", label: "OMR — invoice currency" },
   {
     mode: "foreign",
-    label: "Non-OMR — Invoice Total Tax Amount In Tax Accounting Currency only",
+    label: "Non-OMR — USD invoice currency",
   },
 ];
 
@@ -427,9 +685,11 @@ export type FormulaScenarioRow = FormulaDataRow & {
 };
 
 /**
- * OMR: all general formula rows (skip `nonOmrOnly`).
- * Non-OMR: only FX / IBT-111 rows (`nonOmrOnly`) — the sole foreign-specific calculated
- * column is Invoice Total Tax Amount In Tax Accounting Currency.
+ * OMR: general formula rows (skip `nonOmrOnly` FX / IBT-111 cases).
+ * Non-OMR: every formula row — line/tax/totals math is the same as OMR, with USD + FX rate.
+ *
+ * The one exchange-rate-dependent calculated column is still isolated in
+ * mismatchTargetsForMode / toleranceTargetsForMode (IBT-111 only).
  */
 export function isScenarioApplicableForMode(
   mode: CurrencyMode,
@@ -438,7 +698,7 @@ export function isScenarioApplicableForMode(
   if (mode === "omr") {
     return !row.nonOmrOnly;
   }
-  return Boolean(row.nonOmrOnly);
+  return true;
 }
 
 /** Mismatch targets for a currency mode (non-OMR → IBT-111 only). */
@@ -464,9 +724,15 @@ export function toleranceTargetsForMode(
 export async function runPositiveFormulaScenario(
   page: Page,
   mode: CurrencyMode,
-  row: FormulaScenarioRow
+  row: FormulaScenarioRow,
+  options?: FormulaRunOptions
 ) {
-  const { filePath } = await generateFormulaWorkbook(row as FormulaDataRow, mode);
+  const merged = mergeTaxOverlay(row as FormulaDataRow, options?.taxOverlay);
+  const { filePath } = await generateFormulaWorkbook(
+    merged,
+    mode,
+    options?.lineCount ?? 1
+  );
   await uploadAndVerify(page, filePath);
 }
 
@@ -476,12 +742,14 @@ export async function runPositiveFormulaScenario(
 export async function runCalculatedFieldMismatchErrorScenario(
   page: Page,
   mode: CurrencyMode,
-  target: CalculatedFieldMismatchTarget
+  target: CalculatedFieldMismatchTarget,
+  options?: FormulaRunOptions
 ) {
   const { filePath, invoiceNumber } = await generatePatchedCalculatedFieldWorkbook(
     mode,
     target,
-    CALCULATED_FIELD_MISMATCH_DELTA
+    CALCULATED_FIELD_MISMATCH_DELTA,
+    options
   );
   await runErrorValidation(page, {
     filePath,
@@ -498,12 +766,14 @@ export async function runCalculatedFieldMismatchErrorScenario(
 export async function runCalculatedFieldWithinToleranceAcceptedScenario(
   page: Page,
   mode: CurrencyMode,
-  target: CalculatedFieldToleranceTarget
+  target: CalculatedFieldToleranceTarget,
+  options?: FormulaRunOptions
 ) {
   const { filePath } = await generatePatchedCalculatedFieldWorkbook(
     mode,
     target,
-    target.tolerance
+    target.tolerance,
+    options
   );
   await uploadAndVerify(page, filePath);
 }
@@ -514,13 +784,15 @@ export async function runCalculatedFieldWithinToleranceAcceptedScenario(
 export async function runCalculatedFieldOutsideToleranceErrorScenario(
   page: Page,
   mode: CurrencyMode,
-  target: CalculatedFieldToleranceTarget
+  target: CalculatedFieldToleranceTarget,
+  options?: FormulaRunOptions
 ) {
   const outsideDelta = target.tolerance + target.tolerance;
   const { filePath, invoiceNumber } = await generatePatchedCalculatedFieldWorkbook(
     mode,
     target,
-    outsideDelta
+    outsideDelta,
+    options
   );
   await runErrorValidation(page, {
     filePath,
@@ -575,7 +847,8 @@ export const ZERO_LINE_VAT_CATEGORY_CASES: ZeroLineVatCategoryCase[] = [
 export async function runZeroLineVatForcedNonZeroErrorScenario(
   page: Page,
   mode: CurrencyMode,
-  categoryCase: ZeroLineVatCategoryCase
+  categoryCase: ZeroLineVatCategoryCase,
+  options?: FormulaRunOptions
 ) {
   if (mode !== "omr") {
     throw new Error("Zero Line Item VAT category cases run in OMR mode only.");
@@ -598,7 +871,11 @@ export async function runZeroLineVatForcedNonZeroErrorScenario(
     paidAmount: 0,
     roundingAmount: 0,
   };
-  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, mode);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(
+    row,
+    mode,
+    options?.lineCount ?? 1
+  );
   patchInvoiceDataCellInFile(filePath, "Line Item VAT Amount", 1);
   await runErrorValidation(page, {
     filePath,
@@ -611,15 +888,18 @@ export async function runZeroLineVatForcedNonZeroErrorScenario(
 export async function runNegativeFormulaScenario(
   page: Page,
   mode: CurrencyMode,
-  row: FormulaScenarioRow
+  row: FormulaScenarioRow,
+  options?: FormulaRunOptions
 ) {
   if (!row.errorField) {
     throw new Error(`Negative row "${row.name}" is missing errorField`);
   }
 
+  const merged = mergeTaxOverlay(row as FormulaDataRow, options?.taxOverlay);
   const { filePath, invoiceNumber } = await generateFormulaWorkbook(
-    row as FormulaDataRow,
-    mode
+    merged,
+    mode,
+    options?.lineCount ?? 1
   );
   await runErrorValidation(page, {
     filePath,

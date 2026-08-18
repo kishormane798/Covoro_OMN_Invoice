@@ -2,7 +2,7 @@
 #   Two clock starts only. Each shard is 45 min job timeout.
 #   Morning 06:30 IST and evening 17:00 IST start field shard 1.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
-#   starts the next shard: field 2→5 → conditional 1→3 → formula, then stops.
+#   starts the next shard: field 2→5 → conditional 1→3 → formula 1→5, then stops.
 #   Manual run: pick suite + shard (all runs every shard in parallel; 1–5 runs one chunk ~100 tests).
 #   Leave "chain" off for manual runs so a one-off does not start the full wave.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -25,7 +25,7 @@ on:
           - covoro_formula
           - covoro_conditional
       shard:
-        description: "Shard chunk (~100 tests). Field has 5 shards, conditional has 3. Formula ignores shard."
+        description: "Shard chunk (~100 tests). Field has 5 shards, formula has 5, conditional has 3."
         required: true
         default: "all"
         type: choice
@@ -44,7 +44,8 @@ on:
 
 run-name: >-
   ${{ github.event_name != 'workflow_dispatch' && 'Field validation 1'
-      || github.event.inputs.suite == 'covoro_formula' && 'Formula validation'
+      || github.event.inputs.shard == 'all' && github.event.inputs.suite == 'covoro_formula' && 'Formula validation all'
+      || github.event.inputs.suite == 'covoro_formula' && format('Formula validation {0}', github.event.inputs.shard)
       || github.event.inputs.shard == 'all' && (github.event.inputs.suite == 'covoro_conditional' && 'Conditional validation all' || 'Field validation all')
       || github.event.inputs.suite == 'covoro_conditional' && format('Conditional validation {0}', github.event.inputs.shard)
       || format('Field validation {0}', github.event.inputs.shard) }}
@@ -251,7 +252,7 @@ jobs:
           case "$MODE" in
             covoro_field) LABEL="Field validation ${SHARD}" ;;
             covoro_conditional) LABEL="Conditional validation ${SHARD}" ;;
-            covoro_formula) LABEL="Formula validation" ;;
+            covoro_formula) LABEL="Formula validation ${SHARD}" ;;
             *) LABEL="Playwright ${MODE} ${SHARD}" ;;
           esac
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
@@ -482,8 +483,12 @@ jobs:
             covoro_conditional-1) NEXT_SUITE="covoro_conditional"; NEXT_SHARD="2" ;;
             covoro_conditional-2) NEXT_SUITE="covoro_conditional"; NEXT_SHARD="3" ;;
             covoro_conditional-3) NEXT_SUITE="covoro_formula"; NEXT_SHARD="1" ;;
-            covoro_formula-*)
-              echo "Formula finished — morning/evening wave complete."
+            covoro_formula-1) NEXT_SUITE="covoro_formula"; NEXT_SHARD="2" ;;
+            covoro_formula-2) NEXT_SUITE="covoro_formula"; NEXT_SHARD="3" ;;
+            covoro_formula-3) NEXT_SUITE="covoro_formula"; NEXT_SHARD="4" ;;
+            covoro_formula-4) NEXT_SUITE="covoro_formula"; NEXT_SHARD="5" ;;
+            covoro_formula-5)
+              echo "Formula shard 5 finished — morning/evening wave complete."
               exit 0
               ;;
             *)
