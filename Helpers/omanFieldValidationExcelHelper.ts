@@ -552,9 +552,6 @@ export async function generateOmanDropdownMasterExcel(
         generated.filePath,
         fieldForWrite
       );
-      console.log(
-        `[dropdown excel] ${fieldForWrite} saved=${JSON.stringify(saved.value)} expected=${JSON.stringify(labels[0])} dropdownPresent=${saved.dropdownPresent}`
-      );
       if (saved.value !== labels[0]) {
         throw new Error(
           `Dropdown Excel did not keep invalid value for ${fieldForWrite}: ` +
@@ -575,9 +572,6 @@ export async function generateOmanDropdownMasterExcel(
     const generated = await generateInvoiceFromSubmitData(baseRow);
     patchInvoiceTextCellInFile(generated.filePath, fieldForWrite, labels[0]);
     const saved = readInvoiceTextCellFromFile(generated.filePath, fieldForWrite);
-    console.log(
-      `[dropdown excel] ${fieldForWrite} saved=${JSON.stringify(saved.value)} expected=${JSON.stringify(labels[0])} dropdownPresent=${saved.dropdownPresent}`
-    );
     if (saved.value !== labels[0]) {
       throw new Error(
         `Dropdown Excel did not keep invalid value for ${fieldForWrite}: ` +
