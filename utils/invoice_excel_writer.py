@@ -473,7 +473,7 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
     if is_oman_home_currency(invoice_currency):
         invoice_total_tax_accounting = None
     else:
-        invoice_total_tax_accounting = ceil2(fix6(invoice_total_tax_raw * currency_rate))
+        invoice_total_tax_accounting = ceil2(fix6(invoice_total_tax * currency_rate))
 
     total_with_raw = fix6(total_without_raw + invoice_total_tax_raw)
     invoice_total_with_tax = ceil2(total_with_raw)

@@ -419,7 +419,7 @@ export function isProfitMarginTransactionType(value: unknown): boolean {
  * Line-item and document totals: intermediate math at **6 dp**, written amounts **ceil to 2 dp**.
  * Must stay aligned with Python `apply_invoice_calculations_to_data_row` in `invoice_excel_writer.py`.
  * Pass an effective `taxRate` (0 for non–Standard rate categories; see submit helpers / formula path resolvers).
- * Non-OMR: sets invoice total tax in tax accounting currency via `currencyRate`; omits it when currency is OMR.
+ * Non-OMR (IBR-065-OM): IBT-111 = IBT-110 × `currencyRate` (uses ceiled invoice total tax, not raw tax); omitted when currency is OMR.
  */
 export function calculateInvoiceValues(data: any) {
   /** Stabilise intermediate values to 6 decimal places (matches exchange-rate / quantity precision). */
@@ -472,7 +472,7 @@ export function calculateInvoiceValues(data: any) {
   const invoiceTotalTaxAccountingCurrency =
     currencyCode === OMAN_HOME_CURRENCY
       ? null
-      : ceil2(fix6(rawInvoiceTotalTax * currencyRate));
+      : ceil2(fix6(invoiceTotalTax * currencyRate));
   const rawTotalWithTax = fix6(rawTotalWithoutTax + rawInvoiceTotalTax);
   const invoiceTotalWithTax = ceil2(rawTotalWithTax);
   const amountDue = ceil2(fix6(rawTotalWithTax - paidAmount + roundingAmount));
@@ -1730,7 +1730,7 @@ export async function generateInvoiceFromSubmitRows(
   const invoiceTotalTaxAccountingCurrency =
     currencyCode === OMAN_HOME_CURRENCY
       ? null
-      : ceil2(fix6(rawTotalTax * currencyRate));
+      : ceil2(fix6(invoiceTotalTax * currencyRate));
   /** IBR-082-OM: document-level PM total only when txn type is Profit Margin / Self-Invoice. */
   const profitMarginTxn = isProfitMarginTransactionType(
     rows[0]?.["Invoice Transaction Type Code"]

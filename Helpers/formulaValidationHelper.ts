@@ -379,10 +379,20 @@ function roundMoney2(n: number): number {
   return Number((Math.round(n * 100) / 100).toFixed(2));
 }
 
+/** IBR-065-OM: IBT-111 = ceil2(fix6(IBT-110 × FX)); aligned with `calculateInvoiceValues`. */
+function ibt111FromInvoiceTotalTax(totalTax: number, currencyRate: number): number {
+  const fix6 = (n: number) => Number(n.toFixed(6));
+  const ceil2 = (n: number) => Math.ceil(n * 100 - 1e-12) / 100;
+  return ceil2(fix6(totalTax * currencyRate));
+}
+
+const IBT111_EXCEL_HEADER = "Invoice Total Tax Amount In Tax Accounting Currency";
+
 function pickCorrectTwoLine(
   target: CalculatedFieldMismatchTarget,
   c1: InvoiceCalcSnapshot,
-  c2: InvoiceCalcSnapshot
+  c2: InvoiceCalcSnapshot,
+  currencyRate?: number
 ): number | null {
   if (!isInvoiceLevelCalculatedTarget(target)) {
     return target.pickCorrect(c1);
@@ -392,6 +402,15 @@ function pickCorrectTwoLine(
   const totalWithoutTax = roundMoney2(c1.invoiceTotalWithoutTax + c2.invoiceLineNetAmount);
   const totalTax = roundMoney2(c1.invoiceTotalTax + line2Vat);
   const totalWithTax = roundMoney2(totalWithoutTax + totalTax);
+  const ibt111 =
+    target.excelHeader === IBT111_EXCEL_HEADER && currencyRate !== undefined && currencyRate > 0
+      ? ibt111FromInvoiceTotalTax(totalTax, currencyRate)
+      : c1.invoiceTotalTaxAccountingCurrency === null
+        ? null
+        : roundMoney2(
+            (c1.invoiceTotalTaxAccountingCurrency / Math.max(c1.invoiceTotalTax, 0.000001)) *
+              totalTax
+          );
   const snapshot: InvoiceCalcSnapshot = {
     ...c1,
     sumInvoiceLineNetAmount: sumNet,
@@ -399,13 +418,7 @@ function pickCorrectTwoLine(
     invoiceTotalTax: totalTax,
     invoiceTotalWithTax: totalWithTax,
     amountDue: roundMoney2(c1.amountDue + c2.invoiceLineNetAmount + line2Vat),
-    invoiceTotalTaxAccountingCurrency:
-      c1.invoiceTotalTaxAccountingCurrency === null
-        ? null
-        : roundMoney2(
-            (c1.invoiceTotalTaxAccountingCurrency / Math.max(c1.invoiceTotalTax, 0.000001)) *
-              totalTax
-          ),
+    invoiceTotalTaxAccountingCurrency: ibt111,
     totalAmountDueProfitMargin:
       c1.totalAmountDueProfitMargin === null
         ? null
@@ -434,7 +447,13 @@ function pickCorrectForWorkbook(
   payload2.paidAmount = 0;
   payload2.roundingAmount = 0;
   const c2 = calculateInvoiceValuesForGeneratorPayload(payload2);
-  return pickCorrectTwoLine(target, c1, c2);
+  const fx =
+    mode === "foreign"
+      ? Number(payload1.currencyRate) > 0
+        ? Number(payload1.currencyRate)
+        : DEFAULT_FOREIGN_EXCHANGE_RATE
+      : undefined;
+  return pickCorrectTwoLine(target, c1, c2, fx);
 }
 
 function patchCalculatedFieldCells(

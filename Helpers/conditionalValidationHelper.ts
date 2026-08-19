@@ -5,6 +5,7 @@
  */
 import * as FV from "../testData/FieldValidations";
 import {
+  buyerSellerIdentifierCodeValidTestData,
   industrialClassificationIsicValidTestData,
   omanCountrySubdivisionValidTestData,
   paymentMeansTypeValidTestData,
@@ -319,7 +320,8 @@ const IBR_007_SELLER_IDENTIFIER_TXN_TYPES = new Set<string>([
  * Fill or clear seller/buyer party identifiers from Invoice transaction type.
  * - Seller (IBR-007-OM): Import of Goods / Import of Services (RCM) /
  *   Profit Margin Self-Invoice / Special Zone Supplies
- * - Buyer/seller scheme: ICD master (VATIN label) for Special Zone and Import of Goods
+ * - Buyer Import of Goods (IBR-153-OM): textual code `Importer Customs ID`
+ *   (ICD scheme stays empty — XOR). Special Zone still uses ICD scheme.
  * Scenario builders may overwrite these afterward (including empty for error cases).
  */
 export function applyPartyIdentifiersByTxnType(
@@ -331,6 +333,11 @@ export function applyPartyIdentifiersByTxnType(
     schemeIdentifierValidTestData,
     "Oman Value Added Tax",
     "Oman Value Added Tax Identification Number (VATIN) (OM:VAT) - Issuing agency: Tax Authority, Oman."
+  );
+  const importerCustomsIdCode = masterLabelIncluding(
+    buyerSellerIdentifierCodeValidTestData,
+    "Importer Customs ID",
+    "Importer Customs ID"
   );
 
   if (IBR_007_SELLER_IDENTIFIER_TXN_TYPES.has(txn)) {
@@ -355,8 +362,9 @@ export function applyPartyIdentifiersByTxnType(
     next["Buyer Identifier (textual code)"] = "";
     next["Buyer identifier"] = "SZ-BUYER-001";
   } else if (txn === FV.TXN_IMPORT_OF_GOODS) {
-    next["Scheme identifier"] = defaultScheme;
-    next["Buyer Identifier (textual code)"] = "";
+    // IBR-153-OM: Buyer identifier code must be 'Importer Customs ID'.
+    next["Scheme identifier"] = "";
+    next["Buyer Identifier (textual code)"] = importerCustomsIdCode;
     next["Buyer identifier"] = "IMP-CUST-001";
   } else {
     next["Scheme identifier"] = "";
@@ -1340,15 +1348,19 @@ export function buildBuyerIdentifierSchemeScenarioRow(
       scenario.invoiceTransactionTypeCode,
   });
   // Scenario values win (including empty buyer identifier for error cases).
-  // XOR: scheme only — textual code stays empty.
-  row["Scheme identifier"] = scenario.buyerIdentifierScheme;
-  row["Buyer Identifier (textual code)"] = "";
   row["Buyer identifier"] = scenario.buyerIdentifier;
   if (scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS) {
+    // IBR-153-OM: Importer Customs ID is the buyer identifier textual code, not ICD scheme.
+    row["Scheme identifier"] = "";
+    row["Buyer Identifier (textual code)"] = scenario.buyerIdentifierScheme;
     row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
     row[FV.IMPORT_DATE_FIELD] = "2026-01-10";
     row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
     row[FV.INCOTERMS_FIELD] = "Free On Board";
+  } else {
+    // XOR: scheme only — textual code stays empty.
+    row["Scheme identifier"] = scenario.buyerIdentifierScheme;
+    row["Buyer Identifier (textual code)"] = "";
   }
   if (scenario.invoiceTransactionTypeCode === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
     return applySpecialZoneCountrySubdivisions(row);
