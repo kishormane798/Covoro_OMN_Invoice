@@ -30,6 +30,10 @@ import {
 } from "../utils/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "./packProgressReporter";
 import { runPythonForStdout } from "../utils/pythonRunner";
+import {
+  TAX_EXEMPTION_REASON_SAMPLE,
+  TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+} from "../testData/FieldValidations/ConditionalValidation";
 
 export type FormulaMatrixCase = {
   id: string;
@@ -208,14 +212,14 @@ function taxCategoryOverlay(taxCategory: string): Partial<FormulaDataRow> {
     return {
       taxCategory: "Zero rated",
       taxRate: 0,
-      taxExemptionReasonCode: "Qualifying Food Items",
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
     };
   }
   if (t.includes("exempt")) {
     return {
       taxCategory: "Exempt from tax",
       taxRate: null,
-      taxExemptionReasonCode: "Qualifying Financial Services",
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
       invoiceTypeCode: "Invoice out of scope of tax",
       paymentMeansTypeCode: "Instrument not defined",
     };
@@ -367,7 +371,7 @@ function buildMultiItemSubmitRows(tc: FormulaMatrixCase): Record<string, string>
   if (/standard\s*\+\s*zero/i.test(tc.taxCategory)) {
     line2["Tax Category"] = "Zero rated";
     line2["Tax Rate"] = "0";
-    line2["Tax exemption reason code"] = "Qualifying Food Items";
+    line2["Tax exemption reason code"] = TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
   }
 
   return [line1, line2];

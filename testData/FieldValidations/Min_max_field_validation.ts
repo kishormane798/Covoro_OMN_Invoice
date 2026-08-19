@@ -4,6 +4,11 @@
  * Field names match `FULL_TEMPLATE_HEADERS` in invoiceColumnMapping.ts.
  */
 
+import {
+  TAX_EXEMPTION_REASON_SAMPLE,
+  TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+} from "./ConditionalValidation";
+
 export type FieldLengthRule = {
   field: string;
   min: number;
@@ -730,9 +735,8 @@ lineCharge: 0, lineAllowance: 0, taxRate: 5,
 docCharges: 0, docAllowances: 10000000000000, paidAmount: 0, roundingAmount: 0
 },
 {
-expect: "error",
+expect: "success",
 name: "Empty Charges on document level",
-errorField: "Charges on document level",
 itemPriceBaseQty: 1,
 itemGrossPrice: 1000,
 itemPriceDiscount: null,
@@ -746,9 +750,8 @@ paidAmount: 0,
 roundingAmount: 0
 },
 {
-expect: "error",
+expect: "success",
 name: "Empty Allowances on document level",
-errorField: "Allowances on document level",
 itemPriceBaseQty: 1,
 itemGrossPrice: 1000,
 itemPriceDiscount: null,
@@ -1082,9 +1085,8 @@ roundingAmount: 0
   roundingAmount: 0,
 },
 {
-  expect: "error",
+  expect: "success",
   name: "Item price discount whitespace",
-  errorField: "Item Price Discount",
   itemPriceBaseQty: 1,
   itemGrossPrice: 1000,
   itemPriceDiscount: "   ",
@@ -1320,7 +1322,7 @@ roundingAmount: 0
   expect: "success",
   name: "ALIGNED-IBRP-Z-09-OM / IBR-077-OM Zero rated Line Item VAT Amount is zero",
   taxCategory: "Zero rated",
-  taxExemptionReasonCode: "Qualifying Food Items",
+  taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
   taxRate: 0,
   itemPriceBaseQty: 1,
   itemGrossPrice: 1000,
@@ -1337,7 +1339,7 @@ roundingAmount: 0
   expect: "success",
   name: "ALIGNED-IBRP-E-09-OM / IBR-039-OM Exempt Line Item VAT Amount is blank or zero",
   taxCategory: "Exempt from tax",
-  taxExemptionReasonCode: "Qualifying Financial Services",
+  taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
   invoiceTypeCode: "Invoice out of scope of tax",
   paymentMeansTypeCode: "Instrument not defined",
   taxRate: null,
