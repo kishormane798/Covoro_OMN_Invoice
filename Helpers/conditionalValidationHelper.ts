@@ -675,9 +675,11 @@ export function buildImportOfGoodsScenarioRow(
   scenario: FV.ImportOfGoodsScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
+  const txn =
+    scenario.invoiceTransactionTypeCode ?? FV.TXN_IMPORT_OF_GOODS;
   return applyPartyIdentifiersByTxnType({
     ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: FV.TXN_IMPORT_OF_GOODS,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
     [FV.ITEM_TYPE_FIELD]: FV.ITEM_TYPE_GOODS,
     [FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD]: FV.OMAN_HS_CODE_12,
     [FV.ITEM_COUNTRY_OF_ORIGIN_FIELD]: scenario.itemCountryOfOrigin,

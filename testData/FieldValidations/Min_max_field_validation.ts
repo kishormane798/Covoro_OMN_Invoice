@@ -31,6 +31,11 @@ export type FieldNumericRule = FieldLengthRule & {
    * Default false: empty is accepted for optional amounts.
    */
   emptyExpectsError?: boolean;
+  /**
+   * Signed amounts: negative of the min boundary is accepted (e.g. rounding).
+   * Default false: only unsigned (positive) values are generated.
+   */
+  allowsNegative?: boolean;
 };
 
 /** Formula output columns — isolated min/max patches fail calculation; empty fails length. */
@@ -46,8 +51,23 @@ export const FORMULA_OUTPUT_NUMERIC_FIELDS = [
   "Amount due for payment",
 ] as const;
 
+/**
+ * IBR-062-OM / IBR-064-OM: a document-level allowance or charge amount with
+ * empty VAT category fails on the VAT dropdown, not the amount column.
+ */
+export function documentLevelAmountVatErrorField(
+  targetField: string
+): string | undefined {
+  const key = targetField.replace(/\s+/g, " ").trim().toLowerCase();
+  if (key === "allowances on document level") return "Vat category - allowances";
+  if (key === "charges on document level") return "Vat category - charges";
+  return undefined;
+}
+
 /** Error-file fields to accept for a formula numeric case (patched column or a related total). */
 export function formulaNumericRelatedErrorFields(targetField: string): string[] {
+  const vatErrorField = documentLevelAmountVatErrorField(targetField);
+  if (vatErrorField) return [vatErrorField];
   return [...new Set([targetField, ...FORMULA_OUTPUT_NUMERIC_FIELDS])];
 }
 
@@ -308,7 +328,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     belowMin: 0,
     aboveMax: 14,
     decimals: 2,
-    minExpectsError: true,
+    // Min 0.01 is accepted when IBR-058-OM companions (prepayment number + UUID) are filled.
     maxExpectsError: true,
   },
   {
@@ -318,7 +338,8 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     belowMin: 0,
     aboveMax: 14,
     decimals: 2,
-    emptyExpectsError: true,
+    // Optional: empty, positive, and negative values are accepted.
+    allowsNegative: true,
   },
   {
     field: "Amount due for payment",

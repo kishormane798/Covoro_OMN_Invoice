@@ -574,10 +574,10 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
           ConditionalRows.buildPrepaymentPaidAmountScenarioRow(scenario);
-        await verifyConditionalScenario(
+        await verifyConditionalScenarioAnyOf(
           page,
           rowData,
-          scenario.expectedErrorField ?? "Prepayment invoice number",
+          FV.missingPrepaymentPaidAmountErrorFields(scenario),
           scenario.shouldError
         );
       });

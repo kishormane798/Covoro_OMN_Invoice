@@ -274,6 +274,35 @@ function isLineTaxExemptionReasonField(fieldNorm: string): boolean {
   );
 }
 
+const PAID_AMOUNT_FIELD = "Paid amount";
+const PREPAYMENT_INVOICE_NUMBER_FIELD = "Prepayment invoice number";
+const PREPAYMENT_INVOICE_UUID_FIELD = "Prepayment invoice UUID";
+const PREPAYMENT_INVOICE_NUMBER_SAMPLE = "PREPAY-001";
+
+/**
+ * IBR-058-OM: Paid amount present → Prepayment invoice number + UUID required.
+ * Does not switch Invoice Transaction Type (that is a separate prepayment-txn rule).
+ * A written `0` is present; empty stays empty (no companions).
+ */
+export function applyPaidAmountPrepaymentCompanions(
+  row: Record<string, string>,
+  field: string,
+  value: string
+): string[] {
+  if (normKey(field) !== normKey(PAID_AMOUNT_FIELD) || !String(value).trim()) {
+    return [];
+  }
+  const numberKey = resolveRowKey(PREPAYMENT_INVOICE_NUMBER_FIELD, row);
+  const uuidKey = resolveRowKey(PREPAYMENT_INVOICE_UUID_FIELD, row);
+  if (!String(row[numberKey] ?? "").trim()) {
+    row[numberKey] = PREPAYMENT_INVOICE_NUMBER_SAMPLE;
+  }
+  if (!String(row[uuidKey] ?? "").trim()) {
+    row[uuidKey] = FV.PRECEDING_INVOICE_UUID_SAMPLE;
+  }
+  return [numberKey, uuidKey];
+}
+
 export function sectionFolderName(section: string): string {
   return section.trim().replace(/\s+/g, "_").toUpperCase();
 }
@@ -945,6 +974,16 @@ export async function generateFieldValidationExcelForCase(
     fs.copyFileSync(base.filePath, destPath);
     // Force exact test value on the durable pack copy (after submit recalc).
     patchInvoiceTextCellInFile(destPath, patchHeader, mutatedValue);
+    const prepaidCompanions = applyPaidAmountPrepaymentCompanions(
+      overlaid,
+      rowKey,
+      mutatedValue
+    );
+    for (const companion of prepaidCompanions) {
+      if (normKey(companion) !== normKey(patchHeader)) {
+        patchInvoiceTextCellInFile(destPath, companion, overlaid[companion]);
+      }
+    }
 
     // If this case mutates seller/buyer VAT, leave that patch; otherwise TIN stays from base.
     return {

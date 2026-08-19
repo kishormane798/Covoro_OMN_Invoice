@@ -18,6 +18,7 @@ import {
   generateOmanNumericFieldExcel,
   generateOmanPartyIdentifierLengthExcel,
   generateOmanItemAttributePairExcel,
+  generateOmanImportDateCustomsExcel,
   generateOmanPrepaymentPairExcel,
   generateOmanSeededFieldExcel,
   generateOmanSupportingDocumentPairExcel,
@@ -325,7 +326,8 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
         await uploadAndVerify(page, filePath);
         return;
       }
-      // Formula fields: min/max → wrong calculation; empty → length ("should be more/less than").
+      // Formula fields: min/max → wrong calculation; empty → length.
+      // Doc allowance/charge amount → Vat category - allowances/charges (IBR-062/064).
       await runErrorValidationForAnyOfFields(page, {
         filePath,
         fields: FV.formulaNumericRelatedErrorFields(config.field),
@@ -348,6 +350,14 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
           await runNumericBoundary(page, config, config.belowMin, config.emptyExpectsError);
         });
       }
+
+      if (config.allowsNegative) {
+        const negativeValue = `-${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)}`;
+        test(`Verify Excel upload is accepted for ${TEMPLATE} Numeric – ${config.field} (negative value (${negativeValue})).`, async ({ page }) => {
+          const { filePath } = await generateOmanSeededFieldExcel(config.field, negativeValue);
+          await uploadAndVerify(page, filePath);
+        });
+      }
     }
   });
 
@@ -361,7 +371,12 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
         );
         await runErrorValidation(
           page,
-          { filePath, field: config.field, invoiceNumber, checkEdit: true });
+          {
+            filePath,
+            field: FV.documentLevelAmountVatErrorField(config.field) ?? config.field,
+            invoiceNumber,
+            checkEdit: true,
+          });
       });
     }
   });
@@ -577,6 +592,52 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await runErrorValidation(page, {
         filePath,
         field: FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD,
+        invoiceNumber,
+        checkEdit: true,
+      });
+    });
+  });
+
+  test.describe("Import date / Customs Declaration interdependency", () => {
+    const importDate = "2026-06-15";
+    const customsNumber = "CUST-OMN-001";
+
+    test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – Customs Declaration number (import date and number).`, async ({
+      page,
+    }) => {
+      const { filePath } = await generateOmanImportDateCustomsExcel({
+        importDate,
+        customsDeclarationNumber: customsNumber,
+      });
+      await uploadAndVerify(page, filePath);
+    });
+
+    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Customs Declaration number (import date without number).`, async ({
+      page,
+    }) => {
+      const { filePath, invoiceNumber } = await generateOmanImportDateCustomsExcel({
+        importDate,
+        customsDeclarationNumber: "",
+      });
+      await runErrorValidation(page, {
+        filePath,
+        field: FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
+        invoiceNumber,
+        checkEdit: true,
+      });
+    });
+
+    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Customs Declaration number (Import of Goods without number).`, async ({
+      page,
+    }) => {
+      const { filePath, invoiceNumber } = await generateOmanImportDateCustomsExcel({
+        importDate,
+        customsDeclarationNumber: "",
+        invoiceTransactionTypeCode: FV.TXN_IMPORT_OF_GOODS,
+      });
+      await runErrorValidation(page, {
+        filePath,
+        field: FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
         invoiceNumber,
         checkEdit: true,
       });

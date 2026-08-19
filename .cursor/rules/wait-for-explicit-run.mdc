@@ -1,0 +1,16 @@
+---
+description: Do not execute user-provided tests/commands until the user says run
+alwaysApply: true
+---
+
+# Wait for explicit run
+
+Do not run anything the user provides (tests, commands, scripts, Playwright, npm, shell, browser). Prepare and write only.
+
+Execute **only** after they say **run**, **run it**, **execute**, or **go ahead and run**.
+
+“Try”, “check”, “verify”, “test this”, or “see if it works” is not permission to run.
+
+This overrides other skills that want to execute (verification, TDD watch-it-fail) until the user says run.
+
+**REQUIRED:** Follow `wait-for-explicit-run` skill.

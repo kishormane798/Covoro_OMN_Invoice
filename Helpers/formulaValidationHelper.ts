@@ -24,6 +24,7 @@ import {
   applyPartyIdentifiersByTxnType,
 } from "./conditionalValidationHelper";
 import {
+  applyPaidAmountPrepaymentCompanions,
   buildOmanFullTaxSubmitSeedRow,
   OMAN_BUYER_ELECTRONIC,
   OMAN_BUYER_VAT,
@@ -430,6 +431,11 @@ function applyDocumentLevelCompanionsToSubmitRow(
     FV.ALLOWANCES_ON_DOCUMENT_LEVEL_FIELD,
     FV.VAT_CATEGORY_ALLOWANCES_FIELD,
     FV.TAX_EXEMPTION_REASON_ALLOWANCES_FIELD
+  );
+  applyPaidAmountPrepaymentCompanions(
+    next,
+    "Paid amount",
+    headerGet(next, "Paid amount")
   );
   return next;
 }

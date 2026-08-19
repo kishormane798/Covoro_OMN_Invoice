@@ -354,6 +354,30 @@ export type PrepaymentPaidAmountScenario = OmanConditionalScenario & {
   prepaymentInvoiceUuid: string;
 };
 
+export const PREPAYMENT_PAID_AMOUNT_REQUIRED_FIELDS = [
+  "Prepayment invoice number",
+  "Prepayment invoice UUID",
+] as const;
+
+/** Error workbook columns for the companions that were left empty (IBR-058-OM). */
+export function missingPrepaymentPaidAmountErrorFields(scenario: {
+  prepaymentInvoiceNumber: string;
+  prepaymentInvoiceUuid: string;
+  expectedErrorField?: string;
+}): string[] {
+  const missing: string[] = [];
+  if (!String(scenario.prepaymentInvoiceNumber ?? "").trim()) {
+    missing.push(PREPAYMENT_PAID_AMOUNT_REQUIRED_FIELDS[0]);
+  }
+  if (!String(scenario.prepaymentInvoiceUuid ?? "").trim()) {
+    missing.push(PREPAYMENT_PAID_AMOUNT_REQUIRED_FIELDS[1]);
+  }
+  if (missing.length > 0) return missing;
+  return [
+    scenario.expectedErrorField ?? PREPAYMENT_PAID_AMOUNT_REQUIRED_FIELDS[0],
+  ];
+}
+
 /** IBR-080-OM: HS classification must be exactly 12 digits when provided. */
 export type HsCodeLengthScenario = OmanConditionalScenario & {
   itemClassificationIdentifier: string;
@@ -463,6 +487,8 @@ export type GoodsClassificationScenario = OmanConditionalScenario & {
 };
 
 export type ImportOfGoodsScenario = OmanConditionalScenario & {
+  /** Defaults to Import of Goods (IBR-085-OM). Full Tax isolates Import date pairing. */
+  invoiceTransactionTypeCode?: string;
   itemCountryOfOrigin: string;
   importDate: string;
   customsDeclarationNumber: string;
@@ -1695,6 +1721,18 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     importDate: "2026-01-10",
     customsDeclarationNumber: "",
     incoterms: "Free On Board",
+    shouldError: true,
+    expectedErrorField: CUSTOMS_DECLARATION_NUMBER_FIELD,
+  },
+  {
+    ruleId: "IBR-085-OM",
+    title:
+      "Excel upload · Covoro | IBR-085-OM | Import date + empty customs declaration → error file",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    itemCountryOfOrigin: "India",
+    importDate: "2026-01-10",
+    customsDeclarationNumber: "",
+    incoterms: "",
     shouldError: true,
     expectedErrorField: CUSTOMS_DECLARATION_NUMBER_FIELD,
   },

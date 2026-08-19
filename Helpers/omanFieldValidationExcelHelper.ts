@@ -9,6 +9,7 @@ import type {
 } from "../testData/FieldValidations/partyIdentifierCompanionLength";
 import {
   applyDependentOverlay,
+  applyPaidAmountPrepaymentCompanions,
   buildOmanDropdownBaseRow,
   resolveDropdownTemplateField,
   OMAN_BUYER_ELECTRONIC,
@@ -618,6 +619,11 @@ export async function generateOmanSeededFieldExcel(
   identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
   identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
   identified[field] = value;
+  const prepaidCompanions = applyPaidAmountPrepaymentCompanions(
+    identified,
+    field,
+    value
+  );
   const generated = await generateInvoiceFromSubmitData(identified);
   if (field !== BUYER_VAT_FIELD) {
     patchInvoiceTextCellInFile(generated.filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
@@ -626,6 +632,15 @@ export async function generateOmanSeededFieldExcel(
     patchInvoiceTextCellInFile(generated.filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
   }
   patchInvoiceTextCellInFile(generated.filePath, field, value);
+  for (const companion of prepaidCompanions) {
+    if (companion !== field) {
+      patchInvoiceTextCellInFile(
+        generated.filePath,
+        companion,
+        identified[companion]
+      );
+    }
+  }
   const invoiceNumber = field === "Invoice Number" ? value : generated.invoiceNumber;
   return { filePath: generated.filePath, invoiceNumber };
 }
@@ -700,6 +715,43 @@ export async function generateOmanSupportingDocumentPairExcel(
     generated.filePath,
     FV.SUPPORTING_DOCUMENT_UUID_FIELD,
     supportingUuid
+  );
+  return generated;
+}
+
+/**
+ * Import date + Customs Declaration pair (IBR-085-OM companion).
+ * Full Tax + skip overlay isolates "customs required when Import date is provided".
+ * Import of Goods uses the overlay so txn/date/incoterms/origin stay in play.
+ */
+export async function generateOmanImportDateCustomsExcel(opts: {
+  importDate: string;
+  customsDeclarationNumber: string;
+  invoiceTransactionTypeCode?: string;
+}): Promise<{ filePath: string; invoiceNumber: string }> {
+  const txn = opts.invoiceTransactionTypeCode ?? FV.TXN_FULL_TAX_INVOICE;
+  const isImportOfGoods = txn === FV.TXN_IMPORT_OF_GOODS;
+  const generated = await generateOmanSeededFieldExcel(
+    FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
+    opts.customsDeclarationNumber,
+    { skipDependentOverlay: !isImportOfGoods }
+  );
+  if (!isImportOfGoods) {
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+      txn
+    );
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      FV.IMPORT_DATE_FIELD,
+      opts.importDate
+    );
+  }
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
+    opts.customsDeclarationNumber
   );
   return generated;
 }
@@ -792,6 +844,12 @@ export async function generateOmanFieldLengthExcel(
   // Empty prepayment reference is valid in the baseline non-prepayment context.
   // Dedicated prepayment suites cover the transaction-type-required behavior.
   if (field === PREPAY_NUMBER_FIELD && length === 0) {
+    return generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
+  }
+  // Empty customs declaration is valid on Full Tax (no Import date, not Import of Goods).
+  // Overlay fillImport() would set both, making empty an IBR-085-OM error
+  // (covered by ConditionalValidation IMPORT_OF_GOODS_SCENARIOS).
+  if (field === FV.CUSTOMS_DECLARATION_NUMBER_FIELD && length === 0) {
     return generateOmanSeededFieldExcel(field, "", { skipDependentOverlay: true });
   }
   // IBR-079-OM: Goods requires Item classification identifier except Simplified Tax Invoice.
@@ -957,6 +1015,7 @@ export async function generateOmanAllFieldsBoundaryPackExcel(
   const rows = cases.map((tc) => {
     const row = identifiedBoundarySeedRow(tc.field);
     row[tc.field] = tc.value;
+    applyPaidAmountPrepaymentCompanions(row, tc.field, tc.value);
     return row;
   });
 
@@ -978,6 +1037,20 @@ export async function generateOmanAllFieldsBoundaryPackExcel(
       });
     }
     patches.push({ header: cases[i].field, value: cases[i].value, dataRow });
+    const prepaidCompanions = applyPaidAmountPrepaymentCompanions(
+      rows[i],
+      cases[i].field,
+      cases[i].value
+    );
+    for (const companion of prepaidCompanions) {
+      if (companion !== cases[i].field) {
+        patches.push({
+          header: companion,
+          value: rows[i][companion],
+          dataRow,
+        });
+      }
+    }
   }
   patchInvoiceTextCellsInFile(generated.filePath, patches);
 
