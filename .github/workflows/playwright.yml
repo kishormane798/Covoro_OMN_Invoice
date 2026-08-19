@@ -200,8 +200,17 @@ jobs:
           restore-keys: |
             playwright-chromium-${{ hashFiles('package-lock.json') }}
 
+      # ubuntu-24.04 GitHub runners hang in `playwright install --with-deps`:
+      # apt retries dead azure.archive.ubuntu.com mirrors (Ign:) with no further log.
       - name: Install Playwright Browsers
-        run: npx playwright install chromium --with-deps
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' -o -name 'sources.list' \) \
+            -exec sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g; s|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' {} +
+          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
+            | sudo tee /etc/apt/apt.conf.d/99-ci-apt-timeout >/dev/null
+          npx playwright install chromium --with-deps
 
       - name: Create .env file
         run: |
