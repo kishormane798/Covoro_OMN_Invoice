@@ -45,6 +45,7 @@ Consult `docs/troubleshooting.md`. Common patterns:
 - Poll uses refresh icon; blank-UI recovery in wait loop
 - Verify row selectors in `UploadInvoicePage`
 - Check api-traffic for upload/parse endpoints
+- **Observed `error` but test needed `completed`:** do not patch waits or helpers. Use `debug-error-file-status` — download the error file, print all Errors-column records (`printErrorWorkbookMessages` / `error_excel_reader.py list_comments`), and propose a solution with **no code changes**.
 
 ### TIN missing in header
 

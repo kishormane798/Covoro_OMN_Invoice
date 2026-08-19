@@ -3,7 +3,9 @@ import * as FV from "../testData/FieldValidations";
 import {
   CURRENCY_SUITES,
   FORMULA_TAX_CATEGORY_SWEEP,
+  FORMULA_TWO_LINE_DOC_LEVEL_OVERLAY,
   FORMULA_TWO_LINE_SWEEP_BASE_ROW,
+  documentLevelInvoiceTargetsForMode,
   invoiceLevelSweepTargetsForMode,
   invoiceLevelSweepToleranceTargetsForMode,
   isScenarioApplicableForMode,
@@ -558,6 +560,87 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         );
         await runCalculatedFieldMismatchErrorScenario(page, "omr", profitMarginTarget, MULTI);
       });
+    });
+
+    test.describe("Document charges/allowances — invoice-level totals — 2 lines", () => {
+      test.describe.configure({ mode: "parallel" });
+
+      let docSuiteEnabled = false;
+      let docCachedHeaders: string[] = [];
+
+      test.beforeAll(async () => {
+        docCachedHeaders = await getCachedInvoiceTemplateHeaders();
+        docSuiteEnabled = templateSupportsGenerateInvoiceExcel(docCachedHeaders);
+      });
+
+      const standardDocOverlay = {
+        ...FORMULA_TWO_LINE_DOC_LEVEL_OVERLAY,
+        ...taxSweepOverlay(FORMULA_TAX_CATEGORY_SWEEP[0]),
+      };
+
+      test(`Verify Excel upload formula is accepted for ${TEMPLATE} – 2-line Standard rate with document charges and allowances (OMR).`, async ({
+        page,
+      }) => {
+        test.skip(
+          !docSuiteEnabled,
+          "Active template lacks columns required for formula generator checks"
+        );
+        await runPositiveFormulaScenario(page, "omr", FORMULA_TWO_LINE_SWEEP_BASE_ROW, {
+          ...MULTI,
+          taxOverlay: standardDocOverlay,
+        });
+      });
+
+      test(`Verify Excel upload formula is accepted for ${TEMPLATE} – 2-line Standard rate with document charges and allowances (USD).`, async ({
+        page,
+      }) => {
+        test.skip(
+          !docSuiteEnabled,
+          "Active template lacks columns required for formula generator checks"
+        );
+        await runPositiveFormulaScenario(page, "foreign", FORMULA_TWO_LINE_SWEEP_BASE_ROW, {
+          ...MULTI,
+          taxOverlay: standardDocOverlay,
+        });
+      });
+
+      for (const target of documentLevelInvoiceTargetsForMode("omr")) {
+        test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} mismatch (2 lines, document charges, Standard rate, OMR).`, async ({
+          page,
+        }) => {
+          test.skip(
+            !docSuiteEnabled,
+            "Active template lacks columns required for formula generator checks"
+          );
+          test.skip(
+            !hasHeaderLabel(docCachedHeaders, target.excelHeader),
+            `Template has no column: ${target.excelHeader}`
+          );
+          await runCalculatedFieldMismatchErrorScenario(page, "omr", target, {
+            ...MULTI,
+            taxOverlay: standardDocOverlay,
+          });
+        });
+      }
+
+      for (const target of documentLevelInvoiceTargetsForMode("foreign")) {
+        test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} mismatch (2 lines, document charges, Standard rate, USD).`, async ({
+          page,
+        }) => {
+          test.skip(
+            !docSuiteEnabled,
+            "Active template lacks columns required for formula generator checks"
+          );
+          test.skip(
+            !hasHeaderLabel(docCachedHeaders, target.excelHeader),
+            `Template has no column: ${target.excelHeader}`
+          );
+          await runCalculatedFieldMismatchErrorScenario(page, "foreign", target, {
+            ...MULTI,
+            taxOverlay: standardDocOverlay,
+          });
+        });
+      }
     });
   });
 });

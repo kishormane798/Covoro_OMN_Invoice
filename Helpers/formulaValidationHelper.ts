@@ -226,13 +226,20 @@ export function invoiceLevelSweepToleranceTargetsForMode(
 export function taxSweepOverlay(
   category: FormulaTaxCategorySweepCase
 ): Partial<FormulaDataRow> {
-  return {
+  const overlay: Partial<FormulaDataRow> = {
     taxCategory: category.taxCategory,
     taxRate: category.taxRate,
-    taxExemptionReasonCode: category.taxExemptionReasonCode,
-    invoiceTypeCode: category.invoiceTypeCode,
-    paymentMeansTypeCode: category.paymentMeansTypeCode,
   };
+  if (category.taxExemptionReasonCode !== undefined) {
+    overlay.taxExemptionReasonCode = category.taxExemptionReasonCode;
+  }
+  if (category.invoiceTypeCode !== undefined) {
+    overlay.invoiceTypeCode = category.invoiceTypeCode;
+  }
+  if (category.paymentMeansTypeCode !== undefined) {
+    overlay.paymentMeansTypeCode = category.paymentMeansTypeCode;
+  }
+  return overlay;
 }
 
 /** Line 1 amounts for tax-category 2-line aggregation (line 2 copies the same columns). */
@@ -250,6 +257,30 @@ export const FORMULA_TWO_LINE_SWEEP_BASE_ROW: FormulaDataRow = {
   paidAmount: 0,
   roundingAmount: 0,
 };
+
+/** Non-zero document charges/allowances; companions match item tax on every 2-line row. */
+export const FORMULA_TWO_LINE_DOC_LEVEL_OVERLAY: Partial<FormulaDataRow> = {
+  name: "Two-line document charges and allowances",
+  docCharges: 50,
+  docAllowances: 25,
+};
+
+const DOCUMENT_LEVEL_INVOICE_TOTAL_HEADERS = new Set([
+  "Invoice Total Amount Without Tax",
+  "Invoice Total Tax Amount",
+  "Invoice Total Amount With Tax",
+  "Amount Due For Payment",
+  "Invoice Total Tax Amount In Tax Accounting Currency",
+]);
+
+/** Invoice-level totals that change when document charges/allowances are present. */
+export function documentLevelInvoiceTargetsForMode(
+  mode: CurrencyMode
+): CalculatedFieldMismatchTarget[] {
+  return invoiceLevelSweepTargetsForMode(mode).filter((t) =>
+    DOCUMENT_LEVEL_INVOICE_TOTAL_HEADERS.has(t.excelHeader)
+  );
+}
 
 /**
  * Optional amount inputs. A written `0` is “present” (IBR-058-OM paid amount,
@@ -321,6 +352,86 @@ function formulaMismatchBaseRow(shortName: string): FormulaDataRow {
     base.taxRate = 0;
   }
   return base;
+}
+
+function headerKey(
+  row: Record<string, string>,
+  wanted: string
+): string | undefined {
+  const norm = wanted.trim().toLowerCase();
+  return Object.keys(row).find((key) => key.trim().toLowerCase() === norm);
+}
+
+function headerGet(row: Record<string, string>, wanted: string): string {
+  const key = headerKey(row, wanted);
+  return key ? String(row[key] ?? "") : "";
+}
+
+function headerSet(
+  row: Record<string, string>,
+  wanted: string,
+  value: string
+): void {
+  const key = headerKey(row, wanted) ?? wanted;
+  row[key] = value;
+}
+
+function isPresentAmount(value: string): boolean {
+  return value.trim() !== "";
+}
+
+function documentExemptionReasonForItemCategory(itemCategory: string): string {
+  const cat = itemCategory.replace(/\s+/g, " ").trim();
+  if (cat === FV.ZERO_RATED_TAX_CATEGORY_CODE) {
+    return FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+  }
+  if (cat === FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE) {
+    return FV.TAX_EXEMPTION_REASON_SAMPLE;
+  }
+  return "";
+}
+
+/**
+ * When Charges/Allowances On Document Level are present, VAT category matches the
+ * item Tax Category and Z/E requires an exemption reason. Values are copied onto
+ * every multi-item row by calling this per submit row. Amounts stay counted once
+ * in `generateInvoiceFromSubmitRows` (row 1).
+ */
+function applyDocumentLevelCompanionsToSubmitRow(
+  row: Record<string, string>
+): Record<string, string> {
+  const next = { ...row };
+  const itemCategory = headerGet(next, FV.TAX_CATEGORY_FIELD);
+
+  const applySide = (
+    amountHeader: string,
+    vatHeader: string,
+    exemptionHeader: string
+  ) => {
+    if (!isPresentAmount(headerGet(next, amountHeader))) {
+      headerSet(next, vatHeader, "");
+      headerSet(next, exemptionHeader, "");
+      return;
+    }
+    headerSet(next, vatHeader, itemCategory);
+    headerSet(
+      next,
+      exemptionHeader,
+      documentExemptionReasonForItemCategory(itemCategory)
+    );
+  };
+
+  applySide(
+    FV.CHARGES_ON_DOCUMENT_LEVEL_FIELD,
+    FV.VAT_CATEGORY_CHARGES_FIELD,
+    FV.TAX_EXEMPTION_REASON_CHARGES_FIELD
+  );
+  applySide(
+    FV.ALLOWANCES_ON_DOCUMENT_LEVEL_FIELD,
+    FV.VAT_CATEGORY_ALLOWANCES_FIELD,
+    FV.TAX_EXEMPTION_REASON_ALLOWANCES_FIELD
+  );
+  return next;
 }
 
 /**
@@ -599,7 +710,8 @@ function formulaPayloadToHeaderOverlay(
   for (const [camel, header] of Object.entries(FORMULA_CAMEL_TO_HEADER)) {
     if (!Object.prototype.hasOwnProperty.call(payload, camel)) continue;
     const value = payload[camel];
-    overlay[header] = value === null || value === undefined ? "" : String(value);
+    if (value === undefined) continue;
+    overlay[header] = value === null ? "" : String(value);
   }
   return overlay;
 }
@@ -638,7 +750,10 @@ export function buildFormulaSubmitRow(
   }
   // Re-apply formula inputs after identity so discount/qty/rate feed generate totals.
   // Then fill Profit Margin companions (overlay only has camelCase formula keys).
-  return applyProfitMarginRequiredFields(overlayHeaderValues(identified, overlay));
+  // Document-level VAT/exemption must run last so they match the final item tax.
+  return applyDocumentLevelCompanionsToSubmitRow(
+    applyProfitMarginRequiredFields(overlayHeaderValues(identified, overlay))
+  );
 }
 
 async function generateFormulaWorkbook(

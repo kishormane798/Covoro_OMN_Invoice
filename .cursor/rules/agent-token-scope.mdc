@@ -45,5 +45,6 @@ Use project skills when the task matches:
 - `author-excel-testcase-data` — camelCase vs Excel-header row/payload authoring
 - `playwright-locator-expert` — stable locators for `pageObjects/**`
 - `debug-failing-uae-test` — flakes, timeouts, upload stuck
+- `debug-error-file-status` — upload status is error but completed was expected (download error file, print all Errors-column records, propose solution; no code changes)
 
 Open prompts like “refactor the framework” or “fix all failing tests” are out of scope unless the user names a single file or test.

@@ -224,7 +224,7 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
   });
 
   // Phase 5 — Doc allowance/charge
-  test.describe("IBR-062/064-OM — document allowance/charge exemption", () => {
+  test.describe("IBR-062/064-OM — document allowance/charge VAT category and exemption", () => {
     for (const scenario of FV.DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
@@ -413,7 +413,7 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
-  test.describe("IBR-047/094-OM — document allowance category rate proxies", () => {
+  test.describe("IBR-045/047/094-OM — document charge/allowance category rate proxies", () => {
     for (const scenario of FV.DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =

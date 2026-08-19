@@ -731,19 +731,22 @@ export function buildDocumentAllowanceChargeVatScenarioRow(
   scenario: FV.DocumentAllowanceChargeVatScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
+  const docVat = String(scenario.vatCategory ?? "").replace(/\s+/g, " ").trim();
+  // Empty document VAT category is the error case — item tax stays Standard.
+  const itemCat = docVat || FV.STANDARD_TAX_CATEGORY_CODE;
   const row: Record<string, string | null> = {
     ...seed,
-    [FV.TAX_CATEGORY_FIELD]: scenario.vatCategory,
+    [FV.TAX_CATEGORY_FIELD]: itemCat,
     [FV.INVOICED_ITEM_TAX_RATE_FIELD]:
-      scenario.vatCategory === FV.ZERO_RATED_TAX_CATEGORY_CODE
+      itemCat === FV.ZERO_RATED_TAX_CATEGORY_CODE
         ? FV.TAX_RATE_ZERO
-        : scenario.vatCategory === FV.STANDARD_TAX_CATEGORY_CODE
+        : itemCat === FV.STANDARD_TAX_CATEGORY_CODE
           ? FV.TAX_RATE_STANDARD_OMAN
           : null,
     [FV.TAX_EXEMPTION_REASON_CODE_FIELD]:
-      scenario.vatCategory === FV.ZERO_RATED_TAX_CATEGORY_CODE
+      itemCat === FV.ZERO_RATED_TAX_CATEGORY_CODE
         ? FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE
-        : scenario.vatCategory === FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE
+        : itemCat === FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE
           ? FV.TAX_EXEMPTION_REASON_SAMPLE
           : "",
   };

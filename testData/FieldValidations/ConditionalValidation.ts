@@ -1862,6 +1862,28 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
       shouldError: true,
       expectedErrorField: TAX_EXEMPTION_REASON_CHARGES_FIELD,
     },
+    {
+      ruleId: "IBR-062-OM",
+      title:
+        "Excel upload · Covoro | IBR-062-OM | Allowance amount + empty VAT category → error file",
+      kind: "allowance",
+      vatCategory: "",
+      exemptionReason: "",
+      amount: "50",
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "IBR-064-OM",
+      title:
+        "Excel upload · Covoro | IBR-064-OM | Charge amount + empty VAT category → error file",
+      kind: "charge",
+      vatCategory: "",
+      exemptionReason: "",
+      amount: "100",
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
+    },
   ];
 
 
@@ -2051,6 +2073,17 @@ export const DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS: DocumentAllowanceChargeRa
       amount: "50",
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "IBR-045-OM",
+      title:
+        "Excel upload · Covoro | IBR-045-OM | Charge Standard (rate 5 implied) → accepted",
+      kind: "charge",
+      vatCategory: STANDARD_TAX_CATEGORY_CODE,
+      exemptionReason: "",
+      amount: "100",
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
     },
     {
       ruleId: "IBR-094-OM",
