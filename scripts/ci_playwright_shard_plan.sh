@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Compute Playwright --shard plan for CI (≈100 tests per shard for large upload suites).
+# Compute Playwright --shard plan for CI.
+# Field and formula run as a single job (no --shard split).
+# Conditional still shards to ≈100 tests per job.
 # Usage: ci_playwright_shard_plan.sh <covoro_field|covoro_formula|covoro_conditional> [single_shard|all]
 set -euo pipefail
 
@@ -32,27 +34,23 @@ shard_total_for_count() {
   echo $(( (count + SHARD_SIZE - 1) / SHARD_SIZE ))
 }
 
-# Formula, field, and conditional all shard to ≈100 tests per job.
+# Field and formula: one job, full spec. Conditional: ≈100 tests per shard.
 SHARD_TOTAL=1
-if command -v npx >/dev/null 2>&1 && [ -f "$SPEC" ]; then
-  COUNT="$(npx playwright test "$SPEC" --project=chromium --list 2>/dev/null \
-    | sed -n 's/^Total: \([0-9][0-9]*\) tests.*/\1/p' | head -1 || true)"
-  if [ -n "${COUNT:-}" ]; then
-    SHARD_TOTAL="$(shard_total_for_count "$COUNT")"
+if [ "$MODE" = "covoro_conditional" ]; then
+  if command -v npx >/dev/null 2>&1 && [ -f "$SPEC" ]; then
+    COUNT="$(npx playwright test "$SPEC" --project=chromium --list 2>/dev/null \
+      | sed -n 's/^Total: \([0-9][0-9]*\) tests.*/\1/p' | head -1 || true)"
+    if [ -n "${COUNT:-}" ]; then
+      SHARD_TOTAL="$(shard_total_for_count "$COUNT")"
+    else
+      SHARD_TOTAL=3
+    fi
   else
-    # Fallback when --list is unavailable in plan job (keep in sync with playwright --list).
-    case "$MODE" in
-      covoro_field) SHARD_TOTAL=5 ;;
-      covoro_conditional) SHARD_TOTAL=3 ;;
-      covoro_formula) SHARD_TOTAL=5 ;;
-    esac
+    SHARD_TOTAL=3
   fi
 else
-  case "$MODE" in
-    covoro_field) SHARD_TOTAL=5 ;;
-    covoro_conditional) SHARD_TOTAL=3 ;;
-    covoro_formula) SHARD_TOTAL=5 ;;
-  esac
+  # Ignore 1–5 dropdown for field/formula so a leftover shard pick still runs the full spec.
+  SHARD_FILTER="all"
 fi
 
 if [ "$SHARD_TOTAL" -lt 1 ]; then
@@ -73,12 +71,23 @@ else
   SHARD_INDICES="$(python3 -c "import json; print(json.dumps(list(range(1, int('${SHARD_TOTAL}') + 1))))")"
 fi
 
+if [ "$MODE" = "covoro_conditional" ]; then
+  JOB_TIMEOUT_MINUTES="${PW_CI_JOB_TIMEOUT_MINUTES:-45}"
+else
+  JOB_TIMEOUT_MINUTES="${PW_CI_FULL_SUITE_TIMEOUT_MINUTES:-240}"
+fi
+
 {
   echo "mode=$MODE"
   echo "spec=$SPEC"
   echo "shard_total=$SHARD_TOTAL"
   echo "shard_indices=$SHARD_INDICES"
   echo "shard_size=$SHARD_SIZE"
+  echo "job_timeout_minutes=$JOB_TIMEOUT_MINUTES"
 } >> "${GITHUB_OUTPUT:?}"
 
-echo "Suite $MODE → spec $SPEC, shards $SHARD_INDICES / $SHARD_TOTAL (~$SHARD_SIZE tests each)"
+if [ "$SHARD_TOTAL" -gt 1 ]; then
+  echo "Suite $MODE → spec $SPEC, shards $SHARD_INDICES / $SHARD_TOTAL (~$SHARD_SIZE tests each), timeout ${JOB_TIMEOUT_MINUTES}m"
+else
+  echo "Suite $MODE → spec $SPEC, full suite (no shard), timeout ${JOB_TIMEOUT_MINUTES}m"
+fi
