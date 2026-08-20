@@ -9,7 +9,7 @@ alwaysApply: false
 ## Source of truth
 
 - Analysis sheet **Conditional Validations** + [PINT OM](https://test-docs.peppol.eu/pint/pint-om/2026-Q2-v1.0.1/pint-om/)
-- Skill: `add-conditional-validation-case` (+ `reference.md` inventory)
+- Skill: `add-conditional-validation-case` + `expand-omn-conditional-rule` (+ inventory `reference.md`)
 
 ## Allowed
 

@@ -832,7 +832,7 @@ export function applyServiceTypeDropdownValidationContext(
 }
 
 /**
- * Shared Export + Export of Services (IBT-121) trigger overlay for IBR-012/013/155.
+ * Shared Export + Export of Services (IBT-121 / VATZR-OM-09) trigger overlay for IBR-012/155.
  * Sets Zero-rated line, Services item, non-OM deliver + supporting docs so sibling
  * export rules do not mask the field under test.
  */
@@ -926,17 +926,65 @@ export function buildExportDeliverCountryForbiddenOmScenarioRow(
   });
 }
 
-/** IBR-013-OM: Export + Export of Services → supporting document ref + UUID. */
+/** IBR-013-OM: Export + Re-export of goods (VATZR-OM-12) → supporting document ref + UUID. */
 export function buildExportSupportingDocumentScenarioRow(
   scenario: FV.ExportSupportingDocumentScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyExportOfServicesTrigger(seed, {
+  return applyExportReExportOfGoodsTrigger(seed, {
     invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
     taxExemptionReasonCode: scenario.taxExemptionReasonCode,
     supportingDocumentReference: scenario.supportingDocumentReference,
     supportingDocumentUuid: scenario.supportingDocumentUuid,
   });
+}
+
+/**
+ * IBR-013-OM overlay: Export invoice (BTOM-001) AND Re-export of goods (IBT-121 /
+ * VATZR-OM-12) require Supporting document reference (IBT-122) and UUID (BTOM-023).
+ * Keeps Goods + HS so IBR-079 holds; does not use the Export of Services overlay
+ * (that trigger belongs to IBR-012 / IBR-155).
+ */
+function applyExportReExportOfGoodsTrigger(
+  row: Record<string, string | null>,
+  opts: {
+    invoiceTransactionTypeCode: string;
+    taxExemptionReasonCode: string;
+    supportingDocumentReference: string;
+    supportingDocumentUuid: string;
+  }
+): Record<string, string | null> {
+  const isExport =
+    opts.invoiceTransactionTypeCode === FV.TXN_EXPORT_INVOICE;
+  const hasExemptionReason = Boolean(opts.taxExemptionReasonCode);
+
+  let next = applyPartyIdentifiersByTxnType({
+    ...row,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
+      opts.invoiceTransactionTypeCode,
+  });
+
+  if (isExport) {
+    next = applyOmanDeliveryOverlay(next, "export");
+  }
+
+  if (hasExemptionReason) {
+    next[FV.TAX_CATEGORY_FIELD] = FV.ZERO_RATED_TAX_CATEGORY_CODE;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = opts.taxExemptionReasonCode;
+    next[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = opts.taxExemptionReasonCode;
+    next[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_GOODS;
+    next[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = FV.OMAN_HS_CODE_12;
+    next[FV.SERVICE_TYPE_CODE_FIELD] = "";
+  } else {
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    next[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+  }
+
+  next[FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD] =
+    opts.supportingDocumentReference;
+  next[FV.SUPPORTING_DOCUMENT_UUID_FIELD] = opts.supportingDocumentUuid;
+  return next;
 }
 
 /** Special Zone seller identifier (IBR-151-OM). */
@@ -1082,11 +1130,13 @@ export function buildVatinPatternScenarioRow(
   return applyPartyIdentifiersByTxnType(row);
 }
 
-/** ALIGNED-IBRP-E/O/S/Z-01-OM: VAT breakdown category via line Tax Category proxy. */
+/** ALIGNED-IBRP-E/O/S/Z-01-OM: VAT breakdown via line Tax Category (IBT-118 proxy). */
 export function buildVatBreakdownCategoryPresenceScenarioRow(
   scenario: FV.VatBreakdownCategoryPresenceScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
+  const source = scenario.source ?? "line";
+  const breakdownMatches = scenario.breakdownMatches ?? true;
   let exemption = scenario.taxExemptionReasonCode ?? "";
   if (
     exemption === undefined ||
@@ -1099,14 +1149,31 @@ export function buildVatBreakdownCategoryPresenceScenarioRow(
       exemption = FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
     }
   }
+  const applyLineCategory = source === "line" || breakdownMatches;
+  const lineCategory = applyLineCategory
+    ? scenario.taxCategory
+    : FV.STANDARD_TAX_CATEGORY_CODE;
+  const lineRate = applyLineCategory
+    ? resolveTaxRate(scenario.taxRate)
+    : resolveTaxRate(scenario.taxRate ?? FV.TAX_RATE_STANDARD_OMAN);
+  const lineExemption = applyLineCategory ? exemption : "";
   const row: Record<string, string | null> = {
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
       scenario.invoiceTransactionTypeCode,
-    [FV.TAX_CATEGORY_FIELD]: scenario.taxCategory,
-    [FV.INVOICED_ITEM_TAX_RATE_FIELD]: resolveTaxRate(scenario.taxRate),
-    [FV.TAX_EXEMPTION_REASON_CODE_FIELD]: exemption,
+    [FV.TAX_CATEGORY_FIELD]: lineCategory,
+    [FV.INVOICED_ITEM_TAX_RATE_FIELD]: lineRate,
+    [FV.TAX_EXEMPTION_REASON_CODE_FIELD]: lineExemption,
   };
+  if (source === "allowance") {
+    row[FV.ALLOWANCES_ON_DOCUMENT_LEVEL_FIELD] = "50";
+    row[FV.VAT_CATEGORY_ALLOWANCES_FIELD] = scenario.taxCategory;
+    row[FV.TAX_EXEMPTION_REASON_ALLOWANCES_FIELD] = exemption;
+  } else if (source === "charge") {
+    row[FV.CHARGES_ON_DOCUMENT_LEVEL_FIELD] = "100";
+    row[FV.VAT_CATEGORY_CHARGES_FIELD] = scenario.taxCategory;
+    row[FV.TAX_EXEMPTION_REASON_CHARGES_FIELD] = exemption;
+  }
   if (scenario.invoiceTransactionTypeCode === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     row[FV.ITEM_TYPE_FIELD] = "";
     row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";

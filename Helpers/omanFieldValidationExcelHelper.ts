@@ -415,6 +415,17 @@ function applyInvoiceTypeCodeDropdownColumns(
   return asStringRow(applyPartyIdentifiersByTxnType(row));
 }
 
+export type DropdownWriteCasing = "exact" | "lower" | "upper";
+
+function applyDropdownWriteCasing(
+  label: string,
+  casing: DropdownWriteCasing
+): string {
+  if (casing === "lower") return label.toLowerCase();
+  if (casing === "upper") return label.toUpperCase();
+  return label;
+}
+
 /**
  * Dropdown master / invalid batches — same pipeline as TestData dropdown packs
  * (`buildOmanDropdownBaseRow` + `generateFullRowDropdownFieldExcel`), with worker
@@ -438,11 +449,16 @@ function applyInvoiceTypeCodeDropdownColumns(
  */
 export async function generateOmanDropdownMasterExcel(
   field: string,
-  masterData: unknown[] | unknown
+  masterData: unknown[] | unknown,
+  options?: { writeCasing?: DropdownWriteCasing }
 ): Promise<Array<{ filePath: string; invoiceNumber: string }>> {
   const values = Array.isArray(masterData) ? masterData : [masterData];
   const fieldForWrite = resolveDropdownTemplateField(field);
-  const labels = values.map(dropdownValueLabel);
+  const originalLabels = values.map(dropdownValueLabel);
+  const writeCasing = options?.writeCasing ?? "exact";
+  const labels = originalLabels.map((label) =>
+    applyDropdownWriteCasing(label, writeCasing)
+  );
   const baseRow = buildOmanDropdownRuntimeBaseRow(field);
 
   const perRowTxnType =
@@ -459,7 +475,7 @@ export async function generateOmanDropdownMasterExcel(
   if (perRowInvoiceCurrency) {
     const files = await generateFullRowDropdownFieldExcel(
       fieldForWrite,
-      labels,
+      originalLabels.map((label) => ({ label })),
       baseRow
     );
     let labelOffset = 0;
@@ -467,15 +483,17 @@ export async function generateOmanDropdownMasterExcel(
       const patches: Array<{ header: string; value: string; dataRow: number }> =
         [];
       // One data row per remaining label, starting at template row 6.
-      const remaining = labels.slice(labelOffset);
-      for (let i = 0; i < remaining.length; i++) {
-        const label = remaining[i];
+      const remainingOriginal = originalLabels.slice(labelOffset);
+      const remainingWritten = labels.slice(labelOffset);
+      for (let i = 0; i < remainingOriginal.length; i++) {
+        const original = remainingOriginal[i];
+        const written = remainingWritten[i];
         const dataRow = INVOICE_TEMPLATE_DATA_ROW + i;
         const companions = applyInvoiceCurrencyDropdownColumns(
           { ...baseRow },
-          label
+          original
         );
-        patches.push({ header: fieldForWrite, value: label, dataRow });
+        patches.push({ header: fieldForWrite, value: written, dataRow });
         const fx = String(companions[FV.EXCHANGE_RATE_FIELD] ?? "").trim();
         // OMR / Rial Omani: leave exchange rate unset (IBR-172-OM). Do not write "".
         if (fx) {
@@ -487,19 +505,19 @@ export async function generateOmanDropdownMasterExcel(
         }
       }
       patchInvoiceTextCellsInFile(file.filePath, patches);
-      labelOffset += remaining.length;
+      labelOffset += remainingOriginal.length;
     }
     return files;
   }
 
   if (perRowTxnType || perRowInvoiceType || perRowTaxCategory) {
-    const rows = labels.map((label) => {
+    const rows = originalLabels.map((original, i) => {
       const row = perRowInvoiceType
-        ? applyInvoiceTypeCodeDropdownColumns({ ...baseRow }, label)
+        ? applyInvoiceTypeCodeDropdownColumns({ ...baseRow }, original)
         : perRowTxnType
-          ? applyInvoiceTransactionTypeDropdownColumns({ ...baseRow }, label)
-          : applyTaxCategoryDropdownColumns({ ...baseRow }, label);
-      row[fieldForWrite] = label;
+          ? applyInvoiceTransactionTypeDropdownColumns({ ...baseRow }, original)
+          : applyTaxCategoryDropdownColumns({ ...baseRow }, original);
+      row[fieldForWrite] = labels[i];
       return row;
     });
     const fileNamePrefix = perRowInvoiceType
@@ -518,7 +536,7 @@ export async function generateOmanDropdownMasterExcel(
       if (!perRowTaxCategory) continue;
       const companions = applyTaxCategoryDropdownColumns(
         { ...baseRow },
-        labels[i]
+        originalLabels[i]
       );
       const rate = companions[FV.INVOICED_ITEM_TAX_RATE_FIELD];
       if (rate != null && String(rate).trim() !== "") {
@@ -582,7 +600,11 @@ export async function generateOmanDropdownMasterExcel(
     return [generated];
   }
 
-  return generateFullRowDropdownFieldExcel(fieldForWrite, values, baseRow);
+  return generateFullRowDropdownFieldExcel(
+    fieldForWrite,
+    labels.map((label) => ({ label })),
+    baseRow
+  );
 }
 
 /**

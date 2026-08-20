@@ -311,10 +311,10 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
           ConditionalRows.buildExportSupportingDocumentScenarioRow(scenario);
-        await verifyConditionalScenario(
+        await verifyConditionalScenarioAnyOf(
           page,
           rowData,
-          scenario.expectedErrorField ?? FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD,
+          FV.SUPPORTING_DOCUMENT_GROUP_FIELDS,
           scenario.shouldError
         );
       });

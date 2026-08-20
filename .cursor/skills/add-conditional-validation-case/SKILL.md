@@ -29,9 +29,10 @@ description: >-
 
 ## Workflow
 
+0. **REQUIRED SUB-SKILL:** Use `expand-omn-conditional-rule`. Fill the coverage card. Do not add scenarios while **Missing** is non-empty.
 1. Pick one `ruleId` from [reference.md](reference.md). Confirm triage = **COND**.
 2. If sheet text is truncated, open Peppol: `https://test-docs.peppol.eu/pint/pint-om/2026-Q2-v1.0.1/pint-om/trn-invoice/rule/{ruleId}/`
-3. Map IBT/BTOM fields → Covoro template headers (row 4).
+3. Map IBT/BTOM fields → Covoro template headers (row 4) via `expand-omn-conditional-rule` reference.
 4. Add scenarios with required `ruleId`, `title`, `shouldError`, driving fields, `expectedErrorField`.
 5. Add `build*ScenarioRow` using Oman seed defaults (OMR, Full Tax Invoice, Oman tax labels).
 6. Wire one `test.describe` loop → `verifyConditionalScenario` / `verifyConditionalScenarioAnyOf`.
@@ -57,7 +58,8 @@ Excel upload · Covoro | {ruleId} | {short condition} → {accepted|error file}
 ## Checklist
 
 - [ ] `ruleId` is `*-OM` (no BTUAE / Emirates / UAE TIN)
-- [ ] Allowed + Not Allowed (and simplified exception if rule text requires)
+- [ ] Coverage card complete (every named source / category / type / exception)
+- [ ] Allowed + Not Allowed + each exception + wrong-target (T on Y → error)
 - [ ] Field names match template headers
 - [ ] No formula/Σ assertion in this suite
 - [ ] One rule group per agent turn

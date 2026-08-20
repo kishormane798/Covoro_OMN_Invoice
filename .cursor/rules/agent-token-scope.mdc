@@ -38,6 +38,7 @@ Use project skills when the task matches:
 
 - `add-field-validation-case` — Excel field validation
 - `add-conditional-validation-case` — Oman PINT-OM if-then conditionals (no UAE rules)
+- `expand-omn-conditional-rule` — pasted PINT-OM rule must cover every named source / tax category / exception
 - `add-formula-validation-case` — formula / calculated totals
 - `add-submit-test-case` — submit / delivery
 - `add-ui-invoice-test` — Create Invoice UI

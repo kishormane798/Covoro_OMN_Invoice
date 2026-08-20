@@ -22,6 +22,7 @@ import {
   generateOmanPrepaymentPairExcel,
   generateOmanSeededFieldExcel,
   generateOmanSupportingDocumentPairExcel,
+  type DropdownWriteCasing,
 } from "../Helpers/omanFieldValidationExcelHelper";
 
 const TEMPLATE = "Covoro";
@@ -39,6 +40,14 @@ const NON_OMR_INVOICE_CURRENCY_CODES = FV.INVOICE_CURRENCY_DROPDOWN_CODES.filter
 );
 const DROPDOWN_TIMEOUT_MS = 6 * 60 * 1000;
 const UNIT_OF_MEASUREMENT_TIMEOUT_MS = 10 * 60 * 1000;
+const DROPDOWN_ACCEPT_CASINGS: Array<{
+  writeCasing: DropdownWriteCasing;
+  condition: string;
+}> = [
+  { writeCasing: "exact", condition: "exact master values" },
+  { writeCasing: "lower", condition: "lowercase master values" },
+  { writeCasing: "upper", condition: "uppercase master values" },
+];
 
 /**
  * Length-rule fields that need pattern/format suites (IBR-002 / IBR-003 / Tax Rate),
@@ -382,16 +391,19 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   });
 
   test.describe("Invoice Currency dropdown", () => {
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Dropdown – Invoice Currency Code (all allowed codes).`, async ({ page }) => {
-      test.setTimeout(DROPDOWN_TIMEOUT_MS);
-      const files = await generateOmanDropdownMasterExcel(
-        FV.INVOICE_CURRENCY_CODE_FIELD,
-        FV.INVOICE_CURRENCY_DROPDOWN_CODES
-      );
-      for (const { filePath } of files) {
-        await uploadAndVerify(page, filePath);
-      }
-    });
+    for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS) {
+      test(`Verify Excel upload is accepted for ${TEMPLATE} Dropdown – Invoice Currency Code (${condition}).`, async ({ page }) => {
+        test.setTimeout(DROPDOWN_TIMEOUT_MS);
+        const files = await generateOmanDropdownMasterExcel(
+          FV.INVOICE_CURRENCY_CODE_FIELD,
+          FV.INVOICE_CURRENCY_DROPDOWN_CODES,
+          { writeCasing }
+        );
+        for (const { filePath } of files) {
+          await uploadAndVerify(page, filePath);
+        }
+      });
+    }
 
     test(`Verify Excel upload is rejected for ${TEMPLATE} Dropdown – Invoice Currency Code (non-OMR with blank exchange rate).`, async ({ page }) => {
       test.setTimeout(DROPDOWN_TIMEOUT_MS);
@@ -404,16 +416,24 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   });
 
   test.describe("Dropdown — valid values", () => {
-    for (const config of dropdownMasterOnCovoro) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Dropdown – ${config.field} (all valid master values).`, async ({ page }) => {
-        const timeoutMs =
-          config.master === unitOfMeasurementValidTestData
-            ? UNIT_OF_MEASUREMENT_TIMEOUT_MS
-            : DROPDOWN_TIMEOUT_MS;
-        test.setTimeout(timeoutMs);
-        const files = await generateOmanDropdownMasterExcel(config.field, config.master);
-        for (const { filePath } of files) {
-          await uploadAndVerify(page, filePath);
+    for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS) {
+      test.describe(condition, () => {
+        for (const config of dropdownMasterOnCovoro) {
+          test(`Verify Excel upload is accepted for ${TEMPLATE} Dropdown – ${config.field} (${condition}).`, async ({ page }) => {
+            const timeoutMs =
+              config.master === unitOfMeasurementValidTestData
+                ? UNIT_OF_MEASUREMENT_TIMEOUT_MS
+                : DROPDOWN_TIMEOUT_MS;
+            test.setTimeout(timeoutMs);
+            const files = await generateOmanDropdownMasterExcel(
+              config.field,
+              config.master,
+              { writeCasing }
+            );
+            for (const { filePath } of files) {
+              await uploadAndVerify(page, filePath);
+            }
+          });
         }
       });
     }
