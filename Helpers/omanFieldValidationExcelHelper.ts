@@ -234,7 +234,8 @@ function applyTaxCategoryDropdownColumns(
     row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
     row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = FV.TAX_EXEMPTION_REASON_SAMPLE;
     row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "Exempt supply under Oman VAT";
-    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = null;
+    // IBR-038-OM: required on non-simplified; IBR-039-OM: Exempt shall be zero (not blank).
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
     return row;
   }
   if (isNotSubject) {
@@ -805,7 +806,8 @@ export async function generateOmanItemAttributePairExcel(
 }
 
 /**
- * Buyer/Seller identifier length with XOR companions (scheme OR code, never both).
+ * Buyer/Seller identifier length with scheme/code companions
+ * (none, scheme, code, or both).
  */
 export async function generateOmanPartyIdentifierLengthExcel(opts: {
   party: PartyIdentifierParty;
@@ -832,8 +834,12 @@ export async function generateOmanPartyIdentifierLengthExcel(opts: {
 
   let schemeValue = "";
   let codeValue = "";
-  if (opts.companion === "scheme") schemeValue = schemeLabel;
-  if (opts.companion === "code") codeValue = codeLabel;
+  if (opts.companion === "scheme" || opts.companion === "both") {
+    schemeValue = schemeLabel;
+  }
+  if (opts.companion === "code" || opts.companion === "both") {
+    codeValue = codeLabel;
+  }
   const identifierValue = lengthValue(opts.length);
 
   const generated = await generateOmanSeededFieldExcel(identifierField, identifierValue, {

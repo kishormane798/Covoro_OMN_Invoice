@@ -8,7 +8,10 @@ import {
   generateInvoiceFromSubmitData,
   patchInvoiceTextCellInFile,
 } from "../utils/invoiceExcel";
-import { SELLER_VAT_IDENTIFIER_FIELD } from "../testData/FieldValidations/ConditionalValidation";
+import {
+  LINE_ITEM_VAT_AMOUNT_FIELD,
+  SELLER_VAT_IDENTIFIER_FIELD,
+} from "../testData/FieldValidations/ConditionalValidation";
 
 export type ConditionalErrorOptions = {
   checkEdit?: boolean;
@@ -61,6 +64,20 @@ export function patchSellerVatFromRow(
     SELLER_VAT_IDENTIFIER_FIELD,
     String(rowData[SELLER_VAT_IDENTIFIER_FIELD] ?? "")
   );
+}
+
+/**
+ * IBR-038-OM: submit writer recalculates Line item VAT amount. Re-apply an
+ * explicit blank after generate so Full Tax empty cases stay empty.
+ */
+export function patchBlankLineItemVatAmountIfEmpty(
+  filePath: string,
+  rowData: Record<string, string | null>
+): void {
+  if (String(rowData[LINE_ITEM_VAT_AMOUNT_FIELD] ?? "").trim()) {
+    return;
+  }
+  patchInvoiceTextCellInFile(filePath, LINE_ITEM_VAT_AMOUNT_FIELD, "");
 }
 
 export async function verifyConditionalScenario(

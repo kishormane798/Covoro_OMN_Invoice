@@ -1,5 +1,6 @@
 import { test } from "../Src/baseTest";
 import {
+  patchBlankLineItemVatAmountIfEmpty,
   patchSellerVatFromRow,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
@@ -455,7 +456,8 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
           page,
           rowData,
           scenario.expectedErrorField ?? FV.LINE_ITEM_VAT_AMOUNT_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchBlankLineItemVatAmountIfEmpty }
         );
       });
     }
@@ -685,6 +687,21 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
           page,
           rowData,
           scenario.expectedErrorField ?? FV.ITEM_ATTRIBUTE_VALUE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("PARTY-ID — Buyer/Seller identifier scheme and textual code", () => {
+    for (const scenario of FV.PARTY_IDENTIFIER_COMPANION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildPartyIdentifierCompanionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.SELLER_IDENTIFIER_FIELD,
           scenario.shouldError
         );
       });

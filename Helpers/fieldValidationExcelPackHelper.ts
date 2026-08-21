@@ -676,7 +676,8 @@ export function applyDependentOverlay(
     row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
     row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = FV.TAX_EXEMPTION_REASON_SAMPLE;
     row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "Exempt supply under Oman VAT";
-    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "";
+    // IBR-038-OM: required on non-simplified; IBR-039-OM: Exempt shall be zero (not blank).
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
   };
 
   /** Full Tax + Standard rate context for seller/buyer party-identifier field packs. */

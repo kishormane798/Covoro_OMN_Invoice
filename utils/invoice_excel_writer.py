@@ -348,15 +348,13 @@ def is_exempt_from_tax_tax_category(tax_category: object) -> bool:
 EXEMPT_BLANK_TAX_FIELD_HEADERS = (
     FIELD_TAX_RATE,
     "Standard Tax Rate",
-    FIELD_LINE_ITEM_VAT_AMOUNT,
-    "Line item VAT amount",
 )
 
 
 def _apply_exempt_from_tax_blank_tax_fields(
     ws, header_row: int, data_row: int, header_map: dict[str, int]
 ) -> None:
-    """IBG-30: exempt lines keep tax-rate and VAT-line columns unset (not 0 / not '')."""
+    """IBG-30: exempt lines keep tax-rate unset. Line item VAT amount stays 0 (IBR-038 / IBR-039)."""
     if not is_exempt_from_tax_tax_category(
         cell_value(ws, data_row, header_map, FIELD_TAX_CATEGORY)
     ):
@@ -463,7 +461,7 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
 
     item_net_price = ceil2(item_net_price_raw)
     invoice_line_net_amount = ceil2(line_net_raw)
-    line_item_vat_amount = None if is_exempt_from_tax_tax_category(tax_cat) else ceil2(vat_base_raw)
+    line_item_vat_amount = ceil2(vat_base_raw)
     total_amount_including_vat = ceil2(line_plus_vat_raw)
     sum_invoice_line_net = ceil2(line_net_raw)
 
@@ -489,13 +487,12 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
     set_cell_optional(ws, data_row, header_map, "Invoice line net amount", invoice_line_net_amount)
     if is_exempt_from_tax_tax_category(tax_cat):
         _apply_exempt_from_tax_blank_tax_fields(ws, header_row, data_row, header_map)
-    else:
-        set_cell_optional(
-            ws, data_row, header_map, FIELD_LINE_ITEM_VAT_AMOUNT, line_item_vat_amount
-        )
-        set_cell_optional(
-            ws, data_row, header_map, "Line item VAT amount", line_item_vat_amount
-        )
+    set_cell_optional(
+        ws, data_row, header_map, FIELD_LINE_ITEM_VAT_AMOUNT, line_item_vat_amount
+    )
+    set_cell_optional(
+        ws, data_row, header_map, "Line item VAT amount", line_item_vat_amount
+    )
     set_cell_optional(
         ws, data_row, header_map, FIELD_TOTAL_AMOUNT_INCLUDING_VAT, total_amount_including_vat
     )

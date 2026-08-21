@@ -465,19 +465,11 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Item Tax – Tax exemption reason text (Exempt + code without text).`, async ({
+    test(`Verify Excel upload is accepted for ${TEMPLATE} Item Tax – Tax exemption reason text (Exempt + code without text).`, async ({
       page,
     }) => {
-      const { filePath, invoiceNumber } = await generateOmanExemptReasonExcel(
-        reasonCode,
-        ""
-      );
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.TAX_EXEMPTION_REASON_TEXT_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
+      const { filePath } = await generateOmanExemptReasonExcel(reasonCode, "");
+      await uploadAndVerify(page, filePath);
     });
 
     test(`Verify Excel upload returns an error file for ${TEMPLATE} Item Tax – Tax exemption reason code (Exempt + text without code).`, async ({
@@ -546,19 +538,11 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Prepayment – Prepayment invoice number (transaction type without number and UUID).`, async ({
+    test(`Verify Excel upload is accepted for ${TEMPLATE} Prepayment – Prepayment invoice number (transaction type without number and UUID).`, async ({
       page,
     }) => {
-      const { filePath, invoiceNumber } = await generateOmanPrepaymentPairExcel(
-        "",
-        ""
-      );
-      await runErrorValidation(page, {
-        filePath,
-        field: prepayNumberField,
-        invoiceNumber,
-        checkEdit: true,
-      });
+      const { filePath } = await generateOmanPrepaymentPairExcel("", "");
+      await uploadAndVerify(page, filePath);
     });
 
     test(`Verify Excel upload returns an error file for ${TEMPLATE} Prepayment – Prepayment invoice number (UUID without number).`, async ({

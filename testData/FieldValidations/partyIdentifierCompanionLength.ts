@@ -1,11 +1,11 @@
 /**
- * Buyer/Seller identifier free-text length cases with XOR scheme/code companions.
- * Scheme and textual code are dropdowns — never both set on one row.
+ * Buyer/Seller identifier free-text length cases with scheme/code companions.
+ * Identifier may stand alone; scheme and/or textual code require identifier.
  */
 import type { FieldLengthRule } from "./Min_max_field_validation";
 
 export type PartyIdentifierParty = "buyer" | "seller";
-export type PartyIdentifierCompanion = "none" | "scheme" | "code";
+export type PartyIdentifierCompanion = "none" | "scheme" | "code" | "both";
 export type PartyIdentifierLengthKind = "empty" | "min" | "max" | "aboveMax";
 
 export type PartyIdentifierLengthCase = {
@@ -36,12 +36,13 @@ const SELLER_RULE: FieldLengthRule = {
   aboveMax: 31,
 };
 
-const COMPANIONS: PartyIdentifierCompanion[] = ["none", "scheme", "code"];
+const COMPANIONS: PartyIdentifierCompanion[] = ["none", "scheme", "code", "both"];
 
 function companionLabel(companion: PartyIdentifierCompanion): string {
   if (companion === "none") return "no scheme/code";
   if (companion === "scheme") return "scheme only";
-  return "code only";
+  if (companion === "code") return "code only";
+  return "scheme and textual code";
 }
 
 function lengthLabel(kind: PartyIdentifierLengthKind, rule: FieldLengthRule): string {
@@ -64,10 +65,10 @@ function shouldAccept(
   kind: PartyIdentifierLengthKind
 ): boolean {
   if (companion === "none") {
-    // Empty trio allowed; any identifier value without companion is rejected.
-    return kind === "empty";
+    // Empty trio allowed; identifier without scheme/code is also allowed.
+    return kind === "empty" || kind === "min" || kind === "max";
   }
-  // Scheme or code present → identifier required and must be within length.
+  // Scheme and/or code present → identifier required and must be within length.
   return kind === "min" || kind === "max";
 }
 

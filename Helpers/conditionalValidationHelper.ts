@@ -1194,14 +1194,22 @@ export function buildLineItemVatAmountRequiredScenarioRow(
   scenario: FV.LineItemVatAmountRequiredScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
+  const row: Record<string, string | null> = applyPartyIdentifiersByTxnType({
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
       scenario.invoiceTransactionTypeCode,
     [FV.TAX_CATEGORY_FIELD]: scenario.taxCategory,
     [FV.INVOICED_ITEM_TAX_RATE_FIELD]: resolveTaxRate(scenario.taxRate),
+    [FV.TAX_EXEMPTION_REASON_CODE_FIELD]:
+      scenario.taxExemptionReasonCode ?? "",
     [FV.LINE_ITEM_VAT_AMOUNT_FIELD]: scenario.lineItemVatAmount,
   });
+  // Commercial invoice cannot contain only E/O lines — keep Exempt on out-of-scope type.
+  if (scenario.taxCategory === FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE) {
+    row[FV.INVOICE_TYPE_CODE_FIELD] =
+      FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
+  }
+  return row;
 }
 
 export function buildLineItemVatAmountZeroScenarioRow(
@@ -1407,6 +1415,46 @@ export function buildItemAttributeConditionalScenarioRow(
     ...seed,
     [FV.ITEM_ATTRIBUTE_NAME_FIELD]: scenario.itemAttributeName,
     [FV.ITEM_ATTRIBUTE_VALUE_FIELD]: scenario.itemAttributeValue,
+  };
+}
+
+/**
+ * Covoro party-identifier companions (IBT-029 / IBT-046):
+ * identifier may stand alone; scheme and/or textual code require identifier.
+ */
+export function buildPartyIdentifierCompanionScenarioRow(
+  scenario: FV.PartyIdentifierCompanionScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  const schemeLabel = masterLabelIncluding(
+    schemeIdentifierValidTestData,
+    "Oman Value Added Tax",
+    "Oman Value Added Tax Identification Number (VATIN) (OM:VAT) - Issuing agency: Tax Authority, Oman."
+  );
+  const codeLabel = masterLabelIncluding(
+    buyerSellerIdentifierCodeValidTestData,
+    "Tax Identification",
+    "Tax Identification Number"
+  );
+  const withScheme =
+    scenario.companion === "scheme" || scenario.companion === "both";
+  const withCode =
+    scenario.companion === "code" || scenario.companion === "both";
+
+  if (scenario.party === "seller") {
+    return {
+      ...seed,
+      [FV.SELLER_IDENTIFIER_FIELD]: scenario.identifier,
+      [FV.SELLER_IDENTIFIER_SCHEME_FIELD]: withScheme ? schemeLabel : "",
+      [FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD]: withCode ? codeLabel : "",
+    };
+  }
+
+  return {
+    ...seed,
+    [FV.BUYER_IDENTIFIER_FIELD]: scenario.identifier,
+    [FV.BUYER_IDENTIFIER_SCHEME_FIELD]: withScheme ? schemeLabel : "",
+    [FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD]: withCode ? codeLabel : "",
   };
 }
 

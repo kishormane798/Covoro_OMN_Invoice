@@ -455,13 +455,12 @@ export function calculateInvoiceValues(data: any) {
   const docAllowanceTax = fix6(docAllowances * (taxRate / 100));
   const rawInvoiceTotalTax = fix6(rawVatBase + docChargeTax - docAllowanceTax);
 
-  const isExemptLine = isExemptFromTaxTaxCategory(data.taxCategory);
   const rawLinePlusVat = fix6(rawLineNet + rawVatBase);
 
   const itemNetPrice = ceil2(rawItemNet);
   const invoiceLineNetAmount = ceil2(rawLineNet);
-  /** Line Item VAT Amount (BTOM-016) in invoice currency. */
-  const lineItemVatAmount = isExemptLine ? null : ceil2(rawVatBase);
+  /** Line Item VAT Amount (BTOM-016): 0 for Exempt (IBR-039-OM), required on non-simplified (IBR-038-OM). */
+  const lineItemVatAmount = ceil2(rawVatBase);
   /** Total Amount Including VAT (BTOM-017) = line net + line VAT. */
   const totalAmountIncludingVat = ceil2(rawLinePlusVat);
   const sumInvoiceLineNetAmount = ceil2(rawLineNet);
@@ -719,11 +718,9 @@ export function isExemptFromTaxTaxCategory(taxCategory: unknown): boolean {
 const EXEMPT_BLANK_TAX_FIELD_HEADERS = [
   "Tax Rate",
   "Standard Tax Rate",
-  "Line Item VAT Amount",
-  "Line item VAT amount",
 ] as const;
 
-/** IBG-30: exempt lines keep tax-rate and VAT-line columns unset (not 0 / not ""). */
+/** IBG-30: exempt lines keep tax-rate unset. Line item VAT amount stays 0 (IBR-038 / IBR-039). */
 export function applyExemptFromTaxBlankTaxFields(
   row: Record<string, unknown>,
   taxCategory: unknown
@@ -1115,10 +1112,7 @@ export async function generateInvoiceExcel(
   }
   setCell("Item Net Price", calc.itemNetPrice);
   setCell("Invoice Line Net Amount", calc.invoiceLineNetAmount);
-  setCell(
-    "Line Item VAT Amount",
-    isExemptFromTaxTaxCategory(data.taxCategory) ? null : calc.lineItemVatAmount
-  );
+  setCell("Line Item VAT Amount", calc.lineItemVatAmount);
   setCell("Total Amount Including VAT", calc.totalAmountIncludingVat);
   setCell("Sum Invoice Line Net Amount", calc.sumInvoiceLineNetAmount);
   setCell("Invoice Total Without Tax", calc.invoiceTotalWithoutTax);
@@ -1704,14 +1698,13 @@ export async function generateInvoiceFromSubmitRows(
         : fix6(lineCharge - lineAllowance);
     const rawVat = fix6(rawLineNet * (effectiveTaxRate / 100));
     const rawLinePlusVat = fix6(rawLineNet + rawVat);
-    const isExempt = isExemptFromTaxTaxCategory(r["Tax Category"]);
 
     return {
       rawLineNet,
       rawVat,
       itemNetPrice: ceil2(rawItemNet),
       invoiceLineNetAmount: ceil2(rawLineNet),
-      lineItemVatAmount: isExempt ? null : ceil2(rawVat),
+      lineItemVatAmount: ceil2(rawVat),
       totalAmountIncludingVat: ceil2(rawLinePlusVat),
     };
   });

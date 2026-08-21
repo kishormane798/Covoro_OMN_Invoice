@@ -93,6 +93,10 @@ export const SELLER_IDENTIFIER_SCHEME_FIELD =
 export const SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD =
   "Seller Identifier (textual code)";
 export const SELLER_IDENTIFIER_FIELD = "Seller identifier";
+export const BUYER_IDENTIFIER_SCHEME_FIELD = "Scheme identifier";
+export const BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD =
+  "Buyer Identifier (textual code)";
+export const BUYER_IDENTIFIER_FIELD = "Buyer identifier";
 export const LINE_ITEM_VAT_AMOUNT_FIELD = "Line item VAT amount";
 export const ITEM_TYPE_FIELD = "Item Type";
 export const ITEM_CLASSIFICATION_IDENTIFIER_FIELD =
@@ -310,6 +314,7 @@ export type LineItemVatAmountRequiredScenario = OmanConditionalScenario & {
   taxCategory: string;
   taxRate: string | null;
   lineItemVatAmount: string;
+  taxExemptionReasonCode?: string;
 };
 
 /** IBR-039/054/077-OM: Line VAT amount must be zero for E / O / Z. */
@@ -2783,6 +2788,30 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
       shouldError: false,
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
     },
+    {
+      ruleId: "IBR-038-OM",
+      title:
+        "Excel upload · Covoro | IBR-038-OM | Full Tax + Exempt + empty line VAT amount → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
+      lineItemVatAmount: "",
+      shouldError: true,
+      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
+    },
+    {
+      ruleId: "IBR-038-OM",
+      title:
+        "Excel upload · Covoro | IBR-038-OM | Full Tax + Zero rated + empty line VAT amount → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_ZERO,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      lineItemVatAmount: "",
+      shouldError: true,
+      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
+    },
   ];
 
 export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[] =
@@ -3490,5 +3519,106 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
       shouldError: true,
       expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
     },
+  ];
+
+// ---------------------------------------------------------------------------
+// partyIdentifierCompanion (Covoro Excel / IBT-029 + IBT-046)
+// Identifier may stand alone. Scheme and/or textual code are optional
+// companions. Identifier MUST be present if either companion is present.
+// Same polarities for seller and buyer.
+// ---------------------------------------------------------------------------
+export type PartyIdentifierCompanionMode = "none" | "scheme" | "code" | "both";
+export type PartyIdentifierCompanionParty = "seller" | "buyer";
+
+export type PartyIdentifierCompanionScenario = OmanConditionalScenario & {
+  party: PartyIdentifierCompanionParty;
+  companion: PartyIdentifierCompanionMode;
+  identifier: string;
+};
+
+function partyIdentifierCompanionScenarios(
+  party: PartyIdentifierCompanionParty,
+  identifierField: string,
+  validIdentifier: string
+): PartyIdentifierCompanionScenario[] {
+  const who = party === "seller" ? "Seller" : "Buyer";
+  const ruleId = "PARTY-ID";
+  const base = {
+    ruleId,
+    party,
+    expectedErrorField: identifierField,
+  } as const;
+  return [
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier without scheme or textual code → accepted`,
+      companion: "none",
+      identifier: validIdentifier,
+      shouldError: false,
+    },
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier + scheme only → accepted`,
+      companion: "scheme",
+      identifier: validIdentifier,
+      shouldError: false,
+    },
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier + textual code only → accepted`,
+      companion: "code",
+      identifier: validIdentifier,
+      shouldError: false,
+    },
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier + scheme and textual code → accepted`,
+      companion: "both",
+      identifier: validIdentifier,
+      shouldError: false,
+    },
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier empty (no scheme or textual code) → accepted`,
+      companion: "none",
+      identifier: "",
+      shouldError: false,
+    },
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier scheme without identifier → error file`,
+      companion: "scheme",
+      identifier: "",
+      shouldError: true,
+    },
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier textual code without identifier → error file`,
+      companion: "code",
+      identifier: "",
+      shouldError: true,
+    },
+    {
+      ...base,
+      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier scheme and textual code without identifier → error file`,
+      companion: "both",
+      identifier: "",
+      shouldError: true,
+    },
+  ];
+}
+
+export const PARTY_IDENTIFIER_COMPANION_SCENARIOS: PartyIdentifierCompanionScenario[] =
+  [
+    ...partyIdentifierCompanionScenarios(
+      "seller",
+      SELLER_IDENTIFIER_FIELD,
+      "OM-SELLER-001"
+    ),
+    ...partyIdentifierCompanionScenarios(
+      "buyer",
+      BUYER_IDENTIFIER_FIELD,
+      "OM-BUYER-001"
+    ),
   ];
 
