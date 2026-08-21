@@ -1278,7 +1278,7 @@ export function expandIbrCl10RemainingZeroRatedReasons(): DocAllowanceExemptionC
     (label) => label !== TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE
   ).map((exemptionReason) => ({
     ruleId: "IBR-CL-10-OM",
-    title: `Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + ${zeroRatedReasonShortLabel(exemptionReason)} → accepted`,
+    title: `Given a Zero rated document allowance — When the exemption reason is ${zeroRatedReasonShortLabel(exemptionReason)} — Then the invoice should be accepted. (IBR-CL-10-OM)`,
     vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
     exemptionReason,
     amount: "10",
@@ -1297,7 +1297,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-E-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-05-OM | Tax Category Exempt rate omitted → accepted",
+        "Given Exempt VAT — When tax rate is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-E-05-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       shouldError: false,
@@ -1306,7 +1306,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-E-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-05-OM | Tax Category Exempt rate 5 → error file",
+        "Given Exempt VAT — When tax rate is 5 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-05-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: true,
@@ -1315,7 +1315,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-E-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-05-OM | Tax Category Exempt rate whitespace → error file",
+        "Given Exempt VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-05-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: "   ",
       shouldError: true,
@@ -1325,7 +1325,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
       // Excel TC-16 Positive*: non-E category may carry a valid rate (Standard=5).
       ruleId: "ALIGNED-IBRP-E-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-05-OM | Tax Category not E + rate 5 → accepted",
+        "Given a VAT category that is not Exempt — When tax rate is 5 — Then the invoice should be accepted. (ALIGNED-IBRP-E-05-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: false,
@@ -1334,7 +1334,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-O-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-05-OM | Tax Category Not subject rate omitted → accepted",
+        "Given Not subject to VAT — When tax rate is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-05-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       shouldError: false,
@@ -1343,7 +1343,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-O-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-05-OM | Tax Category Not subject rate 5 → error file",
+        "Given Not subject to VAT — When tax rate is 5 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-05-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: true,
@@ -1352,7 +1352,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-O-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-05-OM | Tax Category Not subject rate whitespace → error file",
+        "Given Not subject to VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-05-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: "   ",
       shouldError: true,
@@ -1361,7 +1361,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-O-05-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-05-OM | Tax Category not O + rate 5 → accepted",
+        "Given a VAT category other than Not subject — When tax rate is 5 — Then the invoice should be accepted. (ALIGNED-IBRP-O-05-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: false,
@@ -1371,7 +1371,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "IBR-067-OM",
       title:
-        "Excel upload · Covoro | IBR-067-OM | Exempt Tax Rate omitted → accepted",
+        "Given Exempt VAT — When tax rate is left empty — Then the invoice should be accepted. (IBR-067-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       shouldError: false,
@@ -1380,7 +1380,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "IBR-067-OM",
       title:
-        "Excel upload · Covoro | IBR-067-OM | Exempt Tax Rate 5 → error file",
+        "Given Exempt VAT — When tax rate is 5 — Then the invoice should be rejected with an error. (IBR-067-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: true,
@@ -1389,7 +1389,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "IBR-061-OM",
       title:
-        "Excel upload · Covoro | IBR-061-OM | Not subject Tax Rate omitted → accepted",
+        "Given Not subject to VAT — When tax rate is left empty — Then the invoice should be accepted. (IBR-061-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       shouldError: false,
@@ -1398,7 +1398,7 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "IBR-061-OM",
       title:
-        "Excel upload · Covoro | IBR-061-OM | Not subject Tax Rate 5 → error file",
+        "Given Not subject to VAT — When tax rate is 5 — Then the invoice should be rejected with an error. (IBR-061-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: true,
@@ -1411,7 +1411,7 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-S-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-S-05-OM | Standard rate Tax Rate 5 → accepted",
+      "Given Standard rate VAT — When tax rate is 5 — Then the invoice should be accepted. (ALIGNED-IBRP-S-05-OM)",
     taxCategory: STANDARD_TAX_CATEGORY_CODE,
     taxRate: TAX_RATE_STANDARD_OMAN,
     shouldError: false,
@@ -1420,7 +1420,7 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-S-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-S-05-OM | Standard rate Tax Rate 0 → error file",
+      "Given Standard rate VAT — When tax rate is 0 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-05-OM)",
     taxCategory: STANDARD_TAX_CATEGORY_CODE,
     taxRate: TAX_RATE_ZERO,
     shouldError: true,
@@ -1429,7 +1429,7 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-S-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-S-05-OM | Standard rate Tax Rate empty → error file",
+      "Given Standard rate VAT — When tax rate is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-05-OM)",
     taxCategory: STANDARD_TAX_CATEGORY_CODE,
     taxRate: null,
     shouldError: true,
@@ -1438,7 +1438,7 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-S-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-S-05-OM | Standard rate Tax Rate whitespace → error file",
+      "Given Standard rate VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-05-OM)",
     taxCategory: STANDARD_TAX_CATEGORY_CODE,
     taxRate: "   ",
     shouldError: true,
@@ -1447,7 +1447,7 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "IBR-053-OM",
     title:
-      "Excel upload · Covoro | IBR-053-OM | Standard VAT category rate 5 → accepted",
+      "Given Standard rate VAT — When tax rate is 5 — Then the invoice should be accepted. (IBR-053-OM)",
     taxCategory: STANDARD_TAX_CATEGORY_CODE,
     taxRate: TAX_RATE_STANDARD_OMAN,
     shouldError: false,
@@ -1456,7 +1456,7 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "IBR-053-OM",
     title:
-      "Excel upload · Covoro | IBR-053-OM | Standard VAT category rate 0 → error file",
+      "Given Standard rate VAT — When tax rate is 0 — Then the invoice should be rejected with an error. (IBR-053-OM)",
     taxCategory: STANDARD_TAX_CATEGORY_CODE,
     taxRate: TAX_RATE_ZERO,
     shouldError: true,
@@ -1475,7 +1475,7 @@ export const VAT_ACCOUNTING_CURRENCY_STANDARD_RATE_SCENARIOS: VatCategoryTaxRate
     {
       ruleId: "IBR-104-OM",
       title:
-        "Excel upload · Covoro | IBR-104-OM | VAT accounting currency + Standard Tax Rate 5 → accepted",
+        "Given VAT accounting currency and Standard rate — When tax rate is 5 — Then the invoice should be accepted. (IBR-104-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: false,
@@ -1484,7 +1484,7 @@ export const VAT_ACCOUNTING_CURRENCY_STANDARD_RATE_SCENARIOS: VatCategoryTaxRate
     {
       ruleId: "IBR-104-OM",
       title:
-        "Excel upload · Covoro | IBR-104-OM | VAT accounting currency + Standard Tax Rate 0 → error file",
+        "Given VAT accounting currency and Standard rate — When tax rate is 0 — Then the invoice should be rejected with an error. (IBR-104-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       shouldError: true,
@@ -1493,7 +1493,7 @@ export const VAT_ACCOUNTING_CURRENCY_STANDARD_RATE_SCENARIOS: VatCategoryTaxRate
     {
       ruleId: "IBR-104-OM",
       title:
-        "Excel upload · Covoro | IBR-104-OM | VAT accounting currency + Zero rated Tax Rate 5 → error file",
+        "Given VAT accounting currency and Zero rated VAT — When tax rate is 5 — Then the invoice should be rejected with an error. (IBR-104-OM)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: true,
@@ -1506,7 +1506,7 @@ export const ZERO_RATED_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-Z-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-05-OM | Zero rated Tax Rate 0 → accepted",
+      "Given Zero rated VAT — When tax rate is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-Z-05-OM)",
     taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
     taxRate: TAX_RATE_ZERO,
     shouldError: false,
@@ -1515,7 +1515,7 @@ export const ZERO_RATED_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-Z-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-05-OM | Zero rated Tax Rate 5 → error file",
+      "Given Zero rated VAT — When tax rate is 5 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-05-OM)",
     taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
     taxRate: TAX_RATE_STANDARD_OMAN,
     shouldError: true,
@@ -1524,7 +1524,7 @@ export const ZERO_RATED_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-Z-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-05-OM | Zero rated Tax Rate empty → error file",
+      "Given Zero rated VAT — When tax rate is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-05-OM)",
     taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
     taxRate: null,
     shouldError: true,
@@ -1533,7 +1533,7 @@ export const ZERO_RATED_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-Z-05-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-05-OM | Zero rated Tax Rate whitespace → error file",
+      "Given Zero rated VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-05-OM)",
     taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
     taxRate: "   ",
     shouldError: true,
@@ -1550,7 +1550,7 @@ export const VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-048",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-048 | Standard rate Tax Rate 5 → accepted",
+        "Given Standard rate VAT — When tax rate is 5 — Then the invoice should be accepted. (ALIGNED-IBRP-048)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: false,
@@ -1559,7 +1559,7 @@ export const VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-048",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-048 | Standard rate Tax Rate empty → error file",
+        "Given Standard rate VAT — When tax rate is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-048)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: null,
       shouldError: true,
@@ -1568,7 +1568,7 @@ export const VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-048",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-048 | Zero rated Tax Rate 0 → accepted",
+        "Given Zero rated VAT — When tax rate is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-048)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       shouldError: false,
@@ -1577,7 +1577,7 @@ export const VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-048",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-048 | Zero rated Tax Rate empty → error file",
+        "Given Zero rated VAT — When tax rate is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-048)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: null,
       shouldError: true,
@@ -1586,7 +1586,7 @@ export const VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-048",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-048 | Not subject Tax Rate omitted → accepted",
+        "Given Not subject to VAT — When tax rate is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-048)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       shouldError: false,
@@ -1608,7 +1608,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "IBR-069-OM",
       title:
-        "Excel upload · Covoro | IBR-069-OM | Exempt + exemption reason → accepted",
+        "Given Exempt VAT — When an exemption reason is provided — Then the invoice should be accepted. (IBR-069-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
       taxRate: null,
@@ -1618,7 +1618,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "IBR-069-OM",
       title:
-        "Excel upload · Covoro | IBR-069-OM | Exempt + empty exemption reason → error file",
+        "Given Exempt VAT — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-069-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: null,
       taxRate: null,
@@ -1628,7 +1628,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "IBR-069-OM",
       title:
-        "Excel upload · Covoro | IBR-069-OM | Zero rated + exemption reason → accepted",
+        "Given Zero rated VAT — When an exemption reason is provided — Then the invoice should be accepted. (IBR-069-OM)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       taxRate: TAX_RATE_ZERO,
@@ -1638,7 +1638,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "IBR-069-OM",
       title:
-        "Excel upload · Covoro | IBR-069-OM | Zero rated + empty exemption reason → error file",
+        "Given Zero rated VAT — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-069-OM)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: null,
       taxRate: TAX_RATE_ZERO,
@@ -1648,7 +1648,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "IBR-070-OM",
       title:
-        "Excel upload · Covoro | IBR-070-OM | Not subject + empty exemption → accepted",
+        "Given Not subject to VAT — When exemption reason is left empty — Then the invoice should be accepted. (IBR-070-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: null,
       taxRate: null,
@@ -1658,7 +1658,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "IBR-070-OM",
       title:
-        "Excel upload · Covoro | IBR-070-OM | Not subject + exemption reason → error file",
+        "Given Not subject to VAT — When an exemption reason is provided — Then the invoice should be rejected with an error. (IBR-070-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
       taxRate: null,
@@ -1668,7 +1668,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "ALIGNED-IBRP-S-10-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-10-OM | Standard + empty exemption → accepted",
+        "Given Standard rate VAT — When exemption reason is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-S-10-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: null,
       taxExemptionReasonText: "",
@@ -1679,7 +1679,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "ALIGNED-IBRP-S-10-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-10-OM | Standard + exemption reason code → error file",
+        "Given Standard rate VAT — When an exemption reason code is provided — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-10-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
       taxExemptionReasonText: "",
@@ -1690,7 +1690,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "ALIGNED-IBRP-S-10-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-10-OM | Standard + exemption reason text → error file",
+        "Given Standard rate VAT — When exemption reason text is provided — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-10-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: null,
       taxExemptionReasonText: TAX_EXEMPTION_REASON_TEXT_SAMPLE,
@@ -1716,7 +1716,7 @@ export const PRECEDING_INVOICE_SCENARIOS: PrecedingInvoiceScenario[] = [
   ...expandAcrossCnDnSelfBilledTypes<PrecedingInvoiceScenario>({
     ruleId: "ALIGNED-IBRP-028-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-028-OM | {type} + preceding ref → accepted",
+      "Given {type} — When a preceding invoice reference is provided — Then the invoice should be accepted. (ALIGNED-IBRP-028-OM)",
     precedingInvoiceReference: "INV-PREV-028",
     precedingInvoiceIssueDate: "2026-01-15",
     precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
@@ -1727,7 +1727,7 @@ export const PRECEDING_INVOICE_SCENARIOS: PrecedingInvoiceScenario[] = [
   ...expandAcrossCnDnSelfBilledTypes<PrecedingInvoiceScenario>({
     ruleId: "ALIGNED-IBRP-028-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-028-OM | {type} + empty preceding ref → error file",
+      "Given {type} — When preceding invoice reference is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-028-OM)",
     precedingInvoiceReference: "",
     precedingInvoiceIssueDate: "",
     precedingInvoiceUuid: "",
@@ -1738,7 +1738,7 @@ export const PRECEDING_INVOICE_SCENARIOS: PrecedingInvoiceScenario[] = [
   {
     ruleId: "ALIGNED-IBRP-028-OM",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-028-OM | Commercial invoice + empty preceding → accepted",
+      "Given a Commercial invoice — When preceding invoice reference is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-028-OM)",
     invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
     precedingInvoiceReference: "",
     precedingInvoiceIssueDate: "",
@@ -1750,7 +1750,7 @@ export const PRECEDING_INVOICE_SCENARIOS: PrecedingInvoiceScenario[] = [
   ...expandAcrossCnDnSelfBilledTypes<PrecedingInvoiceScenario>({
     ruleId: "IBR-032-OM",
     title:
-      "Excel upload · Covoro | IBR-032-OM | {type} + ref/date/UUID → accepted",
+      "Given {type} — When preceding reference, date, and UUID are provided — Then the invoice should be accepted. (IBR-032-OM)",
     precedingInvoiceReference: "INV-PREV-032",
     precedingInvoiceIssueDate: "2026-01-15",
     precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
@@ -1761,7 +1761,7 @@ export const PRECEDING_INVOICE_SCENARIOS: PrecedingInvoiceScenario[] = [
   ...expandAcrossCnDnSelfBilledTypes<PrecedingInvoiceScenario>({
     ruleId: "IBR-032-OM",
     title:
-      "Excel upload · Covoro | IBR-032-OM | {type} + ref/date + empty UUID → error file",
+      "Given {type} — When preceding reference and date are provided but UUID is left empty — Then the invoice should be rejected with an error. (IBR-032-OM)",
     precedingInvoiceReference: "INV-PREV-032",
     precedingInvoiceIssueDate: "2026-01-15",
     precedingInvoiceUuid: "",
@@ -1779,7 +1779,7 @@ export const UUID_VERSION5_SCENARIOS: PrecedingInvoiceScenario[] = [
   {
     ruleId: "IBR-002-OM",
     title:
-      "Excel upload · Covoro | IBR-002-OM | Credit note + UUID v5 → accepted",
+      "Given a Credit note — When the UUID is version 5 — Then the invoice should be accepted. (IBR-002-OM)",
     invoiceTypeCode: INVOICE_TYPE_CREDIT_NOTE,
     precedingInvoiceReference: "INV-PREV-002",
     precedingInvoiceIssueDate: "2026-01-15",
@@ -1791,7 +1791,7 @@ export const UUID_VERSION5_SCENARIOS: PrecedingInvoiceScenario[] = [
   {
     ruleId: "IBR-002-OM",
     title:
-      "Excel upload · Covoro | IBR-002-OM | Credit note + UUID v4 → error file",
+      "Given a Credit note — When the UUID is version 4 — Then the invoice should be rejected with an error. (IBR-002-OM)",
     invoiceTypeCode: INVOICE_TYPE_CREDIT_NOTE,
     precedingInvoiceReference: "INV-PREV-002",
     precedingInvoiceIssueDate: "2026-01-15",
@@ -1803,7 +1803,7 @@ export const UUID_VERSION5_SCENARIOS: PrecedingInvoiceScenario[] = [
   {
     ruleId: "IBR-002-OM",
     title:
-      "Excel upload · Covoro | IBR-002-OM | Credit note + non-UUID → error file",
+      "Given a Credit note — When the UUID is not a valid UUID — Then the invoice should be rejected with an error. (IBR-002-OM)",
     invoiceTypeCode: INVOICE_TYPE_CREDIT_NOTE,
     precedingInvoiceReference: "INV-PREV-002",
     precedingInvoiceIssueDate: "2026-01-15",
@@ -1829,7 +1829,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-004-OM",
     title:
-      "Excel upload · Covoro | IBR-004-OM | Currency OMR + empty exchange rate → accepted",
+      "Given currency OMR — When exchange rate is left empty — Then the invoice should be accepted. (IBR-004-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_OMR,
     sourceCurrencyCode: OMAN_CURRENCY_OMR,
     exchangeRate: "",
@@ -1839,7 +1839,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-004-OM",
     title:
-      "Excel upload · Covoro | IBR-004-OM | Currency USD + exchange rate → accepted",
+      "Given currency USD — When an exchange rate is provided — Then the invoice should be accepted. (IBR-004-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.385",
@@ -1850,7 +1850,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-004-OM",
     title:
-      "Excel upload · Covoro | IBR-004-OM | Currency USD + empty exchange rate → error file",
+      "Given currency USD — When exchange rate is left empty — Then the invoice should be rejected with an error. (IBR-004-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "",
@@ -1861,7 +1861,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-172-OM",
     title:
-      "Excel upload · Covoro | IBR-172-OM | Currency OMR + exchange rate present → error file",
+      "Given currency OMR — When an exchange rate is provided — Then the invoice should be rejected with an error. (IBR-172-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_OMR,
     sourceCurrencyCode: OMAN_CURRENCY_OMR,
     exchangeRate: "0.385",
@@ -1871,7 +1871,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-172-OM",
     title:
-      "Excel upload · Covoro | IBR-172-OM | Currency OMR + empty exchange rate → accepted",
+      "Given currency OMR — When exchange rate is left empty — Then the invoice should be accepted. (IBR-172-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_OMR,
     sourceCurrencyCode: OMAN_CURRENCY_OMR,
     exchangeRate: "",
@@ -1881,7 +1881,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-034-OM",
     title:
-      "Excel upload · Covoro | IBR-034-OM | Currency USD + source currency + tax amount → accepted",
+      "Given currency USD — When source currency and tax amount in accounting currency are provided — Then the invoice should be accepted. (IBR-034-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.385",
@@ -1892,7 +1892,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-034-OM",
     title:
-      "Excel upload · Covoro | IBR-034-OM | Currency USD + empty tax amount in accounting currency → error file",
+      "Given currency USD — When tax amount in accounting currency is left empty — Then the invoice should be rejected with an error. (IBR-034-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.385",
@@ -1903,7 +1903,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-005-OM",
     title:
-      "Excel upload · Covoro | IBR-005-OM | Currency USD + exchange rate 7 decimals → accepted",
+      "Given currency USD — When exchange rate has 7 decimal places — Then the invoice should be accepted. (IBR-005-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.1234567",
@@ -1914,7 +1914,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-005-OM",
     title:
-      "Excel upload · Covoro | IBR-005-OM | Currency USD + exchange rate 8 decimals → error file",
+      "Given currency USD — When exchange rate has 8 decimal places — Then the invoice should be rejected with an error. (IBR-005-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.12345678",
@@ -1925,7 +1925,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-DEC-03-OM",
     title:
-      "Excel upload · Covoro | IBR-DEC-03-OM | Currency USD + FX 7 decimals → accepted",
+      "Given currency USD — When the exchange rate has 7 decimal places — Then the invoice should be accepted. (IBR-DEC-03-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.3850000",
@@ -1936,7 +1936,7 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
   {
     ruleId: "IBR-DEC-03-OM",
     title:
-      "Excel upload · Covoro | IBR-DEC-03-OM | Currency USD + FX 8 decimals → error file",
+      "Given currency USD — When the exchange rate has 8 decimal places — Then the invoice should be rejected with an error. (IBR-DEC-03-OM)",
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.38500001",
@@ -1959,7 +1959,7 @@ export const AMOUNT_DECIMAL_PRECISION_SCENARIOS: AmountDecimalPrecisionScenario[
     {
       ruleId: "IBR-DEC-03-OM",
       title:
-        "Excel upload · Covoro | IBR-DEC-03-OM | Item Gross Price 3 decimals → accepted",
+        "Given an item gross price — When it has 3 decimal places — Then the invoice should be accepted. (IBR-DEC-03-OM)",
       itemGrossPrice: "1000.123",
       shouldError: false,
       expectedErrorField: "Item Gross Price",
@@ -1967,7 +1967,7 @@ export const AMOUNT_DECIMAL_PRECISION_SCENARIOS: AmountDecimalPrecisionScenario[
     {
       ruleId: "IBR-DEC-03-OM",
       title:
-        "Excel upload · Covoro | IBR-DEC-03-OM | Item Gross Price 4 decimals → error file",
+        "Given an item gross price — When it has 4 decimal places — Then the invoice should be rejected with an error. (IBR-DEC-03-OM)",
       itemGrossPrice: "1000.1234",
       shouldError: true,
       expectedErrorField: "Item Gross Price",
@@ -1988,7 +1988,7 @@ export const AMOUNT_QUANTITY_SIGN_SCENARIOS: AmountQuantitySignScenario[] = [
   {
     ruleId: "IBR-137-OM",
     title:
-      "Excel upload · Covoro | IBR-137-OM | Amounts and quantities ≥ 0 → accepted",
+      "Given amounts and quantities — When all values are zero or more — Then the invoice should be accepted. (IBR-137-OM)",
     invoicedQuantity: "1",
     roundingAmount: "0",
     shouldError: false,
@@ -1997,7 +1997,7 @@ export const AMOUNT_QUANTITY_SIGN_SCENARIOS: AmountQuantitySignScenario[] = [
   {
     ruleId: "IBR-137-OM",
     title:
-      "Excel upload · Covoro | IBR-137-OM | Rounding Amount (IBT-114) negative → accepted",
+      "Given a negative rounding amount — When other amounts are zero or more — Then the invoice should be accepted. (IBR-137-OM)",
     invoicedQuantity: "1",
     roundingAmount: "-0.50",
     shouldError: false,
@@ -2006,7 +2006,7 @@ export const AMOUNT_QUANTITY_SIGN_SCENARIOS: AmountQuantitySignScenario[] = [
   {
     ruleId: "IBR-137-OM",
     title:
-      "Excel upload · Covoro | IBR-137-OM | Invoiced Quantity negative → error file",
+      "Given a negative invoiced quantity — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-137-OM)",
     invoicedQuantity: "-1",
     roundingAmount: "0",
     shouldError: true,
@@ -2023,7 +2023,7 @@ export const ITEM_TYPE_REQUIRED_SCENARIOS: ItemTypeRequiredScenario[] = [
   {
     ruleId: "IBR-078-OM",
     title:
-      "Excel upload · Covoro | IBR-078-OM | Full Tax + Item Type Goods → accepted",
+      "Given a Full Tax invoice — When item type is Goods — Then the invoice should be accepted. (IBR-078-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
     shouldError: false,
@@ -2032,7 +2032,7 @@ export const ITEM_TYPE_REQUIRED_SCENARIOS: ItemTypeRequiredScenario[] = [
   {
     ruleId: "IBR-078-OM",
     title:
-      "Excel upload · Covoro | IBR-078-OM | Full Tax + Item Type Services → accepted",
+      "Given a Full Tax invoice — When item type is Services — Then the invoice should be accepted. (IBR-078-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_SERVICES,
     shouldError: false,
@@ -2041,7 +2041,7 @@ export const ITEM_TYPE_REQUIRED_SCENARIOS: ItemTypeRequiredScenario[] = [
   {
     ruleId: "IBR-078-OM",
     title:
-      "Excel upload · Covoro | IBR-078-OM | Full Tax + empty Item Type → error file",
+      "Given a Full Tax invoice — When item type is left empty — Then the invoice should be rejected with an error. (IBR-078-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: "",
     shouldError: true,
@@ -2050,7 +2050,7 @@ export const ITEM_TYPE_REQUIRED_SCENARIOS: ItemTypeRequiredScenario[] = [
   {
     ruleId: "IBR-078-OM",
     title:
-      "Excel upload · Covoro | IBR-078-OM | Simplified + empty Item Type → accepted",
+      "Given a Simplified invoice — When item type is left empty — Then the invoice should be accepted. (IBR-078-OM)",
     invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
     itemType: "",
     shouldError: false,
@@ -2063,7 +2063,7 @@ export const GOODS_CLASSIFICATION_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-079-OM",
     title:
-      "Excel upload · Covoro | IBR-079-OM | Goods + HS classification → accepted",
+      "Given Goods — When an HS classification is provided — Then the invoice should be accepted. (IBR-079-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
     itemClassificationIdentifier: OMAN_HS_CODE_12,
@@ -2073,7 +2073,7 @@ export const GOODS_CLASSIFICATION_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-079-OM",
     title:
-      "Excel upload · Covoro | IBR-079-OM | Goods + empty classification → error file",
+      "Given Goods — When HS classification is left empty — Then the invoice should be rejected with an error. (IBR-079-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
     itemClassificationIdentifier: "",
@@ -2083,7 +2083,7 @@ export const GOODS_CLASSIFICATION_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-079-OM",
     title:
-      "Excel upload · Covoro | IBR-079-OM | Simplified + Goods + empty classification → accepted",
+      "Given a Simplified invoice for Goods — When HS classification is left empty — Then the invoice should be accepted. (IBR-079-OM)",
     invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
     itemClassificationIdentifier: "",
@@ -2093,7 +2093,7 @@ export const GOODS_CLASSIFICATION_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-079-OM",
     title:
-      "Excel upload · Covoro | IBR-079-OM | Services + empty classification → accepted",
+      "Given Services — When HS classification is left empty — Then the invoice should be accepted. (IBR-079-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_SERVICES,
     itemClassificationIdentifier: "",
@@ -2107,7 +2107,7 @@ export const HS_CODE_FROM_ROP_LIST_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-174-OM",
     title:
-      "Excel upload · Covoro | IBR-174-OM | Goods + HS from ROP list → accepted",
+      "Given Goods — When the HS code is on the ROP list — Then the invoice should be accepted. (IBR-174-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
     itemClassificationIdentifier: OMAN_HS_CODE_12,
@@ -2117,7 +2117,7 @@ export const HS_CODE_FROM_ROP_LIST_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-174-OM",
     title:
-      "Excel upload · Covoro | IBR-174-OM | Goods + HS not on ROP list → error file",
+      "Given Goods — When the HS code is not on the ROP list — Then the invoice should be rejected with an error. (IBR-174-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
     itemClassificationIdentifier: OMAN_HS_CODE_NOT_ON_ROP_LIST,
@@ -2127,7 +2127,7 @@ export const HS_CODE_FROM_ROP_LIST_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-174-OM",
     title:
-      "Excel upload · Covoro | IBR-174-OM | Goods + empty HS classification → error file",
+      "Given Goods — When HS classification is left empty — Then the invoice should be rejected with an error. (IBR-174-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
     itemClassificationIdentifier: "",
@@ -2145,7 +2145,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
   {
     ruleId: "IBR-084-OM",
     title:
-      "Excel upload · Covoro | IBR-084-OM | Import of Goods + country of origin → accepted",
+      "Given Import of Goods — When country of origin is provided — Then the invoice should be accepted. (IBR-084-OM)",
     itemCountryOfOrigin: "India",
     importDate: "2026-01-10",
     customsDeclarationNumber: "CD-12345",
@@ -2156,7 +2156,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
   {
     ruleId: "IBR-084-OM",
     title:
-      "Excel upload · Covoro | IBR-084-OM | Import of Goods + empty origin → error file",
+      "Given Import of Goods — When country of origin is left empty — Then the invoice should be rejected with an error. (IBR-084-OM)",
     itemCountryOfOrigin: "",
     importDate: "2026-01-10",
     customsDeclarationNumber: "CD-12345",
@@ -2167,7 +2167,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
   {
     ruleId: "IBR-085-OM",
     title:
-      "Excel upload · Covoro | IBR-085-OM | Import of Goods + empty customs declaration → error file",
+      "Given Import of Goods — When customs declaration number is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
     itemCountryOfOrigin: "India",
     importDate: "2026-01-10",
     customsDeclarationNumber: "",
@@ -2200,7 +2200,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
   {
     ruleId: "IBR-085-OM",
     title:
-      "Excel upload · Covoro | IBR-085-OM | Import date + empty customs declaration → error file",
+      "Given Import of Goods with an import date — When customs declaration number is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemCountryOfOrigin: "India",
     importDate: "2026-01-10",
@@ -2221,7 +2221,7 @@ export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenar
     {
       ruleId: "IBR-086-OM",
       title:
-        "Excel upload · Covoro | IBR-086-OM | Profit Margin Self-Invoice + Not subject → accepted",
+        "Given Profit Margin Self-Invoice — When VAT is Not subject — Then the invoice should be accepted. (IBR-086-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       sellerCountryCode: OMAN_COUNTRY_CODE,
       shouldError: false,
@@ -2230,7 +2230,7 @@ export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenar
     {
       ruleId: "IBR-086-OM",
       title:
-        "Excel upload · Covoro | IBR-086-OM | Profit Margin Self-Invoice + Standard → error file",
+        "Given Profit Margin Self-Invoice — When VAT is Standard rate — Then the invoice should be rejected with an error. (IBR-086-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       sellerCountryCode: OMAN_COUNTRY_CODE,
       shouldError: true,
@@ -2239,7 +2239,7 @@ export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenar
     {
       ruleId: "IBR-087-OM",
       title:
-        "Excel upload · Covoro | IBR-087-OM | Profit Margin Self-Invoice + seller not OM → error file",
+        "Given Profit Margin Self-Invoice — When the seller country is not Oman — Then the invoice should be rejected with an error. (IBR-087-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       sellerCountryCode: "India",
       shouldError: true,
@@ -2253,7 +2253,7 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
     {
       ruleId: "IBR-091-OM",
       title:
-        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS 8471 → accepted",
+        "Given Profit Margin Invoice — When HS code is 8471 — Then the invoice should be accepted. (IBR-091-OM)",
       itemClassificationIdentifier: OMAN_HS_CODE_12,
       shouldError: false,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2261,7 +2261,7 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
     {
       ruleId: "IBR-091-OM",
       title:
-        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7101 → error file",
+        "Given Profit Margin Invoice — When HS code starts with 7101 — Then the invoice should be rejected with an error. (IBR-091-OM)",
       itemClassificationIdentifier: "710100000000",
       shouldError: true,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2269,7 +2269,7 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
     {
       ruleId: "IBR-091-OM",
       title:
-        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7102 → error file",
+        "Given Profit Margin Invoice — When HS code starts with 7102 — Then the invoice should be rejected with an error. (IBR-091-OM)",
       itemClassificationIdentifier: "710200000000",
       shouldError: true,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2277,7 +2277,7 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
     {
       ruleId: "IBR-091-OM",
       title:
-        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7103 → error file",
+        "Given Profit Margin Invoice — When HS code starts with 7103 — Then the invoice should be rejected with an error. (IBR-091-OM)",
       itemClassificationIdentifier: "710300000000",
       shouldError: true,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2285,7 +2285,7 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
     {
       ruleId: "IBR-091-OM",
       title:
-        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7104 → error file",
+        "Given Profit Margin Invoice — When HS code starts with 7104 — Then the invoice should be rejected with an error. (IBR-091-OM)",
       itemClassificationIdentifier: "710400000000",
       shouldError: true,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2293,7 +2293,7 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
     {
       ruleId: "IBR-091-OM",
       title:
-        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 01 → error file",
+        "Given Profit Margin Invoice — When HS code starts with 01 — Then the invoice should be rejected with an error. (IBR-091-OM)",
       itemClassificationIdentifier: "010000000000",
       shouldError: true,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2301,7 +2301,7 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
     {
       ruleId: "IBR-091-OM",
       title:
-        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 06 → error file",
+        "Given Profit Margin Invoice — When HS code starts with 06 — Then the invoice should be rejected with an error. (IBR-091-OM)",
       itemClassificationIdentifier: "060000000000",
       shouldError: true,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -2317,7 +2317,7 @@ export const SUMMARY_INVOICE_PERIOD_SCENARIOS: SummaryPeriodScenario[] = [
   ...expandAcrossSummaryOrContinuousTxnTypes<SummaryPeriodScenario>({
     ruleId: "IBR-037-OM",
     title:
-      "Excel upload · Covoro | IBR-037-OM | {txn} + period dates → accepted",
+      "Given {txn} — When invoicing period dates are provided — Then the invoice should be accepted. (IBR-037-OM)",
     periodStart: "2026-01-01",
     periodEnd: "2026-01-31",
     shouldError: false,
@@ -2326,7 +2326,7 @@ export const SUMMARY_INVOICE_PERIOD_SCENARIOS: SummaryPeriodScenario[] = [
   ...expandAcrossSummaryOrContinuousTxnTypes<SummaryPeriodScenario>({
     ruleId: "IBR-037-OM",
     title:
-      "Excel upload · Covoro | IBR-037-OM | {txn} + empty period → error file",
+      "Given {txn} — When invoicing period is left empty — Then the invoice should be rejected with an error. (IBR-037-OM)",
     periodStart: "",
     periodEnd: "",
     shouldError: true,
@@ -2344,7 +2344,7 @@ export const SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS: SummaryPeriodScenario
     {
       ruleId: "IBR-036-OM",
       title:
-        "Excel upload · Covoro | IBR-036-OM | Summary Invoice + period dates same calendar month → accepted",
+        "Given a Summary Invoice — When period start and end are in the same calendar month — Then the invoice should be accepted. (IBR-036-OM)",
       invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "2026-01-31",
@@ -2354,7 +2354,7 @@ export const SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS: SummaryPeriodScenario
     {
       ruleId: "IBR-036-OM",
       title:
-        "Excel upload · Covoro | IBR-036-OM | Summary Invoice + period dates different calendar months → error file",
+        "Given a Summary Invoice — When period start and end are in different calendar months — Then the invoice should be rejected with an error. (IBR-036-OM)",
       invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "2026-02-01",
@@ -2378,7 +2378,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-062-OM",
       title:
-        "Excel upload · Covoro | IBR-062-OM | Allowance Exempt + exemption reason → accepted",
+        "Given an Exempt document allowance — When an exemption reason is provided — Then the invoice should be accepted. (IBR-062-OM)",
       kind: "allowance",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
@@ -2389,7 +2389,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-062-OM",
       title:
-        "Excel upload · Covoro | IBR-062-OM | Allowance Exempt + empty exemption → error file",
+        "Given an Exempt document allowance — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-062-OM)",
       kind: "allowance",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: "",
@@ -2400,7 +2400,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-062-OM",
       title:
-        "Excel upload · Covoro | IBR-062-OM | Allowance Zero rated + exemption reason → accepted",
+        "Given a Zero rated document allowance — When an exemption reason is provided — Then the invoice should be accepted. (IBR-062-OM)",
       kind: "allowance",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -2411,7 +2411,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-062-OM",
       title:
-        "Excel upload · Covoro | IBR-062-OM | Allowance Zero rated + empty exemption → error file",
+        "Given a Zero rated document allowance — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-062-OM)",
       kind: "allowance",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: "",
@@ -2422,7 +2422,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-062-OM",
       title:
-        "Excel upload · Covoro | IBR-062-OM | Allowance Standard + exemption reason → error file",
+        "Given a Standard rate document allowance — When an exemption reason is provided — Then the invoice should be rejected with an error. (IBR-062-OM)",
       kind: "allowance",
       vatCategory: STANDARD_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
@@ -2433,7 +2433,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-064-OM",
       title:
-        "Excel upload · Covoro | IBR-064-OM | Charge Exempt + exemption reason → accepted",
+        "Given an Exempt document charge — When an exemption reason is provided — Then the invoice should be accepted. (IBR-064-OM)",
       kind: "charge",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
@@ -2444,7 +2444,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-064-OM",
       title:
-        "Excel upload · Covoro | IBR-064-OM | Charge Exempt + empty exemption → error file",
+        "Given an Exempt document charge — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-064-OM)",
       kind: "charge",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: "",
@@ -2455,7 +2455,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-064-OM",
       title:
-        "Excel upload · Covoro | IBR-064-OM | Charge Zero rated + exemption reason → accepted",
+        "Given a Zero rated document charge — When an exemption reason is provided — Then the invoice should be accepted. (IBR-064-OM)",
       kind: "charge",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -2466,7 +2466,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-064-OM",
       title:
-        "Excel upload · Covoro | IBR-064-OM | Charge Zero rated + empty exemption → error file",
+        "Given a Zero rated document charge — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-064-OM)",
       kind: "charge",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: "",
@@ -2477,7 +2477,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-062-OM",
       title:
-        "Excel upload · Covoro | IBR-062-OM | Allowance amount + empty VAT category → error file",
+        "Given a document allowance amount — When VAT category is left empty — Then the invoice should be rejected with an error. (IBR-062-OM)",
       kind: "allowance",
       vatCategory: "",
       exemptionReason: "",
@@ -2488,7 +2488,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
     {
       ruleId: "IBR-064-OM",
       title:
-        "Excel upload · Covoro | IBR-064-OM | Charge amount + empty VAT category → error file",
+        "Given a document charge amount — When VAT category is left empty — Then the invoice should be rejected with an error. (IBR-064-OM)",
       kind: "charge",
       vatCategory: "",
       exemptionReason: "",
@@ -2515,7 +2515,7 @@ export const DOCUMENT_CHARGE_REASON_SCENARIOS: DocumentChargeReasonScenario[] =
     {
       ruleId: "IBR-042-OM",
       title:
-        "Excel upload · Covoro | IBR-042-OM | Document level charge present → accepted",
+        "Given a document level charge — When the charge is present — Then the invoice should be accepted. (IBR-042-OM)",
       amount: "100",
       vatCategory: STANDARD_TAX_CATEGORY_CODE,
       shouldError: false,
@@ -2532,7 +2532,7 @@ export const CREDIT_DEBIT_REASON_SCENARIOS: CreditDebitReasonScenario[] = [
   ...expandAcrossCnDnSelfBilledTypes<CreditDebitReasonScenario>({
     ruleId: "IBR-023-OM",
     title:
-      "Excel upload · Covoro | IBR-023-OM | {type} + reason code → accepted",
+      "Given {type} — When a reason code is provided — Then the invoice should be accepted. (IBR-023-OM)",
     creditDebitNoteReasonCode: CREDIT_DEBIT_REASON_SAMPLE,
     precedingInvoiceReference: "INV-PREV-023",
     shouldError: false,
@@ -2541,7 +2541,7 @@ export const CREDIT_DEBIT_REASON_SCENARIOS: CreditDebitReasonScenario[] = [
   ...expandAcrossCnDnSelfBilledTypes<CreditDebitReasonScenario>({
     ruleId: "IBR-023-OM",
     title:
-      "Excel upload · Covoro | IBR-023-OM | {type} + empty reason → error file",
+      "Given {type} — When reason code is left empty — Then the invoice should be rejected with an error. (IBR-023-OM)",
     creditDebitNoteReasonCode: "",
     precedingInvoiceReference: "INV-PREV-023",
     shouldError: true,
@@ -2563,7 +2563,7 @@ export const SELF_BILLED_TXN_CONSTRAINT_SCENARIOS: SelfBilledTxnConstraintScenar
     ...expandAcrossSelfBilledDocumentTypes<SelfBilledTxnConstraintScenario>({
       ruleId: "IBR-177-OM",
       title:
-        "Excel upload · Covoro | IBR-177-OM | {type} + {txn} → accepted",
+        "Given {type} — When transaction type is {txn} — Then the invoice should be accepted. (IBR-177-OM)",
       invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
       shouldError: false,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -2575,7 +2575,7 @@ export const SELF_BILLED_TXN_CONSTRAINT_SCENARIOS: SelfBilledTxnConstraintScenar
     ...expandAcrossSelfBilledDocumentTypes<SelfBilledTxnConstraintScenario>({
       ruleId: "IBR-177-OM",
       title:
-        "Excel upload · Covoro | IBR-177-OM | {type} + Full Tax txn → error file",
+        "Given {type} — When transaction type is Full Tax — Then the invoice should be rejected with an error. (IBR-177-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       shouldError: true,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -2597,7 +2597,7 @@ export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[
     ...expandAcrossPrepaymentExclusionPartners<PrepaymentTxnExclusionScenario>({
       ruleId: "IBR-176-OM",
       title:
-        "Excel upload · Covoro | IBR-176-OM | {type} without Prepayment → accepted",
+        "Given {type} — When Prepayment is not combined — Then the invoice should be accepted. (IBR-176-OM)",
       withPrepaymentBit: false,
       shouldError: false,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -2605,7 +2605,7 @@ export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[
     ...expandAcrossPrepaymentExclusionPartners<PrepaymentTxnExclusionScenario>({
       ruleId: "IBR-176-OM",
       title:
-        "Excel upload · Covoro | IBR-176-OM | Prepayment + {type} bits → error file",
+        "Given Prepayment combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-176-OM)",
       withPrepaymentBit: true,
       shouldError: true,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -2613,7 +2613,7 @@ export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[
     {
       ruleId: "IBR-176-OM",
       title:
-        "Excel upload · Covoro | IBR-176-OM | Prepayment alone (no Summary/Deemed/PM-Self) → accepted",
+        "Given Prepayment alone — When Summary, Deemed, and Profit Margin Self-Invoice are not combined — Then the invoice should be accepted. (IBR-176-OM)",
       conflictingTxnType: "",
       invoiceTransactionTypeCode: TXN_PREPAYMENT_INVOICE,
       shouldError: false,
@@ -2630,7 +2630,7 @@ export const EXPORT_DELIVERY_SCENARIOS: ExportDeliveryScenario[] = [
   {
     ruleId: "IBR-014-OM",
     title:
-      "Excel upload · Covoro | IBR-014-OM | Export + Deliver to country → accepted",
+      "Given Export — When Deliver to country is provided — Then the invoice should be accepted. (IBR-014-OM)",
     invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
     deliverToCountryCode: "United Arab Emirates",
     shouldError: false,
@@ -2639,7 +2639,7 @@ export const EXPORT_DELIVERY_SCENARIOS: ExportDeliveryScenario[] = [
   {
     ruleId: "IBR-014-OM",
     title:
-      "Excel upload · Covoro | IBR-014-OM | Export + empty Deliver to country → error file",
+      "Given Export — When Deliver to country is left empty — Then the invoice should be rejected with an error. (IBR-014-OM)",
     invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
     deliverToCountryCode: "",
     shouldError: true,
@@ -2657,7 +2657,7 @@ export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS: SpecialZoneCountrySubdi
     {
       ruleId: "IBR-150-OM",
       title:
-        "Excel upload · Covoro | IBR-150-OM | Special Zone + CL-13 buyer/seller subdivision → accepted",
+        "Given Special Zone Supplies — When buyer and seller subdivision are from the allowed list — Then the invoice should be accepted. (IBR-150-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       sellerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
       buyerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
@@ -2667,7 +2667,7 @@ export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS: SpecialZoneCountrySubdi
     {
       ruleId: "IBR-150-OM",
       title:
-        "Excel upload · Covoro | IBR-150-OM | Special Zone + empty buyer subdivision → error file",
+        "Given Special Zone Supplies — When buyer subdivision is left empty — Then the invoice should be rejected with an error. (IBR-150-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       sellerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
       buyerCountrySubdivisionCode: "",
@@ -2677,7 +2677,7 @@ export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS: SpecialZoneCountrySubdi
     {
       ruleId: "IBR-150-OM",
       title:
-        "Excel upload · Covoro | IBR-150-OM | Special Zone + empty seller subdivision → error file",
+        "Given Special Zone Supplies — When seller subdivision is left empty — Then the invoice should be rejected with an error. (IBR-150-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       sellerCountrySubdivisionCode: "",
       buyerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
@@ -2687,7 +2687,7 @@ export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS: SpecialZoneCountrySubdi
     {
       ruleId: "IBR-150-OM",
       title:
-        "Excel upload · Covoro | IBR-150-OM | Special Zone + subdivision not in CL-13-OM → error file",
+        "Given Special Zone Supplies — When subdivision is not on the allowed list — Then the invoice should be rejected with an error. (IBR-150-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       sellerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
       buyerCountrySubdivisionCode: COUNTRY_SUBDIVISION_NOT_IN_CL13,
@@ -2705,7 +2705,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Excel upload · Covoro | IBR-151-OM | Special Zone + Special Zone License → accepted",
+      "Given Special Zone Supplies — When seller uses Special Zone License — Then the invoice should be accepted. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "SZ-LIC-001",
@@ -2715,7 +2715,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Excel upload · Covoro | IBR-151-OM | Special Zone + empty seller identifier → error file",
+      "Given Special Zone Supplies — When seller identifier is left empty — Then the invoice should be rejected with an error. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "",
@@ -2725,7 +2725,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Excel upload · Covoro | IBR-151-OM | Special Zone + Mainland (MO) + omit seller identifier → accepted",
+      "Given Special Zone Supplies in Mainland Oman — When seller identifier is omitted — Then the invoice should be accepted. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "",
@@ -2736,7 +2736,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Excel upload · Covoro | IBR-151-OM | Full Tax + Special Zone License → error file",
+      "Given a Full Tax invoice — When seller uses Special Zone License — Then the invoice should be rejected with an error. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "SZ-LIC-001",
@@ -2754,7 +2754,7 @@ export const SELF_BILLED_BUYER_VAT_SCENARIOS: SelfBilledBuyerVatScenario[] = [
   ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledBuyerVatScenario>({
     ruleId: "IBR-017-OM",
     title:
-      "Excel upload · Covoro | IBR-017-OM | {txn} + Buyer VATIN → accepted",
+      "Given {txn} — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
     buyerVatIdentifier: "OM1000091919",
     shouldError: false,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
@@ -2762,7 +2762,7 @@ export const SELF_BILLED_BUYER_VAT_SCENARIOS: SelfBilledBuyerVatScenario[] = [
   ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledBuyerVatScenario>({
     ruleId: "IBR-017-OM",
     title:
-      "Excel upload · Covoro | IBR-017-OM | {txn} + empty Buyer VATIN → error file",
+      "Given {txn} — When Buyer VATIN is left empty — Then the invoice should be rejected with an error. (IBR-017-OM)",
     buyerVatIdentifier: "",
     shouldError: true,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
@@ -2784,7 +2784,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS: DocumentAllowanceChargeRa
     {
       ruleId: "IBR-047-OM",
       title:
-        "Excel upload · Covoro | IBR-047-OM | Allowance Standard (rate 5 implied) → accepted",
+        "Given a Standard rate document allowance — When tax rate 5 is implied by the category — Then the invoice should be accepted. (IBR-047-OM)",
       kind: "allowance",
       vatCategory: STANDARD_TAX_CATEGORY_CODE,
       exemptionReason: "",
@@ -2795,7 +2795,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS: DocumentAllowanceChargeRa
     {
       ruleId: "IBR-045-OM",
       title:
-        "Excel upload · Covoro | IBR-045-OM | Charge Standard (rate 5 implied) → accepted",
+        "Given a Standard rate document charge — When tax rate 5 is implied by the category — Then the invoice should be accepted. (IBR-045-OM)",
       kind: "charge",
       vatCategory: STANDARD_TAX_CATEGORY_CODE,
       exemptionReason: "",
@@ -2806,7 +2806,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS: DocumentAllowanceChargeRa
     {
       ruleId: "IBR-094-OM",
       title:
-        "Excel upload · Covoro | IBR-094-OM | Allowance Zero rated (rate 0 implied) → accepted",
+        "Given a Zero rated document allowance — When tax rate 0 is implied by the category — Then the invoice should be accepted. (IBR-094-OM)",
       kind: "allowance",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -2817,7 +2817,7 @@ export const DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS: DocumentAllowanceChargeRa
     {
       ruleId: "IBR-094-OM",
       title:
-        "Excel upload · Covoro | IBR-094-OM | Allowance Zero rated + empty exemption → error file",
+        "Given a Zero rated document allowance — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-094-OM)",
       kind: "allowance",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: "",
@@ -2839,7 +2839,7 @@ export const EXPORT_SERVICE_TYPE_SCENARIOS: ExportServiceTypeScenario[] = [
   {
     ruleId: "IBR-155-OM",
     title:
-      "Excel upload · Covoro | IBR-155-OM | Export + Export of Services + Service Type → accepted",
+      "Given Export of Services — When Service Type is provided — Then the invoice should be accepted. (IBR-155-OM)",
     invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
     taxExemptionReasonCode: TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
     serviceTypeCode: SERVICE_TYPE_CODE_SAMPLE,
@@ -2849,7 +2849,7 @@ export const EXPORT_SERVICE_TYPE_SCENARIOS: ExportServiceTypeScenario[] = [
   {
     ruleId: "IBR-155-OM",
     title:
-      "Excel upload · Covoro | IBR-155-OM | Export + Export of Services + empty Service Type → error file",
+      "Given Export of Services — When Service Type is left empty — Then the invoice should be rejected with an error. (IBR-155-OM)",
     invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
     taxExemptionReasonCode: TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
     serviceTypeCode: "",
@@ -2859,7 +2859,7 @@ export const EXPORT_SERVICE_TYPE_SCENARIOS: ExportServiceTypeScenario[] = [
   {
     ruleId: "IBR-155-OM",
     title:
-      "Excel upload · Covoro | IBR-155-OM | Export + Export of Services + invalid Service Type → error file",
+      "Given Export of Services — When Service Type is invalid — Then the invoice should be rejected with an error. (IBR-155-OM)",
     invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
     taxExemptionReasonCode: TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
     serviceTypeCode: SERVICE_TYPE_CODE_INVALID,
@@ -2869,7 +2869,7 @@ export const EXPORT_SERVICE_TYPE_SCENARIOS: ExportServiceTypeScenario[] = [
   {
     ruleId: "IBR-155-OM",
     title:
-      "Excel upload · Covoro | IBR-155-OM | Full Tax + empty Service Type (trigger off) → accepted",
+      "Given a Full Tax invoice — When Service Type is left empty — Then the invoice should be accepted. (IBR-155-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     taxExemptionReasonCode: "",
     serviceTypeCode: "",
@@ -2888,7 +2888,7 @@ export const EXPORT_DELIVER_COUNTRY_FORBIDDEN_OM_SCENARIOS: ExportDeliverCountry
     {
       ruleId: "IBR-012-OM",
       title:
-        "Excel upload · Covoro | IBR-012-OM | Export + Export of Services + non-OM deliver → accepted",
+        "Given Export of Services — When Deliver to country is not Oman — Then the invoice should be accepted. (IBR-012-OM)",
       invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
       deliverToCountryCode: UAE_COUNTRY_CODE,
@@ -2898,7 +2898,7 @@ export const EXPORT_DELIVER_COUNTRY_FORBIDDEN_OM_SCENARIOS: ExportDeliverCountry
     {
       ruleId: "IBR-012-OM",
       title:
-        "Excel upload · Covoro | IBR-012-OM | Export + Export of Services + OM deliver → error file",
+        "Given Export of Services — When Deliver to country is Oman — Then the invoice should be rejected with an error. (IBR-012-OM)",
       invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
       deliverToCountryCode: OMAN_COUNTRY_CODE,
@@ -2908,7 +2908,7 @@ export const EXPORT_DELIVER_COUNTRY_FORBIDDEN_OM_SCENARIOS: ExportDeliverCountry
     {
       ruleId: "IBR-012-OM",
       title:
-        "Excel upload · Covoro | IBR-012-OM | Full Tax + OM deliver (trigger off) → accepted",
+        "Given a Full Tax invoice — When Deliver to country is Oman — Then the invoice should be accepted. (IBR-012-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxExemptionReasonCode: "",
       deliverToCountryCode: OMAN_COUNTRY_CODE,
@@ -2927,7 +2927,7 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
     {
       ruleId: "IBR-013-OM",
       title:
-        "Excel upload · Covoro | IBR-013-OM | Export + Re-export of goods + supporting docs → accepted",
+        "Given Export with Re-export of goods — When supporting documents are provided — Then the invoice should be accepted. (IBR-013-OM)",
       invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_RE_EXPORT_OF_GOODS,
       supportingDocumentReference: SUPPORTING_DOCUMENT_REFERENCE_SAMPLE,
@@ -2938,7 +2938,7 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
     {
       ruleId: "IBR-013-OM",
       title:
-        "Excel upload · Covoro | IBR-013-OM | Export + Re-export of goods + empty supporting docs → error file",
+        "Given Export with Re-export of goods — When supporting documents are left empty — Then the invoice should be rejected with an error. (IBR-013-OM)",
       invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_RE_EXPORT_OF_GOODS,
       supportingDocumentReference: "",
@@ -2949,7 +2949,7 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
     {
       ruleId: "IBR-013-OM",
       title:
-        "Excel upload · Covoro | IBR-013-OM | Export + Re-export of goods + empty supporting document reference → error file",
+        "Given Export with Re-export of goods — When supporting document reference is left empty — Then the invoice should be rejected with an error. (IBR-013-OM)",
       invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_RE_EXPORT_OF_GOODS,
       supportingDocumentReference: "",
@@ -2960,7 +2960,7 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
     {
       ruleId: "IBR-013-OM",
       title:
-        "Excel upload · Covoro | IBR-013-OM | Export + Re-export of goods + empty supporting document UUID → error file",
+        "Given Export with Re-export of goods — When supporting document UUID is left empty — Then the invoice should be rejected with an error. (IBR-013-OM)",
       invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_RE_EXPORT_OF_GOODS,
       supportingDocumentReference: SUPPORTING_DOCUMENT_REFERENCE_SAMPLE,
@@ -2971,7 +2971,7 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
     {
       ruleId: "IBR-013-OM",
       title:
-        "Excel upload · Covoro | IBR-013-OM | Export + other zero-rated reason + empty supporting docs (reason trigger off) → accepted",
+        "Given Export with another zero-rated reason — When supporting documents are left empty — Then the invoice should be accepted. (IBR-013-OM)",
       invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       supportingDocumentReference: "",
@@ -2982,7 +2982,7 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
     {
       ruleId: "IBR-013-OM",
       title:
-        "Excel upload · Covoro | IBR-013-OM | Full Tax + Re-export of goods + empty supporting docs (txn trigger off) → accepted",
+        "Given a Full Tax invoice with Re-export of goods — When supporting documents are left empty — Then the invoice should be accepted. (IBR-013-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_RE_EXPORT_OF_GOODS,
       supportingDocumentReference: "",
@@ -2993,7 +2993,7 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
     {
       ruleId: "IBR-013-OM",
       title:
-        "Excel upload · Covoro | IBR-013-OM | Full Tax + empty supporting docs (trigger off) → accepted",
+        "Given a Full Tax invoice — When supporting documents are left empty — Then the invoice should be accepted. (IBR-013-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxExemptionReasonCode: "",
       supportingDocumentReference: "",
@@ -3013,7 +3013,7 @@ export const SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS: SelfBilledRcmBuyerCountryS
     ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledRcmBuyerCountryScenario>({
       ruleId: "IBR-020-OM",
       title:
-        "Excel upload · Covoro | IBR-020-OM | {txn} + Buyer country OM → accepted",
+        "Given {txn} — When buyer country is Oman — Then the invoice should be accepted. (IBR-020-OM)",
       buyerCountryCode: OMAN_COUNTRY_CODE,
       shouldError: false,
       expectedErrorField: BUYER_COUNTRY_CODE_FIELD,
@@ -3021,7 +3021,7 @@ export const SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS: SelfBilledRcmBuyerCountryS
     ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledRcmBuyerCountryScenario>({
       ruleId: "IBR-020-OM",
       title:
-        "Excel upload · Covoro | IBR-020-OM | {txn} + Buyer country UAE → error file",
+        "Given {txn} — When buyer country is UAE — Then the invoice should be rejected with an error. (IBR-020-OM)",
       buyerCountryCode: UAE_COUNTRY_CODE,
       shouldError: true,
       expectedErrorField: BUYER_COUNTRY_CODE_FIELD,
@@ -3029,7 +3029,7 @@ export const SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS: SelfBilledRcmBuyerCountryS
     ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledRcmBuyerCountryScenario>({
       ruleId: "IBR-020-OM",
       title:
-        "Excel upload · Covoro | IBR-020-OM | {txn} + empty Buyer country → error file",
+        "Given {txn} — When buyer country is left empty — Then the invoice should be rejected with an error. (IBR-020-OM)",
       buyerCountryCode: "",
       shouldError: true,
       expectedErrorField: BUYER_COUNTRY_CODE_FIELD,
@@ -3053,7 +3053,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Seller VATIN OM########## → accepted",
+      "Given a Seller VATIN that is OM plus 10 digits — When the invoice is submitted — Then the invoice should be accepted. (IBR-003-OM)",
     party: "seller",
     vatinValue: IBR_003_VALID_SELLER_VATIN,
     shouldError: false,
@@ -3064,7 +3064,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Seller VATIN wrong prefix XX########## → error file",
+      "Given a Seller VATIN with prefix XX instead of OM — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "seller",
     vatinValue: "XX1108202600",
     shouldError: true,
@@ -3074,7 +3074,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Seller VATIN OM + non-digit → error file",
+      "Given a Seller VATIN that is OM plus a non-digit — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "seller",
     vatinValue: "OM110820260A",
     shouldError: true,
@@ -3084,7 +3084,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Buyer VATIN OM########## → accepted",
+      "Given a Buyer VATIN that is OM plus 10 digits — When the invoice is submitted — Then the invoice should be accepted. (IBR-003-OM)",
     party: "buyer",
     vatinValue: IBR_003_VALID_BUYER_VATIN,
     shouldError: false,
@@ -3093,7 +3093,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Buyer VATIN wrong prefix XX########## → error file",
+      "Given a Buyer VATIN with prefix XX instead of OM — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "buyer",
     vatinValue: "XX1000091919",
     shouldError: true,
@@ -3102,7 +3102,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Buyer VATIN OM + non-digit → error file",
+      "Given a Buyer VATIN that is OM plus a non-digit — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "buyer",
     vatinValue: "OM100009191A",
     shouldError: true,
@@ -3111,7 +3111,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Third Party VATIN OM########## → accepted",
+      "Given a Third Party VATIN that is OM plus 10 digits — When the invoice is submitted — Then the invoice should be accepted. (IBR-003-OM)",
     party: "thirdParty",
     vatinValue: IBR_003_VALID_THIRD_PARTY_VATIN,
     shouldError: false,
@@ -3120,7 +3120,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Third Party VATIN wrong prefix XX########## → error file",
+      "Given a Third Party VATIN with prefix XX instead of OM — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "thirdParty",
     vatinValue: "XX2000091919",
     shouldError: true,
@@ -3129,7 +3129,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Excel upload · Covoro | IBR-003-OM | Third Party VATIN OM + non-digit → error file",
+      "Given a Third Party VATIN that is OM plus a non-digit — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "thirdParty",
     vatinValue: "OM200009191A",
     shouldError: true,
@@ -3152,7 +3152,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + Exempt breakdown → accepted",
+        "Given a Full Tax invoice — When Exempt VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3163,7 +3163,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + empty Exempt breakdown → error file",
+        "Given a Full Tax invoice — When Exempt VAT breakdown is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: "",
       taxRate: null,
@@ -3174,7 +3174,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + whitespace Exempt breakdown → error file",
+        "Given a Full Tax invoice — When Exempt VAT breakdown is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: "   ",
       taxRate: null,
@@ -3185,7 +3185,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + no E component → accepted",
+        "Given a Full Tax invoice with no Exempt VAT — When the invoice is submitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3196,7 +3196,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Simplified + Exempt omit ok → accepted",
+        "Given a Simplified invoice — When Exempt VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3207,7 +3207,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + allowance E + Exempt breakdown → accepted",
+        "Given a Full Tax invoice with an Exempt allowance — When Exempt VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       source: "allowance",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
@@ -3219,7 +3219,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + allowance E + no E breakdown → error file",
+        "Given a Full Tax invoice with an Exempt allowance — When Exempt VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3232,7 +3232,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Simplified + allowance E + omit E breakdown ok → accepted",
+        "Given a Simplified invoice with an Exempt allowance — When Exempt VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -3245,7 +3245,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + charge E + Exempt breakdown → accepted",
+        "Given a Full Tax invoice with an Exempt charge — When Exempt VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       source: "charge",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
@@ -3257,7 +3257,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Full Tax + charge E + no E breakdown → error file",
+        "Given a Full Tax invoice with an Exempt charge — When Exempt VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3270,7 +3270,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-01-OM | Simplified + charge E + omit E breakdown ok → accepted",
+        "Given a Simplified invoice with an Exempt charge — When Exempt VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -3284,7 +3284,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + Not subject breakdown → accepted",
+        "Given a Full Tax invoice — When Not subject VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3295,7 +3295,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + empty O breakdown → error file",
+        "Given a Full Tax invoice — When Not subject VAT breakdown is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: "",
       taxRate: null,
@@ -3306,7 +3306,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + no O component → accepted",
+        "Given a Full Tax invoice with no Not subject VAT — When the invoice is submitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3317,7 +3317,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Simplified + Not subject omit ok → accepted",
+        "Given a Simplified invoice — When Not subject VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3328,7 +3328,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + allowance O + Not subject breakdown → accepted",
+        "Given a Full Tax invoice with a Not subject allowance — When Not subject VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "allowance",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
@@ -3340,7 +3340,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + allowance O + no O breakdown → error file",
+        "Given a Full Tax invoice with a Not subject allowance — When Not subject VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3353,7 +3353,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Simplified + allowance O + omit O breakdown ok → accepted",
+        "Given a Simplified invoice with a Not subject allowance — When Not subject VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -3366,7 +3366,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + charge O + Not subject breakdown → accepted",
+        "Given a Full Tax invoice with a Not subject charge — When Not subject VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "charge",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
@@ -3378,7 +3378,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + charge O + no O breakdown → error file",
+        "Given a Full Tax invoice with a Not subject charge — When Not subject VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3391,7 +3391,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Simplified + charge O + omit O breakdown ok → accepted",
+        "Given a Simplified invoice with a Not subject charge — When Not subject VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -3405,7 +3405,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + Standard breakdown → accepted",
+        "Given a Full Tax invoice — When Standard rate VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-S-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3416,7 +3416,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + empty S breakdown → error file",
+        "Given a Full Tax invoice — When Standard rate VAT breakdown is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: "",
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3427,7 +3427,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Simplified + Standard omit ok → accepted",
+        "Given a Simplified invoice — When Standard rate VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-S-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3438,7 +3438,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + allowance S + Standard breakdown → accepted",
+        "Given a Full Tax invoice with a Standard rate allowance — When Standard rate VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-S-01-OM)",
       source: "allowance",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
@@ -3450,7 +3450,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + allowance S + no S breakdown → error file",
+        "Given a Full Tax invoice with a Standard rate allowance — When Standard rate VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3463,7 +3463,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + charge S + Standard breakdown → accepted",
+        "Given a Full Tax invoice with a Standard rate charge — When Standard rate VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-S-01-OM)",
       source: "charge",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
@@ -3475,7 +3475,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + charge S + no S breakdown → error file",
+        "Given a Full Tax invoice with a Standard rate charge — When Standard rate VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3489,7 +3489,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + Zero rated breakdown → accepted",
+        "Given a Full Tax invoice — When Zero rated VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
@@ -3500,7 +3500,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + empty Z breakdown → error file",
+        "Given a Full Tax invoice — When Zero rated VAT breakdown is left empty — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: "",
       taxRate: TAX_RATE_ZERO,
@@ -3511,7 +3511,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + no Z component → accepted",
+        "Given a Full Tax invoice with no Zero rated VAT — When the invoice is submitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3522,7 +3522,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Simplified + Zero rated omit ok → accepted",
+        "Given a Simplified invoice — When Zero rated VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
@@ -3533,7 +3533,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + allowance Z + Zero rated breakdown → accepted",
+        "Given a Full Tax invoice with a Zero rated allowance — When Zero rated VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "allowance",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
@@ -3545,7 +3545,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + allowance Z + no Z breakdown → error file",
+        "Given a Full Tax invoice with a Zero rated allowance — When Zero rated VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3558,7 +3558,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Simplified + allowance Z + omit Z breakdown ok → accepted",
+        "Given a Simplified invoice with a Zero rated allowance — When Zero rated VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -3571,7 +3571,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + charge Z + Zero rated breakdown → accepted",
+        "Given a Full Tax invoice with a Zero rated charge — When Zero rated VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "charge",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
@@ -3583,7 +3583,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + charge Z + no Z breakdown → error file",
+        "Given a Full Tax invoice with a Zero rated charge — When Zero rated VAT breakdown is missing — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
@@ -3596,7 +3596,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Simplified + charge Z + omit Z breakdown ok → accepted",
+        "Given a Simplified invoice with a Zero rated charge — When Zero rated VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -3616,7 +3616,7 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     {
       ruleId: "IBR-038-OM",
       title:
-        "Excel upload · Covoro | IBR-038-OM | Full Tax + line VAT amount → accepted",
+        "Given a Full Tax invoice — When line VAT amount is provided — Then the invoice should be accepted. (IBR-038-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3627,7 +3627,7 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     {
       ruleId: "IBR-038-OM",
       title:
-        "Excel upload · Covoro | IBR-038-OM | Full Tax + empty line VAT amount → error file",
+        "Given a Full Tax invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3638,7 +3638,7 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     {
       ruleId: "IBR-038-OM",
       title:
-        "Excel upload · Covoro | IBR-038-OM | Simplified + empty line VAT amount → accepted",
+        "Given a Simplified invoice — When line VAT amount is left empty — Then the invoice should be accepted. (IBR-038-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -3649,7 +3649,7 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     {
       ruleId: "IBR-038-OM",
       title:
-        "Excel upload · Covoro | IBR-038-OM | Full Tax + Exempt + empty line VAT amount → error file",
+        "Given a Full Tax Exempt invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3661,7 +3661,7 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     {
       ruleId: "IBR-038-OM",
       title:
-        "Excel upload · Covoro | IBR-038-OM | Full Tax + Zero rated + empty line VAT amount → error file",
+        "Given a Full Tax Zero rated invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
@@ -3677,7 +3677,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
     {
       ruleId: "IBR-039-OM",
       title:
-        "Excel upload · Covoro | IBR-039-OM | Exempt + line VAT 0 → accepted",
+        "Given Exempt VAT — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-039-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
@@ -3688,7 +3688,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
     {
       ruleId: "IBR-039-OM",
       title:
-        "Excel upload · Covoro | IBR-039-OM | Exempt + line VAT 50 → error file",
+        "Given Exempt VAT — When line VAT amount is 50 — Then the invoice should be rejected with an error. (IBR-039-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
@@ -3699,7 +3699,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
     {
       ruleId: "IBR-054-OM",
       title:
-        "Excel upload · Covoro | IBR-054-OM | Not subject + line VAT 0 → accepted",
+        "Given Not subject to VAT — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-054-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       lineItemVatAmount: "0",
@@ -3709,7 +3709,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
     {
       ruleId: "IBR-054-OM",
       title:
-        "Excel upload · Covoro | IBR-054-OM | Not subject + line VAT 50 → error file",
+        "Given Not subject to VAT — When line VAT amount is 50 — Then the invoice should be rejected with an error. (IBR-054-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       lineItemVatAmount: "50",
@@ -3719,7 +3719,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
     {
       ruleId: "IBR-077-OM",
       title:
-        "Excel upload · Covoro | IBR-077-OM | Zero rated + line VAT 0 → accepted",
+        "Given Zero rated VAT — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-077-OM)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -3730,7 +3730,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
     {
       ruleId: "IBR-077-OM",
       title:
-        "Excel upload · Covoro | IBR-077-OM | Zero rated + line VAT 50 → error file",
+        "Given Zero rated VAT — When line VAT amount is 50 — Then the invoice should be rejected with an error. (IBR-077-OM)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -3748,7 +3748,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS: VatCategoryTaxAmountE09Scena
     {
       ruleId: "ALIGNED-IBRP-E-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-09-OM | Full Tax + E + IBT-117=0 → accepted",
+        "Given a Full Tax Exempt invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-E-09-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3760,7 +3760,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS: VatCategoryTaxAmountE09Scena
     {
       ruleId: "ALIGNED-IBRP-E-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-09-OM | Full Tax + E + IBT-117=50 → error file",
+        "Given a Full Tax Exempt invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-09-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3772,7 +3772,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS: VatCategoryTaxAmountE09Scena
     {
       ruleId: "ALIGNED-IBRP-E-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-E-09-OM | Simplified + E + IBT-117=0 → accepted",
+        "Given a Simplified Exempt invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-E-09-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3791,7 +3791,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS: VatCategoryTaxAmountO09Scena
     {
       ruleId: "ALIGNED-IBRP-O-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-09-OM | Full Tax + O + IBT-117=0 → accepted",
+        "Given a Full Tax Not subject invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-O-09-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3803,7 +3803,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS: VatCategoryTaxAmountO09Scena
     {
       ruleId: "ALIGNED-IBRP-O-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-09-OM | Full Tax + O + IBT-117=50 → error file",
+        "Given a Full Tax Not subject invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-09-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3815,7 +3815,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS: VatCategoryTaxAmountO09Scena
     {
       ruleId: "ALIGNED-IBRP-O-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-O-09-OM | Simplified + O + IBT-117=0 → accepted",
+        "Given a Simplified Not subject invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-O-09-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -3834,7 +3834,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scena
     {
       ruleId: "ALIGNED-IBRP-Z-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-09-OM | Full Tax + Z + IBT-117=0 → accepted",
+        "Given a Full Tax Zero rated invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-Z-09-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
@@ -3846,7 +3846,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scena
     {
       ruleId: "ALIGNED-IBRP-Z-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-09-OM | Full Tax + Z + IBT-117=50 → error file",
+        "Given a Full Tax Zero rated invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-09-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
@@ -3858,7 +3858,7 @@ export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scena
     {
       ruleId: "ALIGNED-IBRP-Z-09-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-Z-09-OM | Simplified + Z + IBT-117=0 → accepted",
+        "Given a Simplified Zero rated invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-Z-09-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
@@ -3876,7 +3876,7 @@ export const TXN_MUTUAL_EXCLUSION_SCENARIOS: TxnMutualExclusionScenario[] = [
   {
     ruleId: "IBR-138-OM",
     title:
-      "Excel upload · Covoro | IBR-138-OM | Self-billed + Third-party bits → error file",
+      "Given Self-billed combined with Third-party — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-138-OM)",
     invoiceTransactionTypeCode: combineOmanTxnTypeBits(
       "00100000000000000000",
       "00010000000000000000"
@@ -3887,7 +3887,7 @@ export const TXN_MUTUAL_EXCLUSION_SCENARIOS: TxnMutualExclusionScenario[] = [
   {
     ruleId: "IBR-138-OM",
     title:
-      "Excel upload · Covoro | IBR-138-OM | Self-billed alone → accepted",
+      "Given Self-billed alone — When the invoice is submitted — Then the invoice should be accepted. (IBR-138-OM)",
     invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
     shouldError: false,
     expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3895,7 +3895,7 @@ export const TXN_MUTUAL_EXCLUSION_SCENARIOS: TxnMutualExclusionScenario[] = [
   {
     ruleId: "IBR-149-OM",
     title:
-      "Excel upload · Covoro | IBR-149-OM | Simplified + Self-billed bits → error file",
+      "Given Simplified combined with Self-billed — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-149-OM)",
     invoiceTransactionTypeCode: combineOmanTxnTypeBits(
       "01000000000000000000",
       "00100000000000000000"
@@ -3906,7 +3906,7 @@ export const TXN_MUTUAL_EXCLUSION_SCENARIOS: TxnMutualExclusionScenario[] = [
   {
     ruleId: "IBR-149-OM",
     title:
-      "Excel upload · Covoro | IBR-149-OM | Simplified alone → accepted",
+      "Given Simplified alone — When the invoice is submitted — Then the invoice should be accepted. (IBR-149-OM)",
     invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
     shouldError: false,
     expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3920,7 +3920,7 @@ export const SELLER_VAT_MANDATORY_SCENARIOS: SellerVatMandatoryScenario[] = [
   {
     ruleId: "IBR-006-OM",
     title:
-      "Excel upload · Covoro | IBR-006-OM | Full Tax + Seller VATIN → accepted",
+      "Given a Full Tax invoice — When Seller VATIN is provided — Then the invoice should be accepted. (IBR-006-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     sellerVatIdentifier: IBR_003_VALID_SELLER_VATIN,
     shouldError: false,
@@ -3929,7 +3929,7 @@ export const SELLER_VAT_MANDATORY_SCENARIOS: SellerVatMandatoryScenario[] = [
   {
     ruleId: "IBR-006-OM",
     title:
-      "Excel upload · Covoro | IBR-006-OM | Full Tax + empty Seller VATIN → error file",
+      "Given a Full Tax invoice — When Seller VATIN is left empty — Then the invoice should be rejected with an error. (IBR-006-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     sellerVatIdentifier: "",
     patchSellerVatAfterGenerate: true,
@@ -3939,7 +3939,7 @@ export const SELLER_VAT_MANDATORY_SCENARIOS: SellerVatMandatoryScenario[] = [
   {
     ruleId: "IBR-006-OM",
     title:
-      "Excel upload · Covoro | IBR-006-OM | Import of Goods + empty Seller VATIN → accepted",
+      "Given Import of Goods — When Seller VATIN is left empty — Then the invoice should be accepted. (IBR-006-OM)",
     invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
     sellerVatIdentifier: "",
     patchSellerVatAfterGenerate: true,
@@ -3949,7 +3949,7 @@ export const SELLER_VAT_MANDATORY_SCENARIOS: SellerVatMandatoryScenario[] = [
   {
     ruleId: "IBR-006-OM",
     title:
-      "Excel upload · Covoro | IBR-006-OM | Import of Services (RCM) + empty Seller VATIN → accepted",
+      "Given Import of Services (RCM) — When Seller VATIN is left empty — Then the invoice should be accepted. (IBR-006-OM)",
     invoiceTransactionTypeCode: TXN_IMPORT_OF_SERVICES_RCM,
     sellerVatIdentifier: "",
     patchSellerVatAfterGenerate: true,
@@ -3959,7 +3959,7 @@ export const SELLER_VAT_MANDATORY_SCENARIOS: SellerVatMandatoryScenario[] = [
   {
     ruleId: "IBR-006-OM",
     title:
-      "Excel upload · Covoro | IBR-006-OM | Profit Margin Self-Invoice + empty Seller VATIN → accepted",
+      "Given Profit Margin Self-Invoice — When Seller VATIN is left empty — Then the invoice should be accepted. (IBR-006-OM)",
     invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
     sellerVatIdentifier: "",
     patchSellerVatAfterGenerate: true,
@@ -3977,7 +3977,7 @@ export const SELLER_IDENTIFIER_SCHEME_SCENARIOS: SellerIdentifierSchemeScenario[
     ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
       ruleId: "IBR-007-OM",
       title:
-        "Excel upload · Covoro | IBR-007-OM | {txn} + Seller identifier scheme → accepted",
+        "Given {txn} — When Seller identifier scheme is provided — Then the invoice should be accepted. (IBR-007-OM)",
       sellerIdentifierSchemeProvided: true,
       shouldError: false,
       expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
@@ -3985,7 +3985,7 @@ export const SELLER_IDENTIFIER_SCHEME_SCENARIOS: SellerIdentifierSchemeScenario[
     ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
       ruleId: "IBR-007-OM",
       title:
-        "Excel upload · Covoro | IBR-007-OM | {txn} + empty Seller identifier scheme → error file",
+        "Given {txn} — When Seller identifier scheme is left empty — Then the invoice should be rejected with an error. (IBR-007-OM)",
       sellerIdentifierSchemeProvided: false,
       shouldError: true,
       expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
@@ -3999,7 +3999,7 @@ export const BUYER_ID_OR_VATIN_SCENARIOS: BuyerIdOrVatinScenario[] = [
   ...expandAcrossIbr016BuyerIdOrVatinTxnTypes<BuyerIdOrVatinScenario>({
     ruleId: "IBR-016-OM",
     title:
-      "Excel upload · Covoro | IBR-016-OM | {txn} + Buyer VATIN only → accepted",
+      "Given {txn} — When only Buyer VATIN is provided — Then the invoice should be accepted. (IBR-016-OM)",
     buyerIdentifier: "",
     buyerVatIdentifier: IBR_003_VALID_BUYER_VATIN,
     shouldError: false,
@@ -4008,7 +4008,7 @@ export const BUYER_ID_OR_VATIN_SCENARIOS: BuyerIdOrVatinScenario[] = [
   {
     ruleId: "IBR-016-OM",
     title:
-      "Excel upload · Covoro | IBR-016-OM | Full Tax Invoice + Buyer identifier only → accepted",
+      "Given a Full Tax Invoice — When only Buyer identifier is provided — Then the invoice should be accepted. (IBR-016-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     buyerIdentifier: "OM-BUYER-001",
     buyerVatIdentifier: "",
@@ -4018,7 +4018,7 @@ export const BUYER_ID_OR_VATIN_SCENARIOS: BuyerIdOrVatinScenario[] = [
   ...expandAcrossIbr016BuyerIdOrVatinTxnTypes<BuyerIdOrVatinScenario>({
     ruleId: "IBR-016-OM",
     title:
-      "Excel upload · Covoro | IBR-016-OM | {txn} + empty Buyer id and VATIN → error file",
+      "Given {txn} — When Buyer identifier and VATIN are left empty — Then the invoice should be rejected with an error. (IBR-016-OM)",
     buyerIdentifier: "",
     buyerVatIdentifier: "",
     shouldError: true,
@@ -4043,7 +4043,7 @@ export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] 
     {
       ruleId: "IBR-010-OM",
       title:
-        "Excel upload · Covoro | IBR-010-OM | Seller postal address complete → accepted",
+        "Given a complete Seller postal address — When the invoice is submitted — Then the invoice should be accepted. (IBR-010-OM)",
       ...SELLER_ADDRESS_COMPLETE,
       shouldError: false,
       expectedErrorField: SELLER_ADDRESS_LINE_1_FIELD,
@@ -4051,7 +4051,7 @@ export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] 
     {
       ruleId: "IBR-010-OM",
       title:
-        "Excel upload · Covoro | IBR-010-OM | empty Seller address line 1 → error file",
+        "Given Seller postal address — When address line 1 is left empty — Then the invoice should be rejected with an error. (IBR-010-OM)",
       ...SELLER_ADDRESS_COMPLETE,
       addressLine1: "",
       shouldError: true,
@@ -4060,7 +4060,7 @@ export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] 
     {
       ruleId: "IBR-010-OM",
       title:
-        "Excel upload · Covoro | IBR-010-OM | empty Seller address line 2 → error file",
+        "Given Seller postal address — When address line 2 is left empty — Then the invoice should be rejected with an error. (IBR-010-OM)",
       ...SELLER_ADDRESS_COMPLETE,
       addressLine2: "",
       shouldError: true,
@@ -4069,7 +4069,7 @@ export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] 
     {
       ruleId: "IBR-010-OM",
       title:
-        "Excel upload · Covoro | IBR-010-OM | empty Seller address line 3 → error file",
+        "Given Seller postal address — When address line 3 is left empty — Then the invoice should be rejected with an error. (IBR-010-OM)",
       ...SELLER_ADDRESS_COMPLETE,
       addressLine3: "",
       shouldError: true,
@@ -4078,7 +4078,7 @@ export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] 
     {
       ruleId: "IBR-010-OM",
       title:
-        "Excel upload · Covoro | IBR-010-OM | empty Seller city → error file",
+        "Given Seller postal address — When city is left empty — Then the invoice should be rejected with an error. (IBR-010-OM)",
       ...SELLER_ADDRESS_COMPLETE,
       city: "",
       shouldError: true,
@@ -4087,7 +4087,7 @@ export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] 
     {
       ruleId: "IBR-010-OM",
       title:
-        "Excel upload · Covoro | IBR-010-OM | empty Seller post code → error file",
+        "Given Seller postal address — When post code is left empty — Then the invoice should be rejected with an error. (IBR-010-OM)",
       ...SELLER_ADDRESS_COMPLETE,
       postCode: "",
       shouldError: true,
@@ -4117,7 +4117,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + third party block → accepted",
+      "Given a Third-party invoice — When the third party block is complete — Then the invoice should be accepted. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     shouldError: false,
@@ -4126,7 +4126,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Third Party Name → error file",
+      "Given a Third-party invoice — When Third Party Name is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     thirdPartyName: "",
@@ -4136,7 +4136,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Third Party VATIN → error file",
+      "Given a Third-party invoice — When Third Party VATIN is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     thirdPartyVatin: "",
@@ -4146,7 +4146,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Address Line 1 → error file",
+      "Given a Third-party invoice — When Address Line 1 is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     addressLine1: "",
@@ -4156,7 +4156,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Address Line 2 → error file",
+      "Given a Third-party invoice — When Address Line 2 is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     addressLine2: "",
@@ -4166,7 +4166,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Address Line 3 → error file",
+      "Given a Third-party invoice — When Address Line 3 is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     addressLine3: "",
@@ -4176,7 +4176,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Third Party City → error file",
+      "Given a Third-party invoice — When Third Party City is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     city: "",
@@ -4186,7 +4186,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty postal code → error file",
+      "Given a Third-party invoice — When postal code is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     postalCode: "",
@@ -4196,7 +4196,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Country Code → error file",
+      "Given a Third-party invoice — When Country Code is left empty — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     countryCode: "",
@@ -4206,7 +4206,7 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Excel upload · Covoro | IBR-015-OM | Full Tax + third party block → error file",
+      "Given a Full Tax invoice — When a third party block is provided — Then the invoice should be rejected with an error. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     ...THIRD_PARTY_COMPLETE,
     shouldError: true,
@@ -4230,7 +4230,7 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
   ...expandAcrossIbr019BuyerAddressTxnTypes<BuyerAddressRequiredScenario>({
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | {txn} + Buyer address → accepted",
+      "Given {txn} — When Buyer address is complete — Then the invoice should be accepted. (IBR-019-OM)",
     ...BUYER_ADDRESS_COMPLETE,
     shouldError: false,
     expectedErrorField: BUYER_ADDRESS_LINE_1_FIELD,
@@ -4238,7 +4238,7 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
   ...expandAcrossIbr019BuyerAddressTxnTypes<BuyerAddressRequiredScenario>({
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | {txn} + empty Buyer address line 1 → error file",
+      "Given {txn} — When Buyer address line 1 is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
     ...BUYER_ADDRESS_COMPLETE,
     addressLine1: "",
     shouldError: true,
@@ -4247,7 +4247,7 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
   {
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer address line 2 → error file",
+      "Given a Full Tax Invoice — When Buyer address line 2 is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     ...BUYER_ADDRESS_COMPLETE,
     addressLine2: "",
@@ -4257,7 +4257,7 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
   {
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer address line 3 → error file",
+      "Given a Full Tax Invoice — When Buyer address line 3 is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     ...BUYER_ADDRESS_COMPLETE,
     addressLine3: "",
@@ -4267,7 +4267,7 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
   {
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer city → error file",
+      "Given a Full Tax Invoice — When Buyer city is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     ...BUYER_ADDRESS_COMPLETE,
     city: "",
@@ -4277,7 +4277,7 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
   {
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer post code → error file",
+      "Given a Full Tax Invoice — When Buyer post code is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     ...BUYER_ADDRESS_COMPLETE,
     postCode: "",
@@ -4311,7 +4311,7 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | e-commerce + all Deliver To address fields → accepted",
+        "Given e-commerce — When all Deliver To address fields are provided — Then the invoice should be accepted. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
       ...DELIVER_TO_ADDRESS_COMPLETE,
       shouldError: false,
@@ -4320,7 +4320,7 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | e-commerce + only Address Line 1 entered → error file",
+        "Given e-commerce — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
       addressLine1: DELIVER_TO_ADDRESS_COMPLETE.addressLine1,
       addressLine2: "",
@@ -4335,7 +4335,7 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | e-commerce + empty Deliver To address group → error file",
+        "Given e-commerce — When the Deliver To address group is left empty — Then the invoice should be rejected with an error. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
       addressLine1: "",
       addressLine2: "",
@@ -4351,7 +4351,7 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | non-ecommerce + all Deliver To address fields → accepted",
+        "Given a non-ecommerce invoice — When all Deliver To address fields are provided — Then the invoice should be accepted. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       ...DELIVER_TO_ADDRESS_COMPLETE,
       shouldError: false,
@@ -4360,7 +4360,7 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | non-ecommerce + only Address Line 1 entered → error file",
+        "Given a non-ecommerce invoice — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       addressLine1: DELIVER_TO_ADDRESS_COMPLETE.addressLine1,
       addressLine2: "",
@@ -4375,7 +4375,7 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Excel upload · Covoro | IBR-040-OM | non-ecommerce + empty Deliver To address group → accepted",
+        "Given a non-ecommerce invoice — When the Deliver To address group is left empty — Then the invoice should be accepted. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       addressLine1: "",
       addressLine2: "",
@@ -4397,7 +4397,7 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-029",
       title:
-        "Excel upload · Covoro | IBR-029 | Summary period end >= start → accepted",
+        "Given a Summary Invoice — When period end is on or after period start — Then the invoice should be accepted. (IBR-029)",
       invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "2026-01-31",
@@ -4407,7 +4407,7 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-029",
       title:
-        "Excel upload · Covoro | IBR-029 | Summary period end < start → error file",
+        "Given a Summary Invoice — When period end is before period start — Then the invoice should be rejected with an error. (IBR-029)",
       invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
       periodStart: "2026-01-31",
       periodEnd: "2026-01-01",
@@ -4417,7 +4417,7 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-CO-19",
       title:
-        "Excel upload · Covoro | IBR-CO-19 | Full Tax + start only → accepted",
+        "Given a Full Tax invoice — When only period start is provided — Then the invoice should be accepted. (IBR-CO-19)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "",
@@ -4427,7 +4427,7 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-CO-19",
       title:
-        "Excel upload · Covoro | IBR-CO-19 | Full Tax + end only → accepted",
+        "Given a Full Tax invoice — When only period end is provided — Then the invoice should be accepted. (IBR-CO-19)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       periodStart: "",
       periodEnd: "2026-01-31",
@@ -4437,7 +4437,7 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-CO-19",
       title:
-        "Excel upload · Covoro | IBR-CO-19 | Full Tax + both period dates → accepted",
+        "Given a Full Tax invoice — When both period dates are provided — Then the invoice should be accepted. (IBR-CO-19)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "2026-01-31",
@@ -4455,7 +4455,7 @@ export const INVOICE_LINE_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[
     {
       ruleId: "IBR-030",
       title:
-        "Excel upload · Covoro | IBR-030 | Line period end >= start → accepted",
+        "Given a line period — When end is on or after start — Then the invoice should be accepted. (IBR-030)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "2026-01-31",
@@ -4465,7 +4465,7 @@ export const INVOICE_LINE_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[
     {
       ruleId: "IBR-030",
       title:
-        "Excel upload · Covoro | IBR-030 | Line period end < start → error file",
+        "Given a line period — When end is before start — Then the invoice should be rejected with an error. (IBR-030)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       periodStart: "2026-01-31",
       periodEnd: "2026-01-01",
@@ -4481,7 +4481,7 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
   {
     ruleId: "IBR-058-OM",
     title:
-      "Excel upload · Covoro | IBR-058-OM | Paid amount + prepayment ref/UUID → accepted",
+      "Given a paid amount — When prepayment number and UUID are provided — Then the invoice should be accepted. (IBR-058-OM)",
     paidAmount: "100",
     prepaymentInvoiceNumber: "PREPAY-001",
     prepaymentInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
@@ -4491,7 +4491,7 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
   {
     ruleId: "IBR-058-OM",
     title:
-      "Excel upload · Covoro | IBR-058-OM | Paid amount + empty prepayment ref → error file",
+      "Given a paid amount — When prepayment number is left empty — Then the invoice should be rejected with an error. (IBR-058-OM)",
     paidAmount: "100",
     prepaymentInvoiceNumber: "",
     prepaymentInvoiceUuid: "",
@@ -4501,7 +4501,7 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
   {
     ruleId: "IBR-058-OM",
     title:
-      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + prepayment ref/UUID → accepted",
+      "Given paid amount 0 — When prepayment number and UUID are provided — Then the invoice should be accepted. (IBR-058-OM)",
     paidAmount: "0",
     prepaymentInvoiceNumber: "PREPAY-001",
     prepaymentInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
@@ -4511,7 +4511,7 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
   {
     ruleId: "IBR-058-OM",
     title:
-      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + empty prepayment ref/UUID → error file",
+      "Given paid amount 0 — When prepayment number and UUID are left empty — Then the invoice should be rejected with an error. (IBR-058-OM)",
     paidAmount: "0",
     prepaymentInvoiceNumber: "",
     prepaymentInvoiceUuid: "",
@@ -4521,7 +4521,7 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
   {
     ruleId: "IBR-058-OM",
     title:
-      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + empty prepayment UUID → error file",
+      "Given paid amount 0 — When prepayment UUID is left empty — Then the invoice should be rejected with an error. (IBR-058-OM)",
     paidAmount: "0",
     prepaymentInvoiceNumber: "PREPAY-001",
     prepaymentInvoiceUuid: "",
@@ -4531,7 +4531,7 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
   {
     ruleId: "IBR-058-OM",
     title:
-      "Excel upload · Covoro | IBR-058-OM | Paid amount 0 + empty prepayment number → error file",
+      "Given paid amount 0 — When prepayment number is left empty — Then the invoice should be rejected with an error. (IBR-058-OM)",
     paidAmount: "0",
     prepaymentInvoiceNumber: "",
     prepaymentInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
@@ -4547,7 +4547,7 @@ export const HS_CODE_LENGTH_SCENARIOS: HsCodeLengthScenario[] = [
   {
     ruleId: "IBR-080-OM",
     title:
-      "Excel upload · Covoro | IBR-080-OM | HS dropdown value with 12 digits → accepted",
+      "Given an HS classification — When the value has 12 digits — Then the invoice should be accepted. (IBR-080-OM)",
     itemClassificationIdentifier: OMAN_HS_CODE_12,
     shouldError: false,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -4555,7 +4555,7 @@ export const HS_CODE_LENGTH_SCENARIOS: HsCodeLengthScenario[] = [
   {
     ruleId: "IBR-080-OM",
     title:
-      "Excel upload · Covoro | IBR-080-OM | HS classification 6 digits → error file",
+      "Given an HS classification — When the value has 6 digits — Then the invoice should be rejected with an error. (IBR-080-OM)",
     itemClassificationIdentifier: "123456",
     shouldError: true,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -4563,7 +4563,7 @@ export const HS_CODE_LENGTH_SCENARIOS: HsCodeLengthScenario[] = [
   {
     ruleId: "IBR-080-OM",
     title:
-      "Excel upload · Covoro | IBR-080-OM | Non-HS classification value → error file",
+      "Given an item classification that is not an HS code — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-080-OM)",
     itemClassificationIdentifier: "FREE-TEXT-CODE",
     shouldError: true,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -4578,7 +4578,7 @@ export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificat
     {
       ruleId: "IBR-081-OM",
       title:
-        "Excel upload · Covoro | IBR-081-OM | Full Tax + ISIC → accepted",
+        "Given a Full Tax invoice — When industrial classification is provided — Then the invoice should be accepted. (IBR-081-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       industrialClassificationCode: "Extraction of crude petroleum",
       shouldError: false,
@@ -4587,7 +4587,7 @@ export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificat
     {
       ruleId: "IBR-081-OM",
       title:
-        "Excel upload · Covoro | IBR-081-OM | Full Tax + empty ISIC → error file",
+        "Given a Full Tax invoice — When industrial classification is left empty — Then the invoice should be rejected with an error. (IBR-081-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       industrialClassificationCode: "",
       shouldError: true,
@@ -4596,7 +4596,7 @@ export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificat
     {
       ruleId: "IBR-081-OM",
       title:
-        "Excel upload · Covoro | IBR-081-OM | Simplified + empty ISIC → accepted",
+        "Given a Simplified invoice — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       industrialClassificationCode: "",
       shouldError: false,
@@ -4605,7 +4605,7 @@ export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificat
     {
       ruleId: "IBR-081-OM",
       title:
-        "Excel upload · Covoro | IBR-081-OM | Import of Goods + empty ISIC → accepted",
+        "Given Import of Goods — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       industrialClassificationCode: "",
       shouldError: false,
@@ -4614,7 +4614,7 @@ export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificat
     {
       ruleId: "IBR-081-OM",
       title:
-        "Excel upload · Covoro | IBR-081-OM | Import of Services (RCM) + empty ISIC → accepted",
+        "Given Import of Services (RCM) — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
       invoiceTransactionTypeCode: TXN_IMPORT_OF_SERVICES_RCM,
       industrialClassificationCode: "",
       shouldError: false,
@@ -4623,7 +4623,7 @@ export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificat
     {
       ruleId: "IBR-081-OM",
       title:
-        "Excel upload · Covoro | IBR-081-OM | Profit Margin Self-Invoice + empty ISIC → accepted",
+        "Given Profit Margin Self-Invoice — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
       invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
       industrialClassificationCode: "",
       shouldError: false,
@@ -4639,7 +4639,7 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
     {
       ruleId: "IBR-CL-05-OM",
       title:
-        "Excel upload · Covoro | IBR-CL-05-OM | Allowance Exempt + exemption reason → accepted",
+        "Given an Exempt document allowance — When an exemption reason is provided — Then the invoice should be accepted. (IBR-CL-05-OM)",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
       amount: "10",
@@ -4649,7 +4649,7 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
     {
       ruleId: "IBR-CL-05-OM",
       title:
-        "Excel upload · Covoro | IBR-CL-05-OM | Allowance Exempt + empty exemption → error file",
+        "Given an Exempt document allowance — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: "",
       amount: "10",
@@ -4659,7 +4659,7 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
     {
       ruleId: "IBR-CL-05-OM",
       title:
-        "Excel upload · Covoro | IBR-CL-05-OM | Allowance Exempt + Zero-rated reason → error file",
+        "Given an Exempt document allowance — When a Zero-rated exemption reason is used — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       amount: "10",
@@ -4669,7 +4669,7 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
     {
       ruleId: "IBR-CL-05-OM",
       title:
-        "Excel upload · Covoro | IBR-CL-05-OM | Allowance Standard + exemption reason → error file",
+        "Given a Standard rate document allowance — When an exemption reason is provided — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
       vatCategory: STANDARD_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
       amount: "10",
@@ -4679,7 +4679,7 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
     {
       ruleId: "IBR-CL-10-OM",
       title:
-        "Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + Zero-rated reason → accepted",
+        "Given a Zero rated document allowance — When a Zero-rated exemption reason is provided — Then the invoice should be accepted. (IBR-CL-10-OM)",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       amount: "10",
@@ -4690,7 +4690,7 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
     {
       ruleId: "IBR-CL-10-OM",
       title:
-        "Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + empty exemption → error file",
+        "Given a Zero rated document allowance — When exemption reason is left empty — Then the invoice should be rejected with an error. (IBR-CL-10-OM)",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: "",
       amount: "10",
@@ -4700,7 +4700,7 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
     {
       ruleId: "IBR-CL-10-OM",
       title:
-        "Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + Exemption reason → error file",
+        "Given a Zero rated document allowance — When an Exempt exemption reason is used — Then the invoice should be rejected with an error. (IBR-CL-10-OM)",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
       amount: "10",
@@ -4716,7 +4716,7 @@ export const SELLER_COUNTRY_RCM_SCENARIOS: SellerCountryRcmScenario[] = [
   {
     ruleId: "IBR-160-OM",
     title:
-      "Excel upload · Covoro | IBR-160-OM | RCM + seller not OM → accepted",
+      "Given Import of Services (RCM) — When the seller country is not Oman — Then the invoice should be accepted. (IBR-160-OM)",
     invoiceTransactionTypeCode: TXN_IMPORT_OF_SERVICES_RCM,
     sellerCountryCode: UAE_COUNTRY_CODE,
     shouldError: false,
@@ -4725,7 +4725,7 @@ export const SELLER_COUNTRY_RCM_SCENARIOS: SellerCountryRcmScenario[] = [
   {
     ruleId: "IBR-160-OM",
     title:
-      "Excel upload · Covoro | IBR-160-OM | RCM + seller OM → error file",
+      "Given Import of Services (RCM) — When the seller country is Oman — Then the invoice should be rejected with an error. (IBR-160-OM)",
     invoiceTransactionTypeCode: TXN_IMPORT_OF_SERVICES_RCM,
     sellerCountryCode: OMAN_COUNTRY_CODE,
     shouldError: true,
@@ -4741,7 +4741,7 @@ export const PROFIT_MARGIN_PRECEDING_SCENARIOS: ProfitMarginPrecedingScenario[] 
     {
       ruleId: "IBR-175-OM",
       title:
-        "Excel upload · Covoro | IBR-175-OM | Profit Margin + preceding ref/UUID → accepted",
+        "Given Profit Margin — When preceding reference and UUID are provided — Then the invoice should be accepted. (IBR-175-OM)",
       precedingInvoiceReference: "INV-PREV-175",
       precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
       shouldError: false,
@@ -4750,7 +4750,7 @@ export const PROFIT_MARGIN_PRECEDING_SCENARIOS: ProfitMarginPrecedingScenario[] 
     {
       ruleId: "IBR-175-OM",
       title:
-        "Excel upload · Covoro | IBR-175-OM | Profit Margin + empty preceding → error file",
+        "Given Profit Margin — When preceding reference is left empty — Then the invoice should be rejected with an error. (IBR-175-OM)",
       precedingInvoiceReference: "",
       precedingInvoiceUuid: "",
       shouldError: true,
@@ -4771,7 +4771,7 @@ export const PROFIT_MARGIN_ITEM_TYPE_SCENARIOS: ProfitMarginItemTypeScenario[] =
     {
       ruleId: "CL-11-OM",
       title:
-        "Excel upload · Covoro | CL-11-OM | Profit Margin Invoice + empty item type → error file",
+        "Given Profit Margin Invoice — When item type is left empty — Then the invoice should be rejected with an error. (CL-11-OM)",
       invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_INVOICE,
       profitMarginItemTypeCode: "",
       shouldError: true,
@@ -4780,7 +4780,7 @@ export const PROFIT_MARGIN_ITEM_TYPE_SCENARIOS: ProfitMarginItemTypeScenario[] =
     {
       ruleId: "CL-11-OM",
       title:
-        "Excel upload · Covoro | CL-11-OM | Profit Margin Self-Invoice + empty item type → error file",
+        "Given Profit Margin Self-Invoice — When item type is left empty — Then the invoice should be rejected with an error. (CL-11-OM)",
       invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
       profitMarginItemTypeCode: "",
       shouldError: true,
@@ -4789,7 +4789,7 @@ export const PROFIT_MARGIN_ITEM_TYPE_SCENARIOS: ProfitMarginItemTypeScenario[] =
     {
       ruleId: "CL-11-OM",
       title:
-        "Excel upload · Covoro | CL-11-OM | Profit Margin Self-Invoice + CL-11 code → accepted",
+        "Given Profit Margin Self-Invoice — When a valid profit-margin item type is provided — Then the invoice should be accepted. (CL-11-OM)",
       invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
       profitMarginItemTypeCode: PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
       shouldError: false,
@@ -4798,7 +4798,7 @@ export const PROFIT_MARGIN_ITEM_TYPE_SCENARIOS: ProfitMarginItemTypeScenario[] =
     {
       ruleId: "CL-11-OM",
       title:
-        "Excel upload · Covoro | CL-11-OM | Profit Margin Self-Invoice + invalid item type → error file",
+        "Given Profit Margin Self-Invoice — When item type is invalid — Then the invoice should be rejected with an error. (CL-11-OM)",
       invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
       profitMarginItemTypeCode: PROFIT_MARGIN_ITEM_TYPE_INVALID_SAMPLE,
       shouldError: true,
@@ -4814,7 +4814,7 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-152-OM",
       title:
-        "Excel upload · Covoro | IBR-152-OM | Special Zone + Special Zone License buyer → accepted",
+        "Given Special Zone Supplies — When the buyer uses Special Zone License — Then the invoice should be accepted. (IBR-152-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       buyerIdentifierScheme: SPECIAL_ZONE_LICENSE_SCHEME,
       buyerIdentifier: "SZ-BUYER-001",
@@ -4824,7 +4824,7 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-152-OM",
       title:
-        "Excel upload · Covoro | IBR-152-OM | Special Zone + empty buyer identifier → error file",
+        "Given Special Zone Supplies — When buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-152-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       buyerIdentifierScheme: SPECIAL_ZONE_LICENSE_SCHEME,
       buyerIdentifier: "",
@@ -4834,7 +4834,7 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-153-OM",
       title:
-        "Excel upload · Covoro | IBR-153-OM | Import of Goods + Importer Customs ID → accepted",
+        "Given Import of Goods — When buyer uses Importer Customs ID — Then the invoice should be accepted. (IBR-153-OM)",
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       buyerIdentifierScheme: "Importer Customs ID",
       buyerIdentifier: "IMP-CUST-001",
@@ -4844,7 +4844,7 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-153-OM",
       title:
-        "Excel upload · Covoro | IBR-153-OM | Import of Goods + empty buyer identifier → error file",
+        "Given Import of Goods — When buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-153-OM)",
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       buyerIdentifierScheme: "Importer Customs ID",
       buyerIdentifier: "",
@@ -4854,7 +4854,7 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-153-OM",
       title:
-        "Excel upload · Covoro | IBR-153-OM | Full Tax + Importer Customs ID → error file",
+        "Given a Full Tax invoice — When buyer uses Importer Customs ID — Then the invoice should be rejected with an error. (IBR-153-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       buyerIdentifierScheme: "Importer Customs ID",
       buyerIdentifier: "IMP-CUST-001",
@@ -4886,7 +4886,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute name provided + attribute value empty → error file",
+        "Given an item attribute name — When attribute value is left empty — Then the invoice should be rejected with an error. (IBR-CO-21)",
       itemAttributeName: "Color",
       itemAttributeValue: "",
       shouldError: true,
@@ -4895,7 +4895,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute value provided + attribute name empty → error file",
+        "Given an item attribute value — When attribute name is left empty — Then the invoice should be rejected with an error. (IBR-CO-21)",
       itemAttributeName: "",
       itemAttributeValue: "Black",
       shouldError: true,
@@ -4904,7 +4904,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | both attribute name and value empty → accepted",
+        "Given item attributes — When name and value are both left empty — Then the invoice should be accepted. (IBR-CO-21)",
       itemAttributeName: "",
       itemAttributeValue: "",
       shouldError: false,
@@ -4915,7 +4915,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute name minimum length (1 char) → accepted",
+        "Given an item attribute name of 1 character — When a value is provided — Then the invoice should be accepted. (IBR-CO-21)",
       itemAttributeName: "A",
       itemAttributeValue: "SomeValue",
       shouldError: false,
@@ -4924,7 +4924,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute name maximum length (300 chars) → accepted",
+        "Given an item attribute name of 300 characters — When a value is provided — Then the invoice should be accepted. (IBR-CO-21)",
       itemAttributeName: "A".repeat(300),
       itemAttributeValue: "SomeValue",
       shouldError: false,
@@ -4933,7 +4933,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute name above maximum length (301 chars) → error file",
+        "Given an item attribute name of 301 characters — When a value is provided — Then the invoice should be rejected with an error. (IBR-CO-21)",
       itemAttributeName: "A".repeat(301),
       itemAttributeValue: "SomeValue",
       shouldError: true,
@@ -4944,7 +4944,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute value minimum length (1 char) → accepted",
+        "Given an item attribute value of 1 character — When a name is provided — Then the invoice should be accepted. (IBR-CO-21)",
       itemAttributeName: "Color",
       itemAttributeValue: "B",
       shouldError: false,
@@ -4953,7 +4953,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute value maximum length (300 chars) → accepted",
+        "Given an item attribute value of 300 characters — When a name is provided — Then the invoice should be accepted. (IBR-CO-21)",
       itemAttributeName: "Color",
       itemAttributeValue: "B".repeat(300),
       shouldError: false,
@@ -4962,7 +4962,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
     {
       ruleId: "IBR-CO-21",
       title:
-        "Excel upload · Covoro | IBR-CO-21 | attribute value above maximum length (301 chars) → error file",
+        "Given an item attribute value of 301 characters — When a name is provided — Then the invoice should be rejected with an error. (IBR-CO-21)",
       itemAttributeName: "Color",
       itemAttributeValue: "B".repeat(301),
       shouldError: true,
@@ -5000,56 +5000,56 @@ function partyIdentifierCompanionScenarios(
   return [
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier without scheme or textual code → accepted`,
+      title: `Given ${who} identifier without scheme or textual code — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
       companion: "none",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier + scheme only → accepted`,
+      title: `Given ${who} identifier with scheme only — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
       companion: "scheme",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier + textual code only → accepted`,
+      title: `Given ${who} identifier with textual code only — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
       companion: "code",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier + scheme and textual code → accepted`,
+      title: `Given ${who} identifier with scheme and textual code — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
       companion: "both",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier empty (no scheme or textual code) → accepted`,
+      title: `Given empty ${who} identifier with no scheme or textual code — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
       companion: "none",
       identifier: "",
       shouldError: false,
     },
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier scheme without identifier → error file`,
+      title: `Given ${who} identifier scheme without identifier — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
       companion: "scheme",
       identifier: "",
       shouldError: true,
     },
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier textual code without identifier → error file`,
+      title: `Given ${who} identifier textual code without identifier — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
       companion: "code",
       identifier: "",
       shouldError: true,
     },
     {
       ...base,
-      title: `Excel upload · Covoro | ${ruleId} | ${who} identifier scheme and textual code without identifier → error file`,
+      title: `Given ${who} identifier scheme and textual code without identifier — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
       companion: "both",
       identifier: "",
       shouldError: true,

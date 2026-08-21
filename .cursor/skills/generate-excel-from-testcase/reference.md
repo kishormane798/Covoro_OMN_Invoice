@@ -16,7 +16,7 @@ Source of truth: `utils/invoiceExcel.ts` header comment + Python writer `utils/i
 
 ## Mapping
 
-- Logical → header: `tests/kishorsubmit/testData/submitInvoiceExcelHeaderMap.ts` (re-exported as `testData/FieldValidations/submitInvoiceExcelHeaderMap.ts`)
+- Logical → header: `testData/FieldValidations/submitInvoiceExcelHeaderMap.ts`
 - Header helpers: `hasHeaderLabel`, `getCachedInvoiceTemplateHeaders`, `normalizeInvoiceHeader`
 - Filter configs to present columns: `filterConfigsByHeaderLabels`, `filterSubmitInvoiceRowsByTemplateHeaders`
 
@@ -39,6 +39,6 @@ Not generators — readers after download:
 |-------------|-----------|
 | `Helpers/formulaValidationHelper.ts` | `generateInvoiceExcel` |
 | Field validation helpers / specs | `updateExcelField*` |
-| `tests/kishorsubmit/Helpers/submitInvoiceCaseHelper.ts` | `generateInvoiceFromSubmitData` / `FromSubmitRows` |
+| `Helpers/submitInvoiceCaseHelper.ts` | `generateInvoiceFromSubmitData` / `FromSubmitRows` |
 | `Helpers/conditionalValidationSpecHelpers.ts` | `generateInvoiceFromSubmitData` after prepare |
 | `scripts/generate_valid_oman_invoice.ts` | `generateInvoiceFromSubmitData` |

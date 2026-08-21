@@ -46,7 +46,7 @@ function allowedScenarios(party: Cl06OmParty): Cl06OmIdentifierSchemeScenario[] 
   const { who, schemeField, identifier } = partyMeta(party);
   return buyerSellerIdentifierCodeValidTestData.map((item) => ({
     ruleId: CL06_OM_RULE_ID,
-    title: `Excel upload · Covoro | ${CL06_OM_RULE_ID} | ${who} scheme ${item.label} → accepted`,
+    title: `Given a ${who} identifier — When the scheme is ${item.label} — Then the invoice should be accepted. (${CL06_OM_RULE_ID})`,
     party,
     schemeValue: item.label,
     identifier,
@@ -59,7 +59,7 @@ function notAllowedScenario(party: Cl06OmParty): Cl06OmIdentifierSchemeScenario 
   const { who, schemeField, identifier } = partyMeta(party);
   return {
     ruleId: CL06_OM_RULE_ID,
-    title: `Excel upload · Covoro | ${CL06_OM_RULE_ID} | ${who} scheme not on Buyer/Seller Identifier list → error file`,
+    title: `Given a ${who} identifier — When the scheme is not on the Buyer/Seller Identifier list — Then the invoice should be rejected with an error. (${CL06_OM_RULE_ID})`,
     party,
     schemeValue: CL06_OM_INVALID_SCHEME,
     identifier,

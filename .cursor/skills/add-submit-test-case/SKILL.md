@@ -8,12 +8,12 @@ description: Add or extend submit and delivery test cases for Covoro/OMN templat
 ## When to use
 
 - Adding a new submit + delivery scenario (single or multi-item)
-- Extending `tests/kishorsubmit/testData/SubmitInvoice.ts`, `SubmitInvoiceMultiItem.ts`, or related datasets
+- Extending `testData/FieldValidations/SubmitInvoice.ts`, `SubmitInvoiceMultiItem.ts`, or related datasets
 - Covoro / OMN primary template submit flows
 
 ## Prerequisites
 
-- Read `tests/kishorsubmit/Helpers/submitInvoiceCaseHelper.ts` and the target spec (e.g. `tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`).
+- Read `Helpers/submitInvoiceCaseHelper.ts` and the target spec (e.g. `tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`).
 - Confirm template: Covoro/OMN primary (`template.xlsx`).
 
 ## Workflow
@@ -22,8 +22,8 @@ description: Add or extend submit and delivery test cases for Covoro/OMN templat
 
 | Template | Spec example | Dataset |
 |----------|--------------|---------|
-| Covoro | `tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts` | `tests/kishorsubmit/testData/SubmitInvoice.ts` |
-| Multi-item | `tests/kishorsubmit/SubmitInvoice_MultiItem_*_Test.spec.ts` | `SubmitInvoiceMultiItem.ts` / `multiItemInvoiceCases` |
+| Covoro | `tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts` | `testData/FieldValidations/SubmitInvoice.ts` |
+| Multi-item | `tests/OMN_SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts` | `SubmitInvoiceMultiItem.ts` / `multiItemInvoiceCases` |
 
 ### 2. Add test data using Excel header keys
 
@@ -40,9 +40,9 @@ Submit rows must use Excel column names, not camelCase:
 Spec pattern:
 
 ```ts
-import { test } from "./Src/baseTest";
-import { invoiceData } from "./testData/SubmitInvoice";
-import { runSubmitInvoiceCase } from "./Helpers/submitInvoiceCaseHelper";
+import { test } from "../Src/baseTest";
+import { invoiceData } from "../testData/FieldValidations/SubmitInvoice";
+import { runSubmitInvoiceCase } from "../Helpers/submitInvoiceCaseHelper";
 
 test("Excel upload · Covoro | Submit | ... → delivered", async ({ page }) => {
   await runSubmitInvoiceCase(page, row);
@@ -70,7 +70,7 @@ Use `runSubmitInvoiceUploadSanityCase` when asserting upload `completed` only.
 ```bash
 npm run test:covoro
 # single case:
-npx playwright test tests/kishorsubmit/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts --grep "your title fragment"
+npx playwright test tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts --grep "your title fragment"
 ```
 
 Delivery timeout: `SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS` (default 2–4 min).
@@ -80,6 +80,6 @@ Delivery timeout: `SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS` (default 2–4 min).
 - [ ] Row uses Excel header keys consistent with template
 - [ ] No manual total overrides that fight recalculation
 - [ ] Test title includes type code, currency, tax dimensions
-- [ ] Spec stays thin — logic in `tests/kishorsubmit/Helpers/submitInvoiceCaseHelper.ts`
+- [ ] Spec stays thin — logic in `Helpers/submitInvoiceCaseHelper.ts`
 - [ ] Parallel-safe invoice numbers (no hardcoded collisions)
 - [ ] Targeted npm script or grep run passes

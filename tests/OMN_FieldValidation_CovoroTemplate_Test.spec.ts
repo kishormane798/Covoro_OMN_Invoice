@@ -88,12 +88,12 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Invoice Number — valid length", () => {
     for (const config of FV.fieldInvoice_number) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Document – ${config.field} (minimum length (${config.min} char${config.min === 1 ? "" : "s"})).`, async ({ page }) => {
+      test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
         await uploadAndVerify(page, filePath);
       });
 
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Document – ${config.field} (maximum length (${config.max} chars)).`, async ({ page }) => {
+      test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
         await uploadAndVerify(page, filePath);
       });
@@ -101,14 +101,14 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   });
 
   test.describe("Invoice Number — invalid values", () => {
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Document – Invoice Number (empty).`, async ({ page }) => {
+    test(`An empty Invoice Number should be rejected with an error. (Invoice Number)`, async ({ page }) => {
       const { filePath } = await generateOmanSeededFieldExcel("Invoice Number", "");
       await runErrorValidation(
         page,
         { filePath, field: "Invoice Number", checkEdit: false });
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Document – Invoice Number (65+ chars).`, async ({ page }) => {
+    test(`An Invoice Number of 65 or more characters should be rejected with an error. (Invoice Number)`, async ({ page }) => {
       const tooLong = "INV-" + randomAlphaNumeric(80);
       const invoiceNumber = buildInvoiceNumber(tooLong, 65);
       const { filePath } = await generateOmanSeededFieldExcel("Invoice Number", invoiceNumber);
@@ -125,7 +125,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
         .replace(/ \(should pass\)/gi, "")
         .replace(/ \(should error\)/gi, "")
         .trim();
-      test(`Verify Excel upload ${scenario.shouldError ? "returns an error file" : "is accepted"} for ${TEMPLATE} Document – Invoice Issue Date (${condition}).`, async ({ page }) => {
+      test(`Invoice Issue Date in ${condition} should be ${scenario.shouldError ? "rejected with an error" : "accepted"}. (Invoice Issue Date)`, async ({ page }) => {
         const invoiceNumber = FV.buildDynamicInvoiceNumber(scenario.invoicePrefix);
         const { filePath } = await generateOmanIssueDateExcel(
           invoiceNumber,
@@ -147,9 +147,11 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     for (const config of FV.fieldValidationMandatory) {
       // Dummy min/max strings are not the logged-in seller TIN → error file.
       const mustBeLoginTin = config.field === "Seller electronic address";
-      const outcome = mustBeLoginTin ? "returns an error file" : "is accepted";
+      const outcome = mustBeLoginTin
+        ? "should be rejected with an error"
+        : "should be accepted";
 
-      test(`Verify Excel upload ${outcome} for ${TEMPLATE} Mandatory – ${config.field} (minimum length (${config.min} char${config.min === 1 ? "" : "s"})).`, async ({ page }) => {
+      test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) ${outcome}. (${config.field})`, async ({ page }) => {
         const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
           config.field,
           config.min
@@ -163,7 +165,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
         await uploadAndVerify(page, filePath);
       });
 
-      test(`Verify Excel upload ${outcome} for ${TEMPLATE} Mandatory – ${config.field} (maximum length (${config.max} chars)).`, async ({ page }) => {
+      test(`${config.field} at maximum length (${config.max} characters) ${outcome}. (${config.field})`, async ({ page }) => {
         const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
           config.field,
           config.max
@@ -181,7 +183,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Mandatory fields — invalid length", () => {
     for (const config of FV.fieldValidationMandatory) {
-      test(`Verify Excel upload returns an error file for ${TEMPLATE} Mandatory – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
+      test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be rejected with an error. (${config.field})`, async ({ page }) => {
         const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
           config.field,
           config.belowMin
@@ -191,7 +193,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
           { filePath, field: config.field, invoiceNumber, checkEdit: true });
       });
 
-      test(`Verify Excel upload returns an error file for ${TEMPLATE} Mandatory – ${config.field} (${config.aboveMax} chars (above maximum)).`, async ({ page }) => {
+      test(`${config.field} of ${config.aboveMax} characters should be rejected with an error. (${config.field})`, async ({ page }) => {
         const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
           config.field,
           config.aboveMax
@@ -205,17 +207,17 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Optional fields — valid length", () => {
     for (const config of FV.fieldValidationOptional) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Optional – ${config.field} (minimum length (${config.min} char${config.min === 1 ? "" : "s"})).`, async ({ page }) => {
+      test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
         await uploadAndVerify(page, filePath);
       });
 
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Optional – ${config.field} (maximum length (${config.max} chars)).`, async ({ page }) => {
+      test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
         await uploadAndVerify(page, filePath);
       });
 
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Optional – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
+      test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);
         await uploadAndVerify(page, filePath);
       });
@@ -224,7 +226,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Optional fields — invalid length", () => {
     for (const config of FV.fieldValidationOptional) {
-      test(`Verify Excel upload returns an error file for ${TEMPLATE} Optional – ${config.field} (${config.aboveMax} chars (above maximum)).`, async ({ page }) => {
+      test(`${config.field} of ${config.aboveMax} characters should be rejected with an error. (${config.field})`, async ({ page }) => {
         const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
           config.field,
           config.aboveMax
@@ -238,12 +240,12 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Conditional fields — valid length", () => {
     for (const config of conditionalLengthConfigs) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – ${config.field} (minimum length (${config.min} char${config.min === 1 ? "" : "s"})).`, async ({ page }) => {
+      test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
         await uploadAndVerify(page, filePath);
       });
 
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – ${config.field} (maximum length (${config.max} chars)).`, async ({ page }) => {
+      test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
         await uploadAndVerify(page, filePath);
       });
@@ -253,7 +255,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       // IBR-155-OM: Export + Export of Services → empty Service Type is mandatory → error file.
       if (config.field === "Service Type Code") continue;
 
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
+      test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);
         await uploadAndVerify(page, filePath);
       });
@@ -262,10 +264,10 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Party identifier — companion length", () => {
     for (const scenario of FV.PARTY_IDENTIFIER_LENGTH_CASES) {
-      const titleVerb = scenario.shouldAccept
-        ? "is accepted"
-        : "returns an error file";
-      test(`Verify Excel upload ${titleVerb} for ${TEMPLATE} Conditional – ${scenario.identifierField} (${scenario.titleSuffix}).`, async ({
+      const outcome = scenario.shouldAccept
+        ? "should be accepted"
+        : "should be rejected with an error";
+      test(`${scenario.identifierField} with ${scenario.titleSuffix} ${outcome}. (${scenario.identifierField})`, async ({
         page,
       }) => {
         const { filePath, invoiceNumber } =
@@ -313,7 +315,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Conditional fields — invalid length", () => {
     for (const config of conditionalLengthConfigs) {
-      test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – ${config.field} (${config.aboveMax} chars (above maximum)).`, async ({ page }) => {
+      test(`${config.field} of ${config.aboveMax} characters should be rejected with an error. (${config.field})`, async ({ page }) => {
         const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
           config.field,
           config.aboveMax
@@ -327,7 +329,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
         config.field === "Preceding Invoice reference" ||
         config.field === "Service Type Code"
       ) {
-        test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – ${config.field} (${config.belowMin === 0 ? "empty (below minimum)" : `${config.belowMin} chars (below minimum)`}).`, async ({ page }) => {
+        test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be rejected with an error. (${config.field})`, async ({ page }) => {
           const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
             config.field,
             config.belowMin
@@ -341,8 +343,8 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   });
 
   test.describe("Numeric fields — valid digit count", () => {
-    const titleVerb = (expectsError?: boolean) =>
-      expectsError ? "returns an error file" : "is accepted";
+    const titleOutcome = (expectsError?: boolean) =>
+      expectsError ? "should be rejected with an error" : "should be accepted";
 
     const runNumericBoundary = async (
       page: Page,
@@ -370,23 +372,23 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     };
 
     for (const config of numericFieldConfigs) {
-      test(`Verify Excel upload ${titleVerb(config.minExpectsError)} for ${TEMPLATE} Numeric – ${config.field} (minimum value (${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)})).`, async ({ page }) => {
+      test(`${config.field} at minimum value (${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)}) ${titleOutcome(config.minExpectsError)}. (${config.field})`, async ({ page }) => {
         await runNumericBoundary(page, config, config.min, config.minExpectsError);
       });
 
-      test(`Verify Excel upload ${titleVerb(config.maxExpectsError)} for ${TEMPLATE} Numeric – ${config.field} (maximum digits (${config.max})).`, async ({ page }) => {
+      test(`${config.field} at maximum digits (${config.max}) ${titleOutcome(config.maxExpectsError)}. (${config.field})`, async ({ page }) => {
         await runNumericBoundary(page, config, config.max, config.maxExpectsError);
       });
 
       if (config.belowMin === 0) {
-        test(`Verify Excel upload ${titleVerb(config.emptyExpectsError)} for ${TEMPLATE} Numeric – ${config.field} (empty (below minimum)).`, async ({ page }) => {
+        test(`An empty ${config.field} ${titleOutcome(config.emptyExpectsError)}. (${config.field})`, async ({ page }) => {
           await runNumericBoundary(page, config, config.belowMin, config.emptyExpectsError);
         });
       }
 
       if (config.allowsNegative) {
         const negativeValue = `-${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)}`;
-        test(`Verify Excel upload is accepted for ${TEMPLATE} Numeric – ${config.field} (negative value (${negativeValue})).`, async ({ page }) => {
+        test(`${config.field} with negative value (${negativeValue}) should be accepted. (${config.field})`, async ({ page }) => {
           const { filePath } = await generateOmanSeededFieldExcel(config.field, negativeValue);
           await uploadAndVerify(page, filePath);
         });
@@ -396,7 +398,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Numeric fields — invalid digit count", () => {
     for (const config of numericFieldConfigs) {
-      test(`Verify Excel upload returns an error file for ${TEMPLATE} Numeric – ${config.field} (${config.aboveMax} digits (above maximum)).`, async ({ page }) => {
+      test(`${config.field} of ${config.aboveMax} digits should be rejected with an error. (${config.field})`, async ({ page }) => {
         const { filePath, invoiceNumber } = await generateOmanNumericFieldExcel(
           config.field,
           config.aboveMax,
@@ -416,7 +418,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Invoice Currency dropdown", () => {
     for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS) {
-      test(`Verify Excel upload is accepted for ${TEMPLATE} Dropdown – Invoice Currency Code (${condition}).`, async ({ page }) => {
+      test(`Invoice Currency Code with ${condition} should be accepted. (Invoice Currency Code)`, async ({ page }) => {
         test.setTimeout(DROPDOWN_TIMEOUT_MS);
         const files = await generateOmanDropdownMasterExcel(
           FV.INVOICE_CURRENCY_CODE_FIELD,
@@ -429,7 +431,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       });
     }
 
-    test(`Verify Excel upload is rejected for ${TEMPLATE} Dropdown – Invoice Currency Code (non-OMR with blank exchange rate).`, async ({ page }) => {
+    test(`A non-OMR Invoice Currency Code with a blank exchange rate should be rejected with an error. (Invoice Currency Code)`, async ({ page }) => {
       test.setTimeout(DROPDOWN_TIMEOUT_MS);
       const { filePath } = await generateInvoiceCurrencyExchangeBatchExcel(
         NON_OMR_INVOICE_CURRENCY_CODES,
@@ -443,7 +445,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS) {
       test.describe(condition, () => {
         for (const config of dropdownMasterOnCovoro) {
-          test(`Verify Excel upload is accepted for ${TEMPLATE} Dropdown – ${config.field} (${condition}).`, async ({ page }) => {
+          test(`${config.field} with ${condition} should be accepted. (${config.field})`, async ({ page }) => {
             const timeoutMs =
               config.master === unitOfMeasurementValidTestData
                 ? UNIT_OF_MEASUREMENT_TIMEOUT_MS
@@ -466,7 +468,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   test.describe("Dropdown — invalid values", () => {
     for (const config of dropdownInvalidOnCovoro) {
       for (const option of config.master) {
-        test(`Verify Excel upload returns an error file for ${TEMPLATE} Dropdown – ${config.field} (invalid value "${option.label}").`, async ({ page }) => {
+        test(`${config.field} with invalid value "${option.label}" should be rejected with an error. (${config.field})`, async ({ page }) => {
           const files = await generateOmanDropdownMasterExcel(config.field, option);
           for (const { filePath, invoiceNumber } of files) {
             await runErrorValidation(
@@ -482,21 +484,21 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     const reasonCode = FV.TAX_EXEMPTION_REASON_SAMPLE;
     const reasonText = "Exempt supply under Oman VAT";
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Item Tax – Tax exemption reason (Exempt + code and text).`, async ({
+    test(`Exempt VAT with exemption code and text should be accepted. (Tax exemption reason)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanExemptReasonExcel(reasonCode, reasonText);
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Item Tax – Tax exemption reason text (Exempt + code without text).`, async ({
+    test(`Exempt VAT with exemption code and no text should be accepted. (Tax exemption reason text)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanExemptReasonExcel(reasonCode, "");
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Item Tax – Tax exemption reason code (Exempt + text without code).`, async ({
+    test(`Exempt VAT with exemption text and no code should be rejected with an error. (Tax exemption reason code)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanExemptReasonExcel(
@@ -511,7 +513,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Item Tax – Tax exemption reason (Exempt + both empty).`, async ({
+    test(`Exempt VAT with empty exemption code and text should be rejected with an error. (Tax exemption reason)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanExemptReasonExcel("", "");
@@ -530,14 +532,14 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     const prepayNumber = "PRE-OMN-001";
     const prepayUuid = FV.PRECEDING_INVOICE_UUID_SAMPLE;
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – Prepayment invoice number (empty (below minimum)).`, async ({
+    test(`An empty Prepayment invoice number should be accepted. (Prepayment invoice number)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanFieldLengthExcel(prepayNumberField, 0);
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Prepayment – Prepayment invoice number (number and UUID).`, async ({
+    test(`A Prepayment invoice number with UUID should be accepted. (Prepayment invoice number)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanPrepaymentPairExcel(
@@ -547,7 +549,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Prepayment – Prepayment invoice UUID (number without UUID).`, async ({
+    test(`A Prepayment invoice number without UUID should be rejected with an error. (Prepayment invoice UUID)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanPrepaymentPairExcel(
@@ -562,14 +564,14 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Prepayment – Prepayment invoice number (transaction type without number and UUID).`, async ({
+    test(`A transaction type without Prepayment invoice number and UUID should be accepted. (Prepayment invoice number)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanPrepaymentPairExcel("", "");
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Prepayment – Prepayment invoice number (UUID without number).`, async ({
+    test(`A Prepayment invoice UUID without number should be rejected with an error. (Prepayment invoice number)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanPrepaymentPairExcel(
@@ -589,7 +591,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     const supportRef = FV.SUPPORTING_DOCUMENT_REFERENCE_SAMPLE;
     const supportUuid = FV.PRECEDING_INVOICE_UUID_SAMPLE;
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Supporting document – Supporting document reference (reference and UUID).`, async ({
+    test(`A supporting document reference with UUID should be accepted. (Supporting document reference)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanSupportingDocumentPairExcel(
@@ -599,7 +601,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Supporting document – Supporting document UUID (reference without UUID).`, async ({
+    test(`A supporting document reference without UUID should be rejected with an error. (Supporting document UUID)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } =
@@ -612,7 +614,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Supporting document – Supporting document reference (UUID without reference).`, async ({
+    test(`A supporting document UUID without reference should be rejected with an error. (Supporting document reference)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } =
@@ -630,7 +632,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     const importDate = "2026-06-15";
     const customsNumber = "CUST-OMN-001";
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – Customs Declaration number (import date and number).`, async ({
+    test(`An import date with Customs Declaration number should be accepted. (Customs Declaration number)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanImportDateCustomsExcel({
@@ -640,7 +642,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Customs Declaration number (import date without number).`, async ({
+    test(`An import date without Customs Declaration number should be rejected with an error. (Customs Declaration number)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanImportDateCustomsExcel({
@@ -655,7 +657,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Customs Declaration number (Import of Goods without number).`, async ({
+    test(`Import of Goods without Customs Declaration number should be rejected with an error. (Customs Declaration number)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanImportDateCustomsExcel({
@@ -676,7 +678,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     const attributeName = "Color";
     const attributeValue = "Black";
 
-    test(`Verify Excel upload is accepted for ${TEMPLATE} Conditional – Item attribute name (name and value).`, async ({
+    test(`An item attribute name with value should be accepted. (Item attribute name)`, async ({
       page,
     }) => {
       const { filePath } = await generateOmanItemAttributePairExcel(
@@ -686,7 +688,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       await uploadAndVerify(page, filePath);
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Item attribute value (name without value).`, async ({
+    test(`An item attribute name without value should be rejected with an error. (Item attribute value)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanItemAttributePairExcel(
@@ -701,7 +703,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Verify Excel upload returns an error file for ${TEMPLATE} Conditional – Item attribute name (value without name).`, async ({
+    test(`An item attribute value without name should be rejected with an error. (Item attribute name)`, async ({
       page,
     }) => {
       const { filePath, invoiceNumber } = await generateOmanItemAttributePairExcel(
@@ -719,10 +721,10 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
 
   test.describe("Format / context fields — VATIN, UUID, rate, FX, profit margin", () => {
     for (const tc of FV.formatContextFieldValidationCases) {
-      const verb = tc.shouldError
-        ? "returns an error file"
-        : "is accepted";
-      test(`Verify Excel upload ${verb} for ${TEMPLATE} ${tc.section} – ${tc.field} (${tc.condition}).`, async ({
+      const outcome = tc.shouldError
+        ? "should be rejected with an error"
+        : "should be accepted";
+      test(`${tc.field} with ${tc.condition} ${outcome}. (${tc.field})`, async ({
         page,
       }) => {
         const { filePath, invoiceNumber } = await generateFormatContextFieldExcel(tc);

@@ -42,7 +42,7 @@ What is the test asserting?
 |----------|----------------------|--------|
 | Formula | `testData/FieldValidations/Min_max_field_validation.ts` (`defaultInvoiceData`) + scenario overlays | camelCase |
 | Field patch | `testData/FieldValidations/*` configs with `field` = Excel header | header + value/length |
-| Submit | `tests/kishorsubmit/testData/SubmitInvoice.ts` (etc.) | Excel header keys |
+| Submit | `testData/FieldValidations/SubmitInvoice.ts` (etc.) | Excel header keys |
 | Conditional | builders in `Helpers/conditionalValidationHelper.ts` + configs | header keys after prepare |
 
 For authoring a new row/payload, also load `author-excel-testcase-data`.

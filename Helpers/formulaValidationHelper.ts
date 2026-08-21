@@ -1052,28 +1052,28 @@ export const ALIGNED_IBRP_E_08_OM_CASES: AlignedIbrpE08OmCase[] = [
     ruleId: "ALIGNED-IBRP-E-08-OM",
     polarity: "allowed_line",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Full Tax + E line taxable amount matches → accepted",
+      "Given Exempt VAT on a Full Tax invoice — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-E-08-OM",
     polarity: "allowed_line_allowance_charge",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Full Tax + E line/allowance/charge taxable amount matches → accepted",
+      "Given Exempt VAT on a Full Tax invoice — When line, allowance, and charge taxable amounts match — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-E-08-OM",
     polarity: "not_allowed_mismatch",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Full Tax + E taxable amount mismatch → error file",
+      "Given Exempt VAT on a Full Tax invoice — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-08-OM)",
     shouldError: true,
   },
   {
     ruleId: "ALIGNED-IBRP-E-08-OM",
     polarity: "exception_simplified_e_accepted",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Simplified + E with taxable amount → accepted",
+      "Given Exempt VAT on a Simplified invoice — When a taxable amount is provided — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
     shouldError: false,
   },
 ];
@@ -1189,28 +1189,28 @@ export const ALIGNED_IBRP_O_08_OM_CASES: AlignedIbrpO08OmCase[] = [
     ruleId: "ALIGNED-IBRP-O-08-OM",
     polarity: "allowed_line",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Full Tax + O line taxable amount matches → accepted",
+      "Given Not subject to VAT on a Full Tax invoice — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-O-08-OM",
     polarity: "allowed_line_allowance_charge",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Full Tax + O line/allowance/charge taxable amount matches → accepted",
+      "Given Not subject to VAT on a Full Tax invoice — When line, allowance, and charge taxable amounts match — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-O-08-OM",
     polarity: "not_allowed_mismatch",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Full Tax + O taxable amount mismatch → error file",
+      "Given Not subject to VAT on a Full Tax invoice — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-08-OM)",
     shouldError: true,
   },
   {
     ruleId: "ALIGNED-IBRP-O-08-OM",
     polarity: "exception_simplified_o_accepted",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Simplified + O with taxable amount → accepted",
+      "Given Not subject to VAT on a Simplified invoice — When a taxable amount is provided — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
     shouldError: false,
   },
 ];
@@ -1319,21 +1319,21 @@ export const ALIGNED_IBRP_S_08_OM_CASES: AlignedIbrpS08OmCase[] = [
     ruleId: "ALIGNED-IBRP-S-08-OM",
     polarity: "allowed_line",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-S-08-OM | Full Tax + S line taxable amount matches → accepted",
+      "Given Standard rate VAT on a Full Tax invoice — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-S-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-S-08-OM",
     polarity: "allowed_line_allowance_charge",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-S-08-OM | Full Tax + S line/allowance/charge taxable amount matches → accepted",
+      "Given Standard rate VAT on a Full Tax invoice — When line, allowance, and charge taxable amounts match — Then the invoice should be accepted. (ALIGNED-IBRP-S-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-S-08-OM",
     polarity: "not_allowed_mismatch",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-S-08-OM | Full Tax + S taxable amount mismatch → error file",
+      "Given Standard rate VAT on a Full Tax invoice — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-08-OM)",
     shouldError: true,
   },
 ];
@@ -1432,28 +1432,28 @@ export const ALIGNED_IBRP_Z_08_OM_CASES: AlignedIbrpZ08OmCase[] = [
     ruleId: "ALIGNED-IBRP-Z-08-OM",
     polarity: "allowed_line",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Full Tax + Z line taxable amount matches → accepted",
+      "Given Zero rated VAT on a Full Tax invoice — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-Z-08-OM",
     polarity: "allowed_line_allowance_charge",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Full Tax + Z line/allowance/charge taxable amount matches → accepted",
+      "Given Zero rated VAT on a Full Tax invoice — When line, allowance, and charge taxable amounts match — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
     shouldError: false,
   },
   {
     ruleId: "ALIGNED-IBRP-Z-08-OM",
     polarity: "not_allowed_mismatch",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Full Tax + Z taxable amount mismatch → error file",
+      "Given Zero rated VAT on a Full Tax invoice — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-08-OM)",
     shouldError: true,
   },
   {
     ruleId: "ALIGNED-IBRP-Z-08-OM",
     polarity: "exception_simplified_z_accepted",
     title:
-      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Simplified + Z with taxable amount → accepted",
+      "Given Zero rated VAT on a Simplified invoice — When a taxable amount is provided — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
     shouldError: false,
   },
 ];
@@ -1553,7 +1553,7 @@ export const IBR_082_OM_CASES: Ibr082OmCase[] = [
     ruleId: "IBR-082-OM",
     polarity: "not_allowed_omit",
     title:
-      "Excel upload · Covoro | IBR-082-OM | Profit Margin Invoice + Total Amount Due omitted → error file",
+      "Given a Profit Margin invoice — When Total Amount Due is left empty — Then the invoice should be rejected with an error. (IBR-082-OM)",
     shouldError: true,
   },
 ];

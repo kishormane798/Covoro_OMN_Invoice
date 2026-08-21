@@ -2,7 +2,7 @@
 name: author-excel-testcase-data
 description: >-
   Author or extend Excel testcase payloads and rows (camelCase formula data vs
-  Excel header-key submit rows) in testData and kishorsubmit datasets. Use when
+  Excel header-key submit rows) in testData FieldValidations datasets. Use when
   adding invoice row data for workbook generation, mapping fields to template
   headers, or fixing wrong key shape before generateInvoiceExcel /
   generateInvoiceFromSubmitData.
@@ -48,7 +48,7 @@ Map to headers inside `generateInvoiceExcel` via `INVOICE_EXCEL_FIELD_TO_HEADER`
 
 Place rows next to peers:
 
-- Single-item: `tests/kishorsubmit/testData/SubmitInvoice.ts` (`invoiceData`)
+- Single-item: `testData/FieldValidations/SubmitInvoice.ts` (`invoiceData`)
 - Multi-item: `SubmitInvoiceMultiItem.ts` / `multiItemInvoiceCases` (array of rows per case)
 - Field validation configs: `testData/FieldValidations/` with `field` = header text
 
@@ -95,4 +95,4 @@ Used with `updateExcelField(config.field, config.min)` — not with camelCase pa
 ## Related
 
 - Generate workbook: [../generate-excel-from-testcase/SKILL.md](../generate-excel-from-testcase/SKILL.md)
-- Header map: `tests/kishorsubmit/testData/submitInvoiceExcelHeaderMap.ts`
+- Header map: `testData/FieldValidations/submitInvoiceExcelHeaderMap.ts`

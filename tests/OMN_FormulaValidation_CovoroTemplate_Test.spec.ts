@@ -49,7 +49,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       test.describe("Valid inputs", () => {
         for (const data of FV.invoiceFormulaTestData as FormulaScenarioRow[]) {
           if (!isScenarioApplicableForMode(mode, data)) continue;
-          test(`Verify Excel upload formula is accepted with matching totals for ${TEMPLATE} – ${data.name} (${currency}).`, async ({ page }) => {
+          test(`Matching totals for ${data.name} in ${currency} should be accepted. (${data.name})`, async ({ page }) => {
             await runPositiveFormulaScenario(page, mode, data);
           });
         }
@@ -58,7 +58,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       test.describe("Invalid inputs", () => {
         for (const data of FV.invoiceNegativeFormulaTestData as FormulaScenarioRow[]) {
           if (!isScenarioApplicableForMode(mode, data)) continue;
-          test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${data.name} (${currency}).`, async ({ page }) => {
+          test(`${data.name} in ${currency} should be rejected with an error. (${data.name})`, async ({ page }) => {
             await runNegativeFormulaScenario(page, mode, data);
           });
         }
@@ -80,7 +80,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
     for (const { mode } of CURRENCY_SUITES) {
       const currency = mode === "omr" ? "OMR" : "USD";
       for (const target of mismatchTargetsForMode(mode)) {
-        test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} mismatch (${currency}).`, async ({ page }) => {
+        test(`A mismatched ${target.shortName} in ${currency} should be rejected with an error. (${target.shortName})`, async ({ page }) => {
           test.skip(
             !mismatchSuiteEnabled,
             "Active template lacks columns required for formula generator checks"
@@ -109,7 +109,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
     for (const { mode } of CURRENCY_SUITES) {
       const currency = mode === "omr" ? "OMR" : "USD";
       for (const target of toleranceTargetsForMode(mode)) {
-        test(`Verify Excel upload is accepted for ${TEMPLATE} Formula – ${target.shortName} within tolerance ±${target.tolerance} (${currency}).`, async ({ page }) => {
+        test(`${target.shortName} within ±${target.tolerance} in ${currency} should be accepted. (${target.shortName})`, async ({ page }) => {
           test.skip(
             !toleranceSuiteEnabled,
             "Active template lacks columns required for formula generator checks"
@@ -121,7 +121,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
           await runCalculatedFieldWithinToleranceAcceptedScenario(page, mode, target);
         });
 
-        test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} outside tolerance ±${target.tolerance} (${currency}).`, async ({ page }) => {
+        test(`${target.shortName} outside ±${target.tolerance} in ${currency} should be rejected with an error. (${target.shortName})`, async ({ page }) => {
           test.skip(
             !toleranceSuiteEnabled,
             "Active template lacks columns required for formula generator checks"
@@ -140,7 +140,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
     test.describe.configure({ mode: "parallel" });
 
     for (const categoryCase of ZERO_LINE_VAT_CATEGORY_CASES) {
-      test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${categoryCase.ruleId} non-zero Line Item VAT (${categoryCase.shortName}).`, async ({ page }) => {
+      test(`Given ${categoryCase.shortName} — When Line Item VAT is not zero — Then the invoice should be rejected with an error. (${categoryCase.ruleId})`, async ({ page }) => {
         await runZeroLineVatForcedNonZeroErrorScenario(page, "omr", categoryCase);
       });
     }
@@ -244,7 +244,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       (t) => t.excelHeader === "Invoice Line Net Amount"
     )!;
 
-    test(`Excel upload · Covoro | IBR-075-OM | Item Net Price matches gross−discount → accepted`, async ({
+    test(`Given Item Net Price — When it matches gross price minus discount — Then the invoice should be accepted. (IBR-075-OM)`, async ({
       page,
     }) => {
       test.skip(
@@ -267,7 +267,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Excel upload · Covoro | IBR-075-OM | Item Net Price mismatch → error file`, async ({
+    test(`Given Item Net Price — When it does not match gross price minus discount — Then the invoice should be rejected with an error. (IBR-075-OM)`, async ({
       page,
     }) => {
       test.skip(
@@ -281,7 +281,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       await runCalculatedFieldMismatchErrorScenario(page, "omr", ibr075Target);
     });
 
-    test(`Excel upload · Covoro | IBR-071-OM | Invoice Line Net Amount matches formula → accepted`, async ({
+    test(`Given Invoice Line Net Amount — When it matches the formula — Then the invoice should be accepted. (IBR-071-OM)`, async ({
       page,
     }) => {
       test.skip(
@@ -304,7 +304,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       });
     });
 
-    test(`Excel upload · Covoro | IBR-071-OM | Invoice Line Net Amount mismatch → error file`, async ({
+    test(`Given Invoice Line Net Amount — When it does not match the formula — Then the invoice should be rejected with an error. (IBR-071-OM)`, async ({
       page,
     }) => {
       test.skip(
@@ -330,7 +330,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         test.describe("Valid inputs", () => {
           for (const data of FV.invoiceFormulaTestData as FormulaScenarioRow[]) {
             if (!isScenarioApplicableForMode(mode, data)) continue;
-            test(`Verify Excel upload formula is accepted with matching totals for ${TEMPLATE} – ${data.name} (2 lines, ${currency}).`, async ({
+            test(`Matching totals for ${data.name} on two lines in ${currency} should be accepted. (${data.name})`, async ({
               page,
             }) => {
               await runPositiveFormulaScenario(page, mode, data, MULTI);
@@ -341,7 +341,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         test.describe("Invalid inputs", () => {
           for (const data of FV.invoiceNegativeFormulaTestData as FormulaScenarioRow[]) {
             if (!isScenarioApplicableForMode(mode, data)) continue;
-            test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${data.name} (2 lines, ${currency}).`, async ({
+            test(`${data.name} on two lines in ${currency} should be rejected with an error. (${data.name})`, async ({
               page,
             }) => {
               await runNegativeFormulaScenario(page, mode, data, MULTI);
@@ -365,7 +365,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       for (const { mode } of CURRENCY_SUITES) {
         const currency = mode === "omr" ? "OMR" : "USD";
         for (const target of mismatchTargetsForMode(mode)) {
-          test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} mismatch (2 lines, ${currency}).`, async ({
+          test(`A mismatched ${target.shortName} on two lines in ${currency} should be rejected with an error. (${target.shortName})`, async ({
             page,
           }) => {
             test.skip(
@@ -396,7 +396,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       for (const { mode } of CURRENCY_SUITES) {
         const currency = mode === "omr" ? "OMR" : "USD";
         for (const target of toleranceTargetsForMode(mode)) {
-          test(`Verify Excel upload is accepted for ${TEMPLATE} Formula – ${target.shortName} within tolerance ±${target.tolerance} (2 lines, ${currency}).`, async ({
+          test(`${target.shortName} within ±${target.tolerance} on two lines in ${currency} should be accepted. (${target.shortName})`, async ({
             page,
           }) => {
             test.skip(
@@ -410,7 +410,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
             await runCalculatedFieldWithinToleranceAcceptedScenario(page, mode, target, MULTI);
           });
 
-          test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} outside tolerance ±${target.tolerance} (2 lines, ${currency}).`, async ({
+          test(`${target.shortName} outside ±${target.tolerance} on two lines in ${currency} should be rejected with an error. (${target.shortName})`, async ({
             page,
           }) => {
             test.skip(
@@ -431,7 +431,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       test.describe.configure({ mode: "parallel" });
 
       for (const categoryCase of ZERO_LINE_VAT_CATEGORY_CASES) {
-        test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${categoryCase.ruleId} non-zero Line Item VAT (${categoryCase.shortName}, 2 lines).`, async ({
+        test(`Given ${categoryCase.shortName} on two lines — When Line Item VAT is not zero — Then the invoice should be rejected with an error. (${categoryCase.ruleId})`, async ({
           page,
         }) => {
           await runZeroLineVatForcedNonZeroErrorScenario(page, "omr", categoryCase, MULTI);
@@ -457,7 +457,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         (t) => t.excelHeader === "Invoice Line Net Amount"
       )!;
 
-      test(`Excel upload · Covoro | IBR-075-OM | Item Net Price matches gross−discount → accepted (2 lines)`, async ({
+      test(`Given two invoice lines — When Item Net Price matches gross price minus discount — Then the invoice should be accepted. (IBR-075-OM)`, async ({
         page,
       }) => {
         test.skip(
@@ -485,7 +485,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         );
       });
 
-      test(`Excel upload · Covoro | IBR-075-OM | Item Net Price mismatch → error file (2 lines)`, async ({
+      test(`Given two invoice lines — When Item Net Price does not match gross price minus discount — Then the invoice should be rejected with an error. (IBR-075-OM)`, async ({
         page,
       }) => {
         test.skip(
@@ -499,7 +499,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         await runCalculatedFieldMismatchErrorScenario(page, "omr", ibr075Target, MULTI);
       });
 
-      test(`Excel upload · Covoro | IBR-071-OM | Invoice Line Net Amount matches formula → accepted (2 lines)`, async ({
+      test(`Given two invoice lines — When Invoice Line Net Amount matches the formula — Then the invoice should be accepted. (IBR-071-OM)`, async ({
         page,
       }) => {
         test.skip(
@@ -527,7 +527,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         );
       });
 
-      test(`Excel upload · Covoro | IBR-071-OM | Invoice Line Net Amount mismatch → error file (2 lines)`, async ({
+      test(`Given two invoice lines — When Invoice Line Net Amount does not match the formula — Then the invoice should be rejected with an error. (IBR-071-OM)`, async ({
         page,
       }) => {
         test.skip(
@@ -562,7 +562,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
 
         for (const { mode } of CURRENCY_SUITES) {
           const currency = mode === "omr" ? "OMR" : "USD";
-          test(`Verify Excel upload formula is accepted for ${TEMPLATE} – 2-line ${category.shortName} aggregation (${currency}).`, async ({
+          test(`Matching totals for two-line ${category.shortName} aggregation in ${currency} should be accepted. (${category.shortName})`, async ({
             page,
           }) => {
             test.skip(
@@ -576,7 +576,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
           });
 
           for (const target of invoiceLevelSweepTargetsForMode(mode)) {
-            test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} mismatch (2 lines, ${category.shortName}, ${currency}).`, async ({
+            test(`A mismatched ${target.shortName} on two ${category.shortName} lines in ${currency} should be rejected with an error. (${target.shortName})`, async ({
               page,
             }) => {
               test.skip(
@@ -595,7 +595,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
           }
 
           for (const target of invoiceLevelSweepToleranceTargetsForMode(mode)) {
-            test(`Verify Excel upload is accepted for ${TEMPLATE} Formula – ${target.shortName} within tolerance ±${target.tolerance} (2 lines, ${category.shortName}, ${currency}).`, async ({
+            test(`${target.shortName} within ±${target.tolerance} on two ${category.shortName} lines in ${currency} should be accepted. (${target.shortName})`, async ({
               page,
             }) => {
               test.skip(
@@ -612,7 +612,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
               });
             });
 
-            test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} outside tolerance ±${target.tolerance} (2 lines, ${category.shortName}, ${currency}).`, async ({
+            test(`${target.shortName} outside ±${target.tolerance} on two ${category.shortName} lines in ${currency} should be rejected with an error. (${target.shortName})`, async ({
               page,
             }) => {
               test.skip(
@@ -632,7 +632,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         }
       }
 
-      test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – Total Amount Due (Profit Margin) mismatch (2 lines).`, async ({
+      test(`A mismatched Total Amount Due (Profit Margin) on two lines should be rejected with an error. (Total Amount Due (Profit Margin))`, async ({
         page,
       }) => {
         test.skip(
@@ -663,7 +663,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         ...taxSweepOverlay(FORMULA_TAX_CATEGORY_SWEEP[0]),
       };
 
-      test(`Verify Excel upload formula is accepted for ${TEMPLATE} – 2-line Standard rate with document charges and allowances (OMR).`, async ({
+      test(`Matching totals for two-line Standard rate with document charges and allowances in OMR should be accepted. (Line totals)`, async ({
         page,
       }) => {
         test.skip(
@@ -676,7 +676,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
         });
       });
 
-      test(`Verify Excel upload formula is accepted for ${TEMPLATE} – 2-line Standard rate with document charges and allowances (USD).`, async ({
+      test(`Matching totals for two-line Standard rate with document charges and allowances in USD should be accepted. (Line totals)`, async ({
         page,
       }) => {
         test.skip(
@@ -690,7 +690,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       });
 
       for (const target of documentLevelInvoiceTargetsForMode("omr")) {
-        test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} mismatch (2 lines, document charges, Standard rate, OMR).`, async ({
+        test(`A mismatched ${target.shortName} on two Standard rate lines with document charges in OMR should be rejected with an error. (${target.shortName})`, async ({
           page,
         }) => {
           test.skip(
@@ -709,7 +709,7 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
       }
 
       for (const target of documentLevelInvoiceTargetsForMode("foreign")) {
-        test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${target.shortName} mismatch (2 lines, document charges, Standard rate, USD).`, async ({
+        test(`A mismatched ${target.shortName} on two Standard rate lines with document charges in USD should be rejected with an error. (${target.shortName})`, async ({
           page,
         }) => {
           test.skip(
