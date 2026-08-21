@@ -6,10 +6,13 @@ import {
 } from "./excelEditMessageCheck";
 import {
   generateInvoiceFromSubmitData,
+  patchInvoiceDataCellInFile,
   patchInvoiceTextCellInFile,
 } from "../utils/invoiceExcel";
 import {
+  INVOICE_TOTAL_TAX_AMOUNT_FIELD,
   LINE_ITEM_VAT_AMOUNT_FIELD,
+  PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
   SELLER_VAT_IDENTIFIER_FIELD,
 } from "../testData/FieldValidations/ConditionalValidation";
 
@@ -78,6 +81,42 @@ export function patchBlankLineItemVatAmountIfEmpty(
     return;
   }
   patchInvoiceTextCellInFile(filePath, LINE_ITEM_VAT_AMOUNT_FIELD, "");
+}
+
+/**
+ * CL-11-OM: Excel dropdowns can overwrite empty / invalid BTOM-025. Re-apply
+ * the scenario value after generate so presence and codelist cases stick.
+ */
+export function patchProfitMarginItemTypeFromRow(
+  filePath: string,
+  rowData: Record<string, string | null>
+): void {
+  patchInvoiceTextCellInFile(
+    filePath,
+    PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
+    String(rowData[PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] ?? "")
+  );
+}
+
+/**
+ * ALIGNED-IBRP-E-09-OM: submit writer recalculates Invoice Total Tax Amount
+ * (IBT-117 proxy). Re-apply 0 / non-zero after generate. Do not blank this
+ * column to simulate IBG-23 omit — VAT breakdown is UI/backend auto-map.
+ */
+export function patchVatCategoryTaxAmountAfterGenerate(
+  filePath: string,
+  rowData: Record<string, string | null>
+): void {
+  const raw = String(rowData[INVOICE_TOTAL_TAX_AMOUNT_FIELD] ?? "");
+  if (!raw.trim()) {
+    return;
+  }
+  const amount = Number(raw);
+  if (Number.isNaN(amount)) {
+    patchInvoiceTextCellInFile(filePath, INVOICE_TOTAL_TAX_AMOUNT_FIELD, raw);
+    return;
+  }
+  patchInvoiceDataCellInFile(filePath, INVOICE_TOTAL_TAX_AMOUNT_FIELD, amount);
 }
 
 export async function verifyConditionalScenario(

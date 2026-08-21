@@ -176,6 +176,6 @@ Matrix path: `testcase/conditional_validation/EINV_OMAN_ConditionalValidation_Fu
 ### PENDING COND (Excel present; next agent turns)
 
 Still to wire live Playwright (pack expand may already exist for some):  
-`IBR-007-OM`, `IBR-010-OM`, `IBR-015-OM`, `IBR-030`, `IBR-036-OM`, `IBR-040-OM`, `IBR-042-OM`, `IBR-045-OM`, `IBR-056-OM`, `IBR-059-OM`, `IBR-072-OM`, `IBR-073-OM`, `IBR-074-OM`, `IBR-091-OM`, `IBR-092-OM`, `IBR-093-OM`, `IBR-098-OM`, `IBR-099-OM`, `IBR-100-OM`, `IBR-104-OM`, `IBR-137-OM`, `IBR-139-OM`–`IBR-148-OM` (beyond 138/149 samples), `IBR-150-OM`, `IBR-173-OM`, `IBR-174-OM`, `IBR-CO-20`.
+`IBR-010-OM`, `IBR-030`, `IBR-036-OM`, `IBR-040-OM`, `IBR-042-OM`, `IBR-045-OM`, `IBR-056-OM`, `IBR-059-OM`, `IBR-072-OM`, `IBR-073-OM`, `IBR-074-OM`, `IBR-091-OM`, `IBR-092-OM`, `IBR-093-OM`, `IBR-098-OM`, `IBR-099-OM`, `IBR-100-OM`, `IBR-104-OM`, `IBR-137-OM`, `IBR-139-OM`–`IBR-148-OM` (beyond 138/149 samples), `IBR-150-OM`, `IBR-173-OM`, `IBR-174-OM`, `IBR-CO-20`.
 
 Whitespace/omit Excel negatives for already-wired rules collapse to empty cells unless a distinct Covoro column exists.

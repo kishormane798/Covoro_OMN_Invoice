@@ -29,14 +29,17 @@ description: >-
 
 ## Workflow
 
-0. **REQUIRED SUB-SKILL:** Use `expand-omn-conditional-rule`. Fill the coverage card. Do not add scenarios while **Missing** is non-empty.
+0. **REQUIRED SUB-SKILL:** Use `expand-omn-conditional-rule`. Fill the coverage card and print **Covered / Not covered**.
+   - User said **check** / **covered** / **coverage** → report only. If **Missing** is non-empty, ask: reply **yes** to implement. Do not edit.
+   - User said **yes** / **implement** / **add them** (after that ask), or explicitly asked to add the rule → proceed below.
+   - Do not add scenarios while **Missing** is non-empty unless Implement was approved (then fill Missing).
 1. Pick one `ruleId` from [reference.md](reference.md). Confirm triage = **COND**.
 2. If sheet text is truncated, open Peppol: `https://test-docs.peppol.eu/pint/pint-om/2026-Q2-v1.0.1/pint-om/trn-invoice/rule/{ruleId}/`
-3. Map IBT/BTOM fields → Covoro template headers (row 4) via `expand-omn-conditional-rule` reference.
+3. Map IBT/BTOM fields → Covoro template headers (row 4) via `expand-omn-conditional-rule` reference. Resolve any pasted Invoice Type **codes** via that skill’s reference table.
 4. Add scenarios with required `ruleId`, `title`, `shouldError`, driving fields, `expectedErrorField`.
 5. Add `build*ScenarioRow` using Oman seed defaults (OMR, Full Tax Invoice, Oman tax labels).
 6. Wire one `test.describe` loop → `verifyConditionalScenario` / `verifyConditionalScenarioAnyOf`.
-7. Run: `npx playwright test tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts --grep "{ruleId}"`
+7. Run only after the user says **run**: `npx playwright test tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts --grep "{ruleId}"`
 
 ## Scenario shape
 

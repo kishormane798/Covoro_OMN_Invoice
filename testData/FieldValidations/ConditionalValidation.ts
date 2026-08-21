@@ -13,6 +13,7 @@ import {
   creditDebitNoteReasonValidTestData,
   itemTypeValidTestData,
   serviceTypeCodeValidTestData,
+  profitMarginItemTypeValidTestData,
 } from "./Master.omnCore";
 import { INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME } from "./invoiceCurrencyIsoToDisplayName";
 
@@ -97,7 +98,23 @@ export const BUYER_IDENTIFIER_SCHEME_FIELD = "Scheme identifier";
 export const BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD =
   "Buyer Identifier (textual code)";
 export const BUYER_IDENTIFIER_FIELD = "Buyer identifier";
+/** IBR-016-OM: error file may cite IBT-046 or IBT-048. */
+export const BUYER_ID_OR_VATIN_ERROR_FIELDS = [
+  BUYER_IDENTIFIER_FIELD,
+  BUYER_VAT_IDENTIFIER_FIELD,
+] as const;
 export const LINE_ITEM_VAT_AMOUNT_FIELD = "Line item VAT amount";
+/** IBR-137-OM: quantities must be ≥ 0 (except rounding, IBT-114). */
+export const INVOICED_QUANTITY_FIELD = "Invoiced Quantity";
+export const ROUNDING_AMOUNT_FIELD = "Rounding Amount";
+export const INVOICE_LINE_NET_AMOUNT_FIELD = "Invoice line net amount";
+/** Negative qty also recalculates line net; error file may cite either. */
+export const AMOUNT_QUANTITY_NEGATIVE_ERROR_FIELDS = [
+  INVOICED_QUANTITY_FIELD,
+  INVOICE_LINE_NET_AMOUNT_FIELD,
+] as const;
+/** IBT-117 proxy — Covoro has no IBG-23 VAT breakdown tax-amount column. */
+export const INVOICE_TOTAL_TAX_AMOUNT_FIELD = "Invoice Total Tax Amount";
 export const ITEM_TYPE_FIELD = "Item Type";
 export const ITEM_CLASSIFICATION_IDENTIFIER_FIELD =
   "Item classification identifier";
@@ -108,7 +125,28 @@ export const IMPORT_DATE_FIELD = "Import date";
 export const CUSTOMS_DECLARATION_NUMBER_FIELD = "Customs Declaration number";
 export const INCOTERMS_FIELD = "Incoterms";
 export const SELLER_COUNTRY_CODE_FIELD = "Seller country code";
+export const SELLER_COUNTRY_SUBDIVISION_CODE_FIELD =
+  "Seller country subdivision code";
 export const SELLER_VAT_IDENTIFIER_FIELD = "Seller VAT Identifier (TRN / TIN)";
+/** IBR-010-OM: Seller postal address (IBG-05) required fields. */
+export const SELLER_ADDRESS_LINE_1_FIELD = "Seller address line 1";
+export const SELLER_ADDRESS_LINE_2_FIELD = "Seller address line 2";
+export const SELLER_ADDRESS_LINE_3_FIELD = "Seller address line 3";
+export const SELLER_CITY_FIELD = "Seller city";
+export const SELLER_POST_CODE_FIELD = "Seller post code";
+export const SELLER_ADDRESS_GROUP_FIELDS = [
+  SELLER_ADDRESS_LINE_1_FIELD,
+  SELLER_ADDRESS_LINE_2_FIELD,
+  SELLER_ADDRESS_LINE_3_FIELD,
+  SELLER_CITY_FIELD,
+  SELLER_POST_CODE_FIELD,
+] as const;
+/** IBR-019-OM: Buyer postal address fields that MUST be present. */
+export const BUYER_ADDRESS_LINE_1_FIELD = "Buyer address line 1";
+export const BUYER_ADDRESS_LINE_2_FIELD = "Buyer address line 2";
+export const BUYER_ADDRESS_LINE_3_FIELD = "Buyer address line 3";
+export const BUYER_CITY_FIELD = "Buyer city";
+export const BUYER_POST_CODE_FIELD = "Buyer post code";
 export const THIRD_PARTY_NAME_FIELD = "Third Party Name";
 export const THIRD_PARTY_VATIN_FIELD = "Third Party VATIN";
 export const THIRD_PARTY_ADDRESS_LINE_1_FIELD = "Third Party Address Line 1";
@@ -130,8 +168,13 @@ export const INVOICING_PERIOD_START_DATE_FIELD = "Invoicing period start date";
 export const INVOICING_PERIOD_END_DATE_FIELD = "Invoicing period end date";
 export const TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD =
   "Total amount due (profit margin)";
+/** BTOM-025 / CL-11-OM — Covoro header (row 4). */
+export const PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD =
+  "Profit margin item type code";
 export const SERVICE_TYPE_CODE_FIELD = "Service Type Code";
 export const BUYER_COUNTRY_CODE_FIELD = "Buyer country code";
+export const BUYER_COUNTRY_SUBDIVISION_CODE_FIELD =
+  "Buyer country subdivision code";
 export const SUPPORTING_DOCUMENT_REFERENCE_FIELD =
   "Supporting document reference";
 export const SUPPORTING_DOCUMENT_UUID_FIELD = "Supporting document UUID";
@@ -160,17 +203,45 @@ export const TAX_EXEMPTION_REASON_SAMPLE =
     x.label.startsWith("Exemption-")
   )!.label;
 
+/** IBT-120 free text (not a CL-10 dropdown). */
+export const TAX_EXEMPTION_REASON_TEXT_SAMPLE =
+  "Exemption text must not apply to Standard";
+
+/** CL-10-OM / IBR-CL-10-OM: Zero rating codelist (VATZR-OM-01..VATZR-OM-16). */
+export const ZERO_RATED_EXEMPTION_REASON_LABELS = [
+  "Zero-rated - Qualifying Food Items",
+  "Zero-rated- Medicines and Medical Equipment",
+  "Zero-rated- Investment Precious Metals",
+  "Zero-rated- International and Intra-GCC Transport",
+  "Zero-rated- Transport-Related Services",
+  "Zero-rated- Means of Transport",
+  "Zero-rated- Rescue and Assistance Vehicles",
+  "Zero-rated- Oil, Derivatives, and Natural Gas",
+  "Zero-rated- Export of Services",
+  "Zero-rated- Direct Export of Goods",
+  "Zero-rated- Indirect Export of Goods",
+  "Zero-rated- Re-export of Goods",
+  "Zero-rated- Special Zone to Special Zone or Within Special Zone",
+  "Zero-rated- Mainland to Special Zone",
+  "Zero-rated- Customs Duty Suspension to Special Zone",
+  "Zero-rated- Special Zone to Customs Duty Suspension",
+] as const;
+
 /** CL-10-OM: Zero-rated VAT category must use a Zero-rated exemption reason code. */
 export const TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE =
-  taxExemptionReasonValidTestData.find((x) =>
-    x.label.startsWith("Zero-rated")
-  )!.label;
+  ZERO_RATED_EXEMPTION_REASON_LABELS[0];
 
 /** IBT-121 'Export of service' — Masters label (VATZR-OM-09). */
 export const TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES =
   taxExemptionReasonValidTestData.find((x) =>
     x.label.toLowerCase().includes("export of services")
   )!.label;
+
+/** CL-11-OM Profit Margin Items Codelist sample (Masters). */
+export const PROFIT_MARGIN_ITEM_TYPE_SAMPLE =
+  profitMarginItemTypeValidTestData[0]!.label;
+/** Value not in CL-11-OM (field-validation InvalidTestData). */
+export const PROFIT_MARGIN_ITEM_TYPE_INVALID_SAMPLE = "A123456";
 
 /** IBT-121 'Re-export of goods' — Masters label (VATZR-OM-12). */
 export const TAX_EXEMPTION_REASON_RE_EXPORT_OF_GOODS =
@@ -220,7 +291,8 @@ export const TXN_PREPAYMENT_INVOICE = "Prepayment Invoice";
 export const TXN_BIT_SUMMARY = "00001000000000000000";
 export const TXN_BIT_DEEMED_SUPPLY = "00000001000000000000";
 export const TXN_BIT_PROFIT_MARGIN_SELF = "00000000001000000000";
-export const TXN_BIT_PREPAYMENT = "00000000000000100000";
+/** Peppol Prepayment (XXXXXXXXXXXXXXX1XXXX) — 1 at position 16. */
+export const TXN_BIT_PREPAYMENT = "00000000000000010000";
 
 /** OR Peppol BTOM-001 bit strings (X treated as 0). */
 export function combineOmanTxnTypeBits(...bits: string[]): string {
@@ -240,6 +312,12 @@ export function combineOmanTxnTypeBits(...bits: string[]): string {
 }
 
 export const SPECIAL_ZONE_LICENSE_SCHEME = "Special Zone License Number";
+/** CL-13-OM label used when IBR-150-OM requires both subdivisions. */
+export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13 = "Sohar Free Zone.";
+/** CL-13-OM Mainland — Peppol 'MO'; IBR-151/152 SZLN identifier is not mandatory. */
+export const MAINLAND_OMAN_COUNTRY_SUBDIVISION_CL13 = "Mainland Oman.";
+/** Not on CL-13-OM — IBR-150-OM Not Allowed (codelist) polarity. */
+export const COUNTRY_SUBDIVISION_NOT_IN_CL13 = "NOT-A-CL13-SUBDIVISION";
 /** Valid UUID version 5 (IBR-002-OM / BTOM-002|BTOM-031 pattern). */
 export const PRECEDING_INVOICE_UUID_SAMPLE =
   "a1b2c3d4-e5f6-5a90-8bcd-ef1234567890";
@@ -259,6 +337,8 @@ export const CREDIT_DEBIT_REASON_SAMPLE =
 
 /** Valid 12-digit Oman HS code from template Masters (heading 8471.30 — portable ADP machines). */
 export const OMAN_HS_CODE_12 = "847130000002";
+/** 12-digit value that is not on the ROP Customs HS master list (IBR-174-OM). */
+export const OMAN_HS_CODE_NOT_ON_ROP_LIST = "999999999999";
 export const OMAN_CURRENCY_OMR = "OMR";
 export const OMAN_CURRENCY_USD = "USD";
 export const OMAN_COUNTRY_CODE = "Oman";
@@ -303,7 +383,8 @@ export type VatBreakdownCategoryPresenceScenario = OmanConditionalScenario & {
   source?: "line" | "allowance" | "charge";
   /**
    * When source is allowance/charge: if false, leave line Tax Category as
-   * Standard so IBT-118 is not C (error unless Simplified).
+   * Standard so IBT-118 is not the source category (error unless Simplified).
+   * Standard (S) mismatch uses Zero rated on the line so IBT-118 is not S.
    */
   breakdownMatches?: boolean;
 };
@@ -325,6 +406,54 @@ export type LineItemVatAmountZeroScenario = OmanConditionalScenario & {
   lineItemVatAmount: string;
 };
 
+/**
+ * ALIGNED-IBRP-E-09-OM: VAT category tax amount (IBT-117) in a VAT breakdown
+ * (IBG-23) where VAT category code (IBT-118) is "E" MUST be 0, unless
+ * Simplified Tax Invoice (X1XXXXXXXXXXXXXXXXXX). VAT breakdown is UI/backend
+ * auto-map — Excel provides values and asserts upload status (do not blank
+ * Invoice Total Tax Amount to fake IBT-117 omit).
+ */
+export type VatCategoryTaxAmountE09Scenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  taxCategory: string;
+  taxRate: string | null;
+  taxExemptionReasonCode?: string;
+  /** IBT-117 proxy (Invoice Total Tax Amount). Use "0" / non-zero; do not blank for Simplified. */
+  vatCategoryTaxAmount: string;
+};
+
+/**
+ * ALIGNED-IBRP-O-09-OM: VAT category tax amount (IBT-117) in a VAT breakdown
+ * (IBG-23) where VAT category code (IBT-118) is "O" MUST be 0, unless
+ * Simplified Tax Invoice (X1XXXXXXXXXXXXXXXXXX). VAT breakdown is UI/backend
+ * auto-map — Excel provides values and asserts upload status (do not blank
+ * Invoice Total Tax Amount to fake IBT-117 omit).
+ */
+export type VatCategoryTaxAmountO09Scenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  taxCategory: string;
+  taxRate: string | null;
+  taxExemptionReasonCode?: string;
+  /** IBT-117 proxy (Invoice Total Tax Amount). Use "0" / non-zero; do not blank for Simplified. */
+  vatCategoryTaxAmount: string;
+};
+
+/**
+ * ALIGNED-IBRP-Z-09-OM: VAT category tax amount (IBT-117) in a VAT breakdown
+ * (IBG-23) where VAT category code (IBT-118) is "Z" MUST be 0, unless
+ * Simplified Tax Invoice (X1XXXXXXXXXXXXXXXXXX). VAT breakdown is UI/backend
+ * auto-map — Excel provides values and asserts upload status (do not blank
+ * Invoice Total Tax Amount to fake IBT-117 omit).
+ */
+export type VatCategoryTaxAmountZ09Scenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  taxCategory: string;
+  taxRate: string | null;
+  taxExemptionReasonCode?: string;
+  /** IBT-117 proxy (Invoice Total Tax Amount). Use "0" / non-zero; do not blank for Simplified. */
+  vatCategoryTaxAmount: string;
+};
+
 /** Mutual-exclusion BTOM-001 pairs (IBR-138…149-OM family). */
 export type TxnMutualExclusionScenario = OmanConditionalScenario & {
   /** Conflict bit-string written into Invoice Transaction Type Code. */
@@ -339,17 +468,53 @@ export type SellerVatMandatoryScenario = OmanConditionalScenario & {
   patchSellerVatAfterGenerate?: boolean;
 };
 
-/** IBR-016-OM: Buyer identifier OR Buyer VATIN for Full Tax / Third-party. */
+/** IBR-007-OM: Seller identifier scheme (IBT-029-1) required for named txn types. */
+export type SellerIdentifierSchemeScenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  /** When false, clear IBT-029-1 after overlay so the scheme column is the probe. */
+  sellerIdentifierSchemeProvided: boolean;
+};
+
+/** IBR-016-OM: Buyer identifier OR Buyer VATIN for named BTOM-001 txn types. */
 export type BuyerIdOrVatinScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   buyerIdentifier: string;
   buyerVatIdentifier: string;
 };
 
+/** IBR-010-OM: Seller postal address (IBG-05) fields must all be provided. */
+export type SellerAddressRequiredScenario = OmanConditionalScenario & {
+  addressLine1: string;
+  addressLine2: string;
+  addressLine3: string;
+  city: string;
+  postCode: string;
+};
+
+/**
+ * IBR-015-OM: Third-party Invoice requires the third-party party block
+ * (BTOM-005..011 / BTOM-13). VAT Scheme Code (BTOM-06-1) has no Covoro column.
+ */
+export type ThirdPartyRequiredScenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  thirdPartyName: string;
+  thirdPartyVatin: string;
+  addressLine1: string;
+  addressLine2: string;
+  addressLine3: string;
+  city: string;
+  postalCode: string;
+  countryCode: string;
+};
+
 /** IBR-019-OM: Buyer address block mandatory for listed txn types. */
 export type BuyerAddressRequiredScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
-  buyerAddressLine1: string;
+  addressLine1: string;
+  addressLine2: string;
+  addressLine3: string;
+  city: string;
+  postCode: string;
 };
 
 /** IBR-040-OM: Deliver To address group is all-or-nothing when any cell is entered. */
@@ -407,13 +572,13 @@ export type HsCodeLengthScenario = OmanConditionalScenario & {
   itemClassificationIdentifier: string;
 };
 
-/** IBR-081-OM: Industrial Classification Code required except Simplified. */
+/** IBR-081-OM: Industrial Classification Code required except Simplified / Import of Goods / Import of Services RCM / Profit Margin Self-Invoice. */
 export type IndustrialClassificationRequiredScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   industrialClassificationCode: string;
 };
 
-/** IBR-CL-05-OM: doc allowance E/Z requires exemption reason code (IBT-196). */
+/** IBR-CL-05-OM / IBR-CL-10-OM: doc allowance E/Z IBT-196 must use Exemption / Zero-rating codelist. */
 export type DocAllowanceExemptionClScenario = OmanConditionalScenario & {
   vatCategory: string;
   exemptionReason: string;
@@ -432,6 +597,17 @@ export type ProfitMarginPrecedingScenario = OmanConditionalScenario & {
   precedingInvoiceUuid: string;
 };
 
+/** IBR-091-OM: Profit Margin Invoice → IBT-158 MUST NOT start with banned prefixes. */
+export type ProfitMarginHsPrefixScenario = OmanConditionalScenario & {
+  itemClassificationIdentifier: string;
+};
+
+/** CL-11-OM: Profit Margin Invoice / Self-Invoice → BTOM-025 present + CL-11 code. */
+export type ProfitMarginItemTypeScenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  profitMarginItemTypeCode: string;
+};
+
 /** IBR-152/153-OM: Special Zone / Import buyer identifier scheme. */
 export type BuyerIdentifierSchemeScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
@@ -442,6 +618,8 @@ export type BuyerIdentifierSchemeScenario = OmanConditionalScenario & {
 export type VatExemptionReasonScenario = OmanConditionalScenario & {
   taxCategory: string;
   taxExemptionReasonCode: string | null;
+  /** IBT-120. Omit to copy code into text (IBR-069/070). Set "" to isolate IBT-121. */
+  taxExemptionReasonText?: string | null;
   taxRate?: string | null;
 };
 
@@ -467,10 +645,19 @@ export type ExportDeliveryScenario = OmanConditionalScenario & {
   deliverToCountryCode: string;
 };
 
+/** IBR-150-OM: Special Zone Supplies → buyer + seller country subdivision (CL-13-OM). */
+export type SpecialZoneCountrySubdivisionScenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  sellerCountrySubdivisionCode: string;
+  buyerCountrySubdivisionCode: string;
+};
+
 export type SpecialZoneSellerScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   sellerIdentifierTextualCode: string;
   sellerIdentifier: string;
+  /** BTOM-024. Omit to keep Sohar Free Zone (IBR-151 IF: subdivision ≠ MO). */
+  sellerCountrySubdivisionCode?: string;
 };
 
 export type SelfBilledBuyerVatScenario = OmanConditionalScenario & {
@@ -535,6 +722,15 @@ export type DocumentAllowanceChargeVatScenario = OmanConditionalScenario & {
   vatCategory: string;
   exemptionReason: string;
   amount: string;
+};
+
+/**
+ * IBR-042-OM: IBG-21 present → charge reason code (IBT-104) required.
+ * Covoro has no IBT-104 column; amount cell is the pack proxy.
+ */
+export type DocumentChargeReasonScenario = OmanConditionalScenario & {
+  amount: string;
+  vatCategory: string;
 };
 
 export type CreditDebitReasonScenario = OmanConditionalScenario & {
@@ -863,6 +1059,7 @@ export const MULTI_VALUE_PACK_EXPAND: Readonly<
       TXN_EXPORT_INVOICE,
       TXN_IMPORT_OF_SERVICES_RCM,
       TXN_PROFIT_MARGIN_SELF_INVOICE,
+      TXN_PROFIT_MARGIN_INVOICE,
       TXN_IMPORT_OF_GOODS,
       TXN_SPECIAL_ZONE_SUPPLIES,
     ],
@@ -905,7 +1102,8 @@ export function expandAcrossSelfBilledDocumentTypes<
 
 /**
  * Expand one polarity across Summary / Deemed Supply / Profit Margin Self-Invoice.
- * Title must contain `{type}`. When `withPrepaymentBit`, cell value is partner⊕Prepayment.
+ * Title must contain `{type}`. When `withPrepaymentBit`, cell is partner⊕Prepayment
+ * bits; otherwise Master label (Allowed: partner without Prepayment).
  */
 export function expandAcrossPrepaymentExclusionPartners<
   T extends {
@@ -925,7 +1123,7 @@ export function expandAcrossPrepaymentExclusionPartners<
     const partnerBit = PREPAYMENT_EXCLUSION_PARTNER_BITS[partner]!;
     const invoiceTransactionTypeCode = withPrepayment
       ? combineOmanTxnTypeBits(partnerBit, TXN_BIT_PREPAYMENT)
-      : partnerBit;
+      : partner;
     const { withPrepaymentBit: _omit, ...rest } = template;
     return {
       ...rest,
@@ -948,6 +1146,73 @@ export function expandAcrossSelfBilledOrRcmTxnTypes<
   }
 ): T[] {
   return SELF_BILLED_OR_RCM_TXN_TYPES.map(
+    (invoiceTransactionTypeCode) =>
+      ({
+        ...template,
+        invoiceTransactionTypeCode,
+        title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+      }) as T
+  );
+}
+
+/**
+ * Expand one polarity across IBR-007-OM seller-scheme txn types
+ * (Import of Goods / Import of Services RCM / Profit Margin Self-Invoice /
+ * Special Zone Supplies). Title must contain `{txn}`.
+ */
+export function expandAcrossIbr007SellerSchemeTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return MULTI_VALUE_PACK_EXPAND["IBR-007-OM"].values.map(
+    (invoiceTransactionTypeCode) =>
+      ({
+        ...template,
+        invoiceTransactionTypeCode,
+        title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+      }) as T
+  );
+}
+
+/**
+ * Expand one polarity across IBR-016-OM buyer id/VATIN txn types
+ * (Full Tax / Third-party / Summary / Continuous / Export / Profit margin /
+ * E-commerce). Title must contain `{txn}`.
+ */
+export function expandAcrossIbr016BuyerIdOrVatinTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return MULTI_VALUE_PACK_EXPAND["IBR-016-OM"].values.map(
+    (invoiceTransactionTypeCode) =>
+      ({
+        ...template,
+        invoiceTransactionTypeCode,
+        title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+      }) as T
+  );
+}
+
+/**
+ * Expand one polarity across IBR-019-OM buyer-address txn types
+ * (Full Tax / Self-billed / Third-party / Summary / Export / RCM /
+ * Profit Margin Self-Invoice / Profit Margin / Import of Goods /
+ * Special Zone Supplies). Title must contain `{txn}`.
+ */
+export function expandAcrossIbr019BuyerAddressTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return MULTI_VALUE_PACK_EXPAND["IBR-019-OM"].values.map(
     (invoiceTransactionTypeCode) =>
       ({
         ...template,
@@ -1001,6 +1266,25 @@ export function expandAcrossDocEzTaxCategories<
       title: template.title.replace(/\{cat\}/g, vatCategory),
     } as unknown as T;
   });
+}
+
+function zeroRatedReasonShortLabel(label: string): string {
+  return label.replace(/^Zero-rated\s*-?\s*/i, "").trim();
+}
+
+/** IBR-CL-10-OM Allowed: remaining VATZR labels after the Qualifying Food Items sample. */
+export function expandIbrCl10RemainingZeroRatedReasons(): DocAllowanceExemptionClScenario[] {
+  return ZERO_RATED_EXEMPTION_REASON_LABELS.filter(
+    (label) => label !== TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE
+  ).map((exemptionReason) => ({
+    ruleId: "IBR-CL-10-OM",
+    title: `Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + ${zeroRatedReasonShortLabel(exemptionReason)} → accepted`,
+    vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+    exemptionReason,
+    amount: "10",
+    shouldError: false,
+    expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+  }));
 }
 
 
@@ -1178,7 +1462,44 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
     shouldError: true,
     expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
   },
-];
+  ];
+
+/**
+ * IBR-104-OM: VAT breakdown (IBG-23) for VAT accounting currency, where
+ * VAT category code (IBT-118) is S, VAT category rate (IBT-119) MUST be 5.
+ * Covoro has no IBT-006 column — USD + source currency + tax-in-accounting
+ * amount (IBR-034 pattern). Line Tax Category / Tax Rate proxy IBT-118 / IBT-119.
+ */
+export const VAT_ACCOUNTING_CURRENCY_STANDARD_RATE_SCENARIOS: VatCategoryTaxRateScenario[] =
+  [
+    {
+      ruleId: "IBR-104-OM",
+      title:
+        "Excel upload · Covoro | IBR-104-OM | VAT accounting currency + Standard Tax Rate 5 → accepted",
+      taxCategory: STANDARD_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      shouldError: false,
+      expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
+    },
+    {
+      ruleId: "IBR-104-OM",
+      title:
+        "Excel upload · Covoro | IBR-104-OM | VAT accounting currency + Standard Tax Rate 0 → error file",
+      taxCategory: STANDARD_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_ZERO,
+      shouldError: true,
+      expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
+    },
+    {
+      ruleId: "IBR-104-OM",
+      title:
+        "Excel upload · Covoro | IBR-104-OM | VAT accounting currency + Zero rated Tax Rate 5 → error file",
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      shouldError: true,
+      expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
+    },
+  ];
 
 /** ALIGNED-IBRP-Z-05-OM: Zero rated → rate MUST be 0. */
 export const ZERO_RATED_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
@@ -1280,7 +1601,7 @@ export const VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS: VatCategoryTaxRateScenario[]
 /**
  * IBR-069-OM: E or Z breakdown/line must have exemption reason code.
  * IBR-070-OM: O must NOT have exemption reason code.
- * ALIGNED-IBRP-S-10-OM: S must not have exemption reason.
+ * ALIGNED-IBRP-S-10-OM: S must not have IBT-121 code or IBT-120 text.
  */
 export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScenario[] =
   [
@@ -1350,6 +1671,7 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
         "Excel upload · Covoro | ALIGNED-IBRP-S-10-OM | Standard + empty exemption → accepted",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: null,
+      taxExemptionReasonText: "",
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: false,
       expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,
@@ -1357,12 +1679,24 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
     {
       ruleId: "ALIGNED-IBRP-S-10-OM",
       title:
-        "Excel upload · Covoro | ALIGNED-IBRP-S-10-OM | Standard + exemption reason → error file",
+        "Excel upload · Covoro | ALIGNED-IBRP-S-10-OM | Standard + exemption reason code → error file",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
+      taxExemptionReasonText: "",
       taxRate: TAX_RATE_STANDARD_OMAN,
       shouldError: true,
       expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-S-10-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-S-10-OM | Standard + exemption reason text → error file",
+      taxCategory: STANDARD_TAX_CATEGORY_CODE,
+      taxExemptionReasonCode: null,
+      taxExemptionReasonText: TAX_EXEMPTION_REASON_TEXT_SAMPLE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_TEXT_FIELD,
     },
   ];
 
@@ -1640,6 +1974,46 @@ export const AMOUNT_DECIMAL_PRECISION_SCENARIOS: AmountDecimalPrecisionScenario[
     },
   ];
 
+/**
+ * IBR-137-OM: all invoice amounts and quantities shall be zero or positive,
+ * except rounding amount (IBT-114). Wrong-target Y = Invoiced Quantity
+ * (Not Allowed reuses that row).
+ */
+export type AmountQuantitySignScenario = OmanConditionalScenario & {
+  invoicedQuantity: string;
+  roundingAmount: string;
+};
+
+export const AMOUNT_QUANTITY_SIGN_SCENARIOS: AmountQuantitySignScenario[] = [
+  {
+    ruleId: "IBR-137-OM",
+    title:
+      "Excel upload · Covoro | IBR-137-OM | Amounts and quantities ≥ 0 → accepted",
+    invoicedQuantity: "1",
+    roundingAmount: "0",
+    shouldError: false,
+    expectedErrorField: INVOICED_QUANTITY_FIELD,
+  },
+  {
+    ruleId: "IBR-137-OM",
+    title:
+      "Excel upload · Covoro | IBR-137-OM | Rounding Amount (IBT-114) negative → accepted",
+    invoicedQuantity: "1",
+    roundingAmount: "-0.50",
+    shouldError: false,
+    expectedErrorField: ROUNDING_AMOUNT_FIELD,
+  },
+  {
+    ruleId: "IBR-137-OM",
+    title:
+      "Excel upload · Covoro | IBR-137-OM | Invoiced Quantity negative → error file",
+    invoicedQuantity: "-1",
+    roundingAmount: "0",
+    shouldError: true,
+    expectedErrorField: INVOICED_QUANTITY_FIELD,
+  },
+];
+
 
 // ---------------------------------------------------------------------------
 // itemAndGoods
@@ -1652,6 +2026,15 @@ export const ITEM_TYPE_REQUIRED_SCENARIOS: ItemTypeRequiredScenario[] = [
       "Excel upload · Covoro | IBR-078-OM | Full Tax + Item Type Goods → accepted",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_GOODS,
+    shouldError: false,
+    expectedErrorField: ITEM_TYPE_FIELD,
+  },
+  {
+    ruleId: "IBR-078-OM",
+    title:
+      "Excel upload · Covoro | IBR-078-OM | Full Tax + Item Type Services → accepted",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    itemType: ITEM_TYPE_SERVICES,
     shouldError: false,
     expectedErrorField: ITEM_TYPE_FIELD,
   },
@@ -1700,11 +2083,55 @@ export const GOODS_CLASSIFICATION_SCENARIOS: GoodsClassificationScenario[] = [
   {
     ruleId: "IBR-079-OM",
     title:
+      "Excel upload · Covoro | IBR-079-OM | Simplified + Goods + empty classification → accepted",
+    invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+    itemType: ITEM_TYPE_GOODS,
+    itemClassificationIdentifier: "",
+    shouldError: false,
+    expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+  },
+  {
+    ruleId: "IBR-079-OM",
+    title:
       "Excel upload · Covoro | IBR-079-OM | Services + empty classification → accepted",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     itemType: ITEM_TYPE_SERVICES,
     itemClassificationIdentifier: "",
     shouldError: false,
+    expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+  },
+];
+
+/** IBR-174-OM: Goods (BTOM-019 = G) → IBT-158 must be from the ROP Customs HS list. */
+export const HS_CODE_FROM_ROP_LIST_SCENARIOS: GoodsClassificationScenario[] = [
+  {
+    ruleId: "IBR-174-OM",
+    title:
+      "Excel upload · Covoro | IBR-174-OM | Goods + HS from ROP list → accepted",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    itemType: ITEM_TYPE_GOODS,
+    itemClassificationIdentifier: OMAN_HS_CODE_12,
+    shouldError: false,
+    expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+  },
+  {
+    ruleId: "IBR-174-OM",
+    title:
+      "Excel upload · Covoro | IBR-174-OM | Goods + HS not on ROP list → error file",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    itemType: ITEM_TYPE_GOODS,
+    itemClassificationIdentifier: OMAN_HS_CODE_NOT_ON_ROP_LIST,
+    shouldError: true,
+    expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+  },
+  {
+    ruleId: "IBR-174-OM",
+    title:
+      "Excel upload · Covoro | IBR-174-OM | Goods + empty HS classification → error file",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    itemType: ITEM_TYPE_GOODS,
+    itemClassificationIdentifier: "",
+    shouldError: true,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
   },
 ];
@@ -1747,6 +2174,28 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     incoterms: "Free On Board",
     shouldError: true,
     expectedErrorField: CUSTOMS_DECLARATION_NUMBER_FIELD,
+  },
+  {
+    ruleId: "IBR-085-OM",
+    title:
+      "Given Import of Goods — When Import date is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
+    itemCountryOfOrigin: "India",
+    importDate: "",
+    customsDeclarationNumber: "CD-12345",
+    incoterms: "Free On Board",
+    shouldError: true,
+    expectedErrorField: IMPORT_DATE_FIELD,
+  },
+  {
+    ruleId: "IBR-085-OM",
+    title:
+      "Given Import of Goods — When Incoterms is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
+    itemCountryOfOrigin: "India",
+    importDate: "2026-01-10",
+    customsDeclarationNumber: "CD-12345",
+    incoterms: "",
+    shouldError: true,
+    expectedErrorField: INCOTERMS_FIELD,
   },
   {
     ruleId: "IBR-085-OM",
@@ -1798,6 +2247,67 @@ export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenar
     },
   ];
 
+/** IBR-091-OM: Profit Margin Invoice → IBT-158 MUST NOT start with 7101/7102/7103/7104/01/06. */
+export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
+  [
+    {
+      ruleId: "IBR-091-OM",
+      title:
+        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS 8471 → accepted",
+      itemClassificationIdentifier: OMAN_HS_CODE_12,
+      shouldError: false,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      ruleId: "IBR-091-OM",
+      title:
+        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7101 → error file",
+      itemClassificationIdentifier: "710100000000",
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      ruleId: "IBR-091-OM",
+      title:
+        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7102 → error file",
+      itemClassificationIdentifier: "710200000000",
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      ruleId: "IBR-091-OM",
+      title:
+        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7103 → error file",
+      itemClassificationIdentifier: "710300000000",
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      ruleId: "IBR-091-OM",
+      title:
+        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 7104 → error file",
+      itemClassificationIdentifier: "710400000000",
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      ruleId: "IBR-091-OM",
+      title:
+        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 01 → error file",
+      itemClassificationIdentifier: "010000000000",
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      ruleId: "IBR-091-OM",
+      title:
+        "Excel upload · Covoro | IBR-091-OM | Profit Margin Invoice + HS starts 06 → error file",
+      itemClassificationIdentifier: "060000000000",
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+  ];
+
 
 // ---------------------------------------------------------------------------
 // summaryInvoicePeriod
@@ -1823,6 +2333,35 @@ export const SUMMARY_INVOICE_PERIOD_SCENARIOS: SummaryPeriodScenario[] = [
     expectedErrorField: INVOICING_PERIOD_START_DATE_FIELD,
   }),
 ];
+
+/**
+ * IBR-036-OM: Summary invoice (XXXX1XXXXXXXXXXXXXXX) → IBT-073 and IBT-074
+ * must belong to the same calendar month when both are provided.
+ * End still >= start so IBR-029 does not fire on the different-month row.
+ */
+export const SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS: SummaryPeriodScenario[] =
+  [
+    {
+      ruleId: "IBR-036-OM",
+      title:
+        "Excel upload · Covoro | IBR-036-OM | Summary Invoice + period dates same calendar month → accepted",
+      invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+      shouldError: false,
+      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
+    },
+    {
+      ruleId: "IBR-036-OM",
+      title:
+        "Excel upload · Covoro | IBR-036-OM | Summary Invoice + period dates different calendar months → error file",
+      invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-02-01",
+      shouldError: true,
+      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
+    },
+  ];
 
 
 // ---------------------------------------------------------------------------
@@ -1876,6 +2415,17 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
       kind: "allowance",
       vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       exemptionReason: "",
+      amount: "50",
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "IBR-062-OM",
+      title:
+        "Excel upload · Covoro | IBR-062-OM | Allowance Standard + exemption reason → error file",
+      kind: "allowance",
+      vatCategory: STANDARD_TAX_CATEGORY_CODE,
+      exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
       amount: "50",
       shouldError: true,
       expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
@@ -1950,6 +2500,31 @@ export const DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS: DocumentAllowanceChargeVat
 
 
 // ---------------------------------------------------------------------------
+// documentChargeReason (IBR-042-OM)
+// ---------------------------------------------------------------------------
+/**
+ * IBR-042-OM: if Document level charge (IBG-21) is present, document level
+ * charge reason code (IBT-104) MUST be present.
+ * Covoro has no IBT-104 column; the pack maps it to `Charges on document
+ * level` (same cell as the IBG-21 amount). Filling the amount is Allowed.
+ * Not Allowed (IBG-21 present + reason omitted) is Excel N/A — the proxy
+ * cell cannot be filled and empty at once.
+ */
+export const DOCUMENT_CHARGE_REASON_SCENARIOS: DocumentChargeReasonScenario[] =
+  [
+    {
+      ruleId: "IBR-042-OM",
+      title:
+        "Excel upload · Covoro | IBR-042-OM | Document level charge present → accepted",
+      amount: "100",
+      vatCategory: STANDARD_TAX_CATEGORY_CODE,
+      shouldError: false,
+      expectedErrorField: CHARGES_ON_DOCUMENT_LEVEL_FIELD,
+    },
+  ];
+
+
+// ---------------------------------------------------------------------------
 // creditDebitReason
 // ---------------------------------------------------------------------------
 /** IBR-023-OM: CN/DN/self-billed CN require reason code. */
@@ -1980,19 +2555,23 @@ export const CREDIT_DEBIT_REASON_SCENARIOS: CreditDebitReasonScenario[] = [
 // ---------------------------------------------------------------------------
 /**
  * IBR-177-OM: when Invoice Type is Self billed credit note (261) or Self-billed
- * invoice (389), Invoice Transaction Type must be one of the allowed self-bill /
- * import / profit-margin-self set. Live: one type per test; packs: both in one workbook.
+ * invoice (389), Invoice Transaction Type must be Self-billed / RCM / PM-Self /
+ * Import of Goods. Live: one type × one txn per test; packs: both types in one workbook.
  */
 export const SELF_BILLED_TXN_CONSTRAINT_SCENARIOS: SelfBilledTxnConstraintScenario[] =
   [
     ...expandAcrossSelfBilledDocumentTypes<SelfBilledTxnConstraintScenario>({
       ruleId: "IBR-177-OM",
       title:
-        "Excel upload · Covoro | IBR-177-OM | {type} + Self-billed txn → accepted",
+        "Excel upload · Covoro | IBR-177-OM | {type} + {txn} → accepted",
       invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
       shouldError: false,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-    }),
+    }).flatMap((typeScenario) =>
+      expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledTxnConstraintScenario>(
+        typeScenario
+      )
+    ),
     ...expandAcrossSelfBilledDocumentTypes<SelfBilledTxnConstraintScenario>({
       ruleId: "IBR-177-OM",
       title:
@@ -2009,13 +2588,20 @@ export const SELF_BILLED_TXN_CONSTRAINT_SCENARIOS: SelfBilledTxnConstraintScenar
 // ---------------------------------------------------------------------------
 /**
  * IBR-176-OM: Prepayment cannot combine with Summary OR Deemed Supply OR
- * Profit Margin Self-Invoice on BTOM-001. Conflict rows use Peppol bit OR;
- * control uses Master label Prepayment alone. Live: one partner per test.
- * Pack: MULTI_VALUE_PACK_EXPAND emits Summary|Deemed|PM-Self rows (conflict bits
- * on invalidate); live suite keeps 1 partner per test.
+ * Profit Margin Self-Invoice on BTOM-001. Allowed = partner Master label
+ * without Prepayment; Not Allowed = Peppol bit OR; control = Prepayment
+ * label alone. Live: one partner per test.
  */
 export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[] =
   [
+    ...expandAcrossPrepaymentExclusionPartners<PrepaymentTxnExclusionScenario>({
+      ruleId: "IBR-176-OM",
+      title:
+        "Excel upload · Covoro | IBR-176-OM | {type} without Prepayment → accepted",
+      withPrepaymentBit: false,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    }),
     ...expandAcrossPrepaymentExclusionPartners<PrepaymentTxnExclusionScenario>({
       ruleId: "IBR-176-OM",
       title:
@@ -2063,6 +2649,55 @@ export const EXPORT_DELIVERY_SCENARIOS: ExportDeliveryScenario[] = [
 
 
 // ---------------------------------------------------------------------------
+// specialZoneCountrySubdivision (IBR-150-OM)
+// ---------------------------------------------------------------------------
+/** IBR-150-OM: Special Zone Supplies → seller + buyer country subdivision from CL-13-OM. */
+export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS: SpecialZoneCountrySubdivisionScenario[] =
+  [
+    {
+      ruleId: "IBR-150-OM",
+      title:
+        "Excel upload · Covoro | IBR-150-OM | Special Zone + CL-13 buyer/seller subdivision → accepted",
+      invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
+      sellerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+      buyerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+      shouldError: false,
+      expectedErrorField: BUYER_COUNTRY_SUBDIVISION_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-150-OM",
+      title:
+        "Excel upload · Covoro | IBR-150-OM | Special Zone + empty buyer subdivision → error file",
+      invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
+      sellerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+      buyerCountrySubdivisionCode: "",
+      shouldError: true,
+      expectedErrorField: BUYER_COUNTRY_SUBDIVISION_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-150-OM",
+      title:
+        "Excel upload · Covoro | IBR-150-OM | Special Zone + empty seller subdivision → error file",
+      invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
+      sellerCountrySubdivisionCode: "",
+      buyerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+      shouldError: true,
+      expectedErrorField: SELLER_COUNTRY_SUBDIVISION_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-150-OM",
+      title:
+        "Excel upload · Covoro | IBR-150-OM | Special Zone + subdivision not in CL-13-OM → error file",
+      invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
+      sellerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+      buyerCountrySubdivisionCode: COUNTRY_SUBDIVISION_NOT_IN_CL13,
+      shouldError: true,
+      expectedErrorField: BUYER_COUNTRY_SUBDIVISION_CODE_FIELD,
+    },
+  ];
+
+
+// ---------------------------------------------------------------------------
 // specialZoneSeller (IBR-151-OM)
 // ---------------------------------------------------------------------------
 /** IBR-151-OM: Special Zone Supplies → Seller identifier with Special Zone License scheme. */
@@ -2086,6 +2721,27 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
     sellerIdentifier: "",
     shouldError: true,
     expectedErrorField: SELLER_IDENTIFIER_FIELD,
+  },
+  {
+    ruleId: "IBR-151-OM",
+    title:
+      "Excel upload · Covoro | IBR-151-OM | Special Zone + Mainland (MO) + omit seller identifier → accepted",
+    invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
+    sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
+    sellerIdentifier: "",
+    sellerCountrySubdivisionCode: MAINLAND_OMAN_COUNTRY_SUBDIVISION_CL13,
+    shouldError: false,
+    expectedErrorField: SELLER_IDENTIFIER_FIELD,
+  },
+  {
+    ruleId: "IBR-151-OM",
+    title:
+      "Excel upload · Covoro | IBR-151-OM | Full Tax + Special Zone License → error file",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
+    sellerIdentifier: "SZ-LIC-001",
+    shouldError: true,
+    expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
   },
 ];
 
@@ -2486,9 +3142,9 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
 // ---------------------------------------------------------------------------
 /**
  * Covoro Excel has no separate IBG-23 VAT category column — line Tax Category
- * is the IBT-118 proxy. E-01 also drives IBT-95 (allowance) and IBT-102 (charge).
- * Blank/whitespace/null Excel negatives collapse to empty Tax Category (omit).
- * Simplified Tax Invoice is the documented exception.
+ * is the IBT-118 proxy. E-01 / O-01 / S-01 / Z-01 also drive IBT-95 (allowance) and
+ * IBT-102 (charge). Blank/whitespace/null Excel negatives collapse to empty
+ * Tax Category (omit). Simplified Tax Invoice is the documented exception.
  */
 export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPresenceScenario[] =
   [
@@ -2669,6 +3325,82 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       shouldError: false,
       expectedErrorField: TAX_CATEGORY_FIELD,
     },
+    {
+      ruleId: "ALIGNED-IBRP-O-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + allowance O + Not subject breakdown → accepted",
+      source: "allowance",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: "",
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-O-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + allowance O + no O breakdown → error file",
+      source: "allowance",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-O-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Simplified + allowance O + omit O breakdown ok → accepted",
+      source: "allowance",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-O-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + charge O + Not subject breakdown → accepted",
+      source: "charge",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: "",
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-O-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Full Tax + charge O + no O breakdown → error file",
+      source: "charge",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-O-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-01-OM | Simplified + charge O + omit O breakdown ok → accepted",
+      source: "charge",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
+    },
     // S-01
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
@@ -2702,6 +3434,56 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       taxExemptionReasonCode: "",
       shouldError: false,
       expectedErrorField: TAX_CATEGORY_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-S-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + allowance S + Standard breakdown → accepted",
+      source: "allowance",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: STANDARD_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-S-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + allowance S + no S breakdown → error file",
+      source: "allowance",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: STANDARD_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-S-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + charge S + Standard breakdown → accepted",
+      source: "charge",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: STANDARD_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-S-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-S-01-OM | Full Tax + charge S + no S breakdown → error file",
+      source: "charge",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: STANDARD_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: "",
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
     },
     // Z-01
     {
@@ -2747,6 +3529,82 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       shouldError: false,
       expectedErrorField: TAX_CATEGORY_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + allowance Z + Zero rated breakdown → accepted",
+      source: "allowance",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_ZERO,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + allowance Z + no Z breakdown → error file",
+      source: "allowance",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Simplified + allowance Z + omit Z breakdown ok → accepted",
+      source: "allowance",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + charge Z + Zero rated breakdown → accepted",
+      source: "charge",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_ZERO,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Full Tax + charge Z + no Z breakdown → error file",
+      source: "charge",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      shouldError: true,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-01-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-01-OM | Simplified + charge Z + omit Z breakdown ok → accepted",
+      source: "charge",
+      breakdownMatches: false,
+      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      shouldError: false,
+      expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
     },
   ];
 
@@ -2883,6 +3741,135 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
   ];
 
 // ---------------------------------------------------------------------------
+// vatCategoryTaxAmount (ALIGNED-IBRP-E-09-OM)
+// ---------------------------------------------------------------------------
+export const VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS: VatCategoryTaxAmountE09Scenario[] =
+  [
+    {
+      ruleId: "ALIGNED-IBRP-E-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-E-09-OM | Full Tax + E + IBT-117=0 → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
+      vatCategoryTaxAmount: "0",
+      shouldError: false,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-E-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-E-09-OM | Full Tax + E + IBT-117=50 → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
+      vatCategoryTaxAmount: "50",
+      shouldError: true,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-E-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-E-09-OM | Simplified + E + IBT-117=0 → accepted",
+      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
+      vatCategoryTaxAmount: "0",
+      shouldError: false,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+  ];
+
+// ---------------------------------------------------------------------------
+// vatCategoryTaxAmount (ALIGNED-IBRP-O-09-OM)
+// ---------------------------------------------------------------------------
+export const VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS: VatCategoryTaxAmountO09Scenario[] =
+  [
+    {
+      ruleId: "ALIGNED-IBRP-O-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-09-OM | Full Tax + O + IBT-117=0 → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: "",
+      vatCategoryTaxAmount: "0",
+      shouldError: false,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-O-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-09-OM | Full Tax + O + IBT-117=50 → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: "",
+      vatCategoryTaxAmount: "50",
+      shouldError: true,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-O-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-O-09-OM | Simplified + O + IBT-117=0 → accepted",
+      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: null,
+      taxExemptionReasonCode: "",
+      vatCategoryTaxAmount: "0",
+      shouldError: false,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+  ];
+
+// ---------------------------------------------------------------------------
+// vatCategoryTaxAmount (ALIGNED-IBRP-Z-09-OM)
+// ---------------------------------------------------------------------------
+export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scenario[] =
+  [
+    {
+      ruleId: "ALIGNED-IBRP-Z-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-09-OM | Full Tax + Z + IBT-117=0 → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_ZERO,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      vatCategoryTaxAmount: "0",
+      shouldError: false,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-09-OM | Full Tax + Z + IBT-117=50 → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_ZERO,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      vatCategoryTaxAmount: "50",
+      shouldError: true,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+    {
+      ruleId: "ALIGNED-IBRP-Z-09-OM",
+      title:
+        "Excel upload · Covoro | ALIGNED-IBRP-Z-09-OM | Simplified + Z + IBT-117=0 → accepted",
+      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxRate: TAX_RATE_ZERO,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      vatCategoryTaxAmount: "0",
+      shouldError: false,
+      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+    },
+  ];
+
+// ---------------------------------------------------------------------------
 // txnMutualExclusion (IBR-138…149-OM) — representative conflict pairs
 // ---------------------------------------------------------------------------
 export const TXN_MUTUAL_EXCLUSION_SCENARIOS: TxnMutualExclusionScenario[] = [
@@ -2959,55 +3946,343 @@ export const SELLER_VAT_MANDATORY_SCENARIOS: SellerVatMandatoryScenario[] = [
     shouldError: false,
     expectedErrorField: SELLER_VAT_IDENTIFIER_FIELD,
   },
+  {
+    ruleId: "IBR-006-OM",
+    title:
+      "Excel upload · Covoro | IBR-006-OM | Import of Services (RCM) + empty Seller VATIN → accepted",
+    invoiceTransactionTypeCode: TXN_IMPORT_OF_SERVICES_RCM,
+    sellerVatIdentifier: "",
+    patchSellerVatAfterGenerate: true,
+    shouldError: false,
+    expectedErrorField: SELLER_VAT_IDENTIFIER_FIELD,
+  },
+  {
+    ruleId: "IBR-006-OM",
+    title:
+      "Excel upload · Covoro | IBR-006-OM | Profit Margin Self-Invoice + empty Seller VATIN → accepted",
+    invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
+    sellerVatIdentifier: "",
+    patchSellerVatAfterGenerate: true,
+    shouldError: false,
+    expectedErrorField: SELLER_VAT_IDENTIFIER_FIELD,
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// sellerIdentifierScheme (IBR-007-OM)
+// ---------------------------------------------------------------------------
+/** IBR-007-OM: named txn types require Seller identifier scheme (IBT-029-1). */
+export const SELLER_IDENTIFIER_SCHEME_SCENARIOS: SellerIdentifierSchemeScenario[] =
+  [
+    ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
+      ruleId: "IBR-007-OM",
+      title:
+        "Excel upload · Covoro | IBR-007-OM | {txn} + Seller identifier scheme → accepted",
+      sellerIdentifierSchemeProvided: true,
+      shouldError: false,
+      expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
+    }),
+    ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
+      ruleId: "IBR-007-OM",
+      title:
+        "Excel upload · Covoro | IBR-007-OM | {txn} + empty Seller identifier scheme → error file",
+      sellerIdentifierSchemeProvided: false,
+      shouldError: true,
+      expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
+    }),
+  ];
 
 // ---------------------------------------------------------------------------
 // buyerIdOrVatin (IBR-016-OM)
 // ---------------------------------------------------------------------------
 export const BUYER_ID_OR_VATIN_SCENARIOS: BuyerIdOrVatinScenario[] = [
-  {
+  ...expandAcrossIbr016BuyerIdOrVatinTxnTypes<BuyerIdOrVatinScenario>({
     ruleId: "IBR-016-OM",
     title:
-      "Excel upload · Covoro | IBR-016-OM | Full Tax + Buyer VATIN → accepted",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    buyerIdentifier: "OM-BUYER-001",
+      "Excel upload · Covoro | IBR-016-OM | {txn} + Buyer VATIN only → accepted",
+    buyerIdentifier: "",
     buyerVatIdentifier: IBR_003_VALID_BUYER_VATIN,
     shouldError: false,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
-  },
+  }),
   {
     ruleId: "IBR-016-OM",
     title:
-      "Excel upload · Covoro | IBR-016-OM | Full Tax + empty Buyer id and VATIN → error file",
+      "Excel upload · Covoro | IBR-016-OM | Full Tax Invoice + Buyer identifier only → accepted",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    buyerIdentifier: "OM-BUYER-001",
+    buyerVatIdentifier: "",
+    shouldError: false,
+    expectedErrorField: BUYER_IDENTIFIER_FIELD,
+  },
+  ...expandAcrossIbr016BuyerIdOrVatinTxnTypes<BuyerIdOrVatinScenario>({
+    ruleId: "IBR-016-OM",
+    title:
+      "Excel upload · Covoro | IBR-016-OM | {txn} + empty Buyer id and VATIN → error file",
     buyerIdentifier: "",
     buyerVatIdentifier: "",
     shouldError: true,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
+  }),
+];
+
+// ---------------------------------------------------------------------------
+// sellerAddressRequired (IBR-010-OM)
+// ---------------------------------------------------------------------------
+const SELLER_ADDRESS_COMPLETE = {
+  addressLine1: "Building 12, Al Khuwair",
+  addressLine2: "Way 1234",
+  addressLine3: "Block 234",
+  city: "Muscat",
+  postCode: "133",
+} as const;
+
+/** IBR-010-OM: IBG-05 Seller postal address fields must all be provided. */
+export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] =
+  [
+    {
+      ruleId: "IBR-010-OM",
+      title:
+        "Excel upload · Covoro | IBR-010-OM | Seller postal address complete → accepted",
+      ...SELLER_ADDRESS_COMPLETE,
+      shouldError: false,
+      expectedErrorField: SELLER_ADDRESS_LINE_1_FIELD,
+    },
+    {
+      ruleId: "IBR-010-OM",
+      title:
+        "Excel upload · Covoro | IBR-010-OM | empty Seller address line 1 → error file",
+      ...SELLER_ADDRESS_COMPLETE,
+      addressLine1: "",
+      shouldError: true,
+      expectedErrorField: SELLER_ADDRESS_LINE_1_FIELD,
+    },
+    {
+      ruleId: "IBR-010-OM",
+      title:
+        "Excel upload · Covoro | IBR-010-OM | empty Seller address line 2 → error file",
+      ...SELLER_ADDRESS_COMPLETE,
+      addressLine2: "",
+      shouldError: true,
+      expectedErrorField: SELLER_ADDRESS_LINE_2_FIELD,
+    },
+    {
+      ruleId: "IBR-010-OM",
+      title:
+        "Excel upload · Covoro | IBR-010-OM | empty Seller address line 3 → error file",
+      ...SELLER_ADDRESS_COMPLETE,
+      addressLine3: "",
+      shouldError: true,
+      expectedErrorField: SELLER_ADDRESS_LINE_3_FIELD,
+    },
+    {
+      ruleId: "IBR-010-OM",
+      title:
+        "Excel upload · Covoro | IBR-010-OM | empty Seller city → error file",
+      ...SELLER_ADDRESS_COMPLETE,
+      city: "",
+      shouldError: true,
+      expectedErrorField: SELLER_CITY_FIELD,
+    },
+    {
+      ruleId: "IBR-010-OM",
+      title:
+        "Excel upload · Covoro | IBR-010-OM | empty Seller post code → error file",
+      ...SELLER_ADDRESS_COMPLETE,
+      postCode: "",
+      shouldError: true,
+      expectedErrorField: SELLER_POST_CODE_FIELD,
+    },
+  ];
+
+// ---------------------------------------------------------------------------
+// thirdPartyRequired (IBR-015-OM)
+// ---------------------------------------------------------------------------
+const THIRD_PARTY_COMPLETE = {
+  thirdPartyName: "Oman Third Party LLC",
+  thirdPartyVatin: IBR_003_VALID_THIRD_PARTY_VATIN,
+  addressLine1: "TP Building 1",
+  addressLine2: "TP Street",
+  addressLine3: "TP Area",
+  city: "Muscat",
+  postalCode: "100",
+  countryCode: OMAN_COUNTRY_CODE,
+} as const;
+
+/**
+ * IBR-015-OM: Third-party Invoice (XXX1XXXXXXXXXXXXXXXX) requires the third-party
+ * party block. BTOM-06-1 VAT Scheme Code and "occur only once" are Excel N/A.
+ */
+export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + third party block → accepted",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    shouldError: false,
+    expectedErrorField: THIRD_PARTY_NAME_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Third Party Name → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    thirdPartyName: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_NAME_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Third Party VATIN → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    thirdPartyVatin: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_VATIN_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Address Line 1 → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    addressLine1: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_ADDRESS_LINE_1_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Address Line 2 → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    addressLine2: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_ADDRESS_LINE_2_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Address Line 3 → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    addressLine3: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_ADDRESS_LINE_3_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Third Party City → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    city: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_CITY_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty postal code → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    postalCode: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_POSTAL_CODE_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Third-party + empty Country Code → error file",
+    invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    countryCode: "",
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_COUNTRY_CODE_FIELD,
+  },
+  {
+    ruleId: "IBR-015-OM",
+    title:
+      "Excel upload · Covoro | IBR-015-OM | Full Tax + third party block → error file",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    ...THIRD_PARTY_COMPLETE,
+    shouldError: true,
+    expectedErrorField: THIRD_PARTY_NAME_FIELD,
   },
 ];
 
 // ---------------------------------------------------------------------------
 // buyerAddressRequired (IBR-019-OM)
 // ---------------------------------------------------------------------------
+const BUYER_ADDRESS_COMPLETE = {
+  addressLine1: "Shop 5, Ruwi High Street",
+  addressLine2: "Near Clock Tower",
+  addressLine3: "Ruwi",
+  city: "Muscat",
+  postCode: "112",
+} as const;
+
+/** IBR-019-OM: listed txn types require the buyer postal address block. */
 export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = [
+  ...expandAcrossIbr019BuyerAddressTxnTypes<BuyerAddressRequiredScenario>({
+    ruleId: "IBR-019-OM",
+    title:
+      "Excel upload · Covoro | IBR-019-OM | {txn} + Buyer address → accepted",
+    ...BUYER_ADDRESS_COMPLETE,
+    shouldError: false,
+    expectedErrorField: BUYER_ADDRESS_LINE_1_FIELD,
+  }),
+  ...expandAcrossIbr019BuyerAddressTxnTypes<BuyerAddressRequiredScenario>({
+    ruleId: "IBR-019-OM",
+    title:
+      "Excel upload · Covoro | IBR-019-OM | {txn} + empty Buyer address line 1 → error file",
+    ...BUYER_ADDRESS_COMPLETE,
+    addressLine1: "",
+    shouldError: true,
+    expectedErrorField: BUYER_ADDRESS_LINE_1_FIELD,
+  }),
   {
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | Full Tax + Buyer address → accepted",
+      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer address line 2 → error file",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    buyerAddressLine1: "Shop 5, Ruwi High Street",
-    shouldError: false,
-    expectedErrorField: "Buyer address line 1",
+    ...BUYER_ADDRESS_COMPLETE,
+    addressLine2: "",
+    shouldError: true,
+    expectedErrorField: BUYER_ADDRESS_LINE_2_FIELD,
   },
   {
     ruleId: "IBR-019-OM",
     title:
-      "Excel upload · Covoro | IBR-019-OM | Full Tax + empty Buyer address line 1 → error file",
+      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer address line 3 → error file",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    buyerAddressLine1: "",
+    ...BUYER_ADDRESS_COMPLETE,
+    addressLine3: "",
     shouldError: true,
-    expectedErrorField: "Buyer address line 1",
+    expectedErrorField: BUYER_ADDRESS_LINE_3_FIELD,
+  },
+  {
+    ruleId: "IBR-019-OM",
+    title:
+      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer city → error file",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    ...BUYER_ADDRESS_COMPLETE,
+    city: "",
+    shouldError: true,
+    expectedErrorField: BUYER_CITY_FIELD,
+  },
+  {
+    ruleId: "IBR-019-OM",
+    title:
+      "Excel upload · Covoro | IBR-019-OM | Full Tax Invoice + empty Buyer post code → error file",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    ...BUYER_ADDRESS_COMPLETE,
+    postCode: "",
+    shouldError: true,
+    expectedErrorField: BUYER_POST_CODE_FIELD,
   },
 ];
 
@@ -3142,8 +4417,8 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-CO-19",
       title:
-        "Excel upload · Covoro | IBR-CO-19 | Summary + start only → accepted",
-      invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
+        "Excel upload · Covoro | IBR-CO-19 | Full Tax + start only → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "",
       shouldError: false,
@@ -3152,12 +4427,50 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-CO-19",
       title:
-        "Excel upload · Covoro | IBR-CO-19 | Summary + both period empty → error file",
-      invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
+        "Excel upload · Covoro | IBR-CO-19 | Full Tax + end only → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       periodStart: "",
-      periodEnd: "",
-      shouldError: true,
+      periodEnd: "2026-01-31",
+      shouldError: false,
+      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
+    },
+    {
+      ruleId: "IBR-CO-19",
+      title:
+        "Excel upload · Covoro | IBR-CO-19 | Full Tax + both period dates → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+      shouldError: false,
       expectedErrorField: INVOICING_PERIOD_START_DATE_FIELD,
+    },
+  ];
+
+// ---------------------------------------------------------------------------
+// invoiceLinePeriod (IBR-030)
+// Covoro Excel has no IBT-134/135 columns; pack proxies to document Invoicing Period*.
+// ---------------------------------------------------------------------------
+export const INVOICE_LINE_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
+  [
+    {
+      ruleId: "IBR-030",
+      title:
+        "Excel upload · Covoro | IBR-030 | Line period end >= start → accepted",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+      shouldError: false,
+      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
+    },
+    {
+      ruleId: "IBR-030",
+      title:
+        "Excel upload · Covoro | IBR-030 | Line period end < start → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      periodStart: "2026-01-31",
+      periodEnd: "2026-01-01",
+      shouldError: true,
+      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
     },
   ];
 
@@ -3289,10 +4602,37 @@ export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificat
       shouldError: false,
       expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
     },
+    {
+      ruleId: "IBR-081-OM",
+      title:
+        "Excel upload · Covoro | IBR-081-OM | Import of Goods + empty ISIC → accepted",
+      invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
+      industrialClassificationCode: "",
+      shouldError: false,
+      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-081-OM",
+      title:
+        "Excel upload · Covoro | IBR-081-OM | Import of Services (RCM) + empty ISIC → accepted",
+      invoiceTransactionTypeCode: TXN_IMPORT_OF_SERVICES_RCM,
+      industrialClassificationCode: "",
+      shouldError: false,
+      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-081-OM",
+      title:
+        "Excel upload · Covoro | IBR-081-OM | Profit Margin Self-Invoice + empty ISIC → accepted",
+      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
+      industrialClassificationCode: "",
+      shouldError: false,
+      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+    },
   ];
 
 // ---------------------------------------------------------------------------
-// ibrCl05 doc allowance exemption (IBR-CL-05-OM)
+// ibrCl05 / ibrCl10 doc allowance exemption codelist (IBR-CL-05-OM, IBR-CL-10-OM)
 // ---------------------------------------------------------------------------
 export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[] =
   [
@@ -3312,6 +4652,57 @@ export const IBR_CL_05_DOC_ALLOWANCE_SCENARIOS: DocAllowanceExemptionClScenario[
         "Excel upload · Covoro | IBR-CL-05-OM | Allowance Exempt + empty exemption → error file",
       vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       exemptionReason: "",
+      amount: "10",
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "IBR-CL-05-OM",
+      title:
+        "Excel upload · Covoro | IBR-CL-05-OM | Allowance Exempt + Zero-rated reason → error file",
+      vatCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      exemptionReason: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      amount: "10",
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "IBR-CL-05-OM",
+      title:
+        "Excel upload · Covoro | IBR-CL-05-OM | Allowance Standard + exemption reason → error file",
+      vatCategory: STANDARD_TAX_CATEGORY_CODE,
+      exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
+      amount: "10",
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "IBR-CL-10-OM",
+      title:
+        "Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + Zero-rated reason → accepted",
+      vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      exemptionReason: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      amount: "10",
+      shouldError: false,
+      expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+    },
+    ...expandIbrCl10RemainingZeroRatedReasons(),
+    {
+      ruleId: "IBR-CL-10-OM",
+      title:
+        "Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + empty exemption → error file",
+      vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      exemptionReason: "",
+      amount: "10",
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+    },
+    {
+      ruleId: "IBR-CL-10-OM",
+      title:
+        "Excel upload · Covoro | IBR-CL-10-OM | Allowance Zero rated + Exemption reason → error file",
+      vatCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      exemptionReason: TAX_EXEMPTION_REASON_SAMPLE,
       amount: "10",
       shouldError: true,
       expectedErrorField: TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
@@ -3368,6 +4759,54 @@ export const PROFIT_MARGIN_PRECEDING_SCENARIOS: ProfitMarginPrecedingScenario[] 
   ];
 
 // ---------------------------------------------------------------------------
+// profitMarginItemType (CL-11-OM)
+// ---------------------------------------------------------------------------
+/**
+ * CL-11-OM: Profit Margin Invoice / Self-Invoice → BTOM-025 present and in
+ * Profit Margin Items Codelist. PM Invoice + valid / invalid dropdown is
+ * already covered by field-validation master sweep.
+ */
+export const PROFIT_MARGIN_ITEM_TYPE_SCENARIOS: ProfitMarginItemTypeScenario[] =
+  [
+    {
+      ruleId: "CL-11-OM",
+      title:
+        "Excel upload · Covoro | CL-11-OM | Profit Margin Invoice + empty item type → error file",
+      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_INVOICE,
+      profitMarginItemTypeCode: "",
+      shouldError: true,
+      expectedErrorField: PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
+    },
+    {
+      ruleId: "CL-11-OM",
+      title:
+        "Excel upload · Covoro | CL-11-OM | Profit Margin Self-Invoice + empty item type → error file",
+      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
+      profitMarginItemTypeCode: "",
+      shouldError: true,
+      expectedErrorField: PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
+    },
+    {
+      ruleId: "CL-11-OM",
+      title:
+        "Excel upload · Covoro | CL-11-OM | Profit Margin Self-Invoice + CL-11 code → accepted",
+      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
+      profitMarginItemTypeCode: PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
+      shouldError: false,
+      expectedErrorField: PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
+    },
+    {
+      ruleId: "CL-11-OM",
+      title:
+        "Excel upload · Covoro | CL-11-OM | Profit Margin Self-Invoice + invalid item type → error file",
+      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
+      profitMarginItemTypeCode: PROFIT_MARGIN_ITEM_TYPE_INVALID_SAMPLE,
+      shouldError: true,
+      expectedErrorField: PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
+    },
+  ];
+
+// ---------------------------------------------------------------------------
 // buyerIdentifierScheme (IBR-152 / IBR-153-OM)
 // ---------------------------------------------------------------------------
 export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] =
@@ -3409,6 +4848,16 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       buyerIdentifierScheme: "Importer Customs ID",
       buyerIdentifier: "",
+      shouldError: true,
+      expectedErrorField: "Buyer identifier",
+    },
+    {
+      ruleId: "IBR-153-OM",
+      title:
+        "Excel upload · Covoro | IBR-153-OM | Full Tax + Importer Customs ID → error file",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      buyerIdentifierScheme: "Importer Customs ID",
+      buyerIdentifier: "IMP-CUST-001",
       shouldError: true,
       expectedErrorField: "Buyer identifier",
     },

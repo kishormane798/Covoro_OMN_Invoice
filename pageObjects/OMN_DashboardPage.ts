@@ -274,6 +274,26 @@ export class DashboardPage {
     return (await fallback.innerText()).trim();
   }
 
+  /** Click the invoice-number cell on a list row (select; do not open Options → View). */
+  async clickInvoiceNumberOnRow(row: Locator): Promise<void> {
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    const invoiceCell = row.locator("td").nth(2).locator(".ellipsis-text").first();
+    const fallback = row.locator(SELECTORS.invoiceTableCell).first();
+    const target = (await invoiceCell.count()) > 0 ? invoiceCell : fallback;
+    await expect(target).toBeVisible({ timeout: 15_000 });
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    try {
+      await target.click({ timeout: 8_000 });
+    } catch {
+      await target.click({ timeout: 8_000, force: true });
+    }
+  }
+
+  /** List row for Options → Download after Ready to Submit (same picker as submit). */
+  async invoiceRowForRoundTrip(invoiceNumber: string): Promise<Locator> {
+    return this.chooseInvoiceRowForSubmit(invoiceNumber);
+  }
+
   private invoiceDataRows(): Locator {
     return this.page.locator(
       "tbody tr.MuiTableRow-root:has(td.status-td), tbody tr.MuiTableRow-root:has(td[class*='status'])"

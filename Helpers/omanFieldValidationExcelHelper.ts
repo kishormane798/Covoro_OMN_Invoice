@@ -851,6 +851,37 @@ export async function generateOmanPartyIdentifierLengthExcel(opts: {
   return generated;
 }
 
+/**
+ * CL-06-OM: scheme XOR textual code — write Buyer/Seller Identifier list
+ * (or an invalid label) on IBT-046-1 / IBT-029-1 and keep identifier present.
+ */
+export async function generateOmanCl06IdentifierSchemeExcel(opts: {
+  party: "buyer" | "seller";
+  schemeValue: string;
+  identifier: string;
+}): Promise<{ filePath: string; invoiceNumber: string }> {
+  const identifierField =
+    opts.party === "buyer" ? BUYER_IDENTIFIER_FIELD : SELLER_IDENTIFIER_FIELD;
+  const schemeField =
+    opts.party === "buyer" ? BUYER_SCHEME_FIELD : SELLER_SCHEME_FIELD;
+  const codeField =
+    opts.party === "buyer" ? BUYER_CODE_FIELD : SELLER_CODE_FIELD;
+
+  const generated = await generateOmanSeededFieldExcel(
+    identifierField,
+    opts.identifier,
+    { skipDependentOverlay: true }
+  );
+  patchInvoiceTextCellInFile(generated.filePath, schemeField, opts.schemeValue);
+  patchInvoiceTextCellInFile(generated.filePath, codeField, "");
+  patchInvoiceTextCellInFile(
+    generated.filePath,
+    identifierField,
+    opts.identifier
+  );
+  return generated;
+}
+
 /** IBR-CO-21: name and value are both-or-neither. Length tests must not leave a dash/empty companion. */
 function itemAttributeCompanion(
   field: string

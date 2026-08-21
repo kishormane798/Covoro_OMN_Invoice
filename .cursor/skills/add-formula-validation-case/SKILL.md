@@ -9,6 +9,13 @@ description: Add formula, min-max, and calculated-totals validation tests. Use w
 
 - Validating spreadsheet formulas, line totals, document totals, tax calculations
 - Min/max numeric boundary tests that use the **formula Excel pipeline**
+- Inventory **FORMULA** rules (e.g. `ALIGNED-IBRP-E-08-OM` Σ taxable amount) after
+  `expand-omn-conditional-rule` Check → user replies **yes** to implement
+
+## Check vs implement
+
+If the user only asked to **check** coverage, do not add cases here. Follow
+`expand-omn-conditional-rule`: report Covered / Not covered, ask for **yes**, then implement.
 
 ## Critical distinction
 

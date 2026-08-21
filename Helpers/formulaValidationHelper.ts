@@ -1025,6 +1025,555 @@ export async function runZeroLineVatForcedNonZeroErrorScenario(
   });
 }
 
+/**
+ * ALIGNED-IBRP-E-08-OM: Exempt (E) VAT category taxable amount (IBT-116) must equal
+ * Σ IBT-131(E) − Σ IBT-092(E) + Σ IBT-099(E). Covoro has no IBG-23 column — proxy for
+ * Σ mismatch is Invoice Total Amount Without Tax. VAT breakdown (IBG-23) is UI/backend
+ * and auto-maps by transaction type; Excel cases provide totals and assert upload status.
+ * Simplified + E: provide values (do not blank IBT-116 proxy) → accepted.
+ */
+export const E08_OM_IBT116_PROXY_HEADER = "Invoice Total Amount Without Tax";
+
+export type AlignedIbrpE08OmPolarity =
+  | "allowed_line"
+  | "allowed_line_allowance_charge"
+  | "not_allowed_mismatch"
+  | "exception_simplified_e_accepted";
+
+export type AlignedIbrpE08OmCase = {
+  ruleId: "ALIGNED-IBRP-E-08-OM";
+  polarity: AlignedIbrpE08OmPolarity;
+  title: string;
+  shouldError: boolean;
+};
+
+export const ALIGNED_IBRP_E_08_OM_CASES: AlignedIbrpE08OmCase[] = [
+  {
+    ruleId: "ALIGNED-IBRP-E-08-OM",
+    polarity: "allowed_line",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Full Tax + E line taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-E-08-OM",
+    polarity: "allowed_line_allowance_charge",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Full Tax + E line/allowance/charge taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-E-08-OM",
+    polarity: "not_allowed_mismatch",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Full Tax + E taxable amount mismatch → error file",
+    shouldError: true,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-E-08-OM",
+    polarity: "exception_simplified_e_accepted",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-E-08-OM | Simplified + E with taxable amount → accepted",
+    shouldError: false,
+  },
+];
+
+function e08OmExemptBaseRow(
+  polarity: AlignedIbrpE08OmPolarity,
+  txn: string
+): FormulaDataRow {
+  const withDoc =
+    polarity === "allowed_line_allowance_charge" ||
+    polarity === "not_allowed_mismatch";
+  return {
+    name: withDoc
+      ? `ALIGNED-IBRP-E-08-OM document charges and allowances (${polarity})`
+      : `ALIGNED-IBRP-E-08-OM (${polarity})`,
+    invoiceTransactionTypeCode: txn,
+    taxCategory: FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: FV.TAX_EXEMPTION_REASON_SAMPLE,
+    invoiceTypeCode: FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
+    paymentMeansTypeCode: "Instrument not defined",
+    itemPriceBaseQty: 1,
+    itemGrossPrice: 1000,
+    itemPriceDiscount: 0,
+    invoicedQty: 1,
+    lineCharge: 0,
+    lineAllowance: 0,
+    docCharges: withDoc ? 50 : 0,
+    docAllowances: withDoc ? 25 : 0,
+    paidAmount: 0,
+    roundingAmount: 0,
+  };
+}
+
+function clearSimplifiedTxnCompanions(filePath: string): void {
+  patchInvoiceTextCellInFile(filePath, FV.ITEM_TYPE_FIELD, "");
+  patchInvoiceTextCellInFile(filePath, FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD, "");
+  patchInvoiceTextCellInFile(filePath, FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD, "");
+}
+
+export async function runAlignedIbrpE08OmScenario(
+  page: Page,
+  scenario: AlignedIbrpE08OmCase
+) {
+  const txn =
+    scenario.polarity === "exception_simplified_e_accepted"
+      ? FV.TXN_SIMPLIFIED_TAX_INVOICE
+      : FV.TXN_FULL_TAX_INVOICE;
+  const row = e08OmExemptBaseRow(scenario.polarity, txn);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+
+  if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
+    clearSimplifiedTxnCompanions(filePath);
+  }
+
+  if (scenario.polarity === "not_allowed_mismatch") {
+    const correctRaw = pickCorrectForWorkbook(
+      CALCULATED_FIELD_MISMATCH_TARGETS.find(
+        (t) => t.excelHeader === E08_OM_IBT116_PROXY_HEADER
+      )!,
+      "omr",
+      row,
+      1
+    );
+    if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
+      throw new Error(
+        `ALIGNED-IBRP-E-08-OM: no baseline for ${E08_OM_IBT116_PROXY_HEADER}`
+      );
+    }
+    patchInvoiceDataCellInFile(
+      filePath,
+      E08_OM_IBT116_PROXY_HEADER,
+      applyToleranceDelta(Number(correctRaw), CALCULATED_FIELD_MISMATCH_DELTA)
+    );
+  }
+
+  if (scenario.shouldError) {
+    await runErrorValidation(page, {
+      filePath,
+      field: E08_OM_IBT116_PROXY_HEADER,
+      invoiceNumber,
+      checkEdit: true,
+    });
+    return;
+  }
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * ALIGNED-IBRP-O-08-OM: Not subject (O) VAT category taxable amount (IBT-116) must equal
+ * Σ IBT-131(O) − Σ IBT-092(O) + Σ IBT-099(O). Covoro has no IBG-23 column — proxy for
+ * Σ mismatch is Invoice Total Amount Without Tax. VAT breakdown (IBG-23) is UI/backend
+ * and auto-maps by transaction type; Excel cases provide totals and assert upload status.
+ * Simplified + O: provide values (do not blank IBT-116 proxy) → accepted.
+ */
+export const O08_OM_IBT116_PROXY_HEADER = "Invoice Total Amount Without Tax";
+
+export type AlignedIbrpO08OmPolarity =
+  | "allowed_line"
+  | "allowed_line_allowance_charge"
+  | "not_allowed_mismatch"
+  | "exception_simplified_o_accepted";
+
+export type AlignedIbrpO08OmCase = {
+  ruleId: "ALIGNED-IBRP-O-08-OM";
+  polarity: AlignedIbrpO08OmPolarity;
+  title: string;
+  shouldError: boolean;
+};
+
+export const ALIGNED_IBRP_O_08_OM_CASES: AlignedIbrpO08OmCase[] = [
+  {
+    ruleId: "ALIGNED-IBRP-O-08-OM",
+    polarity: "allowed_line",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Full Tax + O line taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-O-08-OM",
+    polarity: "allowed_line_allowance_charge",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Full Tax + O line/allowance/charge taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-O-08-OM",
+    polarity: "not_allowed_mismatch",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Full Tax + O taxable amount mismatch → error file",
+    shouldError: true,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-O-08-OM",
+    polarity: "exception_simplified_o_accepted",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-O-08-OM | Simplified + O with taxable amount → accepted",
+    shouldError: false,
+  },
+];
+
+function o08OmNotSubjectBaseRow(
+  polarity: AlignedIbrpO08OmPolarity,
+  txn: string
+): FormulaDataRow {
+  const withDoc =
+    polarity === "allowed_line_allowance_charge" ||
+    polarity === "not_allowed_mismatch";
+  return {
+    name: withDoc
+      ? `ALIGNED-IBRP-O-08-OM document charges and allowances (${polarity})`
+      : `ALIGNED-IBRP-O-08-OM (${polarity})`,
+    invoiceTransactionTypeCode: txn,
+    taxCategory: FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: "",
+    invoiceTypeCode: FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
+    paymentMeansTypeCode: "Instrument not defined",
+    itemPriceBaseQty: 1,
+    itemGrossPrice: 1000,
+    itemPriceDiscount: 0,
+    invoicedQty: 1,
+    lineCharge: 0,
+    lineAllowance: 0,
+    docCharges: withDoc ? 50 : 0,
+    docAllowances: withDoc ? 25 : 0,
+    paidAmount: 0,
+    roundingAmount: 0,
+  };
+}
+
+export async function runAlignedIbrpO08OmScenario(
+  page: Page,
+  scenario: AlignedIbrpO08OmCase
+) {
+  const txn =
+    scenario.polarity === "exception_simplified_o_accepted"
+      ? FV.TXN_SIMPLIFIED_TAX_INVOICE
+      : FV.TXN_FULL_TAX_INVOICE;
+  const row = o08OmNotSubjectBaseRow(scenario.polarity, txn);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+
+  if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
+    clearSimplifiedTxnCompanions(filePath);
+  }
+
+  if (scenario.polarity === "not_allowed_mismatch") {
+    const correctRaw = pickCorrectForWorkbook(
+      CALCULATED_FIELD_MISMATCH_TARGETS.find(
+        (t) => t.excelHeader === O08_OM_IBT116_PROXY_HEADER
+      )!,
+      "omr",
+      row,
+      1
+    );
+    if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
+      throw new Error(
+        `ALIGNED-IBRP-O-08-OM: no baseline for ${O08_OM_IBT116_PROXY_HEADER}`
+      );
+    }
+    patchInvoiceDataCellInFile(
+      filePath,
+      O08_OM_IBT116_PROXY_HEADER,
+      applyToleranceDelta(Number(correctRaw), CALCULATED_FIELD_MISMATCH_DELTA)
+    );
+  }
+
+  if (scenario.shouldError) {
+    await runErrorValidation(page, {
+      filePath,
+      field: O08_OM_IBT116_PROXY_HEADER,
+      invoiceNumber,
+      checkEdit: true,
+    });
+    return;
+  }
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * ALIGNED-IBRP-S-08-OM: for each Standard (S) VAT category rate (IBT-119), the VAT
+ * category taxable amount (IBT-116) must equal Σ IBT-131(S) + Σ IBT-099(S) − Σ IBT-092(S)
+ * at the matching rate (IBT-152 / IBT-103 / IBT-096). Covoro has no IBG-23 column — proxy
+ * for Σ mismatch is Invoice Total Amount Without Tax. VAT breakdown is UI/backend and
+ * auto-maps; Excel cases provide totals and assert upload status. Oman Standard rate is 5.
+ */
+export const S08_OM_IBT116_PROXY_HEADER = "Invoice Total Amount Without Tax";
+
+export type AlignedIbrpS08OmPolarity =
+  | "allowed_line"
+  | "allowed_line_allowance_charge"
+  | "not_allowed_mismatch";
+
+export type AlignedIbrpS08OmCase = {
+  ruleId: "ALIGNED-IBRP-S-08-OM";
+  polarity: AlignedIbrpS08OmPolarity;
+  title: string;
+  shouldError: boolean;
+};
+
+export const ALIGNED_IBRP_S_08_OM_CASES: AlignedIbrpS08OmCase[] = [
+  {
+    ruleId: "ALIGNED-IBRP-S-08-OM",
+    polarity: "allowed_line",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-S-08-OM | Full Tax + S line taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-S-08-OM",
+    polarity: "allowed_line_allowance_charge",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-S-08-OM | Full Tax + S line/allowance/charge taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-S-08-OM",
+    polarity: "not_allowed_mismatch",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-S-08-OM | Full Tax + S taxable amount mismatch → error file",
+    shouldError: true,
+  },
+];
+
+function s08OmStandardBaseRow(
+  polarity: AlignedIbrpS08OmPolarity,
+  txn: string
+): FormulaDataRow {
+  const withDoc =
+    polarity === "allowed_line_allowance_charge" ||
+    polarity === "not_allowed_mismatch";
+  return {
+    name: withDoc
+      ? `ALIGNED-IBRP-S-08-OM document charges and allowances (${polarity})`
+      : `ALIGNED-IBRP-S-08-OM (${polarity})`,
+    invoiceTransactionTypeCode: txn,
+    taxCategory: FV.STANDARD_TAX_CATEGORY_CODE,
+    taxRate: 5,
+    itemPriceBaseQty: 1,
+    itemGrossPrice: 1000,
+    itemPriceDiscount: 0,
+    invoicedQty: 1,
+    lineCharge: 0,
+    lineAllowance: 0,
+    docCharges: withDoc ? 50 : 0,
+    docAllowances: withDoc ? 25 : 0,
+    paidAmount: 0,
+    roundingAmount: 0,
+  };
+}
+
+export async function runAlignedIbrpS08OmScenario(
+  page: Page,
+  scenario: AlignedIbrpS08OmCase
+) {
+  const row = s08OmStandardBaseRow(scenario.polarity, FV.TXN_FULL_TAX_INVOICE);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+
+  if (scenario.polarity === "not_allowed_mismatch") {
+    const correctRaw = pickCorrectForWorkbook(
+      CALCULATED_FIELD_MISMATCH_TARGETS.find(
+        (t) => t.excelHeader === S08_OM_IBT116_PROXY_HEADER
+      )!,
+      "omr",
+      row,
+      1
+    );
+    if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
+      throw new Error(
+        `ALIGNED-IBRP-S-08-OM: no baseline for ${S08_OM_IBT116_PROXY_HEADER}`
+      );
+    }
+    patchInvoiceDataCellInFile(
+      filePath,
+      S08_OM_IBT116_PROXY_HEADER,
+      applyToleranceDelta(Number(correctRaw), CALCULATED_FIELD_MISMATCH_DELTA)
+    );
+  }
+
+  if (scenario.shouldError) {
+    await runErrorValidation(page, {
+      filePath,
+      field: S08_OM_IBT116_PROXY_HEADER,
+      invoiceNumber,
+      checkEdit: true,
+    });
+    return;
+  }
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * ALIGNED-IBRP-Z-08-OM: Zero rated (Z) VAT category taxable amount (IBT-116) must equal
+ * Σ IBT-131(Z) − Σ IBT-092(Z) + Σ IBT-099(Z). Covoro has no IBG-23 column — proxy for
+ * Σ mismatch is Invoice Total Amount Without Tax. VAT breakdown (IBG-23) is UI/backend
+ * and auto-maps by transaction type; Excel cases provide totals and assert upload status.
+ * Simplified + Z: provide values (do not blank IBT-116 proxy) → accepted.
+ */
+export const Z08_OM_IBT116_PROXY_HEADER = "Invoice Total Amount Without Tax";
+
+export type AlignedIbrpZ08OmPolarity =
+  | "allowed_line"
+  | "allowed_line_allowance_charge"
+  | "not_allowed_mismatch"
+  | "exception_simplified_z_accepted";
+
+export type AlignedIbrpZ08OmCase = {
+  ruleId: "ALIGNED-IBRP-Z-08-OM";
+  polarity: AlignedIbrpZ08OmPolarity;
+  title: string;
+  shouldError: boolean;
+};
+
+export const ALIGNED_IBRP_Z_08_OM_CASES: AlignedIbrpZ08OmCase[] = [
+  {
+    ruleId: "ALIGNED-IBRP-Z-08-OM",
+    polarity: "allowed_line",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Full Tax + Z line taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-Z-08-OM",
+    polarity: "allowed_line_allowance_charge",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Full Tax + Z line/allowance/charge taxable amount matches → accepted",
+    shouldError: false,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-Z-08-OM",
+    polarity: "not_allowed_mismatch",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Full Tax + Z taxable amount mismatch → error file",
+    shouldError: true,
+  },
+  {
+    ruleId: "ALIGNED-IBRP-Z-08-OM",
+    polarity: "exception_simplified_z_accepted",
+    title:
+      "Excel upload · Covoro | ALIGNED-IBRP-Z-08-OM | Simplified + Z with taxable amount → accepted",
+    shouldError: false,
+  },
+];
+
+function z08OmZeroRatedBaseRow(
+  polarity: AlignedIbrpZ08OmPolarity,
+  txn: string
+): FormulaDataRow {
+  const withDoc =
+    polarity === "allowed_line_allowance_charge" ||
+    polarity === "not_allowed_mismatch";
+  return {
+    name: withDoc
+      ? `ALIGNED-IBRP-Z-08-OM document charges and allowances (${polarity})`
+      : `ALIGNED-IBRP-Z-08-OM (${polarity})`,
+    invoiceTransactionTypeCode: txn,
+    taxCategory: FV.ZERO_RATED_TAX_CATEGORY_CODE,
+    taxRate: 0,
+    taxExemptionReasonCode: FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+    itemPriceBaseQty: 1,
+    itemGrossPrice: 1000,
+    itemPriceDiscount: 0,
+    invoicedQty: 1,
+    lineCharge: 0,
+    lineAllowance: 0,
+    docCharges: withDoc ? 50 : 0,
+    docAllowances: withDoc ? 25 : 0,
+    paidAmount: 0,
+    roundingAmount: 0,
+  };
+}
+
+export async function runAlignedIbrpZ08OmScenario(
+  page: Page,
+  scenario: AlignedIbrpZ08OmCase
+) {
+  const txn =
+    scenario.polarity === "exception_simplified_z_accepted"
+      ? FV.TXN_SIMPLIFIED_TAX_INVOICE
+      : FV.TXN_FULL_TAX_INVOICE;
+  const row = z08OmZeroRatedBaseRow(scenario.polarity, txn);
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+
+  if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
+    clearSimplifiedTxnCompanions(filePath);
+  }
+
+  if (scenario.polarity === "not_allowed_mismatch") {
+    const correctRaw = pickCorrectForWorkbook(
+      CALCULATED_FIELD_MISMATCH_TARGETS.find(
+        (t) => t.excelHeader === Z08_OM_IBT116_PROXY_HEADER
+      )!,
+      "omr",
+      row,
+      1
+    );
+    if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
+      throw new Error(
+        `ALIGNED-IBRP-Z-08-OM: no baseline for ${Z08_OM_IBT116_PROXY_HEADER}`
+      );
+    }
+    patchInvoiceDataCellInFile(
+      filePath,
+      Z08_OM_IBT116_PROXY_HEADER,
+      applyToleranceDelta(Number(correctRaw), CALCULATED_FIELD_MISMATCH_DELTA)
+    );
+  }
+
+  if (scenario.shouldError) {
+    await runErrorValidation(page, {
+      filePath,
+      field: Z08_OM_IBT116_PROXY_HEADER,
+      invoiceNumber,
+      checkEdit: true,
+    });
+    return;
+  }
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * IBR-082-OM: when BTOM-001 is Profit Margin Invoice, Total Amount Due (BTOM-020)
+ * is mandatory and must equal Σ Total amount including VAT (BTOM-017).
+ * Match + mismatch already live in the calculated-field suite; this covers omit.
+ */
+export type Ibr082OmPolarity = "not_allowed_omit";
+
+export type Ibr082OmCase = {
+  ruleId: "IBR-082-OM";
+  polarity: Ibr082OmPolarity;
+  title: string;
+  shouldError: true;
+};
+
+export const IBR_082_OM_CASES: Ibr082OmCase[] = [
+  {
+    ruleId: "IBR-082-OM",
+    polarity: "not_allowed_omit",
+    title:
+      "Excel upload · Covoro | IBR-082-OM | Profit Margin Invoice + Total Amount Due omitted → error file",
+    shouldError: true,
+  },
+];
+
+export async function runIbr082OmScenario(page: Page, scenario: Ibr082OmCase) {
+  const row = formulaMismatchBaseRow("Total Amount Due (Profit Margin)");
+  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+
+  if (scenario.polarity === "not_allowed_omit") {
+    patchInvoiceTextCellInFile(filePath, PROFIT_MARGIN_DUE_HEADER, "");
+  }
+
+  await runErrorValidation(page, {
+    filePath,
+    field: PROFIT_MARGIN_DUE_HEADER,
+    invoiceNumber,
+    checkEdit: true,
+  });
+}
+
 export async function runNegativeFormulaScenario(
   page: Page,
   mode: CurrencyMode,

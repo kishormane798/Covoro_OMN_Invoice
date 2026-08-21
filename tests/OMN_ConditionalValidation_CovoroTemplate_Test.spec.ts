@@ -1,7 +1,9 @@
 import { test } from "../Src/baseTest";
 import {
   patchBlankLineItemVatAmountIfEmpty,
+  patchProfitMarginItemTypeFromRow,
   patchSellerVatFromRow,
+  patchVatCategoryTaxAmountAfterGenerate,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
 } from "../Helpers/conditionalValidationSpecHelpers";
@@ -32,6 +34,23 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
           ConditionalRows.buildVatCategoryTaxRateScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICED_ITEM_TAX_RATE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-104-OM — Standard rate must be 5 in VAT accounting currency", () => {
+    for (const scenario of FV.VAT_ACCOUNTING_CURRENCY_STANDARD_RATE_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildVatAccountingCurrencyTaxRateScenarioRow(
+            scenario
+          );
         await verifyConditionalScenario(
           page,
           rowData,
@@ -179,6 +198,21 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
+  test.describe("IBR-174-OM — HS Code from ROP Customs list when Goods", () => {
+    for (const scenario of FV.HS_CODE_FROM_ROP_LIST_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildGoodsClassificationScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
   test.describe("IBR-084/085-OM — Import of Goods", () => {
     for (const scenario of FV.IMPORT_OF_GOODS_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
@@ -224,6 +258,24 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
+  test.describe("IBR-036-OM — Summary Invoice period same calendar month", () => {
+    for (const scenario of FV.SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildSummaryInvoicePeriodScenarioRow(scenario);
+        await verifyConditionalScenarioAnyOf(
+          page,
+          rowData,
+          [
+            FV.INVOICING_PERIOD_START_DATE_FIELD,
+            FV.INVOICING_PERIOD_END_DATE_FIELD,
+          ],
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
   // Phase 5 — Doc allowance/charge
   test.describe("IBR-062/064-OM — document allowance/charge VAT category and exemption", () => {
     for (const scenario of FV.DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS) {
@@ -237,6 +289,21 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
             (scenario.kind === "allowance"
               ? FV.TAX_EXEMPTION_REASON_ALLOWANCES_FIELD
               : FV.TAX_EXEMPTION_REASON_CHARGES_FIELD),
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-042-OM — document level charge reason code", () => {
+    for (const scenario of FV.DOCUMENT_CHARGE_REASON_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildDocumentChargeReasonScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.CHARGES_ON_DOCUMENT_LEVEL_FIELD,
           scenario.shouldError
         );
       });
@@ -316,6 +383,24 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
           page,
           rowData,
           FV.SUPPORTING_DOCUMENT_GROUP_FIELDS,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-150-OM — Special Zone country subdivision", () => {
+    for (const scenario of FV.SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildSpecialZoneCountrySubdivisionScenarioRow(
+            scenario
+          );
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ??
+            FV.BUYER_COUNTRY_SUBDIVISION_CODE_FIELD,
           scenario.shouldError
         );
       });
@@ -478,20 +563,70 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
-  test.describe("IBR-138/149-OM — transaction type mutual exclusion", () => {
-    for (const scenario of FV.TXN_MUTUAL_EXCLUSION_SCENARIOS) {
+  test.describe("ALIGNED-IBRP-E-09-OM — VAT category tax amount zero for E", () => {
+    for (const scenario of FV.VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
-          ConditionalRows.buildTxnMutualExclusionScenarioRow(scenario);
+          ConditionalRows.buildVatCategoryTaxAmountE09ScenarioRow(scenario);
         await verifyConditionalScenario(
           page,
           rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
+          scenario.expectedErrorField ?? FV.INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+          scenario.shouldError,
+          { patchFile: patchVatCategoryTaxAmountAfterGenerate }
         );
       });
     }
   });
+
+  test.describe("ALIGNED-IBRP-O-09-OM — VAT category tax amount zero for O", () => {
+    for (const scenario of FV.VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildVatCategoryTaxAmountO09ScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+          scenario.shouldError,
+          { patchFile: patchVatCategoryTaxAmountAfterGenerate }
+        );
+      });
+    }
+  });
+
+  test.describe("ALIGNED-IBRP-Z-09-OM — VAT category tax amount zero for Z", () => {
+    for (const scenario of FV.VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildVatCategoryTaxAmountZ09ScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+          scenario.shouldError,
+          { patchFile: patchVatCategoryTaxAmountAfterGenerate }
+        );
+      });
+    }
+  });
+
+  // Commented on request: IBR-138-OM … IBR-149-OM BTOM-001 mutual exclusion.
+  // Live suite only had IBR-138/149 representative pairs (IBR-139–148 were not wired).
+  // test.describe("IBR-138/149-OM — transaction type mutual exclusion", () => {
+  //   for (const scenario of FV.TXN_MUTUAL_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnMutualExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
 
   test.describe("IBR-006-OM — Seller VATIN mandatory", () => {
     for (const scenario of FV.SELLER_VAT_MANDATORY_SCENARIOS) {
@@ -511,15 +646,63 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
+  test.describe("IBR-007-OM — Seller identifier scheme", () => {
+    for (const scenario of FV.SELLER_IDENTIFIER_SCHEME_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildSellerIdentifierSchemeScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.SELLER_IDENTIFIER_SCHEME_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
   test.describe("IBR-016-OM — Buyer identifier or VATIN", () => {
     for (const scenario of FV.BUYER_ID_OR_VATIN_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
           ConditionalRows.buildBuyerIdOrVatinScenarioRow(scenario);
+        await verifyConditionalScenarioAnyOf(
+          page,
+          rowData,
+          FV.BUYER_ID_OR_VATIN_ERROR_FIELDS,
+          scenario.shouldError,
+          scenario.invoiceTransactionTypeCode === FV.TXN_PROFIT_MARGIN_INVOICE
+            ? { patchFile: patchProfitMarginItemTypeFromRow }
+            : {}
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-010-OM — Seller postal address required", () => {
+    for (const scenario of FV.SELLER_ADDRESS_REQUIRED_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildSellerAddressRequiredScenarioRow(scenario);
         await verifyConditionalScenario(
           page,
           rowData,
-          scenario.expectedErrorField ?? FV.BUYER_VAT_IDENTIFIER_FIELD,
+          scenario.expectedErrorField ?? FV.SELLER_ADDRESS_LINE_1_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-015-OM — Third-party Invoice party block required", () => {
+    for (const scenario of FV.THIRD_PARTY_REQUIRED_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildThirdPartyRequiredScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.THIRD_PARTY_NAME_FIELD,
           scenario.shouldError
         );
       });
@@ -534,7 +717,7 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
         await verifyConditionalScenario(
           page,
           rowData,
-          scenario.expectedErrorField ?? "Buyer address line 1",
+          scenario.expectedErrorField ?? FV.BUYER_ADDRESS_LINE_1_FIELD,
           scenario.shouldError
         );
       });
@@ -565,6 +748,23 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
           page,
           rowData,
           scenario.expectedErrorField ?? FV.INVOICING_PERIOD_START_DATE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-030 — invoice line period", () => {
+    for (const scenario of FV.INVOICE_LINE_PERIOD_CONDITIONAL_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildInvoiceLinePeriodConditionalScenarioRow(
+            scenario
+          );
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICING_PERIOD_END_DATE_FIELD,
           scenario.shouldError
         );
       });
@@ -618,7 +818,7 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
-  test.describe("IBR-CL-05-OM — doc allowance exemption reason", () => {
+  test.describe("IBR-CL-05-OM / IBR-CL-10-OM — doc allowance exemption reason codelist", () => {
     for (const scenario of FV.IBR_CL_05_DOC_ALLOWANCE_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
@@ -663,6 +863,38 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
+  test.describe("IBR-091-OM — Profit Margin HS prefix ban", () => {
+    for (const scenario of FV.PROFIT_MARGIN_HS_PREFIX_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildProfitMarginHsPrefixScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+          scenario.shouldError,
+          { patchFile: patchProfitMarginItemTypeFromRow }
+        );
+      });
+    }
+  });
+
+  test.describe("CL-11-OM — Profit Margin item type code", () => {
+    for (const scenario of FV.PROFIT_MARGIN_ITEM_TYPE_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildProfitMarginItemTypeScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
+          scenario.shouldError,
+          { patchFile: patchProfitMarginItemTypeFromRow }
+        );
+      });
+    }
+  });
+
   test.describe("IBR-152/153-OM — Buyer identifier scheme", () => {
     for (const scenario of FV.BUYER_IDENTIFIER_SCHEME_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
@@ -702,6 +934,23 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
           page,
           rowData,
           scenario.expectedErrorField ?? FV.SELLER_IDENTIFIER_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-137-OM — amounts and quantities non-negative except rounding", () => {
+    for (const scenario of FV.AMOUNT_QUANTITY_SIGN_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildAmountQuantitySignScenarioRow(scenario);
+        await verifyConditionalScenarioAnyOf(
+          page,
+          rowData,
+          scenario.shouldError
+            ? FV.AMOUNT_QUANTITY_NEGATIVE_ERROR_FIELDS
+            : [scenario.expectedErrorField ?? FV.INVOICED_QUANTITY_FIELD],
           scenario.shouldError
         );
       });

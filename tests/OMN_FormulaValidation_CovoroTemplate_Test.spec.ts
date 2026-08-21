@@ -19,6 +19,16 @@ import {
   taxSweepOverlay,
   toleranceTargetsForMode,
   ZERO_LINE_VAT_CATEGORY_CASES,
+  ALIGNED_IBRP_E_08_OM_CASES,
+  runAlignedIbrpE08OmScenario,
+  ALIGNED_IBRP_O_08_OM_CASES,
+  runAlignedIbrpO08OmScenario,
+  ALIGNED_IBRP_S_08_OM_CASES,
+  runAlignedIbrpS08OmScenario,
+  ALIGNED_IBRP_Z_08_OM_CASES,
+  runAlignedIbrpZ08OmScenario,
+  IBR_082_OM_CASES,
+  runIbr082OmScenario,
   CALCULATED_FIELD_MISMATCH_TARGETS,
   type FormulaScenarioRow,
 } from "../Helpers/formulaValidationHelper";
@@ -132,6 +142,81 @@ test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
     for (const categoryCase of ZERO_LINE_VAT_CATEGORY_CASES) {
       test(`Verify Excel upload returns an error file for ${TEMPLATE} Formula – ${categoryCase.ruleId} non-zero Line Item VAT (${categoryCase.shortName}).`, async ({ page }) => {
         await runZeroLineVatForcedNonZeroErrorScenario(page, "omr", categoryCase);
+      });
+    }
+  });
+
+  /**
+   * ALIGNED-IBRP-E-08-OM: Exempt IBT-116 = Σ IBT-131(E) − Σ IBT-092(E) + Σ IBT-099(E).
+   * Simplified + E: provide totals (do not blank IBT-116 proxy). Assert upload status.
+   * Proxy for Σ mismatch: Invoice Total Amount Without Tax.
+   */
+  test.describe("ALIGNED-IBRP-E-08-OM — Exempt VAT category taxable amount", () => {
+    test.describe.configure({ mode: "parallel" });
+
+    for (const scenario of ALIGNED_IBRP_E_08_OM_CASES) {
+      test(scenario.title, async ({ page }) => {
+        await runAlignedIbrpE08OmScenario(page, scenario);
+      });
+    }
+  });
+
+  /**
+   * ALIGNED-IBRP-O-08-OM: Not subject IBT-116 = Σ IBT-131(O) − Σ IBT-092(O) + Σ IBT-099(O).
+   * Simplified + O: provide totals (do not blank IBT-116 proxy). Assert upload status.
+   * Proxy for Σ mismatch: Invoice Total Amount Without Tax.
+   */
+  test.describe("ALIGNED-IBRP-O-08-OM — Not subject VAT category taxable amount", () => {
+    test.describe.configure({ mode: "parallel" });
+
+    for (const scenario of ALIGNED_IBRP_O_08_OM_CASES) {
+      test(scenario.title, async ({ page }) => {
+        await runAlignedIbrpO08OmScenario(page, scenario);
+      });
+    }
+  });
+
+  /**
+   * ALIGNED-IBRP-S-08-OM: Standard IBT-116 = Σ IBT-131(S) + Σ IBT-099(S) − Σ IBT-092(S)
+   * at the matching VAT category rate (IBT-119). Oman Standard rate is 5.
+   * Proxy for Σ mismatch: Invoice Total Amount Without Tax.
+   */
+  test.describe("ALIGNED-IBRP-S-08-OM — Standard VAT category taxable amount", () => {
+    test.describe.configure({ mode: "parallel" });
+
+    for (const scenario of ALIGNED_IBRP_S_08_OM_CASES) {
+      test(scenario.title, async ({ page }) => {
+        await runAlignedIbrpS08OmScenario(page, scenario);
+      });
+    }
+  });
+
+  /**
+   * ALIGNED-IBRP-Z-08-OM: Zero rated IBT-116 = Σ IBT-131(Z) − Σ IBT-092(Z) + Σ IBT-099(Z).
+   * Simplified + Z: provide totals (do not blank IBT-116 proxy). Assert upload status.
+   * Proxy for Σ mismatch: Invoice Total Amount Without Tax.
+   */
+  test.describe("ALIGNED-IBRP-Z-08-OM — Zero rated VAT category taxable amount", () => {
+    test.describe.configure({ mode: "parallel" });
+
+    for (const scenario of ALIGNED_IBRP_Z_08_OM_CASES) {
+      test(scenario.title, async ({ page }) => {
+        await runAlignedIbrpZ08OmScenario(page, scenario);
+      });
+    }
+  });
+
+  /**
+   * IBR-082-OM: Profit Margin Invoice → Total Amount Due (BTOM-020) is mandatory
+   * and must equal Σ Total amount including VAT (BTOM-017). Omit after generate
+   * (the writer fills BTOM-020 for Profit Margin txn types).
+   */
+  test.describe("IBR-082-OM — Profit Margin Total Amount Due", () => {
+    test.describe.configure({ mode: "parallel" });
+
+    for (const scenario of IBR_082_OM_CASES) {
+      test(scenario.title, async ({ page }) => {
+        await runIbr082OmScenario(page, scenario);
       });
     }
   });

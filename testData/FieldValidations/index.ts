@@ -7,3 +7,4 @@ export * from "./submitInvoiceExcelHeaderMap";
 export * from "./ConditionalValidation";
 export * from "./FormatContextFieldValidation";
 export * from "./partyIdentifierCompanionLength";
+export * from "./cl06OmBuyerSellerIdentifierScheme";

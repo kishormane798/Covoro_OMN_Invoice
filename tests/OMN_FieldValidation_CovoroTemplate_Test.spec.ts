@@ -17,6 +17,7 @@ import {
   generateOmanIssueDateExcel,
   generateOmanNumericFieldExcel,
   generateOmanPartyIdentifierLengthExcel,
+  generateOmanCl06IdentifierSchemeExcel,
   generateOmanItemAttributePairExcel,
   generateOmanImportDateCustomsExcel,
   generateOmanPrepaymentPairExcel,
@@ -282,6 +283,29 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
             invoiceNumber,
             checkEdit: true,
           });
+        }
+      });
+    }
+  });
+
+  test.describe("CL-06-OM — Buyer/Seller identifier scheme codelist", () => {
+    for (const scenario of FV.CL06_OM_IDENTIFIER_SCHEME_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const { filePath, invoiceNumber } =
+          await generateOmanCl06IdentifierSchemeExcel({
+            party: scenario.party,
+            schemeValue: scenario.schemeValue,
+            identifier: scenario.identifier,
+          });
+        if (scenario.shouldError) {
+          await runErrorValidation(page, {
+            filePath,
+            field: scenario.expectedErrorField,
+            invoiceNumber,
+            checkEdit: true,
+          });
+        } else {
+          await uploadAndVerify(page, filePath);
         }
       });
     }
