@@ -41,12 +41,17 @@ FIELD_TAX_EXEMPTION_REASON_CHARGES = "Tax exemption reason - charges"
 FIELD_TAX_EXEMPTION_REASON_ALLOWANCES = "Tax exemption reason - allowances"
 FIELD_TAX_EXEMPTION_REASON_CODE = "Tax exemption reason code"
 FIELD_TAX_EXEMPTION_REASON_TEXT = "Tax exemption reason text"
-STANDARD_TAX_CATEGORY = "Standard rate."
+STANDARD_TAX_CATEGORY = "Standard rate"
 ZERO_RATED_TAX_CATEGORY = "Zero rated"
 EXEMPT_FROM_TAX_TAX_CATEGORY = "Exempt from tax"
 NOT_SUBJECT_TO_VAT_TAX_CATEGORY = "Services outside scope of tax / Not subject to tax"
 DOCUMENT_CHARGES_SAMPLE_AMOUNT = "100"
 DOCUMENT_ALLOWANCES_SAMPLE_AMOUNT = "50"
+# Oman Masters (Master.omnCore) — keep in sync with TAX_EXEMPTION_REASON_SAMPLE / ZERO_RATED_SAMPLE.
+EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES = "Exemption- Qualifying Financial Services"
+EXEMPTION_REASON_ZERO_RATED_QUALIFYING_FOOD = "Zero-rated - Qualifying Food Items"
+EXEMPTION_REASON_TEXT_EXEMPT_OMAN = "Exempt supply under Oman VAT"
+# Legacy UAE labels still recognised if a leftover seed writes them.
 EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES = "Certain financial services"
 EXEMPTION_REASON_SUPPLY_RESIDENTIAL = "Supply of residential units (lease or sale)"
 EXEMPTION_REASON_BARE_LAND = "Bare land"
@@ -1165,6 +1170,11 @@ def _parse_optional_bool_cli_arg(raw: str | None, *, default: bool) -> bool:
 
 def _line_exemption_text_for_code(code: str) -> str:
     c = str(code or "").strip()
+    n = normalize(c)
+    if n.startswith("zero-rated"):
+        return c
+    if n.startswith("exemption-") or n == normalize(EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES):
+        return EXEMPTION_REASON_TEXT_EXEMPT_OMAN
     if normalize(c) == normalize(EXEMPTION_REASON_BARE_LAND):
         return "Bare land exemption narrative."
     if normalize(c) == normalize(EXEMPTION_REASON_SUPPLY_RESIDENTIAL):
@@ -1172,15 +1182,15 @@ def _line_exemption_text_for_code(code: str) -> str:
     if normalize(c) == normalize(EXEMPTION_REASON_LOCAL_PASSENGER_TRANSPORT):
         return "Local passenger transport exemption narrative."
     if normalize(c) == normalize(EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES):
-        return "Financial service exemption for document charges validation."
-    return "Exemption reason text for exempt line."
+        return EXEMPTION_REASON_TEXT_EXEMPT_OMAN
+    return EXEMPTION_REASON_TEXT_EXEMPT_OMAN
 
 
 def _apply_exempt_line_tax_exemption_reason(
     ws, header_row: int, row_number: int, reason_code: str
 ) -> None:
-    """IBG-30: exempt line requires **Tax exemption reason code** and **text**."""
-    reason = str(reason_code or "").strip() or EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES
+    """IBG-30: exempt/zero-rated line requires **Tax exemption reason code** and **text**."""
+    reason = str(reason_code or "").strip() or EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES
     _set_by_header_name(ws, header_row, row_number, FIELD_TAX_EXEMPTION_REASON_CODE, reason)
     _set_by_header_name(
         ws,
@@ -1196,23 +1206,35 @@ def _clear_line_tax_exemption_reason(ws, header_row: int, row_number: int) -> No
     _set_by_header_name(ws, header_row, row_number, FIELD_TAX_EXEMPTION_REASON_TEXT, "")
 
 
+def _is_zero_rated_exemption_reason(reason: object) -> bool:
+    """Oman Masters Zero-rated labels (VATZR-OM-*) — case-insensitive, including casing batches."""
+    return normalize(reason).startswith("zero-rated")
+
+
 def _apply_exempt_document_charges_row(
     ws, header_row: int, row_number: int, reason: str
 ) -> None:
-    """Shared exempt document + line setup for exemption-reason and line-code dropdown batches."""
+    """
+    Document + line setup for exemption-reason dropdown batches.
+    Exempt (VATEX) reasons → Exempt from tax; Zero-rated (VATZR) reasons → Zero rated.
+    """
+    reason_s = str(reason or "").strip()
+    is_zero = _is_zero_rated_exemption_reason(reason_s)
+    line_cat = ZERO_RATED_TAX_CATEGORY if is_zero else EXEMPT_FROM_TAX_TAX_CATEGORY
+    line_rate = "0" if is_zero else ""
     set_text_value(
-        ws, row_number, resolve_header_column(ws, header_row, FIELD_TAX_CATEGORY), EXEMPT_FROM_TAX_TAX_CATEGORY
+        ws, row_number, resolve_header_column(ws, header_row, FIELD_TAX_CATEGORY), line_cat
     )
-    _apply_exempt_or_not_subject_line_dropdown_invoice_defaults(ws, header_row, row_number)
-    _set_by_header_name(
-        ws, header_row, row_number, FIELD_VAT_CATEGORY_CHARGES, EXEMPT_FROM_TAX_TAX_CATEGORY
+    set_text_value(
+        ws, row_number, resolve_header_column(ws, header_row, FIELD_TAX_RATE), line_rate
     )
-    _set_by_header_name(
-        ws, header_row, row_number, FIELD_VAT_CATEGORY_ALLOWANCES, EXEMPT_FROM_TAX_TAX_CATEGORY
-    )
-    _set_by_header_name(ws, header_row, row_number, FIELD_TAX_EXEMPTION_REASON_CHARGES, reason)
-    _set_by_header_name(ws, header_row, row_number, FIELD_TAX_EXEMPTION_REASON_ALLOWANCES, reason)
-    _apply_exempt_line_tax_exemption_reason(ws, header_row, row_number, reason)
+    if not is_zero:
+        _apply_exempt_or_not_subject_line_dropdown_invoice_defaults(ws, header_row, row_number)
+    _set_by_header_name(ws, header_row, row_number, FIELD_VAT_CATEGORY_CHARGES, line_cat)
+    _set_by_header_name(ws, header_row, row_number, FIELD_VAT_CATEGORY_ALLOWANCES, line_cat)
+    _set_by_header_name(ws, header_row, row_number, FIELD_TAX_EXEMPTION_REASON_CHARGES, reason_s)
+    _set_by_header_name(ws, header_row, row_number, FIELD_TAX_EXEMPTION_REASON_ALLOWANCES, reason_s)
+    _apply_exempt_line_tax_exemption_reason(ws, header_row, row_number, reason_s)
 
 
 def _apply_exempt_or_not_subject_line_dropdown_invoice_defaults(
@@ -1289,17 +1311,35 @@ def _apply_document_charges_allowances_dropdown_row(
                 header_row,
                 row_number,
                 FIELD_TAX_EXEMPTION_REASON_CHARGES,
-                EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES,
+                EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES,
             )
             _set_by_header_name(
                 ws,
                 header_row,
                 row_number,
                 FIELD_TAX_EXEMPTION_REASON_ALLOWANCES,
-                EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES,
+                EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES,
             )
             _apply_exempt_line_tax_exemption_reason(
-                ws, header_row, row_number, EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES
+                ws, header_row, row_number, EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES
+            )
+        elif normalize(doc_vat) == normalize(ZERO_RATED_TAX_CATEGORY):
+            _set_by_header_name(
+                ws,
+                header_row,
+                row_number,
+                FIELD_TAX_EXEMPTION_REASON_CHARGES,
+                EXEMPTION_REASON_ZERO_RATED_QUALIFYING_FOOD,
+            )
+            _set_by_header_name(
+                ws,
+                header_row,
+                row_number,
+                FIELD_TAX_EXEMPTION_REASON_ALLOWANCES,
+                EXEMPTION_REASON_ZERO_RATED_QUALIFYING_FOOD,
+            )
+            _apply_exempt_line_tax_exemption_reason(
+                ws, header_row, row_number, EXEMPTION_REASON_ZERO_RATED_QUALIFYING_FOOD
             )
         elif normalize(doc_vat) == normalize(NOT_SUBJECT_TO_VAT_TAX_CATEGORY):
             _apply_exempt_or_not_subject_line_dropdown_invoice_defaults(ws, header_row, row_number)
@@ -1505,8 +1545,11 @@ def _run_write_dropdown_batch(
             for hdr in PAYMENT_FIELDS_CLEARED_FOR_CREDIT_NOTE_DROPDOWN:
                 _set_by_header_name(ws, header_row, row_number, hdr, "")
             if invoice_type_value == INVOICE_TYPE_CODE_CREDIT_NOTE_RELATED:
-                set_text_value(ws, row_number, tax_cat_col_for_credit_note, "Zero rated")
+                set_text_value(ws, row_number, tax_cat_col_for_credit_note, ZERO_RATED_TAX_CATEGORY)
                 set_text_value(ws, row_number, tax_rate_col_for_credit_note, "0")
+                _apply_exempt_line_tax_exemption_reason(
+                    ws, header_row, row_number, EXEMPTION_REASON_ZERO_RATED_QUALIFYING_FOOD
+                )
 
             reason = str(value if value is not None else "").strip()
             is_volume_discount = (
@@ -1613,8 +1656,13 @@ _DEFAULT_OMAN_SELLER_TIN_SLOTS = [
 _PARALLEL_WORKER_TIN_SLOTS = 5
 # Default counterparty electronic address (not TRN/TIN); normal buyer / self-billed seller.
 _COUNTERPARTY_ELECTRONIC_BY_ENV = {
+    "dev": "om-receiver-dev",
+    "preprod": "om-receiver-dev",
+}
+# Buyer/seller VATIN — independent of Peppol receiver electronic address.
+_COUNTERPARTY_VAT_BY_ENV = {
     "dev": "OM1000091919",
-    "preprod": "1008212295",
+    "preprod": "100821229500003",
 }
 
 
@@ -1661,8 +1709,10 @@ def _counterparty_electronic_address() -> str:
 
 def _counterparty_vat() -> str:
     """Keep aligned with utils/envPartyIdentity.ts `getCounterpartyVatIdentifier`."""
-    el = _counterparty_electronic_address()
-    return el + "00003" if el.isdigit() else el
+    el_override = os.environ.get("UAE_EINVOICE_COUNTERPARTY_ELECTRONIC", "").strip()
+    if el_override and el_override.isdigit():
+        return el_override + "00003"
+    return _COUNTERPARTY_VAT_BY_ENV[_resolve_target_env()]
 
 
 def _read_data_row_text(
@@ -1702,9 +1752,9 @@ def _apply_parallel_worker_identity_to_row(
 
     counterparty_el = _counterparty_electronic_address()
     if self_billed:
-        put("Seller electronic address", counterparty_el)
-        put("Seller VAT Identifier (TRN / TIN)", _counterparty_vat())
-        put("Buyer electronic address", worker_el)
+        put("Seller electronic address", worker_el)
+        put("Seller VAT Identifier (TRN / TIN)", worker_vat)
+        put("Buyer electronic address", counterparty_el)
         put("Buyer VAT identifier", worker_vat)
     elif deemed:
         put("Seller electronic address", worker_el)

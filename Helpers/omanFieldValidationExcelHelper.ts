@@ -10,10 +10,12 @@ import type {
 import {
   applyDependentOverlay,
   applyPaidAmountPrepaymentCompanions,
+  applyTaxExemptionReasonDocumentCompanions,
   buildOmanDropdownBaseRow,
   resolveDropdownTemplateField,
   OMAN_BUYER_ELECTRONIC,
   OMAN_BUYER_VAT,
+  type TaxExemptionVatContext,
 } from "./fieldValidationExcelPackHelper";
 import {
   applyOmanDeliveryOverlay,
@@ -192,8 +194,10 @@ function taxCategoryKey(value: string): string {
 /**
  * Companion columns for Tax Category dropdown master rows:
  * - Standard rate → Tax Rate 5, no exemption reason
- * - Zero rated → Tax Rate 0 + Zero-rated exemption reason code/text
+ * - Zero rated → Tax Rate 0 + Zero-rated exemption code/text + document
+ *   charges/allowances VAT + Tax exemption reason - charges/allowances
  * - Exempt from tax → Tax Rate omitted + Exemption-* reason code/text
+ *   + the same document charges/allowances companions
  * - Not subject to tax → Tax Rate omitted, no exemption reason
  * Exempt / not-subject lines also use Invoice out of scope of tax
  * (Commercial invoice cannot contain only E/O lines).
@@ -218,25 +222,26 @@ function applyTaxCategoryDropdownColumns(
     row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_STANDARD_OMAN;
     row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
     row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_CHARGES_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_ALLOWANCES_FIELD] = "";
     return row;
   }
   if (isZero) {
-    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
-    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] =
-      FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
-    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] =
-      FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
-    return row;
+    const next = applyTaxExemptionReasonDocumentCompanions(
+      asStringRow(row),
+      "zero"
+    );
+    next[FV.TAX_CATEGORY_FIELD] = taxCategory;
+    return next;
   }
   if (isExempt) {
-    row[FV.INVOICE_TYPE_CODE_FIELD] =
-      FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
-    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
-    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = FV.TAX_EXEMPTION_REASON_SAMPLE;
-    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "Exempt supply under Oman VAT";
-    // IBR-038-OM: required on non-simplified; IBR-039-OM: Exempt shall be zero (not blank).
-    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
-    return row;
+    const next = applyTaxExemptionReasonDocumentCompanions(
+      asStringRow(row),
+      "exempt"
+    );
+    next[FV.TAX_CATEGORY_FIELD] = taxCategory;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
+    return next;
   }
   if (isNotSubject) {
     row[FV.INVOICE_TYPE_CODE_FIELD] =
@@ -451,7 +456,7 @@ function applyDropdownWriteCasing(
 export async function generateOmanDropdownMasterExcel(
   field: string,
   masterData: unknown[] | unknown,
-  options?: { writeCasing?: DropdownWriteCasing }
+  options?: { writeCasing?: DropdownWriteCasing; vatContext?: TaxExemptionVatContext }
 ): Promise<Array<{ filePath: string; invoiceNumber: string }>> {
   const values = Array.isArray(masterData) ? masterData : [masterData];
   const fieldForWrite = resolveDropdownTemplateField(field);
@@ -461,6 +466,9 @@ export async function generateOmanDropdownMasterExcel(
     applyDropdownWriteCasing(label, writeCasing)
   );
   const baseRow = buildOmanDropdownRuntimeBaseRow(field);
+  if (options?.vatContext) {
+    applyTaxExemptionReasonDocumentCompanions(baseRow, options.vatContext);
+  }
 
   const perRowTxnType =
     isInvoiceTransactionTypeCodeField(field) ||
@@ -564,6 +572,26 @@ export async function generateOmanDropdownMasterExcel(
           value: invoiceType,
           dataRow,
         });
+      }
+      const lineVat = companions[FV.LINE_ITEM_VAT_AMOUNT_FIELD];
+      if (lineVat != null && String(lineVat).trim() !== "") {
+        patches.push({
+          header: FV.LINE_ITEM_VAT_AMOUNT_FIELD,
+          value: String(lineVat),
+          dataRow,
+        });
+      }
+      for (const header of [
+        FV.CHARGES_ON_DOCUMENT_LEVEL_FIELD,
+        FV.ALLOWANCES_ON_DOCUMENT_LEVEL_FIELD,
+        FV.VAT_CATEGORY_CHARGES_FIELD,
+        FV.VAT_CATEGORY_ALLOWANCES_FIELD,
+        FV.TAX_EXEMPTION_REASON_CHARGES_FIELD,
+        FV.TAX_EXEMPTION_REASON_ALLOWANCES_FIELD,
+      ]) {
+        const value = companions[header];
+        if (value == null) continue;
+        patches.push({ header, value: String(value), dataRow });
       }
     }
     patchInvoiceTextCellsInFile(generated.filePath, patches);

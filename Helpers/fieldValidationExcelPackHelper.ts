@@ -274,6 +274,59 @@ function isLineTaxExemptionReasonField(fieldNorm: string): boolean {
   );
 }
 
+function isDocumentTaxExemptionReasonField(fieldNorm: string): boolean {
+  return (
+    fieldNorm === "tax exemption reason - charges" ||
+    fieldNorm === "tax exemption reason - allowances"
+  );
+}
+
+export type TaxExemptionVatContext = "exempt" | "zero";
+
+const DOCUMENT_CHARGES_SAMPLE_AMOUNT = "100";
+const DOCUMENT_ALLOWANCES_SAMPLE_AMOUNT = "50";
+
+/**
+ * Document-level charges/allowances companions for tax exemption reason tests.
+ * Invalid reason cases must still send amounts + VAT category (Exempt or Zero rated).
+ */
+export function applyTaxExemptionReasonDocumentCompanions(
+  row: Record<string, string>,
+  vatContext: TaxExemptionVatContext = "exempt"
+): Record<string, string> {
+  const isZero = vatContext === "zero";
+  const vatCategory = isZero
+    ? FV.ZERO_RATED_TAX_CATEGORY_CODE
+    : FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE;
+  const reason = isZero
+    ? FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE
+    : FV.TAX_EXEMPTION_REASON_SAMPLE;
+
+  if (isZero) {
+    row[FV.TAX_CATEGORY_FIELD] = vatCategory;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = reason;
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = reason;
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+  } else {
+    row[FV.INVOICE_TYPE_CODE_FIELD] =
+      FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
+    row[FV.TAX_CATEGORY_FIELD] = vatCategory;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = reason;
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "Exempt supply under Oman VAT";
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+  }
+
+  row[FV.CHARGES_ON_DOCUMENT_LEVEL_FIELD] = DOCUMENT_CHARGES_SAMPLE_AMOUNT;
+  row[FV.ALLOWANCES_ON_DOCUMENT_LEVEL_FIELD] = DOCUMENT_ALLOWANCES_SAMPLE_AMOUNT;
+  row[FV.VAT_CATEGORY_CHARGES_FIELD] = vatCategory;
+  row[FV.VAT_CATEGORY_ALLOWANCES_FIELD] = vatCategory;
+  row[FV.TAX_EXEMPTION_REASON_CHARGES_FIELD] = reason;
+  row[FV.TAX_EXEMPTION_REASON_ALLOWANCES_FIELD] = reason;
+  return row;
+}
+
 const PAID_AMOUNT_FIELD = "Paid amount";
 const PREPAYMENT_INVOICE_NUMBER_FIELD = "Prepayment invoice number";
 const PREPAYMENT_INVOICE_UUID_FIELD = "Prepayment invoice UUID";
@@ -339,11 +392,11 @@ export function caseOutputDir(
   );
 }
 
-/** Oman seller/buyer identity (EAS 0248 / Oman VATIN scheme + OM-prefixed values). */
+/** Oman seller/buyer identity (EAS 0248 / Oman VATIN scheme; buyer electronic is Peppol receiver ID). */
 export const OMAN_SELLER_VAT = "OM1108202600";
 export const OMAN_BUYER_VAT = "OM1000091919";
 export const OMAN_SELLER_ELECTRONIC = "OM1108202600";
-export const OMAN_BUYER_ELECTRONIC = "OM1000091919";
+export const OMAN_BUYER_ELECTRONIC = "om-receiver-dev";
 export const OMAN_ELECTRONIC_SCHEME =
   "Oman Value Added Tax Identification Number (VATIN)";
 
@@ -820,6 +873,10 @@ export function applyDependentOverlay(
   if (fieldNorm.startsWith("deliver to")) fillDelivery();
   // Line exemption reason text/code: only valid when Tax Category is Exempt from tax.
   if (isLineTaxExemptionReasonField(fieldNorm)) fillExemptTax();
+  // Document exemption reason: Charges/Allowances on document level + VAT category.
+  if (isDocumentTaxExemptionReasonField(fieldNorm)) {
+    applyTaxExemptionReasonDocumentCompanions(row, "exempt");
+  }
 
   // Seller / Buyer Identifier trio (scheme + textual code + identifier value).
   const isSellerPartyIdentifierField =
@@ -1299,8 +1356,8 @@ export function writePackReadme(
     "- Seller / Buyer electronic address Scheme: `Oman Value Added Tax Identification Number (VATIN)`",
     `- Seller VAT Identifier (TRN / TIN): \`${OMAN_SELLER_VAT}\``,
     `- Seller electronic address: \`${OMAN_SELLER_ELECTRONIC}\``,
-    "- Buyer VAT identifier: `OM1000091919`",
-    "- Buyer electronic address: `OM1000091919`",
+    `- Buyer VAT identifier: \`${OMAN_BUYER_VAT}\``,
+    `- Buyer electronic address: \`${OMAN_BUYER_ELECTRONIC}\``,
     "",
     "## Folder layout",
     "",

@@ -30,6 +30,21 @@ export type FormatContextFieldCase = {
   shouldError: boolean;
   /** Seller VATIN errors must patch after generate (worker identity). */
   patchAfterGenerate: boolean;
+  /**
+   * Messages that must be absent (min/max digit count is accepted).
+   */
+  forbiddenErrorSubstrings?: string[];
+  /**
+   * Messages that must be present. Formula mismatch is expected when the
+   * isolated amount does not equal tax × FX; limit errors apply to min-1 / max+1.
+   */
+  requiredErrorSubstrings?: string[];
+  /**
+   * Optional Item gross price. Submit generation recalculates line/doc totals and
+   * IBT-111 (tax × FX) from this value. Needed when FX is 0.0000001 so tax-accounting
+   * currency amount stays a valid 2-dp figure.
+   */
+  itemGrossPrice?: string;
 };
 
 function padUuid(base: string, length: number): string {
@@ -50,6 +65,11 @@ const SUPPORT_UUID = "Supporting document UUID";
 const TAX_RATE = "Tax Rate";
 const FX = "Currency Exchange Rate";
 const TAX_ACCT = "Invoice total tax amount in tax accounting currency";
+const TAX_ACCT_MIN_LIMIT_ERROR = "can not be less than 0";
+const TAX_ACCT_MAX_LIMIT_ERROR =
+  "can not be more than 9,999,999,999,999.99";
+const TAX_ACCT_FORMULA_MISMATCH_ERROR =
+  "does not match the calculated value (Sum of total tax of each line item * Exchange rate)";
 const PM_DUE = "Total amount due (profit margin)";
 
 function vatinCases(
@@ -196,6 +216,7 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     value: numericDigits(1, 7),
     shouldError: false,
     patchAfterGenerate: true,
+    itemGrossPrice: "10000000",
   },
   {
     field: FX,
@@ -223,6 +244,8 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     value: numericDigits(1, 2),
     shouldError: false,
     patchAfterGenerate: true,
+    forbiddenErrorSubstrings: [TAX_ACCT_MIN_LIMIT_ERROR],
+    requiredErrorSubstrings: [TAX_ACCT_FORMULA_MISMATCH_ERROR],
   },
   {
     field: TAX_ACCT,
@@ -232,6 +255,21 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     value: numericDigits(13, 2),
     shouldError: false,
     patchAfterGenerate: true,
+    forbiddenErrorSubstrings: [TAX_ACCT_MAX_LIMIT_ERROR],
+    requiredErrorSubstrings: [TAX_ACCT_FORMULA_MISMATCH_ERROR],
+  },
+  {
+    field: TAX_ACCT,
+    section: "Invoice",
+    overlay: "usdFx",
+    condition: "value less than 0 (-0.01)",
+    value: `-${numericDigits(1, 2)}`,
+    shouldError: true,
+    patchAfterGenerate: true,
+    requiredErrorSubstrings: [
+      TAX_ACCT_MIN_LIMIT_ERROR,
+      TAX_ACCT_FORMULA_MISMATCH_ERROR,
+    ],
   },
   {
     field: TAX_ACCT,
@@ -241,6 +279,10 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     value: numericDigits(14, 2),
     shouldError: true,
     patchAfterGenerate: true,
+    requiredErrorSubstrings: [
+      TAX_ACCT_MAX_LIMIT_ERROR,
+      TAX_ACCT_FORMULA_MISMATCH_ERROR,
+    ],
   },
   {
     field: PM_DUE,

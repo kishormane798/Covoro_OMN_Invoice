@@ -36,7 +36,7 @@ export const INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME: Record<string, string> = {
   CHW: "WIR Franc",
   CLF: "Unidad de Fomento",
   CLP: "Chilean Peso",
-  CNH: "Renminbi (offshore).",
+  CNH: "Renminbi (offshore)",
   CNY: "Yuan Renminbi",
   COP: "Colombian Peso",
   COU: "Unidad de Valor Real",
@@ -181,5 +181,4 @@ export const INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME: Record<string, string> = {
   ZAR: "Rand",
   ZMW: "Zambian Kwacha",
   ZWG: "Zimbabwe Gold",
-  ZWL: "Zimbabwe Dollar",
 };

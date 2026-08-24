@@ -157,6 +157,7 @@ export function buildOmanSubmitDocumentRow(
   };
   common = applySubmitTxnExtras(common, txn);
   common = applySubmitInvoiceTypeExtras(common, invoiceTypeCode);
+  common["Buyer electronic address"] = "om-receiver-dev";
   return asStringRow(common);
 }
 

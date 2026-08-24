@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   if (!process.env.UAE_EINVOICE_WORKER_INDEX?.trim()) {
     process.env.UAE_EINVOICE_DISABLE_WORKER_IDENTITY = "1";
   }
-  process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC = "OM1000091919";
+  process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC = "om-receiver-dev";
 
   const opts = parseArgs(process.argv.slice(2));
   console.log(

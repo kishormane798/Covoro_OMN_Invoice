@@ -3,11 +3,13 @@
 #   Morning 06:30 IST and evening 17:00 IST start the full field suite (no shard split).
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
 #   starts the next suite: field → conditional 1→3 → formula, then stops.
-#   Submit is manual only (not on the schedule). Pick covoro_submit_single or
-#   covoro_submit_multi. Shard applies to conditional and submit (~100 tests).
+#   Submit is never part of that wave — not after formula, and not when chain is on.
+#   Submit is Run workflow only: pick covoro_submit_single or covoro_submit_multi.
+#   Shard applies to conditional and submit (~100 tests).
 #   Submit + all runs shards one after another (shared TIN slots — never parallel).
 #   Field and formula always run the full spec.
 #   Leave "chain" off for one-off field/formula/conditional/submit-N runs.
+#   Chain on continues field→conditional→formula only; it never starts submit.
 #   Submit + all auto-continues remaining submit shards even if chain is off.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
@@ -63,7 +65,7 @@ on:
           - "24"
           - "25"
       chain:
-        description: "Leave off for manual runs. On = continue morning/evening wave after this shard."
+        description: "Leave off for one-off runs. On = continue field→conditional→formula only. Never starts submit."
         required: false
         type: boolean
         default: false
@@ -567,7 +569,7 @@ jobs:
               NEXT_SUITE="covoro_formula"; NEXT_SHARD="all"
               ;;
             covoro_formula-all|covoro_formula-1|covoro_formula-2|covoro_formula-3|covoro_formula-4|covoro_formula-5)
-              echo "Formula suite finished — morning/evening wave complete."
+              echo "Formula suite finished — wave complete. Submit is not started (manual Run workflow only, even if chain is on)."
               exit 0
               ;;
             *)
@@ -575,6 +577,12 @@ jobs:
               exit 0
               ;;
           esac
+
+          # Hard stop: field/conditional/formula wave never queues submit.
+          if [ "$NEXT_SUITE" = "covoro_submit_single" ] || [ "$NEXT_SUITE" = "covoro_submit_multi" ]; then
+            echo "Submit is manual-only — refusing to queue $NEXT_SUITE after $SUITE (chain does not start submit)."
+            exit 0
+          fi
 
           echo "Queueing next: $NEXT_SUITE shard $NEXT_SHARD"
           gh workflow run playwright.yml \

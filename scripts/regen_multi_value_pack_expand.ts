@@ -306,7 +306,7 @@ function runRuleInChild(
     env.TEST_PARALLEL_INDEX = String(workerIndex);
     env.UAE_EINVOICE_WORKER_INDEX = String(workerIndex);
     env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC =
-      env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC || "OM1000091919";
+      env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC || "om-receiver-dev";
     env.PYTHONUNBUFFERED = "1";
     fs.mkdirSync(
       path.join(process.cwd(), "testData", "generated", "excel", `pw-${workerIndex}`),
@@ -570,7 +570,7 @@ async function main(): Promise<void> {
 
   if (args.concurrency <= 1) {
     process.env.UAE_EINVOICE_DISABLE_WORKER_IDENTITY = "1";
-    process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC = "OM1000091919";
+    process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC = "om-receiver-dev";
     summary = [...priorKept];
     for (let i = 0; i < rules.length; i++) {
       const ruleId = rules[i]!;

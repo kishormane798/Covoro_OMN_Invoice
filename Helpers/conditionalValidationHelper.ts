@@ -38,7 +38,8 @@ function masterLabelIncluding(
  * Standard-rate / Goods conditional rules (clears CN/import/exemption/charge fields).
  */
 export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
-  // Oman portal: EAS 0248 / Oman VATIN scheme + OM-prefixed seller/buyer electronic + VATIN.
+  // Oman portal: EAS 0248 / Oman VATIN scheme; seller electronic + VATIN OM-prefixed;
+  // buyer electronic is Peppol receiver ID.
   const electronicScheme =
     "Oman Value Added Tax Identification Number (VATIN)";
   const uom = masterLabelIncluding(
@@ -57,7 +58,7 @@ export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
 
   // Electronic address + VATIN: OM-prefixed values (12 chars; fieldValidationMandatory / conditional).
   const sellerElectronic = "OM1108202600";
-  const buyerElectronic = "OM1000091919";
+  const buyerElectronic = "om-receiver-dev";
   const sellerVat = "OM1108202600";
   const buyerVat = "OM1000091919";
 
@@ -321,7 +322,9 @@ const IBR_007_SELLER_IDENTIFIER_TXN_TYPES = new Set<string>([
  * - Seller (IBR-007-OM): Import of Goods / Import of Services (RCM) /
  *   Profit Margin Self-Invoice / Special Zone Supplies
  * - Buyer Import of Goods (IBR-153-OM): textual code `Importer Customs ID`
- *   (ICD scheme stays empty — XOR). Special Zone still uses ICD scheme.
+ *   (ICD scheme stays empty — XOR).
+ * - Special Zone (IBR-151/152-OM): textual code `Special Zone License Number`
+ *   (ICD scheme stays empty — XOR), same Covoro mapping as IBR-153-OM.
  * Scenario builders may overwrite these afterward (including empty for error cases).
  */
 export function applyPartyIdentifiersByTxnType(
@@ -339,12 +342,17 @@ export function applyPartyIdentifiersByTxnType(
     "Importer Customs ID",
     "Importer Customs ID"
   );
+  const specialZoneLicenseCode = masterLabelIncluding(
+    buyerSellerIdentifierCodeValidTestData,
+    "Special Zone License Number",
+    FV.SPECIAL_ZONE_LICENSE_SCHEME
+  );
 
   if (IBR_007_SELLER_IDENTIFIER_TXN_TYPES.has(txn)) {
     if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
-      // XOR: ICD scheme only (never scheme + textual code together).
-      next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = defaultScheme;
-      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+      // XOR: Oman textual code only (never scheme + textual code together).
+      next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
+      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = specialZoneLicenseCode;
       next[FV.SELLER_IDENTIFIER_FIELD] = "SZ-SELLER-001";
     } else {
       next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = defaultScheme;
@@ -358,8 +366,8 @@ export function applyPartyIdentifiersByTxnType(
   }
 
   if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
-    next["Scheme identifier"] = defaultScheme;
-    next["Buyer Identifier (textual code)"] = "";
+    next["Scheme identifier"] = "";
+    next["Buyer Identifier (textual code)"] = specialZoneLicenseCode;
     next["Buyer identifier"] = "SZ-BUYER-001";
   } else if (txn === FV.TXN_IMPORT_OF_GOODS) {
     // IBR-153-OM: Buyer identifier code must be 'Importer Customs ID'.
@@ -1016,17 +1024,18 @@ export function buildSpecialZoneSellerScenarioRow(
       scenario.invoiceTransactionTypeCode,
   });
   // Scenario values win (including empty seller identifier for error cases).
-  // XOR: scheme only — textual code stays empty.
-  row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = scenario.sellerIdentifierTextualCode;
-  row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+  // XOR: Special Zone License Number is Oman textual code, not ICD scheme.
+  row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
+  row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
+    scenario.sellerIdentifierTextualCode;
   row[FV.SELLER_IDENTIFIER_FIELD] = scenario.sellerIdentifier;
   if (scenario.invoiceTransactionTypeCode !== FV.TXN_SPECIAL_ZONE_SUPPLIES) {
     return row;
   }
   const next = applySpecialZoneCountrySubdivisions(row);
   // IBR-152 companion so seller-identifier polarities are the only IBR-151 probe.
-  next[FV.BUYER_IDENTIFIER_SCHEME_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-  next[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+  next[FV.BUYER_IDENTIFIER_SCHEME_FIELD] = "";
+  next[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
   next[FV.BUYER_IDENTIFIER_FIELD] =
     next[FV.BUYER_IDENTIFIER_FIELD] || "SZ-BUYER-001";
   if (scenario.sellerCountrySubdivisionCode !== undefined) {
@@ -1047,11 +1056,11 @@ export function buildSpecialZoneCountrySubdivisionScenarioRow(
       scenario.invoiceTransactionTypeCode,
   });
   // IBR-151/152 companions so subdivision polarities are the only IBR-150 probe.
-  row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-  row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+  row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
+  row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
   row[FV.SELLER_IDENTIFIER_FIELD] = "SZ-LIC-001";
-  row[FV.BUYER_IDENTIFIER_SCHEME_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-  row[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+  row[FV.BUYER_IDENTIFIER_SCHEME_FIELD] = "";
+  row[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
   row[FV.BUYER_IDENTIFIER_FIELD] = "SZ-BUYER-001";
   // Scenario values win (including empty / non-CL-13 for error cases).
   row[FV.SELLER_COUNTRY_SUBDIVISION_CODE_FIELD] =
@@ -1487,9 +1496,10 @@ export function buildSellerIdentifierSchemeScenarioRow(
   let next = applyPartyIdentifiersByTxnType(row);
   if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
     next = applySpecialZoneCountrySubdivisions(next);
-    // IBR-151-OM: Special Zone License on scheme (XOR textual empty).
-    next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-    next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+    // IBR-151-OM: Special Zone License is textual code (XOR ICD scheme empty).
+    next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
+    next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
+      FV.SPECIAL_ZONE_LICENSE_SCHEME;
     next[FV.SELLER_IDENTIFIER_FIELD] =
       next[FV.SELLER_IDENTIFIER_FIELD] || "SZ-SELLER-001";
   }
@@ -1927,14 +1937,17 @@ export function buildBuyerIdentifierSchemeScenarioRow(
   });
   // Scenario values win (including empty buyer identifier for error cases).
   row["Buyer identifier"] = scenario.buyerIdentifier;
-  const usesImporterCustomsId =
-    scenario.buyerIdentifierScheme === "Importer Customs ID";
+  const usesOmanBuyerSellerTextualCode =
+    buyerSellerIdentifierCodeValidTestData.some(
+      (item) => item.label === scenario.buyerIdentifierScheme
+    );
   if (
     scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS ||
-    usesImporterCustomsId
+    usesOmanBuyerSellerTextualCode
   ) {
-    // IBR-153-OM: Importer Customs ID is the buyer identifier textual code, not ICD scheme.
-    // Wrong-target (Full Tax + same T) must keep this mapping — clone Allowed, change txn only.
+    // Oman Buyer/Seller Identifier list (Importer Customs ID, Special Zone
+    // License Number, …) is textual code, not ICD scheme. Wrong-target
+    // (Full Tax + same T) must keep this mapping — clone Allowed, change txn only.
     row["Scheme identifier"] = "";
     row["Buyer Identifier (textual code)"] = scenario.buyerIdentifierScheme;
     if (scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS) {

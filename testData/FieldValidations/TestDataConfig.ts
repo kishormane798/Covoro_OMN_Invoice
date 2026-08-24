@@ -17,6 +17,8 @@ import {
   itemTypeValidTestData,
   taxCategoryValidTestData,
   taxExemptionReasonValidTestData,
+  taxExemptionReasonExemptValidTestData,
+  taxExemptionReasonZeroRatedValidTestData,
   profitMarginItemTypeValidTestData,
   paymentMeansTypeValidTestData,
   incotermsValidTestData,
@@ -78,17 +80,49 @@ export const conditionalDropdownFieldMasterConfig: DropdownFieldConfig[] = [
   },
   {
     field: "Tax exemption reason code",
-    master: taxExemptionReasonValidTestData,
+    master: taxExemptionReasonExemptValidTestData,
   },
 ];
 
 export const documentChargesAllowancesDropdownInvalidFields = [
   "Vat category - charges",
   "Vat category - allowances",
+] as const;
+
+/** Reason dropdowns tested separately with document charges/allowances + VAT category. */
+const TAX_EXEMPTION_REASON_DROPDOWN_FIELDS = [
+  "Tax exemption reason code",
   "Tax exemption reason - charges",
   "Tax exemption reason - allowances",
-  "Tax exemption reason code",
 ] as const;
+
+const TAX_EXEMPTION_REASON_DROPDOWN_FIELD_SET = new Set<string>(
+  TAX_EXEMPTION_REASON_DROPDOWN_FIELDS
+);
+
+/** Case 2: line Tax exemption reason code + Zero rated VATZR labels (not VATEX). */
+export const taxExemptionReasonZeroRatedMasterConfig = {
+  field: "Tax exemption reason code",
+  master: taxExemptionReasonZeroRatedValidTestData,
+  vatContext: "zero" as const,
+  vatCategoryLabel: "Zero rated",
+};
+
+export const taxExemptionReasonInvalidWithDocumentCompanionsConfig = (
+  TAX_EXEMPTION_REASON_DROPDOWN_FIELDS as readonly string[]
+).flatMap((field) =>
+  (
+    [
+      { vatContext: "exempt" as const, vatCategoryLabel: "Exempt from tax" },
+      { vatContext: "zero" as const, vatCategoryLabel: "Zero rated" },
+    ] as const
+  ).map((ctx) => ({
+    field,
+    vatContext: ctx.vatContext,
+    vatCategoryLabel: ctx.vatCategoryLabel,
+    master: InvalidTestData,
+  }))
+);
 
 export const documentChargesAllowancesDropdownInvalidConfig: DropdownFieldConfig[] =
   documentChargesAllowancesDropdownInvalidFields.map((field) => ({
@@ -135,7 +169,7 @@ export const dropdownFieldMasterConfig: DropdownFieldConfig[] = [
   { field: "Profit margin item type code", master: profitMarginItemTypeValidTestData },
   { field: "Invoiced quantity unit of measure code", master: unitOfMeasurementValidTestData },
   { field: "Tax Category", master: taxCategoryValidTestData },
-  { field: "Tax exemption reason code", master: taxExemptionReasonValidTestData },
+  { field: "Tax exemption reason code", master: taxExemptionReasonExemptValidTestData },
   { field: "Item country of origin", master: countryValidTestData },
   { field: "Vat category - charges", master: taxCategoryValidTestData },
   { field: "Vat category - allowances", master: taxCategoryValidTestData },
@@ -145,7 +179,9 @@ export const dropdownFieldMasterConfig: DropdownFieldConfig[] = [
 ];
 
 export const dropdownFieldInvalidConfig: DropdownFieldConfig[] =
-  dropdownFieldMasterConfig.map(({ field }) => ({
-    field,
-    master: InvalidTestData,
-  }));
+  dropdownFieldMasterConfig
+    .filter(({ field }) => !TAX_EXEMPTION_REASON_DROPDOWN_FIELD_SET.has(field))
+    .map(({ field }) => ({
+      field,
+      master: InvalidTestData,
+    }));

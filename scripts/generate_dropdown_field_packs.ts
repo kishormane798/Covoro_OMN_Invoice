@@ -122,7 +122,7 @@ function parseCli(argv: string[]): {
 
 async function main(): Promise<void> {
   process.env.UAE_EINVOICE_DISABLE_WORKER_IDENTITY = "1";
-  process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC = "OM1000091919";
+  process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC = "om-receiver-dev";
 
   const cli = parseCli(process.argv.slice(2));
 

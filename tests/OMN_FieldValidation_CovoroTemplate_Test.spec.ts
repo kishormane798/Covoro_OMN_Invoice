@@ -7,6 +7,7 @@ import { unitOfMeasurementValidTestData } from "../testData/FieldValidations/Mas
 import {
   runErrorValidation,
   runErrorValidationForAnyOfFields,
+  runErrorValidationPassIfLengthAccepted,
 } from "../Helpers/excelEditMessageCheck";
 import { buildInvoiceNumber, randomAlphaNumeric } from "../Helpers/fieldValidationHelper";
 import { generateFormatContextFieldExcel } from "../Helpers/formatContextFieldValidationHelper";
@@ -465,6 +466,27 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
     }
   });
 
+  test.describe("Dropdown — valid tax exemption reason (Zero rated)", () => {
+    for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS) {
+      test(`Tax exemption reason code (Zero rated) with ${condition} should be accepted. (Tax exemption reason code)`, async ({
+        page,
+      }) => {
+        test.setTimeout(DROPDOWN_TIMEOUT_MS);
+        const files = await generateOmanDropdownMasterExcel(
+          FV.taxExemptionReasonZeroRatedMasterConfig.field,
+          FV.taxExemptionReasonZeroRatedMasterConfig.master,
+          {
+            writeCasing,
+            vatContext: FV.taxExemptionReasonZeroRatedMasterConfig.vatContext,
+          }
+        );
+        for (const { filePath } of files) {
+          await uploadAndVerify(page, filePath);
+        }
+      });
+    }
+  });
+
   test.describe("Dropdown — invalid values", () => {
     for (const config of dropdownInvalidOnCovoro) {
       for (const option of config.master) {
@@ -474,6 +496,29 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
             await runErrorValidation(
               page,
               { filePath, field: config.field, invoiceNumber, checkEdit: true });
+          }
+        });
+      }
+    }
+  });
+
+  test.describe("Dropdown — invalid tax exemption reason (charges/allowances companions)", () => {
+    for (const config of FV.taxExemptionReasonInvalidWithDocumentCompanionsConfig) {
+      for (const option of config.master) {
+        test(`${config.field} (${config.vatCategoryLabel}) with invalid value "${option.label}" should be rejected with an error. (${config.field})`, async ({
+          page,
+        }) => {
+          test.setTimeout(DROPDOWN_TIMEOUT_MS);
+          const files = await generateOmanDropdownMasterExcel(config.field, option, {
+            vatContext: config.vatContext,
+          });
+          for (const { filePath, invoiceNumber } of files) {
+            await runErrorValidation(page, {
+              filePath,
+              field: config.field,
+              invoiceNumber,
+              checkEdit: true,
+            });
           }
         });
       }
@@ -728,7 +773,14 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
         page,
       }) => {
         const { filePath, invoiceNumber } = await generateFormatContextFieldExcel(tc);
-        if (tc.shouldError) {
+        if (tc.requiredErrorSubstrings?.length) {
+          await runErrorValidationPassIfLengthAccepted(page, {
+            filePath,
+            field: tc.field,
+            forbiddenCommentSubstrings: tc.forbiddenErrorSubstrings,
+            requiredCommentSubstrings: tc.requiredErrorSubstrings,
+          });
+        } else if (tc.shouldError) {
           await runErrorValidation(page, {
             filePath,
             field: tc.field,

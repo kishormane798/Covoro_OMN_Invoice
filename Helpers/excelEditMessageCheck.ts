@@ -65,6 +65,48 @@ export async function runErrorValidation(
   });
 }
 
+type ErrorCommentRulesInput = {
+  filePath: string;
+  field: string;
+  forbiddenCommentSubstrings?: string[];
+  requiredCommentSubstrings: string[];
+  row?: number;
+};
+
+/**
+ * Assert error-file comments for a field: required substrings must all appear;
+ * forbidden substrings (min/max accepted) must not.
+ */
+export async function runErrorValidationPassIfLengthAccepted(
+  page: Page,
+  input: ErrorCommentRulesInput
+) {
+  const row = input.row ?? TEMPLATE_DATA_ROW;
+  await uploadAndVerifyStatus(page, input.filePath, "error");
+
+  const uploadPage = new UploadInvoicePage(page);
+  await uploadPage.waitForErrorFileDownloadEnabled();
+  const errorFilePath = await uploadPage.downloadErrorFileViaClick();
+  printErrorWorkbookMessages(errorFilePath, row);
+
+  const { comment } = await getErrorFieldExcelDetails(errorFilePath, input.field, row);
+  const text = comment.trim();
+  for (const forbidden of input.forbiddenCommentSubstrings ?? []) {
+    if (text.includes(forbidden)) {
+      throw new Error(
+        `Unexpected error present for "${input.field}": ${forbidden}. Full comment: ${text}`
+      );
+    }
+  }
+  for (const required of input.requiredCommentSubstrings) {
+    if (!text.includes(required)) {
+      throw new Error(
+        `Expected error missing for "${input.field}": ${required}. Full comment: ${text}`
+      );
+    }
+  }
+}
+
 async function fieldHasErrorInWorkbook(
   errorFilePath: string,
   field: string,

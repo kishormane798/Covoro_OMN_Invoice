@@ -893,7 +893,7 @@ export function writeFormulaPackReadme(
     "- Seller VAT Identifier (TRN / TIN): `OM1108202600`",
     "- Seller electronic address: `OM1108202600`",
     "- Buyer VAT identifier: `OM1000091919`",
-    "- Buyer electronic address: `OM1000091919`",
+    "- Buyer electronic address: `om-receiver-dev`",
     "",
     "## Folder layout",
     "",

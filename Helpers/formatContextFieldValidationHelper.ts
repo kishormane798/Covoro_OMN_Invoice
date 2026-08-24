@@ -87,6 +87,9 @@ export async function generateFormatContextFieldExcel(
 ): Promise<{ filePath: string; invoiceNumber: string }> {
   const seed = buildValidOmanFullTaxInvoiceRow();
   const row = applyOverlay(seed, tc.overlay);
+  if (tc.itemGrossPrice) {
+    row["Item gross price"] = tc.itemGrossPrice;
+  }
   row[tc.field] = tc.value;
 
   const generated = await generateInvoiceFromSubmitData(row);

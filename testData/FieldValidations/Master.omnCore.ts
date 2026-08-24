@@ -99,7 +99,8 @@ export const taxCategoryValidTestData: MasterLabel[] = [
   { label: "Zero rated" },
 ];
 
-export const taxExemptionReasonValidTestData: MasterLabel[] = [
+/** Exemption reason codes (VATEX-OM-01..VATEX-OM-12). Not the Zero-rated (VATZR) section. */
+export const taxExemptionReasonExemptValidTestData: MasterLabel[] = [
   { label: "Exemption- Qualifying Financial Services" },
   { label: "Exemption- Educational Services and Related Goods and Services" },
   { label: "Exemption- Healthcare Services and Related Goods and Services" },
@@ -112,6 +113,10 @@ export const taxExemptionReasonValidTestData: MasterLabel[] = [
   { label: "Exemption- Non-Profit Charity Imports" },
   { label: "Exemption- Returned Goods Imports" },
   { label: "Exemption- Exempt or Zero-Rated Destination Imports" },
+];
+
+/** CL-10-OM zero-rating reason codes (VATZR-OM-01..VATZR-OM-16). */
+export const taxExemptionReasonZeroRatedValidTestData: MasterLabel[] = [
   { label: "Zero-rated - Qualifying Food Items" },
   { label: "Zero-rated- Medicines and Medical Equipment" },
   { label: "Zero-rated- Investment Precious Metals" },
@@ -128,6 +133,12 @@ export const taxExemptionReasonValidTestData: MasterLabel[] = [
   { label: "Zero-rated- Mainland to Special Zone" },
   { label: "Zero-rated- Customs Duty Suspension to Special Zone" },
   { label: "Zero-rated- Special Zone to Customs Duty Suspension" },
+];
+
+/** Combined exemption + zero-rating labels. Line-item Tax exemption reason code uses exempt-only. */
+export const taxExemptionReasonValidTestData: MasterLabel[] = [
+  ...taxExemptionReasonExemptValidTestData,
+  ...taxExemptionReasonZeroRatedValidTestData,
 ];
 
 export const profitMarginItemTypeValidTestData: MasterLabel[] = [

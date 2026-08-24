@@ -1,6 +1,6 @@
 /**
  * Environment-specific counterparty electronic address (not worker TIN).
- * Normal invoices: buyer electronic address. Self-billed: seller electronic address.
+ * Always written to Buyer electronic address (including self-billed).
  * Keep aligned with `invoice_excel_writer._counterparty_electronic_address`.
  */
 
@@ -9,8 +9,14 @@ import { resolveBaseUrl } from "./appConfig";
 export type TargetEnv = "dev" | "preprod";
 
 const COUNTERPARTY_ELECTRONIC_BY_ENV: Record<TargetEnv, string> = {
+  dev: "om-receiver-dev",
+  preprod: "om-receiver-dev",
+};
+
+/** Buyer/seller VATIN — independent of Peppol receiver electronic address. */
+const COUNTERPARTY_VAT_BY_ENV: Record<TargetEnv, string> = {
   dev: "OM1000091919",
-  preprod: "1008212295",
+  preprod: "100821229500003",
 };
 
 /**
@@ -28,7 +34,7 @@ const WORKER_TIN_BASE_BY_ENV: Record<TargetEnv, number> = {
 
 /** Create Invoice UI — buyer electronic address when txn type is Deemed Supply. */
 const DEEMED_SUPPLY_BUYER_ELECTRONIC_BY_ENV: Partial<Record<TargetEnv, string>> = {
-  dev: "9900000097",
+  dev: "om-receiver-dev",
 };
 
 export function resolveTargetEnv(): TargetEnv {
@@ -69,7 +75,11 @@ export function vatIdentifierForElectronicAddress(electronic: string): string {
 
 /** Counterparty TRN/TIN — normal buyer / self-billed seller. */
 export function getCounterpartyVatIdentifier(): string {
-  return vatIdentifierForElectronicAddress(getCounterpartyElectronicAddress());
+  const electronicOverride = process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC?.trim();
+  if (electronicOverride && /^\d+$/.test(electronicOverride)) {
+    return vatIdentifierForElectronicAddress(electronicOverride);
+  }
+  return COUNTERPARTY_VAT_BY_ENV[resolveTargetEnv()];
 }
 
 /** Override with `UAE_EINVOICE_DEEMED_SUPPLY_BUYER_ELECTRONIC`; else env map / counterparty fallback. */
@@ -95,13 +105,9 @@ export function isSelfBilledInvoiceType(invoiceTypeCode: unknown): boolean {
   return n.includes("self billed credit note") || n.includes("self billed invoice");
 }
 
-/** Patch buyer (normal) or seller (self-billed) electronic address for the active environment. */
+/** Patch Buyer electronic address only (never seller). */
 export function applyCounterpartyElectronicAddressOverrides<
   T extends Record<string, unknown>,
 >(row: T): T {
-  const counterparty = getCounterpartyElectronicAddress();
-  if (isSelfBilledInvoiceType(row["Invoice Type Code"])) {
-    return { ...row, "Seller electronic address": counterparty };
-  }
-  return { ...row, "Buyer electronic address": counterparty };
+  return { ...row, "Buyer electronic address": getCounterpartyElectronicAddress() };
 }

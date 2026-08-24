@@ -2741,7 +2741,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "SZ-LIC-001",
     shouldError: true,
-    expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
+    expectedErrorField: SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD,
   },
 ];
 

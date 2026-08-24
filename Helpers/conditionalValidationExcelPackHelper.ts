@@ -1162,7 +1162,12 @@ function pickValidValue(
     return "10.00";
   }
   if (k.includes("credit") && k.includes("reason")) return FV.CREDIT_DEBIT_REASON_SAMPLE;
-  if (k.includes("exemption reason code")) return FV.TAX_EXEMPTION_REASON_SAMPLE;
+  if (k.includes("exemption reason")) {
+    if (preferredTaxCategory === FV.ZERO_RATED_TAX_CATEGORY_CODE) {
+      return FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    }
+    return FV.TAX_EXEMPTION_REASON_SAMPLE;
+  }
   if (k.includes("service type")) return FV.SERVICE_TYPE_CODE_SAMPLE;
   if (k.includes("supporting document reference")) {
     return FV.SUPPORTING_DOCUMENT_REFERENCE_SAMPLE;

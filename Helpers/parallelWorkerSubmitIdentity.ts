@@ -161,9 +161,9 @@ export function applyParallelWorkerIdentityToSubmitRow(
   const next: Record<string, string> = { ...data };
 
   if (selfBilled) {
-    next["Seller electronic address"] = counterpartyEl;
-    next["Seller VAT Identifier (TRN / TIN)"] = getCounterpartyVatIdentifier();
-    next["Buyer electronic address"] = workerEl;
+    next["Seller electronic address"] = workerEl;
+    next["Seller VAT Identifier (TRN / TIN)"] = workerVat;
+    next["Buyer electronic address"] = counterpartyEl;
     next["Buyer VAT identifier"] = workerVat;
   } else if (deemed) {
     next["Seller electronic address"] = workerEl;
