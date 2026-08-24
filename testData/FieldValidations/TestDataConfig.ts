@@ -114,7 +114,8 @@ export const dropdownFieldMasterConfig: DropdownFieldConfig[] = [
   { field: "Invoice Type Code", master: invoiceTypeCodeValidTestData },
   { field: "Incoterms", master: incotermsValidTestData },
   { field: "Invoice Currency Code", master: currencyCodeValidTestData },
-  { field: "Source currency code", master: currencyCodeValidTestData },
+  // Source currency code-only dropdown suite (valid + invalid). Companion FX rows still set this field.
+  // { field: "Source currency code", master: currencyCodeValidTestData },
   { field: "Credit note or Debit Note reason code", master: creditDebitNoteReasonValidTestData },
   { field: "Seller electronic address Scheme", master: electronicAddressSchemeValidTestData },
   { field: "Seller identifier - Scheme identifier", master: schemeIdentifierValidTestData },
