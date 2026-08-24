@@ -7,7 +7,7 @@
 //  * and `fieldSectionMap` sections.
 //  */
 //
-// import { fieldSectionMap } from "../FieldValidations/Master";
+// import { fieldSectionMap } from "../Master";
 // import {
 //   fieldInvoice_number,
 //   fieldValidationMandatory,

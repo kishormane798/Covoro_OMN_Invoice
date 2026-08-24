@@ -3,7 +3,7 @@ import { test } from "../Src/baseTest";
 import { uploadAndVerify, uploadAndVerifyError } from "../Helpers/uploadHelper";
 import { generateInvoiceCurrencyExchangeBatchExcel } from "../utils/invoiceExcel";
 import * as FV from "../testData/FieldValidations";
-import { unitOfMeasurementValidTestData } from "../testData/FieldValidations/Master";
+import { unitOfMeasurementValidTestData } from "../testData/Master";
 import {
   runErrorValidation,
   runErrorValidationForAnyOfFields,

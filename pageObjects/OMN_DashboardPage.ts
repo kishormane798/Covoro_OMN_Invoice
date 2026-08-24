@@ -7,7 +7,7 @@ import {
   waitForEInvoiceListValidatingGone,
   waitForLocatorWithPageRefresh,
 } from "../Helpers/waitForWithPageRefresh";
-import { fieldSectionMap } from "../testData/FieldValidations/Master";
+import { fieldSectionMap } from "../testData/Master";
 import { parallelWorkerDashboardOpenOpts } from "../Helpers/parallelWorkerSubmitIdentity";
 
 const EDIT_ERROR_TIMEOUT_MS = 10_000;

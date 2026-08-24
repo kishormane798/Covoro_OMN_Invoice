@@ -1549,7 +1549,13 @@ export async function generateBulkSingleItemSubmitInvoices(
  */
 export async function generateDistinctSubmitInvoices(
   rows: Array<Record<string, any>>,
-  options?: { fileName?: string; testFiles?: string[]; timeoutMs?: number }
+  options?: {
+    fileName?: string;
+    testFiles?: string[];
+    timeoutMs?: number;
+    /** Skip Python apply_calculations (capped at 500 rows). TS already wrote line/doc totals. */
+    skipApplyCalculations?: boolean;
+  }
 ): Promise<{ filePath: string; invoiceNumbers: string[]; batchPrefix: string }> {
   if (!rows.length) {
     throw new Error("generateDistinctSubmitInvoices: rows cannot be empty");
@@ -1581,7 +1587,9 @@ export async function generateDistinctSubmitInvoices(
     timeoutMs: writeTimeoutMs,
   });
 
-  applyInvoiceCalculationsToFile(filePath, DATA_ROW, writeTimeoutMs, rows.length);
+  if (!options?.skipApplyCalculations) {
+    applyInvoiceCalculationsToFile(filePath, DATA_ROW, writeTimeoutMs, rows.length);
+  }
 
   generatedFiles.push(filePath);
   if (options?.testFiles) options.testFiles.push(filePath);
@@ -1641,19 +1649,12 @@ export async function generateFullRowDropdownFieldExcel(
   );
 }
 
-export async function generateInvoiceFromSubmitRows(
-  rows: Array<Record<string, any>>,
-  testFiles?: string[]
-): Promise<{ filePath: string; invoiceNumber: string }> {
-  if (!rows.length) {
-    throw new Error("generateInvoiceFromSubmitRows: rows cannot be empty");
-  }
-
-  const invoiceNumber = buildUniqueSubmitInvoiceNumber();
-  const todayDate = getTodayDate();
+/** Line + invoice-level totals for one multi-line invoice (same rules as submit multi-item). */
+async function buildSubmitFlowMultiLineRowPayloads(
+  rows: Array<Record<string, any>>
+): Promise<Array<Record<string, unknown>>> {
   const templateHeaders = await getCachedInvoiceTemplateHeaders();
 
-  // Reuse the single-row submit rules, but apply totals across all line-rows.
   const toNumber = (value: any, fallback = 0): number => {
     if (value === null || value === undefined || String(value).trim() === "") {
       return fallback;
@@ -1665,13 +1666,11 @@ export async function generateInvoiceFromSubmitRows(
   const currencyCode = rows[0]["Invoice Currency Code"] ?? OMAN_HOME_CURRENCY;
   const currencyRate = toNumber(rows[0]["Currency Exchange Rate"], 1) || 1;
 
-  // Document-level charges/allowances are taken from the first row (if present).
   const docCharges = toNumber(rows[0]["Charges on document level"], 0);
   const docAllowances = toNumber(rows[0]["Allowances on document level"], 0);
   const paidAmount = toNumber(rows[0]["Paid amount"], 0);
   const roundingAmount = toNumber(rows[0]["Rounding amount"], 0);
 
-  // Line-level calcs (raw + rounded) for aggregation.
   const fix6 = (n: number) => Number(n.toFixed(6));
   const ceil2 = (num: number) => Math.ceil(num * 100 - 1e-12) / 100;
 
@@ -1724,7 +1723,6 @@ export async function generateInvoiceFromSubmitRows(
     currencyCode === OMAN_HOME_CURRENCY
       ? null
       : ceil2(fix6(invoiceTotalTax * currencyRate));
-  /** IBR-082-OM: document-level PM total only when txn type is Profit Margin / Self-Invoice. */
   const profitMarginTxn = isProfitMarginTransactionType(
     rows[0]?.["Invoice Transaction Type Code"]
   );
@@ -1732,7 +1730,7 @@ export async function generateInvoiceFromSubmitRows(
     ? ceil2(fix6(perLine.reduce((acc, l) => acc + l.rawLineNet + l.rawVat, 0)))
     : null;
 
-  const rowPayloads: Array<Record<string, unknown>> = rows.map((row, idx) => {
+  return rows.map((row, idx) => {
     const rowValues: Record<string, unknown> = {};
     for (const [header, value] of Object.entries(row)) {
       rowValues[header] = value;
@@ -1744,13 +1742,11 @@ export async function generateInvoiceFromSubmitRows(
     );
     applyExemptFromTaxBlankTaxFields(rowValues, row["Tax Category"]);
 
-    // Force per-line calculated values.
     rowValues["Item net price"] = perLine[idx].itemNetPrice;
     rowValues["Invoice line net amount"] = perLine[idx].invoiceLineNetAmount;
     rowValues["Line item VAT amount"] = perLine[idx].lineItemVatAmount;
     rowValues["Total amount including VAT"] = perLine[idx].totalAmountIncludingVat;
 
-    // Force invoice-level totals across all lines.
     rowValues["Sum of Invoice line net amount"] = sumInvoiceLineNetAmount;
     rowValues["Invoice total amount without tax"] = invoiceTotalWithoutTax;
     rowValues["Invoice total tax amount"] = invoiceTotalTax;
@@ -1760,10 +1756,80 @@ export async function generateInvoiceFromSubmitRows(
     rowValues["Invoice total tax amount in tax accounting currency"] =
       invoiceTotalTaxAccountingCurrency;
 
-    // Narrow to active template headers and expand to per-header payload.
     const sparse = filterSubmitRowToTemplateHeaders(rowValues, templateHeaders);
     return buildSubmitRowValuesExplicitPerTemplateHeader(sparse, templateHeaders);
   });
+}
+
+/**
+ * One workbook with N **distinct** multi-line invoices. Each case is several lines that
+ * share one invoice number (unlike `generateDistinctSubmitInvoices`, which is 1 row = 1 invoice).
+ * Does not run Python apply_calculations — that overwrites invoice-level totals with per-line math.
+ */
+export async function generateDistinctMultiItemSubmitInvoices(
+  cases: Array<Array<Record<string, any>>>,
+  options?: { fileName?: string; testFiles?: string[]; timeoutMs?: number }
+): Promise<{
+  filePath: string;
+  invoiceNumbers: string[];
+  batchPrefix: string;
+  rowCount: number;
+}> {
+  if (!cases.length) {
+    throw new Error("generateDistinctMultiItemSubmitInvoices: cases cannot be empty");
+  }
+
+  const batchPrefix = buildUniqueSubmitInvoiceNumber();
+  const todayDate = getTodayDate();
+  const invoiceNumbers: string[] = [];
+  const rowPayloads: Array<Record<string, unknown>> = [];
+
+  for (let i = 0; i < cases.length; i++) {
+    const lines = cases[i];
+    if (!lines?.length) {
+      throw new Error(
+        `generateDistinctMultiItemSubmitInvoices: case ${i + 1} has no lines`
+      );
+    }
+    const invoiceNumber = `${batchPrefix}-${i + 1}`;
+    invoiceNumbers.push(invoiceNumber);
+    const payloads = await buildSubmitFlowMultiLineRowPayloads(lines);
+    for (const payload of payloads) {
+      payload["Invoice Number"] = invoiceNumber;
+      rowPayloads.push(payload);
+    }
+  }
+
+  const fileName =
+    options?.fileName?.trim() ||
+    `${batchPrefix}-multiline-${cases.length}.xlsx`;
+  const writeTimeoutMs =
+    options?.timeoutMs ?? Math.max(1_200_000, rowPayloads.length * 2_000);
+
+  const { filePath } = writeSubmitFlowRowsWithPython({
+    invoiceNumber: batchPrefix,
+    issueDate: todayDate,
+    fileName,
+    rows: rowPayloads,
+    timeoutMs: writeTimeoutMs,
+  });
+
+  generatedFiles.push(filePath);
+  if (options?.testFiles) options.testFiles.push(filePath);
+  return { filePath, invoiceNumbers, batchPrefix, rowCount: rowPayloads.length };
+}
+
+export async function generateInvoiceFromSubmitRows(
+  rows: Array<Record<string, any>>,
+  testFiles?: string[]
+): Promise<{ filePath: string; invoiceNumber: string }> {
+  if (!rows.length) {
+    throw new Error("generateInvoiceFromSubmitRows: rows cannot be empty");
+  }
+
+  const invoiceNumber = buildUniqueSubmitInvoiceNumber();
+  const todayDate = getTodayDate();
+  const rowPayloads = await buildSubmitFlowMultiLineRowPayloads(rows);
 
   const { filePath } = writeSubmitFlowRowsWithPython({
     invoiceNumber,
@@ -1774,7 +1840,6 @@ export async function generateInvoiceFromSubmitRows(
     timeoutMs: 180_000,
   });
 
-  // Python writer already applies calculations for each written row before saving.
   generatedFiles.push(filePath);
   if (testFiles) testFiles.push(filePath);
   return { filePath, invoiceNumber };

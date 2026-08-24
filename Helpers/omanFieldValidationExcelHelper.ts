@@ -32,7 +32,7 @@ import {
   omanCountrySubdivisionValidTestData,
   profitMarginItemTypeValidTestData,
   schemeIdentifierValidTestData,
-} from "../testData/FieldValidations/Master";
+} from "../testData/Master";
 import {
   generateDistinctSubmitInvoices,
   generateFullRowDropdownFieldExcel,

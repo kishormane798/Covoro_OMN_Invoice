@@ -11,7 +11,7 @@ import {
   paymentMeansTypeValidTestData,
   schemeIdentifierValidTestData,
   unitOfMeasurementValidTestData,
-} from "../testData/FieldValidations/Master";
+} from "../testData/Master";
 
 function masterLabel(
   list: readonly { label: string }[] | undefined,

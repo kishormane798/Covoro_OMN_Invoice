@@ -12,7 +12,7 @@ import * as FV from "./ConditionalValidation";
 import {
   invoiceTypeCodeValidTestData,
   invoiceTransactionTypeValidTestData,
-} from "./Master.omnCore";
+} from "../Master/Master.omnCore";
 
 export type MultiItemSubmitInvoiceCase = {
   name: string;

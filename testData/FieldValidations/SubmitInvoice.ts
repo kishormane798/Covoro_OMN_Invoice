@@ -7,7 +7,7 @@ import * as FV from "./ConditionalValidation";
 import {
   invoiceTypeCodeValidTestData,
   invoiceTransactionTypeValidTestData,
-} from "./Master.omnCore";
+} from "../Master/Master.omnCore";
 import { buildOmanSubmitDocumentRow } from "./SubmitInvoiceMultiItem";
 
 type GoodsTaxDef = {

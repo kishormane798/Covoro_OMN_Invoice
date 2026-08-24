@@ -20,7 +20,7 @@ import {
   resolveRowKey,
 } from "./fieldValidationExcelPackHelper";
 import * as FV from "../testData/FieldValidations/ConditionalValidation";
-import { InvalidTestData } from "../testData/FieldValidations/Master";
+import { InvalidTestData } from "../testData/Master";
 import {
   generateDistinctSubmitInvoices,
   generateInvoiceFromSubmitData,

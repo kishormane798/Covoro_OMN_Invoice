@@ -14,7 +14,7 @@ import {
   itemTypeValidTestData,
   serviceTypeCodeValidTestData,
   profitMarginItemTypeValidTestData,
-} from "./Master.omnCore";
+} from "../Master/Master.omnCore";
 import { INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME } from "./invoiceCurrencyIsoToDisplayName";
 
 /** ISO currency codes for Invoice Currency Code dropdown / batch field-validation. */

@@ -24,7 +24,7 @@ import {
   buyerSellerIdentifierCodeValidTestData,
   electronicAddressSchemeValidTestData,
   schemeIdentifierValidTestData,
-} from "../testData/FieldValidations/Master";
+} from "../testData/Master";
 import {
   fieldInvoice_number,
   fieldValidationMandatory,

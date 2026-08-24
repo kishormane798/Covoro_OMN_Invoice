@@ -3,7 +3,7 @@
  * it must be coded with the Buyer/Seller Identifier list.
  * Omit is already covered by party-identifier companion `none`.
  */
-import { buyerSellerIdentifierCodeValidTestData } from "./Master.omnCore";
+import { buyerSellerIdentifierCodeValidTestData } from "../Master/Master.omnCore";
 
 export const CL06_OM_RULE_ID = "CL-06-OM";
 export const CL06_OM_INVALID_SCHEME = "NOT-A-BUYER-SELLER-SCHEME";

@@ -18,7 +18,7 @@ import {
   conditionalDropdownFieldMasterConfig,
   mergeDropdownFieldConfigs,
 } from "../testData/FieldValidations/TestDataConfig";
-import { InvalidTestData } from "../testData/FieldValidations/Master";
+import { InvalidTestData } from "../testData/Master";
 import { generateFullRowDropdownFieldExcel } from "../utils/invoiceExcel";
 import {
   PACK_ROOT,

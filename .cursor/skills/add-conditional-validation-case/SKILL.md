@@ -25,7 +25,7 @@ description: >-
 | Spec helpers | `Helpers/conditionalValidationSpecHelpers.ts` |
 | Spec | `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts` |
 | Rule inventory | [reference.md](reference.md) |
-| Oman labels | `testData/FieldValidations/Master.omnCore.ts` |
+| Oman labels | `testData/Master/Master.omnCore.ts` |
 
 ## Workflow
 

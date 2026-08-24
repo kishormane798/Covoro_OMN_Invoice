@@ -24,7 +24,7 @@ import {
   incotermsValidTestData,
   industrialClassificationIsicValidTestData,
   serviceTypeCodeValidTestData,
-} from "./Master";
+} from "../Master";
 
 export type DropdownFieldConfig = { field: string; master: readonly { label: string }[] };
 
