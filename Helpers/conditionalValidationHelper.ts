@@ -3,7 +3,7 @@
  * `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts`.
  * No UAE / BTUAE scenario builders.
  */
-import * as FV from "../testData/FieldValidations";
+import * as FV from "../testData/FieldValidations/ConditionalValidation";
 import {
   buyerSellerIdentifierCodeValidTestData,
   industrialClassificationIsicValidTestData,
