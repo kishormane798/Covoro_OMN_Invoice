@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Compute Playwright --shard plan for CI.
 # Field and formula run as a single job (no --shard split).
-# Conditional still shards to ≈100 tests per job.
-# Usage: ci_playwright_shard_plan.sh <covoro_field|covoro_formula|covoro_conditional> [single_shard|all]
+# Conditional and submit still shards to ≈100 tests per job.
+# Submit + all starts shard 1 only; playwright.yml chains remaining shards sequentially
+# (same TIN slots — do not run submit shards in parallel).
+# Usage: ci_playwright_shard_plan.sh <mode> [single_shard|all]
 set -euo pipefail
 
-MODE="${1:?mode required (covoro_field | covoro_formula | covoro_conditional)}"
+MODE="${1:?mode required (covoro_field | covoro_formula | covoro_conditional | covoro_submit_single | covoro_submit_multi)}"
 SHARD_FILTER="${2:-all}"
 SHARD_SIZE="${PW_CI_SHARD_SIZE:-100}"
 
@@ -18,6 +20,12 @@ case "$MODE" in
     ;;
   covoro_formula)
     SPEC="tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts"
+    ;;
+  covoro_submit_single)
+    SPEC="tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts"
+    ;;
+  covoro_submit_multi)
+    SPEC="tests/OMN_SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts"
     ;;
   *)
     echo "::error::Unknown suite MODE='$MODE'"
@@ -34,22 +42,38 @@ shard_total_for_count() {
   echo $(( (count + SHARD_SIZE - 1) / SHARD_SIZE ))
 }
 
-# Field and formula: one job, full spec. Conditional: ≈100 tests per shard.
+# Field and formula: one job, full spec. Conditional / submit: ≈100 tests per shard.
+is_sharded_mode() {
+  case "$1" in
+    covoro_conditional|covoro_submit_single|covoro_submit_multi) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+default_shard_total() {
+  case "$1" in
+    covoro_submit_single) echo 20 ;;
+    covoro_submit_multi) echo 5 ;;
+    *) echo 3 ;;
+  esac
+}
+
 SHARD_TOTAL=1
-if [ "$MODE" = "covoro_conditional" ]; then
+if is_sharded_mode "$MODE"; then
+  FALLBACK_TOTAL="$(default_shard_total "$MODE")"
   if command -v npx >/dev/null 2>&1 && [ -f "$SPEC" ]; then
     COUNT="$(npx playwright test "$SPEC" --project=chromium --list 2>/dev/null \
       | sed -n 's/^Total: \([0-9][0-9]*\) tests.*/\1/p' | head -1 || true)"
     if [ -n "${COUNT:-}" ]; then
       SHARD_TOTAL="$(shard_total_for_count "$COUNT")"
     else
-      SHARD_TOTAL=3
+      SHARD_TOTAL="$FALLBACK_TOTAL"
     fi
   else
-    SHARD_TOTAL=3
+    SHARD_TOTAL="$FALLBACK_TOTAL"
   fi
 else
-  # Ignore 1–5 dropdown for field/formula so a leftover shard pick still runs the full spec.
+  # Ignore 1–N dropdown for field/formula so a leftover shard pick still runs the full spec.
   SHARD_FILTER="all"
 fi
 
@@ -67,6 +91,9 @@ if [ "$SHARD_FILTER" != "all" ]; then
     exit 1
   fi
   SHARD_INDICES="[$SHARD_FILTER]"
+elif [ "$MODE" = "covoro_submit_single" ] || [ "$MODE" = "covoro_submit_multi" ]; then
+  # Sequential only (shared TIN slots). queue-next walks 2..N after this run.
+  SHARD_INDICES="[1]"
 else
   SHARD_INDICES="$(python3 -c "import json; print(json.dumps(list(range(1, int('${SHARD_TOTAL}') + 1))))")"
 fi

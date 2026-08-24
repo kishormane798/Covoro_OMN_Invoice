@@ -1,11 +1,14 @@
 # Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
-#   Two clock starts only. Conditional shards are 45 min; field/formula full suites are 240 min.
+#   Two clock starts only. Conditional shards are 45 min; field/formula/submit shards are 240 min.
 #   Morning 06:30 IST and evening 17:00 IST start the full field suite (no shard split).
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
 #   starts the next suite: field → conditional 1→3 → formula, then stops.
-#   Manual run: pick suite. Shard applies to conditional only (all = every shard in parallel;
-#   1–3 = one chunk ~100 tests). Field and formula always run the full spec.
-#   Leave "chain" off for manual runs so a one-off does not start the full wave.
+#   Submit is manual only (not on the schedule). Pick covoro_submit_single or
+#   covoro_submit_multi. Shard applies to conditional and submit (~100 tests).
+#   Submit + all runs shards one after another (shared TIN slots — never parallel).
+#   Field and formula always run the full spec.
+#   Leave "chain" off for one-off field/formula/conditional/submit-N runs.
+#   Submit + all auto-continues remaining submit shards even if chain is off.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
@@ -25,8 +28,10 @@ on:
           - covoro_field
           - covoro_formula
           - covoro_conditional
+          - covoro_submit_single
+          - covoro_submit_multi
       shard:
-        description: "Conditional only (~100 tests; 3 shards). Field and formula ignore this and run the full suite."
+        description: "Conditional and submit (~100 tests). Field/formula ignore this. Submit + all walks shards sequentially (not parallel)."
         required: true
         default: "all"
         type: choice
@@ -37,6 +42,26 @@ on:
           - "3"
           - "4"
           - "5"
+          - "6"
+          - "7"
+          - "8"
+          - "9"
+          - "10"
+          - "11"
+          - "12"
+          - "13"
+          - "14"
+          - "15"
+          - "16"
+          - "17"
+          - "18"
+          - "19"
+          - "20"
+          - "21"
+          - "22"
+          - "23"
+          - "24"
+          - "25"
       chain:
         description: "Leave off for manual runs. On = continue morning/evening wave after this shard."
         required: false
@@ -46,6 +71,10 @@ on:
 run-name: >-
   ${{ github.event_name != 'workflow_dispatch' && 'Field validation'
       || github.event.inputs.suite == 'covoro_formula' && 'Formula validation'
+      || github.event.inputs.suite == 'covoro_submit_single' && github.event.inputs.shard == 'all' && 'Submit single (sequential)'
+      || github.event.inputs.suite == 'covoro_submit_single' && format('Submit single {0}', github.event.inputs.shard)
+      || github.event.inputs.suite == 'covoro_submit_multi' && github.event.inputs.shard == 'all' && 'Submit multi-item (sequential)'
+      || github.event.inputs.suite == 'covoro_submit_multi' && format('Submit multi-item {0}', github.event.inputs.shard)
       || github.event.inputs.shard == 'all' && github.event.inputs.suite == 'covoro_conditional' && 'Conditional validation all'
       || github.event.inputs.suite == 'covoro_conditional' && format('Conditional validation {0}', github.event.inputs.shard)
       || 'Field validation' }}
@@ -233,7 +262,7 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
 
-      - name: Run Playwright — Covoro field / formula / conditional
+      - name: Run Playwright — Covoro field / formula / conditional / submit
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-shard-${{ matrix.shard }}-of-${{ needs.resolve.outputs.shard_total }}.json
           PW_WORKERS: "5"
@@ -264,6 +293,8 @@ jobs:
           case "$MODE" in
             covoro_field) LABEL="Field validation" ;;
             covoro_formula) LABEL="Formula validation" ;;
+            covoro_submit_single) LABEL="Submit single ${SHARD}" ;;
+            covoro_submit_multi) LABEL="Submit multi-item ${SHARD}" ;;
             covoro_conditional)
               if [ "$TOTAL" -gt 1 ]; then
                 LABEL="Conditional validation ${SHARD}"
@@ -461,6 +492,7 @@ jobs:
           INPUT_SUITE: ${{ github.event.inputs.suite }}
           INPUT_SHARD: ${{ github.event.inputs.shard }}
           INPUT_CHAIN: ${{ github.event.inputs.chain }}
+          RESOLVE_SHARD_TOTAL: ${{ needs.resolve.outputs.shard_total }}
         shell: bash
         run: |
           set -euo pipefail
@@ -472,12 +504,46 @@ jobs:
             SUITE="covoro_field"
             SHARD="all"
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            SUITE="$INPUT_SUITE"
+            SHARD="$INPUT_SHARD"
+
+            # Submit is manual-only and never joins the field→conditional→formula wave.
+            if [ "$SUITE" = "covoro_submit_single" ] || [ "$SUITE" = "covoro_submit_multi" ]; then
+              TOTAL="${RESOLVE_SHARD_TOTAL:-1}"
+              CURRENT=""
+              SHOULD_CHAIN="false"
+              if [ "${SHARD}" = "all" ]; then
+                CURRENT="1"
+                SHOULD_CHAIN="true"
+              elif [[ "$SHARD" =~ ^[0-9]+$ ]]; then
+                CURRENT="$SHARD"
+                if [ "${INPUT_CHAIN:-false}" = "true" ]; then
+                  SHOULD_CHAIN="true"
+                fi
+              fi
+              if [ "$SHOULD_CHAIN" = "true" ] && [ -n "$CURRENT" ]; then
+                NEXT=$((CURRENT + 1))
+                if [ "$NEXT" -le "$TOTAL" ]; then
+                  echo "Queueing next submit shard: $SUITE shard $NEXT / $TOTAL"
+                  gh workflow run playwright.yml \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --ref "$GITHUB_REF_NAME" \
+                    -f suite="$SUITE" \
+                    -f shard="$NEXT" \
+                    -f chain=true
+                else
+                  echo "Submit suite $SUITE finished (shard $CURRENT / $TOTAL)."
+                fi
+              else
+                echo "Submit shard $SHARD — not chaining."
+              fi
+              exit 0
+            fi
+
             if [ "${INPUT_CHAIN:-false}" != "true" ]; then
               echo "Manual run without chain — not chaining."
               exit 0
             fi
-            SUITE="$INPUT_SUITE"
-            SHARD="$INPUT_SHARD"
             # Field/formula are unsplit; "all" is the scheduled full-suite run and must chain.
             # Conditional "all" still runs shards in parallel — do not chain.
             if [ "$SUITE" = "covoro_conditional" ] && [ "${INPUT_SHARD}" = "all" ]; then
