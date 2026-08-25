@@ -3642,12 +3642,16 @@ export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS: SpecialZoneCountrySubdi
 // ---------------------------------------------------------------------------
 // specialZoneSeller (IBR-151-OM)
 // ---------------------------------------------------------------------------
-/** IBR-151-OM: Special Zone Supplies → Seller identifier with Special Zone License scheme. */
+/**
+ * IBR-151-OM: Seller identifier code (IBT-029-1 textual) must be
+ * 'Special Zone License Number' when Special zone supplies and seller
+ * subdivision ≠ Mainland Oman (MO).
+ */
 export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given Special Zone Supplies with seller subdivision not Mainland Oman — When seller uses Special Zone License — Then the invoice should be accepted. (IBR-151-OM)",
+      "Given Special Zone Supplies with seller subdivision not Mainland Oman — When seller identifier code is Special Zone License Number — Then the invoice should be accepted. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "SZ-LIC-001",
@@ -3657,28 +3661,29 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given Special Zone Supplies with seller subdivision not Mainland Oman — When seller identifier is left empty — Then the invoice should be rejected with an error. (IBR-151-OM)",
+      "Given Special Zone Supplies with seller subdivision not Mainland Oman — When seller identifier code is Commercial Registration — Then the invoice should be rejected with an error. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
-    sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
-    sellerIdentifier: "",
+    // Valid CL-06 code but not SZLN — platform: code must be Special Zone License Number.
+    sellerIdentifierTextualCode: "Commercial Registration",
+    sellerIdentifier: "SZ-LIC-001",
     shouldError: true,
-    expectedErrorField: SELLER_IDENTIFIER_FIELD,
+    expectedErrorField: SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD,
   },
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given Special Zone Supplies with seller subdivision Mainland Oman — When seller identifier is left empty — Then the invoice should be accepted. (IBR-151-OM)",
+      "Given Special Zone Supplies with seller subdivision Mainland Oman — When seller identifier code is left empty — Then the invoice should be accepted. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
-    sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
+    sellerIdentifierTextualCode: "",
     sellerIdentifier: "",
     sellerCountrySubdivisionCode: MAINLAND_OMAN_COUNTRY_SUBDIVISION_CL13,
     shouldError: false,
-    expectedErrorField: SELLER_IDENTIFIER_FIELD,
+    expectedErrorField: SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD,
   },
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given a Full Tax invoice with free-zone seller subdivision — When seller uses Special Zone License — Then the invoice should be rejected with an error. (IBR-151-OM)",
+      "Given a Full Tax invoice with free-zone seller subdivision — When seller identifier code is Special Zone License Number — Then the invoice should be rejected with an error. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "SZ-LIC-001",
