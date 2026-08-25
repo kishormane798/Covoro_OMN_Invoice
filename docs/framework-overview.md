@@ -13,8 +13,8 @@ This repository is a Playwright + TypeScript automation framework for the UAE E-
 - `tests/`: spec entry points. Specs are data-driven and call helper flows.
 - `Src/baseTest.ts`: shared Playwright fixture and test lifecycle controls.
 - `pageObjects/`: UI interaction layer (`LoginPage`, `DashboardPage`, `UploadInvoicePage`).
-- `Helpers/`: business-level reusable flows and reporting glue.
-- `utils/`: Excel generation bridge, Python runner, global setup, outage marker logic.
+- `Helpers/`: business flows — `excel/` (upload/submit/validation packs), `ui/`, `worker/`, plus shared root helpers.
+- `utils/`: shared infra (`pythonRunner`, `appConfig`, setup) plus `utils/excel/` (TS↔Python Excel) and `utils/ui/` (UI helpers).
 - `testData/`: static templates and structured test datasets.
 
 ## Execution Model
@@ -66,7 +66,7 @@ This repository is a Playwright + TypeScript automation framework for the UAE E-
 
 1. Read `README.md`.
 2. Read `Src/baseTest.ts` lifecycle.
-3. Read one submit spec + `Helpers/submitInvoiceCaseHelper.ts`.
+3. Read one submit spec + `Helpers/excel/submitInvoiceCaseHelper.ts`.
 4. Read `pageObjects/OMN_UploadInvoicePage.ts` and `pageObjects/OMN_DashboardPage.ts`.
-5. Read `utils/invoiceExcel.ts` and Python writer expectations.
+5. Read `utils/excel/invoiceExcel.ts` and Python writer expectations.
 6. QA using Cursor: `docs/qa-cursor-workflow.md` (Headroom, graphify, diff review, Bitbucket PR flow).

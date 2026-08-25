@@ -13,10 +13,10 @@
 //   EDIT_REUSE_INVOICE_STATUSES,
 // } from "../pageObjects/OMN_DashboardPage";
 // import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
-// import { uploadAndVerify } from "./uploadHelper";
-// import { flowLog } from "./diagnosticLog";
-// import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
-// import { generateInvoiceFromSubmitData } from "../utils/invoiceExcel";
+// import { uploadAndVerify } from "../excel/uploadHelper";
+// import { flowLog } from "../diagnosticLog";
+// import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
+// import { generateInvoiceFromSubmitData } from "../utils/excel/invoiceExcel";
 // import { invoiceData } from "../../testData/ui/SubmitInvoice";
 // 
 // export type UiConditionalEntry = "create" | "edit" | "copy";

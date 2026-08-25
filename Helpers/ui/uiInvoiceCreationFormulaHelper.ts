@@ -8,8 +8,8 @@
 //   FOREIGN_CURRENCY_CODE,
 //   type CurrencyMode,
 //   type FormulaScenarioRow,
-// } from "./formulaValidationHelper";
-// import { calculateInvoiceValuesForGeneratorPayload } from "../utils/invoiceExcel";
+// } from "../excel/formulaValidationHelper";
+// import { calculateInvoiceValuesForGeneratorPayload } from "../utils/excel/invoiceExcel";
 // import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
 // import {
 //   CREATE_INVOICE_FORMULA_INPUT_CANDIDATES,

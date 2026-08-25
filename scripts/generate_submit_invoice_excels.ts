@@ -18,7 +18,7 @@ import { multiItemInvoiceCases } from "../testData/FieldValidations/SubmitInvoic
 import {
   generateDistinctMultiItemSubmitInvoices,
   generateDistinctSubmitInvoices,
-} from "../utils/invoiceExcel";
+} from "../utils/excel/invoiceExcel";
 
 const FORMULA_INPUT_OVERRIDES: Record<string, string> = {
   "Item price base quantity": "1",

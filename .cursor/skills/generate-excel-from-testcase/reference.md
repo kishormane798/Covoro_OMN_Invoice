@@ -1,6 +1,6 @@
 # Excel generation reference
 
-Source of truth: `utils/invoiceExcel.ts` header comment + Python writer `utils/invoice_excel_writer.py`.
+Source of truth: `utils/excel/invoiceExcel.ts` header comment + Python writer `utils/excel/invoice_excel_writer.py`.
 
 ## APIs
 
@@ -37,8 +37,8 @@ Not generators — readers after download:
 
 | Caller area | Generator |
 |-------------|-----------|
-| `Helpers/formulaValidationHelper.ts` | `generateInvoiceExcel` |
+| `Helpers/excel/formulaValidationHelper.ts` | `generateInvoiceExcel` |
 | Field validation helpers / specs | `updateExcelField*` |
-| `Helpers/submitInvoiceCaseHelper.ts` | `generateInvoiceFromSubmitData` / `FromSubmitRows` |
-| `Helpers/conditionalValidationSpecHelpers.ts` | `generateInvoiceFromSubmitData` after prepare |
+| `Helpers/excel/submitInvoiceCaseHelper.ts` | `generateInvoiceFromSubmitData` / `FromSubmitRows` |
+| `Helpers/excel/conditionalValidationSpecHelpers.ts` | `generateInvoiceFromSubmitData` after prepare |
 | `scripts/generate_valid_oman_invoice.ts` | `generateInvoiceFromSubmitData` |

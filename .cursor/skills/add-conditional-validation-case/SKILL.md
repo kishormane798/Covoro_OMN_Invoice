@@ -21,8 +21,8 @@ description: >-
 | Purpose | Path |
 |---------|------|
 | Scenarios | `testData/FieldValidations/ConditionalValidation.ts` |
-| Row builders | `Helpers/conditionalValidationHelper.ts` |
-| Spec helpers | `Helpers/conditionalValidationSpecHelpers.ts` |
+| Row builders | `Helpers/excel/conditionalValidationHelper.ts` |
+| Spec helpers | `Helpers/excel/conditionalValidationSpecHelpers.ts` |
 | Spec | `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts` |
 | Rule inventory | [reference.md](reference.md) |
 | Oman labels | `testData/Master/Master.omnCore.ts` |

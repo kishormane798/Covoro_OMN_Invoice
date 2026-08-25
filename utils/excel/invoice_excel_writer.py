@@ -17,13 +17,15 @@ from datetime import datetime, timedelta
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
-_UTILS_DIR = os.path.dirname(os.path.abspath(__file__))
-if _UTILS_DIR not in sys.path:
-    sys.path.insert(0, _UTILS_DIR)
+_EXCEL_DIR = os.path.dirname(os.path.abspath(__file__))
+_UTILS_DIR = os.path.dirname(_EXCEL_DIR)
+for _p in (_UTILS_DIR, _EXCEL_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from app_config import resolve_base_url
 
-# Keep in sync with `utils/invoiceExcel.ts` `INVOICE_TEMPLATE_DATA_ROW`.
+# Keep in sync with `utils/excel/invoiceExcel.ts` `INVOICE_TEMPLATE_DATA_ROW`.
 INVOICE_TEMPLATE_DATA_ROW = 6
 # Submit `clear_row`: wipe this many columns on the data row (A through column letter for 120).
 INVOICE_SUBMIT_CLEAR_LAST_COL = 120
@@ -73,7 +75,7 @@ def is_oman_home_currency(value: object) -> bool:
 
 
 # Covoro / PINT-OM labels that require BTOM-020 (IBR-082-OM). Keep in sync with
-# utils/invoiceExcel.ts `isProfitMarginTransactionType`.
+# utils/excel/invoiceExcel.ts `isProfitMarginTransactionType`.
 _PROFIT_MARGIN_TRANSACTION_TYPE_LABELS = frozenset(
     {
         "profit margin invoice",
@@ -421,7 +423,7 @@ def clear_cell_optional(
 
 def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -> None:
     """
-    Mirror utils/invoiceExcel.ts calculateInvoiceValues for one data row; no save.
+    Mirror utils/excel/invoiceExcel.ts calculateInvoiceValues for one data row; no save.
     Used by apply_calculations CLI and write_dropdown_batch (single save after all rows).
     """
     header_map = get_header_map(ws, header_row)
@@ -533,7 +535,7 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
 
 def cmd_apply_calculations(args: list[str]) -> None:
     """
-    Read numeric inputs from data row, mirror utils/invoiceExcel.ts (calculateInvoiceValues), write calculated columns.
+    Read numeric inputs from data row, mirror utils/excel/invoiceExcel.ts (calculateInvoiceValues), write calculated columns.
     """
     if len(args) < 4:
         fail("Usage: apply_calculations <filePath> <sheetName> <headerRow> <dataRow> [rowCount]")
@@ -1752,9 +1754,9 @@ def _apply_parallel_worker_identity_to_row(
 
     counterparty_el = _counterparty_electronic_address()
     if self_billed:
-        put("Seller electronic address", worker_el)
-        put("Seller VAT Identifier (TRN / TIN)", worker_vat)
-        put("Buyer electronic address", counterparty_el)
+        put("Seller electronic address", counterparty_el)
+        put("Seller VAT Identifier (TRN / TIN)", _counterparty_vat())
+        put("Buyer electronic address", worker_el)
         put("Buyer VAT identifier", worker_vat)
     elif deemed:
         put("Seller electronic address", worker_el)

@@ -27,13 +27,13 @@ import {
   generateInvoiceFromSubmitRows,
   applyInvoiceCalculationsToFile,
   OMAN_HOME_CURRENCY,
-} from "../utils/invoiceExcel";
-import { createPackProgressReporter, packOutputAlreadyExists } from "./packProgressReporter";
-import { runPythonForStdout } from "../utils/pythonRunner";
+} from "../../utils/excel/invoiceExcel";
+import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
+import { runPythonForStdout } from "../../utils/pythonRunner";
 import {
   TAX_EXEMPTION_REASON_SAMPLE,
   TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
-} from "../testData/FieldValidations/ConditionalValidation";
+} from "../../testData/FieldValidations/ConditionalValidation";
 
 export type FormulaMatrixCase = {
   id: string;
@@ -396,7 +396,7 @@ async function generateMultiItemWorkbook(
 export function loadFormulaValidationMatrix(
   matrixPath = MATRIX_DEFAULT_PATH
 ): FormulaMatrixCase[] {
-  const script = path.join(process.cwd(), "utils", "read_formula_validation_matrix.py");
+  const script = path.join(process.cwd(), "utils", "excel", "read_formula_validation_matrix.py");
   const stdout = runPythonForStdout(script, [matrixPath]);
   const parsed = JSON.parse(stdout.trim()) as {
     ok?: boolean;
@@ -708,7 +708,7 @@ export async function generateFormulaValidationExcelPack(options: {
     `[formula-validation-pack] ${prepared.length} to generate, ${results.filter((r) => r.reason === "already exists").length} already exist, ${byProfile.size} profiles`
   );
 
-  const batchScript = path.join(process.cwd(), "utils", "batch_clone_patch_invoice.py");
+  const batchScript = path.join(process.cwd(), "utils", "excel", "batch_clone_patch_invoice.py");
   const tmpDir = path.join(packRoot, "_tmp");
   fs.mkdirSync(tmpDir, { recursive: true });
   const baseCache = new Map<string, BaseCacheEntry>();

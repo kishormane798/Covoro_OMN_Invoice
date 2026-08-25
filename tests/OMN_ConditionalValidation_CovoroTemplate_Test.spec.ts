@@ -6,8 +6,8 @@ import {
   patchVatCategoryTaxAmountAfterGenerate,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
-} from "../Helpers/conditionalValidationSpecHelpers";
-import * as ConditionalRows from "../Helpers/conditionalValidationHelper";
+} from "../Helpers/excel/conditionalValidationSpecHelpers";
+import * as ConditionalRows from "../Helpers/excel/conditionalValidationHelper";
 import * as FV from "../testData/FieldValidations";
 
 test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)", () => {
@@ -611,22 +611,185 @@ test.describe("Excel upload — conditional validation (Covoro / Oman PINT-OM)",
     }
   });
 
-  // Commented on request: IBR-138-OM … IBR-149-OM BTOM-001 mutual exclusion.
-  // Live suite only had IBR-138/149 representative pairs (IBR-139–148 were not wired).
-  // test.describe("IBR-138/149-OM — transaction type mutual exclusion", () => {
-  //   for (const scenario of FV.TXN_MUTUAL_EXCLUSION_SCENARIOS) {
-  //     test(`${scenario.title}`, async ({ page }) => {
-  //       const rowData =
-  //         ConditionalRows.buildTxnMutualExclusionScenarioRow(scenario);
-  //       await verifyConditionalScenario(
-  //         page,
-  //         rowData,
-  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-  //         scenario.shouldError
-  //       );
-  //     });
-  //   }
-  // });
+  test.describe("IBR-138-OM — Self-billed vs Third-party/Export/RCM/PM/Import exclusion", () => {
+    for (const scenario of FV.SELF_BILLED_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildSelfBilledTxnExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-139-OM — Self-billed cannot be Third-party", () => {
+    for (const scenario of FV.IBR_139_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildSelfBilledTxnExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-140-OM — Summary vs Continuous/Export/PM/Import exclusion", () => {
+    for (const scenario of FV.SUMMARY_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildSummaryTxnExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-141-OM — Continuous Supply vs Summary/Deemed/PM/Import exclusion", () => {
+    for (const scenario of FV.CONTINUOUS_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildContinuousTxnExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-142-OM — Export vs Self-billed/Summary/Deemed/RCM/PM/Import exclusion", () => {
+    for (const scenario of FV.IBR_142_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-143-OM — Deemed Supply vs Continuous/Export/PM exclusion", () => {
+    for (const scenario of FV.IBR_143_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-144-OM — RCM vs Export/PM/Import/Self-billed exclusion", () => {
+    for (const scenario of FV.IBR_144_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-145-OM — Profit Margin vs Summary/Continuous/Export/Deemed/RCM/Self-billed/Import exclusion", () => {
+    for (const scenario of FV.IBR_145_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-146-OM — Profit Margin Self vs Summary/Continuous/Export/Deemed/RCM/PM/Import/Self-billed exclusion", () => {
+    for (const scenario of FV.IBR_146_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-147-OM — Import of Goods vs Summary/Continuous/Export/RCM/PM/E-commerce/Self-billed exclusion", () => {
+    for (const scenario of FV.IBR_147_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-148-OM — E-commerce vs Profit Margin Self-Invoice exclusion", () => {
+    for (const scenario of FV.IBR_148_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("IBR-149-OM — Simplified vs Self-billed/Third-party/Summary/Export/RCM/PM/Import/Special Zone exclusion", () => {
+    for (const scenario of FV.IBR_149_TXN_EXCLUSION_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
+  });
 
   test.describe("IBR-006-OM — Seller VATIN mandatory", () => {
     for (const scenario of FV.SELLER_VAT_MANDATORY_SCENARIOS) {

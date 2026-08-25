@@ -20,7 +20,7 @@
 ### Task 1: Formula submit-row companions + 2-line overlay
 
 **Files:**
-- Modify: `Helpers/formulaValidationHelper.ts`
+- Modify: `Helpers/excel/formulaValidationHelper.ts`
 - Modify: `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts`
 
 **Interfaces:**
@@ -33,7 +33,7 @@
 
 **Files:**
 - Modify: `testData/FieldValidations/ConditionalValidation.ts`
-- Modify: `Helpers/conditionalValidationHelper.ts`
+- Modify: `Helpers/excel/conditionalValidationHelper.ts`
 
 **Interfaces:**
 - Consumes: existing `DocumentAllowanceChargeVatScenario` / `buildDocumentAllowanceChargeVatScenarioRow`

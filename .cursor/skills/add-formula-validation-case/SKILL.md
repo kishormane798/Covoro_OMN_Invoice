@@ -33,8 +33,8 @@ Excel formulas do not auto-recalculate in all paths — framework helpers enforc
 | Area | Path |
 |------|------|
 | Excel upload formula specs | `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts` |
-| Helper | `Helpers/formulaValidationHelper.ts` |
-| Excel bridge | `utils/invoiceExcel.ts`, `utils/invoice_excel_writer.py` |
+| Helper | `Helpers/excel/formulaValidationHelper.ts` |
+| Excel bridge | `utils/excel/invoiceExcel.ts`, `utils/excel/invoice_excel_writer.py` |
 | Test data | `testData/FieldValidations/Min_max_field_validation.ts`, formula configs |
 | UI formula | `testData/ui/uiInvoiceCreationFormulaValidation.ts` |
 | UI helper | `Helpers/uiInvoiceCreationFormulaHelper.ts` |

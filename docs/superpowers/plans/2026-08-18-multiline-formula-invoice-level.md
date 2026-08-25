@@ -17,7 +17,7 @@
 - Profit Margin due column: Profit Margin txn + Not subject only (not in the 4-category sweep)
 - Do not cartesian every min/max row × 4 tax categories
 - Item Custom 1 / Item Custom 2 stay in field validation only (optional length 1–300); no formula cases
-- Files: `Helpers/formulaValidationHelper.ts` + `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts` only
+- Files: `Helpers/excel/formulaValidationHelper.ts` + `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts` only
 
 ---
 
@@ -25,7 +25,7 @@
 
 | File | Responsibility |
 |------|----------------|
-| `Helpers/formulaValidationHelper.ts` | 2-line builder, runners with `{ lineCount?: 1 \| 2 }`, tax sweep list, invoice-level patch on rows 6 and 7 |
+| `Helpers/excel/formulaValidationHelper.ts` | 2-line builder, runners with `{ lineCount?: 1 \| 2 }`, tax sweep list, invoice-level patch on rows 6 and 7 |
 | `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts` | New `Multi-line (2 items) — same tax category` describes |
 
 ---
@@ -33,7 +33,7 @@
 ### Task 1: Helper 2-line generation + tax sweep
 
 **Files:**
-- Modify: `Helpers/formulaValidationHelper.ts`
+- Modify: `Helpers/excel/formulaValidationHelper.ts`
 
 - [ ] Export `FORMULA_TAX_CATEGORY_SWEEP` (4 categories with companions + taxRate 5 / 0 / null)
 - [ ] Export `INVOICE_LEVEL_CALCULATED_HEADERS` and `invoiceLevelTargetsForMode` (exclude Profit Margin due from sweep)

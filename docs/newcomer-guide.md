@@ -27,7 +27,7 @@ Using Cursor for test work? Follow `docs/qa-cursor-workflow.md` (scoped prompts,
 
 - **Change UI selectors / click logic** → `pageObjects/`
 - **Change business flow / orchestration** (upload+submit behavior) → `Helpers/`
-- **Change Excel generation / calculations / header mapping** → `utils/invoiceExcel.ts` (+ Python scripts in `utils/*.py`)
+- **Change Excel generation / calculations / header mapping** → `utils/excel/invoiceExcel.ts` (+ Python scripts in `utils/excel/*.py`)
 - **Change auth/bootstrap/attachments/parallel behavior** → `Src/baseTest.ts` and `utils/global-setup.ts`
 
 ## How a test run works (execution model)
@@ -62,9 +62,9 @@ import { test } from "../Src/baseTest";
 Most specs are intentionally thin and delegate to helpers. Example: submit flow:
 
 - Spec: `tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`
-- Helper: `Helpers/submitInvoiceCaseHelper.ts`
-- Upload/navigation: `Helpers/uploadHelper.ts` + `pageObjects/OMN_DashboardPage.ts` + `pageObjects/OMN_UploadInvoicePage.ts`
-- Excel generation: `utils/invoiceExcel.ts` (calls Python scripts in `utils/`)
+- Helper: `Helpers/excel/submitInvoiceCaseHelper.ts`
+- Upload/navigation: `Helpers/excel/uploadHelper.ts` + `pageObjects/OMN_DashboardPage.ts` + `pageObjects/OMN_UploadInvoicePage.ts`
+- Excel generation: `utils/excel/invoiceExcel.ts` (calls Python scripts in `utils/excel/`)
 
 ## The 3 most important user flows in this repo
 
@@ -75,14 +75,14 @@ Goal: upload an Excel workbook containing invalid values and assert UI + downloa
 Typical components:
 
 - test data under `testData/FieldValidations/`
-- helper flow under `Helpers/fieldValidationHelper.ts` (or similarly named)
-- error workbook reading via `utils/error_excel_reader.py` (called from `utils/invoiceExcel.ts`)
+- helper flow under `Helpers/excel/fieldValidationHelper.ts` (or similarly named)
+- error workbook reading via `utils/excel/error_excel_reader.py` (called from `utils/excel/invoiceExcel.ts`)
 
 ### B) Formula validation
 
 Goal: generate a workbook with controlled numeric inputs, force calculation rules, and validate outcomes.
 
-In `utils/invoiceExcel.ts` there are **two generation pipelines**:
+In `utils/excel/invoiceExcel.ts` there are **two generation pipelines**:
 
 - **`generateInvoiceExcel`**: formula/min-max style tests (camelCase payload)
 - **`generateInvoiceFromSubmitData`**: submit-shaped rows (Excel header keys)
@@ -95,7 +95,7 @@ Goal: generate a submit-shaped workbook, upload, submit, then poll dashboard sta
 
 Primary entry helper:
 
-- `Helpers/submitInvoiceCaseHelper.ts` → `runSubmitInvoiceCase` / `runSubmitInvoiceMultiItemCase`
+- `Helpers/excel/submitInvoiceCaseHelper.ts` → `runSubmitInvoiceCase` / `runSubmitInvoiceMultiItemCase`
 
 ## Parallel workers: what to know
 
@@ -153,14 +153,14 @@ The important part: submit flow uses `generateInvoiceFromSubmitData` which **for
 1) Add config in `testData/FieldValidations/...`
 2) Ensure the helper reads that config and can map the field name to a real template header.
 3) Validate error workbook expectations using:
-   - `validateErrorFileColumn(...)` or `getErrorFieldExcelDetails(...)` (via `utils/invoiceExcel.ts`)
+   - `validateErrorFileColumn(...)` or `getErrorFieldExcelDetails(...)` (via `utils/excel/invoiceExcel.ts`)
 
 ## Where newcomers usually break things (and how to avoid it)
 
 - **Changing `Src/baseTest.ts`**:
   - Safe: small additions to attachments or diagnostics text
   - Risky: changing cleanup logic, worker identity env vars, session storage injection
-- **Changing `utils/invoiceExcel.ts`**:
+- **Changing `utils/excel/invoiceExcel.ts`**:
   - Safe: adding a new helper that reuses existing writer calls
   - Risky: changing rounding rules, tax-category “effective rate” logic, header normalization, or the two generation pipelines
 - **Changing template mapping logic** (`UploadInvoicePage.ensureExpectedTemplateMapping`):
@@ -177,8 +177,8 @@ In this order:
 4) `utils/global-setup.ts`
 5) `Src/baseTest.ts`
 6) `tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`
-7) `Helpers/submitInvoiceCaseHelper.ts`
-8) `Helpers/uploadHelper.ts`
+7) `Helpers/excel/submitInvoiceCaseHelper.ts`
+8) `Helpers/excel/uploadHelper.ts`
 9) `pageObjects/OMN_UploadInvoicePage.ts`
-10) `utils/invoiceExcel.ts` (plus `utils/invoice_excel_writer.py`)
+10) `utils/excel/invoiceExcel.ts` (plus `utils/excel/invoice_excel_writer.py`)
 

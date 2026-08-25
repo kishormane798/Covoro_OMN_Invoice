@@ -8,13 +8,13 @@ import {
   generateInvoiceFromSubmitData,
   patchInvoiceDataCellInFile,
   patchInvoiceTextCellInFile,
-} from "../utils/invoiceExcel";
+} from "../../utils/excel/invoiceExcel";
 import {
   INVOICE_TOTAL_TAX_AMOUNT_FIELD,
   LINE_ITEM_VAT_AMOUNT_FIELD,
   PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
   SELLER_VAT_IDENTIFIER_FIELD,
-} from "../testData/FieldValidations/ConditionalValidation";
+} from "../../testData/FieldValidations/ConditionalValidation";
 
 export type ConditionalErrorOptions = {
   checkEdit?: boolean;

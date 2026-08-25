@@ -1,6 +1,20 @@
 /**
  * Oman submit single-item matrix (Excel header keys).
- * 32 invoice types × 15 transaction types × 4 tax categories.
+ * 32 invoice types × 15 transaction types × 4 tax categories, except
+ * IBR-086-OM: Profit Margin Self-Invoice uses only Not subject to VAT,
+ * IBR-177-OM: Self billed credit note / Self-billed invoice only pair
+ * with Self-billed Invoice, Import of Services (RCM), Profit Margin
+ * Self-Invoice, or Import of Goods, IBR-138-OM: BTOM-001 must not
+ * combine Self-billed with Third-party / Export / RCM / Profit margin /
+ * Profit Margin Self-Invoice / Import of Goods, IBR-139-OM: Self-billed
+ * Invoice/credit note cannot also be Third-party Invoice on BTOM-001,
+ * IBR-140-OM: BTOM-001 must not combine Summary with Continuous / Export /
+ * Profit margin / Profit Margin Self-Invoice / Import of Goods,
+ * IBR-141-OM: BTOM-001 must not combine Continuous Supply with Summary /
+ * Deemed Supply / Profit margin / Profit Margin Self-Invoice / Import of
+ * Goods, and IBR-142-OM … IBR-149-OM: BTOM-001 must not combine each
+ * subject txn with its named exclusion partners (single Master labels
+ * never violate these pair rules).
  * One Goods line per invoice (one tax category per invoice).
  */
 import * as FV from "./ConditionalValidation";
@@ -8,7 +22,10 @@ import {
   invoiceTypeCodeValidTestData,
   invoiceTransactionTypeValidTestData,
 } from "../Master/Master.omnCore";
-import { buildOmanSubmitDocumentRow } from "./SubmitInvoiceMultiItem";
+import {
+  buildOmanSubmitDocumentRow,
+  isAllowedOmanSubmitTypeTxnPair,
+} from "./SubmitInvoiceMultiItem";
 
 type GoodsTaxDef = {
   taxCategory: string;
@@ -72,8 +89,60 @@ export function buildOmanSingleItemSubmitRows(): Record<string, string>[] {
     for (const txnEntry of invoiceTransactionTypeValidTestData) {
       const invoiceTypeCode = typeEntry.label;
       const txn = txnEntry.label;
+      // IBR-177-OM: drop self-billed document × disallowed txn pairs.
+      if (!isAllowedOmanSubmitTypeTxnPair(invoiceTypeCode, txn)) {
+        continue;
+      }
+      // IBR-138-OM: drop Self-billed ⊕ Third-party/Export/RCM/PM/Import bits.
+      if (FV.txnViolatesIbr138Om(txn)) {
+        continue;
+      }
+      // IBR-139-OM: drop Self-billed ⊕ Third-party bits.
+      if (FV.txnViolatesIbr139Om(txn)) {
+        continue;
+      }
+      // IBR-140-OM: drop Summary ⊕ Continuous/Export/PM/Import bits.
+      if (FV.txnViolatesIbr140Om(txn)) {
+        continue;
+      }
+      // IBR-141-OM: drop Continuous ⊕ Summary/Deemed/PM/Import descriptions.
+      if (FV.txnViolatesIbr141Om(txn)) {
+        continue;
+      }
+      // IBR-142-OM … IBR-149-OM: drop subject ⊕ named partner combinations.
+      if (FV.txnViolatesIbr142Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr143Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr144Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr145Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr146Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr147Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr148Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr149Om(txn)) {
+        continue;
+      }
       const common = buildOmanSubmitDocumentRow(invoiceTypeCode, txn);
-      for (const taxDef of GOODS_TAX_DEFS) {
+      // IBR-086-OM: Profit Margin Self-Invoice (BTOM-001) MUST use tax category O.
+      const taxDefs =
+        txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE
+          ? GOODS_TAX_DEFS.filter(
+              (d) => d.taxCategory === FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE
+            )
+          : GOODS_TAX_DEFS;
+      for (const taxDef of taxDefs) {
         rows.push(overlayGoodsLine(common, taxDef, txn));
       }
     }

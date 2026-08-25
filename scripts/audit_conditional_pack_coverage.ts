@@ -10,8 +10,8 @@ import {
   resolveEffectiveMatrixField,
   ruleFolderName,
   PACK_ROOT,
-} from "../Helpers/conditionalValidationExcelPackHelper";
-import { buildValidOmanFullTaxInvoiceRow } from "../Helpers/conditionalValidationHelper";
+} from "../Helpers/excel/conditionalValidationExcelPackHelper";
+import { buildValidOmanFullTaxInvoiceRow } from "../Helpers/excel/conditionalValidationHelper";
 
 const INTENTIONAL_SKIP_FIELDS = new Set([
   // IBT-006 — backend default; no need to enter in Excel.
@@ -32,7 +32,7 @@ const INTENTIONAL_SKIP_FIELDS = new Set([
   "accounting currency vat category",
 ]);
 // Keep in sync with scripts/list_unmapped_conditional_rules.py /
-// Helpers/conditionalValidationExcelPackHelper.ts
+// Helpers/excel/conditionalValidationExcelPackHelper.ts
 const INTENTIONAL_SKIP_RULES = new Set([
   "IBR-033-OM",
   "IBR-041-OM",

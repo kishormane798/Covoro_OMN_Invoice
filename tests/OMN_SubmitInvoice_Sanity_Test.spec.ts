@@ -7,7 +7,7 @@ import {
   runBulkSubmitInvoiceCase,
   runSubmitInvoiceCase,
   runSubmitInvoiceMultiItemCase,
-} from "../Helpers/submitInvoiceCaseHelper";
+} from "../Helpers/excel/submitInvoiceCaseHelper";
 
 const SUBMIT_SANITY_TIMEOUT_MS = 6 * 60 * 1000;
 

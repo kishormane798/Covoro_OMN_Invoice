@@ -19,14 +19,14 @@ import {
   mergeDropdownFieldConfigs,
 } from "../testData/FieldValidations/TestDataConfig";
 import { InvalidTestData } from "../testData/Master";
-import { generateFullRowDropdownFieldExcel } from "../utils/invoiceExcel";
+import { generateFullRowDropdownFieldExcel } from "../utils/excel/invoiceExcel";
 import {
   PACK_ROOT,
   sectionFolderName,
   buildOmanDropdownBaseRow,
   dropdownFieldSection,
   resolveDropdownTemplateField,
-} from "../Helpers/fieldValidationExcelPackHelper";
+} from "../Helpers/excel/fieldValidationExcelPackHelper";
 
 function casingVariants(label: string): string[] {
   const s = String(label ?? "").trim();

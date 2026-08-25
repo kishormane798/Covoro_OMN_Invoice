@@ -10,9 +10,9 @@ import {
   generateBulkSingleItemSubmitInvoices,
   generateInvoiceFromSubmitData,
   generateInvoiceFromSubmitRows,
-} from "../utils/invoiceExcel";
-import { DashboardPage } from "../pageObjects/OMN_DashboardPage";
-import { flowLog } from "./diagnosticLog";
+} from "../../utils/excel/invoiceExcel";
+import { DashboardPage } from "../../pageObjects/OMN_DashboardPage";
+import { flowLog } from "../diagnosticLog";
 
 /** Default 2m: parallel workers queue backend processing; override with SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS (ms). */
 const SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS = (() => {

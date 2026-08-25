@@ -14,8 +14,8 @@ Playwright + TypeScript E2E automation with Python (openpyxl) for Excel generati
 | Specs | `tests/` | Scenarios, data loops, expected outcomes only — no raw selectors |
 | Fixture | `Src/baseTest.ts` | Session bootstrap, worker identity, attachments, cleanup, site-unavailable skip |
 | Page Objects | `pageObjects/` | Locators, UI actions, resilient waits only |
-| Helpers | `Helpers/` | Business flows (upload, submit, field/formula/UI validation orchestration) |
-| Utils | `utils/` | Python bridge, Excel generation, global setup, env/config |
+| Helpers | `Helpers/` (`excel/`, `ui/`, `worker/`, shared root) | Business flows (upload, submit, field/formula/UI validation orchestration) |
+| Utils | `utils/` (`excel/`, `ui/`, shared root) | Python bridge, Excel generation, global setup, env/config |
 | Test data | `testData/` | Datasets, template headers, static uploads |
 
 ## Non-negotiables

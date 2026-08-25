@@ -20,7 +20,7 @@ Authentication runs once in **global setup**; tests reuse `storageState.json` an
 | `Src/baseTest.ts`                  | Extended `test` fixture: session bootstrap, dashboard navigation, parallel worker identity, generated Excel cleanup, attachments, site-unavailable handling. **Import `test` from here**, not from `@playwright/test` directly. |
 | `pageObjects/`                     | Page Object Model: `LoginPage`, `DashboardPage`, `UploadInvoicePage`, etc.                                                                                                                                                      |
 | `Helpers/`                         | Flow helpers (`uploadHelper`, `fieldValidationHelper`, `submitInvoiceCaseHelper`, …), reporting, and parallel TIN mapping.                                                                                                      |
-| `utils/`                           | `invoiceExcel.ts` (TS ↔ Python bridge), `invoice_excel_writer.py` / `error_excel_reader.py`, `pythonRunner.ts`, `global-setup.ts`, `siteUnavailableMarker.ts`.                                                                  |
+| `utils/`                           | Shared: `pythonRunner.ts`, `appConfig.ts`, `global-setup.ts`, `siteUnavailableMarker.ts`. Excel: `utils/excel/` (`invoiceExcel.ts`, writer/reader `.py`). UI: `utils/ui/`. |
 | `testData/`                        | Field-validation configs, submit payloads, template headers, and static templates under `testData/uploads/`. **Generated workbooks** go to `testData/generated/` (gitignored).                                                  |
 
 ---
@@ -97,7 +97,7 @@ Useful **npm** scripts:
 
 - Default **5** local workers map to TIN slots **1779700001–1779700005** (wrapping if more than five workers).
 - Each worker writes generated Excel under `testData/generated/excel/pw-<worker>/` so files are not deleted by another worker’s `beforeEach` cleanup.
-- **`UAE_EINVOICE_WORKER_INDEX`** is derived from `TEST_PARALLEL_INDEX` or Playwright’s `parallelIndex` (see `Helpers/parallelWorkerSubmitIdentity.ts`).
+- **`UAE_EINVOICE_WORKER_INDEX`** is derived from `TEST_PARALLEL_INDEX` or Playwright’s `parallelIndex` (see `Helpers/worker/parallelWorkerSubmitIdentity.ts`).
 
 ---
 
@@ -190,7 +190,7 @@ Push your branch, then open a PR from your branch to `main` on Bitbucket and inc
 - **`Missing TEST_USER_EMAIL or TEST_USER_PASSWORD`** — Add both to `.env`.
 - **Site unreachable / tests skipped** — Global setup or navigation may write `site-unavailable.json` (and per-worker `site-unavailable-w*.json`). Fix network/`BASE_URL`, then remove markers or run `npm run clean`.
 - **Stale login** — Delete `storageState.json` and rerun so global setup logs in again.
-- **Python / Excel errors** — Ensure `pip install -r requirements.txt` and that `python`/`py` runs `utils/invoice_excel_writer.py` from the repo root.
+- **Python / Excel errors** — Ensure `pip install -r requirements.txt` and that `python`/`py` runs `utils/excel/invoice_excel_writer.py` from the repo root.
 
 ---
 

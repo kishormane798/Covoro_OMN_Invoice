@@ -17,9 +17,9 @@ description: Add Excel upload field validation tests (accept or error file). Use
 |---------|------|
 | Covoro spec | `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` |
 | Configs | `testData/FieldValidations/` |
-| Upload flow | `Helpers/uploadHelper.ts` |
-| Error assert | `Helpers/excelEditMessageCheck.ts`, `Helpers/fieldValidationHelper.ts` |
-| Excel utils | `utils/invoiceExcel.ts` |
+| Upload flow | `Helpers/excel/uploadHelper.ts` |
+| Error assert | `Helpers/excel/excelEditMessageCheck.ts`, `Helpers/excel/fieldValidationHelper.ts` |
+| Excel utils | `utils/excel/invoiceExcel.ts` |
 
 ## Workflow
 

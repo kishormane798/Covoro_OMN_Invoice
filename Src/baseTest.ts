@@ -1,7 +1,7 @@
 import { test as base, type Request, type Page } from '@playwright/test';
-import { parallelWorkerTinSlot } from '../Helpers/parallelWorkerSubmitIdentity';
+import { parallelWorkerTinSlot } from '../Helpers/worker/parallelWorkerSubmitIdentity';
 import { resolveBaseUrl } from '../utils/appConfig';
-import { deleteGeneratedExcelFiles, generatedFiles } from '../utils/invoiceExcel';
+import { deleteGeneratedExcelFiles, generatedFiles } from '../utils/excel/invoiceExcel';
 import {
   isUnreachableNetworkError,
   readSiteUnavailableReasonForWorker,

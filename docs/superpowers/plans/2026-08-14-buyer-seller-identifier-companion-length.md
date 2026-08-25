@@ -42,7 +42,7 @@
 ### Task 2: Conditional XOR in party-identifier helpers
 
 **Files:**
-- Modify: `Helpers/conditionalValidationHelper.ts` (`applyPartyIdentifiersByTxnType`, `buildBuyerIdentifierSchemeScenarioRow`, seller-identifier builder ~839)
+- Modify: `Helpers/excel/conditionalValidationHelper.ts` (`applyPartyIdentifiersByTxnType`, `buildBuyerIdentifierSchemeScenarioRow`, seller-identifier builder ~839)
 
 - [ ] **Step 1:** In `applyPartyIdentifiersByTxnType`, when filling seller/buyer identifiers, set **scheme only** and clear textual code (keep identifier value).
 - [ ] **Step 2:** In `buildBuyerIdentifierSchemeScenarioRow`, set `Scheme identifier` from scenario; set `Buyer Identifier (textual code)` to `""`.
@@ -54,8 +54,8 @@
 ### Task 3: Field-validation overlay + generator
 
 **Files:**
-- Modify: `Helpers/fieldValidationExcelPackHelper.ts` (`fillBuyerPartyIdentifierCompanions` / `fillSellerPartyIdentifierCompanions`)
-- Modify: `Helpers/omanFieldValidationExcelHelper.ts`
+- Modify: `Helpers/excel/fieldValidationExcelPackHelper.ts` (`fillBuyerPartyIdentifierCompanions` / `fillSellerPartyIdentifierCompanions`)
+- Modify: `Helpers/excel/omanFieldValidationExcelHelper.ts`
 
 - [ ] **Step 1:** Change companions to XOR default **scheme only** (clear textual code) when overlay still fills for other callers; or stop auto-filling both and rely on the new generator for identifier tests.
 - [ ] **Step 2:** Add `generateOmanPartyIdentifierLengthExcel(opts: { party; companion; length })`:

@@ -3,7 +3,7 @@
  * `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts`.
  * No UAE / BTUAE scenario builders.
  */
-import * as FV from "../testData/FieldValidations/ConditionalValidation";
+import * as FV from "../../testData/FieldValidations/ConditionalValidation";
 import {
   buyerSellerIdentifierCodeValidTestData,
   industrialClassificationIsicValidTestData,
@@ -11,7 +11,7 @@ import {
   paymentMeansTypeValidTestData,
   schemeIdentifierValidTestData,
   unitOfMeasurementValidTestData,
-} from "../testData/Master";
+} from "../../testData/Master";
 
 function masterLabel(
   list: readonly { label: string }[] | undefined,
@@ -537,13 +537,25 @@ export function expandRowToSelfBilledDocumentTypes(
   );
 }
 
+/** Covoro Invoice Transaction Type Code cell: Master description, never Peppol bits. */
+function toInvoiceTxnExcelDescription(raw: string): string {
+  const t = String(raw ?? "").trim();
+  const asBits = t.replace(/X/gi, "0");
+  if (FV.isOmanTxnPeppolBitString(asBits)) {
+    return FV.omanTxnBitsToExcelDescriptions(asBits) || t;
+  }
+  return t;
+}
+
 /** Expand a pack row across MULTI_VALUE_PACK_EXPAND dimension values. */
 export function expandRowByMultiValueSpec(
   baseRow: Record<string, string | null>,
   spec: FV.MultiValuePackExpandSpec,
   opts?: { applyConflictBits?: boolean }
 ): Array<Record<string, string | null>> {
-  const applyConflict = Boolean(opts?.applyConflictBits && spec.conflictBit);
+  const applyConflict = Boolean(
+    opts?.applyConflictBits && (spec.conflictBit || spec.conflictLabel)
+  );
   return spec.values.map((value) => {
     if (spec.dimension === "invoiceType") {
       const isSelfBilledDocOnly =
@@ -570,14 +582,17 @@ export function expandRowByMultiValueSpec(
       }
       return next;
     }
-    // txnType
+    // txnType — Covoro Excel needs Master descriptions, never Peppol 0/1 codes.
     let txnValue = value;
-    if (applyConflict && spec.valueBits?.[value] && spec.conflictBit) {
+    if (applyConflict && spec.conflictLabel) {
+      txnValue = FV.combineOmanTxnTypeDescriptions(spec.conflictLabel, value);
+    } else if (applyConflict && spec.valueBits?.[value] && spec.conflictBit) {
       txnValue = FV.combineOmanTxnTypeBits(
         spec.valueBits[value]!,
         spec.conflictBit
       );
     }
+    txnValue = toInvoiceTxnExcelDescription(txnValue);
     const next: Record<string, string | null> = {
       ...baseRow,
       [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txnValue,
@@ -1173,6 +1188,276 @@ export function buildPrepaymentTxnExclusionScenarioRow(
 }
 
 /**
+ * Apply Master Invoice Type Code for IBR-138…149 expansions.
+ * CN/DN types get preceding + reason companions; does not overwrite BTOM-001.
+ */
+function applyTxnExclusionInvoiceType(
+  row: Record<string, string | null>,
+  invoiceTypeCode?: string
+): Record<string, string | null> {
+  if (!invoiceTypeCode) {
+    return row;
+  }
+  const next: Record<string, string | null> = {
+    ...row,
+    [FV.INVOICE_TYPE_CODE_FIELD]: invoiceTypeCode,
+  };
+  const n = invoiceTypeCode.trim().toLowerCase();
+  const isCnDn = n.includes("credit note") || n.includes("debit note");
+  if (isCnDn) {
+    if (!String(next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] ?? "").trim()) {
+      next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "PREV-OMN-001";
+    }
+    if (!String(next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] ?? "").trim()) {
+      next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "2026-06-01";
+    }
+    if (!String(next[FV.PRECEDING_INVOICE_UUID_FIELD] ?? "").trim()) {
+      next[FV.PRECEDING_INVOICE_UUID_FIELD] = FV.PRECEDING_INVOICE_UUID_SAMPLE;
+    }
+    if (!String(next[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] ?? "").trim()) {
+      next[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] =
+        FV.CREDIT_DEBIT_REASON_SAMPLE;
+    }
+  } else if (invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_INVOICE) {
+    const txn = String(next[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] ?? "");
+    const labels = txn
+      .split(/[,;|]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const keepPreceding = labels.includes(FV.TXN_PROFIT_MARGIN_INVOICE);
+    next[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] = "";
+    if (!keepPreceding) {
+      next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "";
+      next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "";
+      next[FV.PRECEDING_INVOICE_UUID_FIELD] = "";
+    }
+  }
+  return next;
+}
+
+/**
+ * IBR-138-OM: Self-billed combined with Third-party/Export/RCM/PM/Import
+ * (joined Master descriptions) or Self-billed-alone control. Companions
+ * avoid IBR-015 / IBR-014 / IBR-160 / IBR-175 / IBR-086 / IBR-084 masking
+ * the rule. Excel cell is always a dropdown description, never a 0/1 code.
+ */
+export function buildSelfBilledTxnExclusionScenarioRow(
+  scenario: FV.SelfBilledTxnExclusionScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  const actualTxn = toInvoiceTxnExcelDescription(
+    scenario.invoiceTransactionTypeCode
+  );
+  const partner = scenario.conflictingTxnType;
+  const labels = collectTxnMasterLabels(actualTxn, partner);
+  let row: Record<string, string | null> = {
+    ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: actualTxn,
+  };
+  row = applyTxnExclusionCompanions(row, labels);
+  const identifierTxn = pickIdentifierTxnLabel(
+    labels,
+    partner || FV.TXN_SELF_BILLED_INVOICE
+  );
+  row = applyPartyIdentifiersByTxnType({
+    ...row,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: identifierTxn,
+  });
+  row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] = actualTxn;
+  return applyTxnExclusionInvoiceType(row, scenario.invoiceTypeCode);
+}
+
+/**
+ * IBR-140-OM: Summary vs Continuous/Export/PM/PM-Self/Import.
+ * Excel cell is a Master description, or comma-joined descriptions for
+ * Not Allowed (never Peppol bit-strings).
+ */
+export function buildSummaryTxnExclusionScenarioRow(
+  scenario: FV.SummaryTxnExclusionScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  const actualTxn = toInvoiceTxnExcelDescription(
+    scenario.invoiceTransactionTypeCode
+  );
+  const partner = scenario.conflictingTxnType;
+  const labels = collectTxnMasterLabels(actualTxn, partner);
+  let row: Record<string, string | null> = {
+    ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: actualTxn,
+  };
+  row = applyTxnExclusionCompanions(row, labels);
+  const identifierTxn = pickIdentifierTxnLabel(
+    labels,
+    partner || FV.TXN_SUMMARY_INVOICE
+  );
+  row = applyPartyIdentifiersByTxnType({
+    ...row,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: identifierTxn,
+  });
+  row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] = actualTxn;
+  return applyTxnExclusionInvoiceType(row, scenario.invoiceTypeCode);
+}
+
+/**
+ * IBR-141-OM: Continuous Supply vs Summary/Deemed/PM/PM-Self/Import.
+ * Excel cell is a Master description, or comma-joined descriptions for
+ * Not Allowed (never Peppol bit-strings). Companions avoid IBR-037 /
+ * IBR-175 / IBR-086 / IBR-084 masking the rule.
+ */
+export function buildContinuousTxnExclusionScenarioRow(
+  scenario: FV.ContinuousTxnExclusionScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  const actualTxn = toInvoiceTxnExcelDescription(
+    scenario.invoiceTransactionTypeCode
+  );
+  const partner = scenario.conflictingTxnType;
+  const labels = collectTxnMasterLabels(actualTxn, partner);
+  let row: Record<string, string | null> = {
+    ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: actualTxn,
+  };
+  row = applyTxnExclusionCompanions(row, labels);
+  const identifierTxn = pickIdentifierTxnLabel(
+    labels,
+    partner || FV.TXN_CONTINUOUS_SUPPLY
+  );
+  row = applyPartyIdentifiersByTxnType({
+    ...row,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: identifierTxn,
+  });
+  row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] = actualTxn;
+  return applyTxnExclusionInvoiceType(row, scenario.invoiceTypeCode);
+}
+
+function collectTxnMasterLabels(cell: string, partner: string): string[] {
+  const labels = String(cell ?? "")
+    .split(/[,;|]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (partner && !labels.includes(partner)) {
+    labels.push(partner);
+  }
+  return labels;
+}
+
+function pickIdentifierTxnLabel(labels: string[], fallback: string): string {
+  const priority = [
+    FV.TXN_SPECIAL_ZONE_SUPPLIES,
+    FV.TXN_IMPORT_OF_GOODS,
+    FV.TXN_IMPORT_OF_SERVICES_RCM,
+    FV.TXN_PROFIT_MARGIN_SELF_INVOICE,
+    FV.TXN_SELF_BILLED_INVOICE,
+  ];
+  for (const label of priority) {
+    if (labels.includes(label)) {
+      return label;
+    }
+  }
+  return labels[0] || fallback;
+}
+
+function applyTxnExclusionCompanions(
+  row: Record<string, string | null>,
+  labels: string[]
+): Record<string, string | null> {
+  let next = { ...row };
+  const has = (label: string) => labels.includes(label);
+
+  if (has(FV.TXN_SUMMARY_INVOICE) || has(FV.TXN_CONTINUOUS_SUPPLY)) {
+    next[FV.INVOICING_PERIOD_START_DATE_FIELD] = "2026-01-01";
+    next[FV.INVOICING_PERIOD_END_DATE_FIELD] = "2026-01-31";
+  }
+
+  if (has(FV.TXN_THIRD_PARTY_INVOICE)) {
+    next[FV.THIRD_PARTY_NAME_FIELD] = "Oman Third Party LLC";
+    next[FV.THIRD_PARTY_VATIN_FIELD] = FV.IBR_003_VALID_THIRD_PARTY_VATIN;
+    next[FV.THIRD_PARTY_ADDRESS_LINE_1_FIELD] = "TP Building 1";
+    next[FV.THIRD_PARTY_ADDRESS_LINE_2_FIELD] = "TP Street";
+    next[FV.THIRD_PARTY_ADDRESS_LINE_3_FIELD] = "TP Area";
+    next[FV.THIRD_PARTY_CITY_FIELD] = "Muscat";
+    next[FV.THIRD_PARTY_POSTAL_CODE_FIELD] = "100";
+    next[FV.THIRD_PARTY_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  }
+
+  if (has(FV.TXN_IMPORT_OF_SERVICES_RCM)) {
+    next[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
+    next[FV.BUYER_VAT_IDENTIFIER_FIELD] = FV.IBR_003_VALID_BUYER_VATIN;
+    next[FV.BUYER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  }
+
+  if (has(FV.TXN_PROFIT_MARGIN_INVOICE)) {
+    next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "PREV-OMN-001";
+    next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "2026-06-01";
+    next[FV.PRECEDING_INVOICE_UUID_FIELD] = FV.PRECEDING_INVOICE_UUID_SAMPLE;
+    next[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
+      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
+  }
+
+  if (has(FV.TXN_PROFIT_MARGIN_SELF_INVOICE)) {
+    next[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    next[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    next[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+    next[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
+      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
+  }
+
+  if (has(FV.TXN_IMPORT_OF_GOODS)) {
+    next[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
+    next[FV.IMPORT_DATE_FIELD] = "2026-01-10";
+    next[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
+    next[FV.INCOTERMS_FIELD] = "Free On Board";
+  }
+
+  if (has(FV.TXN_SPECIAL_ZONE_SUPPLIES)) {
+    next = applySpecialZoneCountrySubdivisions(next);
+  }
+
+  if (has(FV.TXN_ECOMMERCE_TRANSACTION)) {
+    next = applyOmanDeliveryOverlay(next, "domestic");
+  }
+
+  if (has(FV.TXN_EXPORT_INVOICE)) {
+    next = applyOmanDeliveryOverlay(next, "export");
+  }
+
+  return next;
+}
+
+/**
+ * IBR-142-OM … IBR-149-OM: subject vs named partner on BTOM-001.
+ * Excel cell is Master description(s) only (never Peppol 0/1 codes).
+ * Companions avoid sibling rules masking the exclusion.
+ */
+export function buildTxnPairExclusionScenarioRow(
+  scenario: FV.TxnPairExclusionScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  const actualTxn = toInvoiceTxnExcelDescription(
+    scenario.invoiceTransactionTypeCode
+  );
+  const partner = scenario.conflictingTxnType;
+  const labels = collectTxnMasterLabels(actualTxn, partner);
+  let row: Record<string, string | null> = {
+    ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: actualTxn,
+  };
+  row = applyTxnExclusionCompanions(row, labels);
+  const identifierTxn = pickIdentifierTxnLabel(
+    labels,
+    partner || actualTxn
+  );
+  row = applyPartyIdentifiersByTxnType({
+    ...row,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: identifierTxn,
+  });
+  row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] = actualTxn;
+  return applyTxnExclusionInvoiceType(row, scenario.invoiceTypeCode);
+}
+
+/**
  * Doc allowance/charge category-rate proxies (IBR-047 / IBR-094).
  * Reuses document allowance/charge VAT builder shape.
  */
@@ -1415,14 +1700,13 @@ export function buildVatCategoryTaxAmountZ09ScenarioRow(
   return row;
 }
 
+/** Prefer buildTxnPairExclusionScenarioRow for IBR-142–149 live scenarios. */
 export function buildTxnMutualExclusionScenarioRow(
   scenario: FV.TxnMutualExclusionScenario
 ): Record<string, string | null> {
-  const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
-    ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
-      scenario.invoiceTransactionTypeCode,
+  return buildTxnPairExclusionScenarioRow({
+    ...scenario,
+    conflictingTxnType: "",
   });
 }
 

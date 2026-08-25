@@ -10,7 +10,7 @@
 import {
   getCounterpartyElectronicAddress,
   getCounterpartyVatIdentifier,
-} from "../utils/envPartyIdentity";
+} from "../../utils/envPartyIdentity";
 
 /** Five dashboard TIN slots; indexes wrap when `PW_WORKERS` > 5. */
 export const PARALLEL_WORKER_TIN_SLOT_COUNT = 5;
@@ -161,9 +161,9 @@ export function applyParallelWorkerIdentityToSubmitRow(
   const next: Record<string, string> = { ...data };
 
   if (selfBilled) {
-    next["Seller electronic address"] = workerEl;
-    next["Seller VAT Identifier (TRN / TIN)"] = workerVat;
-    next["Buyer electronic address"] = counterpartyEl;
+    next["Seller electronic address"] = counterpartyEl;
+    next["Seller VAT Identifier (TRN / TIN)"] = getCounterpartyVatIdentifier();
+    next["Buyer electronic address"] = workerEl;
     next["Buyer VAT identifier"] = workerVat;
   } else if (deemed) {
     next["Seller electronic address"] = workerEl;

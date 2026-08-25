@@ -16,7 +16,7 @@ import {
   writeConditionalPackReadme,
   MATRIX_DEFAULT_PATH,
   PACK_ROOT,
-} from "../Helpers/conditionalValidationExcelPackHelper";
+} from "../Helpers/excel/conditionalValidationExcelPackHelper";
 
 function parseArgs(argv: string[]): {
   section?: string;

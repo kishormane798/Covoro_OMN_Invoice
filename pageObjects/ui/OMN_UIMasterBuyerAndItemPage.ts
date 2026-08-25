@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // import { expect, type Locator, type Page } from "@playwright/test";
@@ -28,7 +28,7 @@
 //   listUiMasterFieldsForTab,
 //   uiMasterTabForField,
 // } from "../../testData/ui/uiMasterConfig";
-// import { parallelWorkerDashboardOpenOpts } from "../Helpers/parallelWorkerSubmitIdentity";
+// import { parallelWorkerDashboardOpenOpts } from "../Helpers/worker/parallelWorkerSubmitIdentity";
 // import { DashboardPage, EINVOICE_MASTERS_PATH } from "./DashboardPage";
 // import {
 //   isNonUaeCountryCode,

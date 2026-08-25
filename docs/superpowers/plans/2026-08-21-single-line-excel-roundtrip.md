@@ -27,20 +27,20 @@
 
 | File | Responsibility |
 |---|---|
-| Create: `utils/invoice_excel_roundtrip.py` | Read header+rows; skip multi-line; compare filled cells |
-| Create: `utils/test_invoice_excel_roundtrip.py` | Python unittest for compare/read/skip |
-| Create: `utils/invoiceExcelRoundTrip.ts` | TS types + `runPythonForStdout` wrapper + failure formatter |
+| Create: `utils/excel/invoice_excel_roundtrip.py` | Read header+rows; skip multi-line; compare filled cells |
+| Create: `utils/excel/test_invoice_excel_roundtrip.py` | Python unittest for compare/read/skip |
+| Create: `utils/excel/invoiceExcelRoundTrip.ts` | TS types + `runPythonForStdout` wrapper + failure formatter |
 | Modify: `pageObjects/OMN_DashboardPage.ts` | Public `clickInvoiceNumberOnRow(row)` |
-| Create: `Helpers/invoiceExcelRoundTripHelper.ts` | Dashboard wait → click number → Download Excel → compare |
-| Modify: `Helpers/uploadHelper.ts` | After completed, call round-trip when single-line |
+| Create: `Helpers/excel/invoiceExcelRoundTripHelper.ts` | Dashboard wait → click number → Download Excel → compare |
+| Modify: `Helpers/excel/uploadHelper.ts` | After completed, call round-trip when single-line |
 
 ---
 
 ### Task 1: Python compare + read (TDD)
 
 **Files:**
-- Create: `utils/test_invoice_excel_roundtrip.py`
-- Create: `utils/invoice_excel_roundtrip.py`
+- Create: `utils/excel/test_invoice_excel_roundtrip.py`
+- Create: `utils/excel/invoice_excel_roundtrip.py`
 
 **Interfaces:**
 - Consumes: openpyxl; template layout header row 4 / data from row 6; download files may use a detected header row that contains `Invoice Number`.
@@ -50,9 +50,9 @@
   - `values_match(uploaded: str, downloaded: str, header: str) -> bool`
   - `compare_filled_columns(uploaded: dict[str, str], downloaded: dict[str, str]) -> list[str]`
   - `read_invoice_rows(file_path: str) -> dict` JSON-serializable: `{ "dataRowCount": int, "invoiceNumber": str, "filled": {header: value} }`
-  - CLI: `python utils/invoice_excel_roundtrip.py read <xlsx>` and `... compare <upload.xlsx> <download.xlsx>` stdout JSON.
+  - CLI: `python utils/excel/invoice_excel_roundtrip.py read <xlsx>` and `... compare <upload.xlsx> <download.xlsx>` stdout JSON.
 
-- [ ] **Step 1: Write the failing tests** (file `utils/test_invoice_excel_roundtrip.py` only first)
+- [ ] **Step 1: Write the failing tests** (file `utils/excel/test_invoice_excel_roundtrip.py` only first)
 
 ```python
 import unittest
@@ -125,7 +125,7 @@ Run (only after user says **run**): `python -m unittest utils.test_invoice_excel
 Expected: FAIL with `ModuleNotFoundError: invoice_excel_roundtrip` (or import error).  
 Until then: write the tests only; do not execute.
 
-- [ ] **Step 3: Write minimal implementation** (`utils/invoice_excel_roundtrip.py`)
+- [ ] **Step 3: Write minimal implementation** (`utils/excel/invoice_excel_roundtrip.py`)
 
 ```python
 """Read a Covoro/OMN invoice workbook and compare filled upload columns to a download."""
@@ -365,7 +365,7 @@ Expected: PASS.
 ### Task 2: TypeScript Python wrapper
 
 **Files:**
-- Create: `utils/invoiceExcelRoundTrip.ts`
+- Create: `utils/excel/invoiceExcelRoundTrip.ts`
 
 **Interfaces:**
 - Consumes: `runPythonForStdout` from `utils/pythonRunner.ts`; CLI from Task 1.
@@ -477,7 +477,7 @@ export function formatRoundTripMismatchMessage(
 ### Task 4: Round-trip helper (dashboard + download + compare)
 
 **Files:**
-- Create: `Helpers/invoiceExcelRoundTripHelper.ts`
+- Create: `Helpers/excel/invoiceExcelRoundTripHelper.ts`
 
 **Interfaces:**
 - Consumes: `DashboardPage.openDashboard`, `refreshDashboardForInvoiceTable`, `waitForInvoiceReadyToSubmitStatus`, `chooseInvoiceRowForSubmit` or `invoiceTableRow` — use `chooseInvoiceRowForSubmit` if public; otherwise add a thin public `invoiceRowForDownload(invoiceNumber)` that returns the same row `waitForInvoiceReadyToSubmitStatus` uses. Also `clickInvoiceNumberOnRow`, `openInvoiceDownloadSubmenuOnRow`, `clickDownloadFormatInSubmenu`, `INVOICE_DOWNLOAD_FORMAT_LABEL.excel`.
@@ -527,8 +527,8 @@ import {
   compareInvoiceExcelRoundTrip,
   formatRoundTripMismatchMessage,
   readInvoiceExcelRoundTrip,
-} from "../utils/invoiceExcelRoundTrip";
-import { generatedFiles, getGeneratedInvoiceExcelDir } from "../utils/invoiceExcel";
+} from "../utils/excel/invoiceExcelRoundTrip";
+import { generatedFiles, getGeneratedInvoiceExcelDir } from "../utils/excel/invoiceExcel";
 
 export async function assertSingleLineUploadedExcelRoundTrip(
   page: Page,
@@ -589,7 +589,7 @@ If `chooseInvoiceRowForSubmit` is not exported as returning a Locator that still
 ### Task 5: Hook `uploadAndVerify`
 
 **Files:**
-- Modify: `Helpers/uploadHelper.ts`
+- Modify: `Helpers/excel/uploadHelper.ts`
 
 **GitNexus:** `uploadAndVerify` upstream is HIGH/MEDIUM (direct: `runPositiveFormulaScenario`, `verifyConditionalScenario`, `verifyConditionalScenarioAnyOf`, plus field specs that call `uploadAndVerify` directly). Extra work must stay behind `dataRowCount === 1`.
 

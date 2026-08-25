@@ -108,7 +108,7 @@ Do **not** re-run the full min/max valid/invalid table under Zero/Exempt/Not sub
 
 | Layer | Path | Change |
 |---|---|---|
-| Helper | `Helpers/formulaValidationHelper.ts` | 2-line row builder (same tax, different amounts, category companions); `generateInvoiceFromSubmitRows`; invoice-level patch on all rows; tax-category sweep list |
+| Helper | `Helpers/excel/formulaValidationHelper.ts` | 2-line row builder (same tax, different amounts, category companions); `generateInvoiceFromSubmitRows`; invoice-level patch on all rows; tax-category sweep list |
 | Spec | `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts` | New multi-line describes; 1-line suite untouched |
 | Data | Reuse `invoiceFormulaScenarios` + `ZERO_LINE_VAT_CATEGORY_CASES` + `CALCULATED_FIELD_*_TARGETS` | No mixed-tax fixtures |
 

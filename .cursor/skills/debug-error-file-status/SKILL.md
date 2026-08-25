@@ -16,10 +16,10 @@ If status is stuck (neither `completed` nor `error`), timeout, blank UI, or site
    - Playwright/Allure attachment, or `test-results/error-*.xlsx`
    - Console already has `[ErrorValidation] …` lines → use those; still list every line
    - Else download: `#download-error-file` / `downloadErrorFileViaClick()` after `waitForErrorFileDownloadEnabled()`
-3. Print **every** error record (same as `Helpers/uploadHelper.ts` `uploadAndVerifyError` and `Helpers/fieldValidationHelper.ts` `verifyErrorFile`):
+3. Print **every** error record (same as `Helpers/excel/uploadHelper.ts` `uploadAndVerifyError` and `Helpers/excel/fieldValidationHelper.ts` `verifyErrorFile`):
 
 ```bash
-python utils/error_excel_reader.py list_comments "<errorFilePath>" 6
+python utils/excel/error_excel_reader.py list_comments "<errorFilePath>" 6
 ```
 
 Sheet is `E Invoice`. Data starts at row **6**. For 2+ line items, also run rows `7`, `8`, … until `errors_column` is empty.

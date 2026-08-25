@@ -17,7 +17,7 @@ import {
   generateExcelFromDrivers,
   type InvoiceDriverFieldOverrides,
   type InvoiceDriverProfile,
-} from "../Helpers/invoiceDriverProfileHelper";
+} from "../Helpers/excel/invoiceDriverProfileHelper";
 import * as FV from "../testData/FieldValidations/ConditionalValidation";
 
 function parseArgs(argv: string[]): {

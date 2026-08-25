@@ -1,5 +1,5 @@
 import path from "node:path";
-import { runPythonForStdout } from "./pythonRunner";
+import { runPythonForStdout } from "../pythonRunner";
 
 export type InvoiceExcelRoundTripRead = {
   dataRowCount: number;

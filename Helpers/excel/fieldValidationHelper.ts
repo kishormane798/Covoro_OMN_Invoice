@@ -1,6 +1,6 @@
 import { Page } from "@playwright/test";
-import { UploadInvoicePage } from "../pageObjects/OMN_UploadInvoicePage";
-import { validateErrorFileColumn, printErrorWorkbookMessages } from "../utils/invoiceExcel";
+import { UploadInvoicePage } from "../../pageObjects/OMN_UploadInvoicePage";
+import { validateErrorFileColumn, printErrorWorkbookMessages } from "../../utils/excel/invoiceExcel";
 
 /** Invoice # helpers for min/max and negative field-validation specs. */
 export function buildInvoiceNumber(value: string, maxLen = 64): string {

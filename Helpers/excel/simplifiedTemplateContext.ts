@@ -1,5 +1,5 @@
 import path from "node:path";
-import { clearInvoiceTemplateHeaderCache } from "../utils/invoiceExcel";
+import { clearInvoiceTemplateHeaderCache } from "../../utils/excel/invoiceExcel";
 
 /**
  * Points `INVOICE_TEMPLATE_PATH` at SimplifiedTemplate.xlsx for simplified specs.

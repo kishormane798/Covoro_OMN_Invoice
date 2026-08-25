@@ -7,14 +7,14 @@
  */
 import path from "node:path";
 import type { Page } from '@playwright/test';
-import { DashboardPage } from '../pageObjects/OMN_DashboardPage';
-import { UploadInvoicePage } from '../pageObjects/OMN_UploadInvoicePage';
-import { LoginPage } from '../pageObjects/OMN_LoginPage';
-import { getInvoiceTemplatePath } from "../utils/invoiceExcel";
-import { parallelWorkerDashboardOpenOpts } from "./parallelWorkerSubmitIdentity";
-import { resolveBaseUrl } from "../utils/appConfig";
-import { flowLog } from "./diagnosticLog";
-import { printErrorWorkbookMessages } from "../utils/invoiceExcel";
+import { DashboardPage } from '../../pageObjects/OMN_DashboardPage';
+import { UploadInvoicePage } from '../../pageObjects/OMN_UploadInvoicePage';
+import { LoginPage } from '../../pageObjects/OMN_LoginPage';
+import { getInvoiceTemplatePath } from "../../utils/excel/invoiceExcel";
+import { parallelWorkerDashboardOpenOpts } from "../worker/parallelWorkerSubmitIdentity";
+import { resolveBaseUrl } from "../../utils/appConfig";
+import { flowLog } from "../diagnosticLog";
+import { printErrorWorkbookMessages } from "../../utils/excel/invoiceExcel";
 // ENABLE: single-line Excel round-trip (Ready to Submit → Download Excel → compare).
 // Say "enable it" to uncomment the import and the call in uploadAndVerify.
 // import { assertSingleLineUploadedExcelRoundTrip } from "./invoiceExcelRoundTripHelper";

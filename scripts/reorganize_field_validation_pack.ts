@@ -12,7 +12,7 @@ import {
   outcomeBucketFromTitle,
   PACK_ROOT,
   MATRIX_DEFAULT_PATH,
-} from "../Helpers/fieldValidationExcelPackHelper";
+} from "../Helpers/excel/fieldValidationExcelPackHelper";
 
 function main(): void {
   const cases = loadFieldValidationMatrix(MATRIX_DEFAULT_PATH);
@@ -89,7 +89,7 @@ function main(): void {
   console.log(JSON.stringify({ moved, missing, sourcePatchFiles: jobs.length }, null, 2));
 
   if (jobs.length) {
-    const script = path.join(process.cwd(), "utils", "batch_patch_identity_inplace.py");
+    const script = path.join(process.cwd(), "utils", "excel", "batch_patch_identity_inplace.py");
     const out = execSync(`python "${script}" "${jobsFile}"`, {
       encoding: "utf8",
       timeout: 1_800_000,

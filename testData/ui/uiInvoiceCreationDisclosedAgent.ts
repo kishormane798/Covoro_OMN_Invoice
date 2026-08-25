@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under testData/ui/; executable code is commented out.
 //
 // /**
@@ -14,7 +14,7 @@
 // import {
 //   electronicTinForParallelIndex,
 //   getParallelWorkerIndex,
-// } from "../../Helpers/parallelWorkerSubmitIdentity";
+// } from "../../Helpers/worker/parallelWorkerSubmitIdentity";
 //
 // /** Local copies — Helpers/uiInvoiceCreationConditional2Helper moved under Helpers/ui (disabled for OMN). */
 // function resolveUiSellerVatIdentifier(raw: string): string {

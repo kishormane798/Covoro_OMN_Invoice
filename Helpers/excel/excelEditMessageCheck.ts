@@ -6,9 +6,9 @@
 import fs from "fs";
 import path from "path";
 import { Page } from "@playwright/test";
-import { flowLog } from "./diagnosticLog";
-import { UploadInvoicePage } from "../pageObjects/OMN_UploadInvoicePage";
-import { DashboardPage } from "../pageObjects/OMN_DashboardPage";
+import { flowLog } from "../diagnosticLog";
+import { UploadInvoicePage } from "../../pageObjects/OMN_UploadInvoicePage";
+import { DashboardPage } from "../../pageObjects/OMN_DashboardPage";
 import { uploadAndVerifyStatus } from "./uploadHelper";
 import {
   applyInvoiceCalculationsToFile,
@@ -17,8 +17,8 @@ import {
   getInvoiceTemplatePath,
   printErrorWorkbookMessages,
   validateErrorFileColumn,
-} from "../utils/invoiceExcel";
-import { runPythonForStdout } from "../utils/pythonRunner";
+} from "../../utils/excel/invoiceExcel";
+import { runPythonForStdout } from "../../utils/pythonRunner";
 
 const INVOICE_ROW_TIMEOUT_MS = 90000;
 const TEMPLATE_SHEET_NAME = "E Invoice";
@@ -222,7 +222,7 @@ export async function createInvoiceFileWithInvoiceNumber(
       `Template not found at ${templatePath}. Set INVOICE_TEMPLATE_PATH or add testData/uploads/template.xlsx (uploads folder: templates only).`
     );
   }
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }

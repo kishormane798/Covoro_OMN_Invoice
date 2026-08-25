@@ -20,7 +20,7 @@
 // import {
 //   electronicTinForParallelIndex,
 //   getParallelWorkerIndex,
-// } from "./parallelWorkerSubmitIdentity";
+// } from "../worker/parallelWorkerSubmitIdentity";
 // import {
 //   openInvoiceForConditionalFlow,
 //   submitCopyInvoiceAfterSuccessIfNeeded,

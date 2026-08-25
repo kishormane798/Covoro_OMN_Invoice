@@ -2,19 +2,19 @@ import { expect } from "@playwright/test";
 import { test } from "../Src/baseTest";
 import * as FV from "../testData/FieldValidations";
 import { multiItemInvoiceCases } from "../testData/FieldValidations/SubmitInvoiceMultiItem";
-import { runSubmitInvoiceMultiItemCase } from "../Helpers/submitInvoiceCaseHelper";
-
-const TEMPLATE = "Covoro";
-const SUBMIT_INVOICE_TEST_TIMEOUT_MS = 8 * 60 * 1000;
-const EXPECTED_CASE_COUNT =
-  FV.OMAN_INVOICE_TYPES.length * FV.OMAN_TXN_TYPES.length;
+import { runSubmitInvoiceMultiItemCase } from "../Helpers/excel/submitInvoiceCaseHelper";
+import {
+  SUBMIT_INVOICE_TEMPLATE as TEMPLATE,
+  SUBMIT_MULTI_ITEM_TEST_TIMEOUT_MS as SUBMIT_INVOICE_TEST_TIMEOUT_MS,
+  SUBMIT_MULTI_ITEM_EXPECTED_CASE_COUNT as EXPECTED_CASE_COUNT,
+} from "../Helpers/excel/submitInvoiceSpecSupport";
 
 test.describe(`Excel upload — submit invoice (multi-item) (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel" });
 
-  test("Oman submit matrix shape: 32 types × 15 txns × 4 lines (2 Goods + 2 Services)", () => {
+  test("Oman submit matrix shape: 32 types × txns (IBR-086 / IBR-177 / IBR-138 / IBR-139 / IBR-140 / IBR-141 / IBR-142…149) × 4 lines (2 Goods + 2 Services)", () => {
     expect(multiItemInvoiceCases.length).toBe(EXPECTED_CASE_COUNT);
-    expect(EXPECTED_CASE_COUNT).toBe(480);
+    expect(EXPECTED_CASE_COUNT).toBe(426);
     const first = multiItemInvoiceCases[0];
     expect(first?.rows).toHaveLength(4);
     expect(first?.rows.map((r) => r["Item Type"])).toEqual([
@@ -35,12 +35,85 @@ test.describe(`Excel upload — submit invoice (multi-item) (${TEMPLATE})`, () =
       expect(tc.rows[0]?.["Currency Exchange Rate"] ?? "").toBe("");
       expect(tc.rows[0]?.["Invoice Type Code"]).toBeTruthy();
       expect(tc.rows[0]?.["Invoice Transaction Type Code"]).toBeTruthy();
+      expect(
+        FV.txnViolatesIbr138Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr139Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr140Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr141Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr142Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr143Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr144Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr145Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr146Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr147Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr148Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(
+        FV.txnViolatesIbr149Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
+      ).toBe(false);
+      expect(tc.rows[0]?.["Invoice Transaction Type Code"]).not.toBe(
+        FV.TXN_PROFIT_MARGIN_SELF_INVOICE
+      );
+      if (
+        (FV.SELF_BILLED_DOCUMENT_INVOICE_TYPES as readonly string[]).includes(
+          tc.rows[0]?.["Invoice Type Code"] ?? ""
+        )
+      ) {
+        expect(FV.SELF_BILLED_OR_RCM_TXN_TYPES).toContain(
+          tc.rows[0]?.["Invoice Transaction Type Code"]
+        );
+      }
       for (const row of tc.rows) {
         expect(row["Invoice Type Code"]).toBe(tc.rows[0]?.["Invoice Type Code"]);
         expect(row["Invoice Transaction Type Code"]).toBe(
           tc.rows[0]?.["Invoice Transaction Type Code"]
         );
+        if (
+          row["Invoice Transaction Type Code"] === FV.TXN_IMPORT_OF_SERVICES_RCM
+        ) {
+          // IBR-160-OM: seller country must not be OM.
+          expect(row[FV.SELLER_COUNTRY_CODE_FIELD]).not.toBe(
+            FV.OMAN_COUNTRY_CODE
+          );
+        }
       }
+    }
+    const presentTxns = new Set(
+      multiItemInvoiceCases.map(
+        (tc) => tc.rows[0]?.["Invoice Transaction Type Code"] ?? ""
+      )
+    );
+    for (const txn of FV.IBR_140_ALLOWED_STANDALONE_TXN_TYPES) {
+      if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
+        continue;
+      }
+      expect(presentTxns.has(txn)).toBe(true);
+    }
+    for (const txn of FV.IBR_141_ALLOWED_STANDALONE_TXN_TYPES) {
+      if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
+        continue;
+      }
+      expect(presentTxns.has(txn)).toBe(true);
     }
   });
 

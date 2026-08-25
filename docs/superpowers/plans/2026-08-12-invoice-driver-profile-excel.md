@@ -6,7 +6,7 @@
 
 **Architecture:** New focused helper wraps `buildValidOmanFullTaxInvoiceRow` and existing CN/self-billed helpers; writes via `generateInvoiceFromSubmitData`. No changes to live specs or pack helpers in this setup.
 
-**Tech Stack:** TypeScript, existing `Helpers/` + `utils/invoiceExcel.ts`, `npx ts-node` CLI.
+**Tech Stack:** TypeScript, existing `Helpers/` + `utils/excel/invoiceExcel.ts`, `npx ts-node` CLI.
 
 ## Global Constraints
 
@@ -21,7 +21,7 @@
 
 | File | Responsibility |
 |------|----------------|
-| `Helpers/invoiceDriverProfileHelper.ts` | Drivers type, row builder, Excel generate |
+| `Helpers/excel/invoiceDriverProfileHelper.ts` | Drivers type, row builder, Excel generate |
 | `scripts/generate_excel_from_drivers.ts` | CLI smoke + optional Downloads copy |
 | Spec (already written) | `docs/superpowers/specs/2026-08-12-invoice-driver-profile-excel-design.md` |
 
@@ -30,7 +30,7 @@
 ### Task 1: Driver profile helper
 
 **Files:**
-- Create: `Helpers/invoiceDriverProfileHelper.ts`
+- Create: `Helpers/excel/invoiceDriverProfileHelper.ts`
 
 - [x] Add `InvoiceDriverProfile` type with the three driver fields
 - [x] Implement `applyTaxCategoryDependents`, `applyTransactionTypeDependents`, `applyInvoiceTypeDependents`

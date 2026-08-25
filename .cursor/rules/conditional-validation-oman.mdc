@@ -1,6 +1,6 @@
 ---
 description: Oman-only Excel conditional validation (PINT-OM) — no UAE rules
-globs: testData/FieldValidations/ConditionalValidation.ts,Helpers/conditionalValidationHelper.ts,Helpers/conditionalValidationSpecHelpers.ts,tests/ConditionalValidation_*.spec.ts
+globs: testData/FieldValidations/ConditionalValidation.ts,Helpers/excel/conditionalValidationHelper.ts,Helpers/excel/conditionalValidationSpecHelpers.ts,tests/ConditionalValidation_*.spec.ts
 alwaysApply: false
 ---
 

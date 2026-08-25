@@ -53,7 +53,7 @@
 - Consumes: existing barrel exports
 - Produces: `ConditionalValidation` constants available on `import * as FV from "../testData/FieldValidations"` before `SubmitInvoiceMultiItem.ts` evaluates
 
-`Helpers/conditionalValidationHelper.ts` does `import * as FV from "../testData/FieldValidations"`. If `SubmitInvoiceMultiItem.ts` imports that helper while the barrel is still evaluating `SubmitInvoiceMultiItem` *before* `ConditionalValidation`, `FV.TXN_FULL_TAX_INVOICE` is undefined.
+`Helpers/excel/conditionalValidationHelper.ts` does `import * as FV from "../testData/FieldValidations"`. If `SubmitInvoiceMultiItem.ts` imports that helper while the barrel is still evaluating `SubmitInvoiceMultiItem` *before* `ConditionalValidation`, `FV.TXN_FULL_TAX_INVOICE` is undefined.
 
 - [ ] **Step 1: Move the two SubmitInvoice re-exports below ConditionalValidation**
 
@@ -93,7 +93,7 @@ git commit -m "fix: export ConditionalValidation before submit datasets to avoid
 - Modify: `testData/FieldValidations/SubmitInvoiceMultiItem.ts` (replace the kishorsubmit re-export entirely)
 
 **Interfaces:**
-- Consumes: `buildValidOmanFullTaxInvoiceRow`, `applyOmanDeliveryOverlay`, `applyPartyIdentifiersByTxnType` from `Helpers/conditionalValidationHelper.ts`; labels/constants from `./ConditionalValidation` and `./Master.omnCore`
+- Consumes: `buildValidOmanFullTaxInvoiceRow`, `applyOmanDeliveryOverlay`, `applyPartyIdentifiersByTxnType` from `Helpers/excel/conditionalValidationHelper.ts`; labels/constants from `./ConditionalValidation` and `./Master.omnCore`
 - Produces:
   - `export type MultiItemSubmitInvoiceCase = { name: string; rows: Array<Record<string, string>> }`
   - `export function isCreditOrDebitInvoiceType(invoiceTypeCode: string): boolean`
@@ -114,7 +114,7 @@ import {
   buildValidOmanFullTaxInvoiceRow,
   applyOmanDeliveryOverlay,
   applyPartyIdentifiersByTxnType,
-} from "../../Helpers/conditionalValidationHelper";
+} from "../../Helpers/excel/conditionalValidationHelper";
 import * as FV from "./ConditionalValidation";
 import {
   invoiceTypeCodeValidTestData,
@@ -378,7 +378,7 @@ git commit -m "chore: drop UAE single-item submit invoiceData from FieldValidati
 - Create: `tests/OMN_SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts`
 
 **Interfaces:**
-- Consumes: `multiItemInvoiceCases` from `../testData/FieldValidations/SubmitInvoiceMultiItem`; `runSubmitInvoiceMultiItemCase` from `../Helpers/submitInvoiceCaseHelper`; `test` from `../Src/baseTest`
+- Consumes: `multiItemInvoiceCases` from `../testData/FieldValidations/SubmitInvoiceMultiItem`; `runSubmitInvoiceMultiItemCase` from `../Helpers/excel/submitInvoiceCaseHelper`; `test` from `../Src/baseTest`
 - Produces: 1 no-page shape test + 480 delivery tests
 
 - [ ] **Step 1: Create the spec**
@@ -388,7 +388,7 @@ import { expect } from "@playwright/test";
 import { test } from "../Src/baseTest";
 import * as FV from "../testData/FieldValidations";
 import { multiItemInvoiceCases } from "../testData/FieldValidations/SubmitInvoiceMultiItem";
-import { runSubmitInvoiceMultiItemCase } from "../Helpers/submitInvoiceCaseHelper";
+import { runSubmitInvoiceMultiItemCase } from "../Helpers/excel/submitInvoiceCaseHelper";
 
 const TEMPLATE = "Covoro";
 const SUBMIT_INVOICE_TEST_TIMEOUT_MS = 8 * 60 * 1000;

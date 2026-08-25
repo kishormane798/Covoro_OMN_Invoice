@@ -1,6 +1,7 @@
 /**
  * Environment-specific counterparty electronic address (not worker TIN).
- * Always written to Buyer electronic address (including self-billed).
+ * Normal invoices: counterparty → Buyer electronic address.
+ * Self-billed (261/389): counterparty → Seller; worker/seller → Buyer (see swap helper).
  * Keep aligned with `invoice_excel_writer._counterparty_electronic_address`.
  */
 
@@ -105,9 +106,43 @@ export function isSelfBilledInvoiceType(invoiceTypeCode: unknown): boolean {
   return n.includes("self billed credit note") || n.includes("self billed invoice");
 }
 
-/** Patch Buyer electronic address only (never seller). */
+/** Default slot-0 seller VATIN when worker identity is disabled (pack scripts). */
+export const DEFAULT_OMAN_SELLER_VATIN = "OM1108202600";
+
+const SELLER_ELECTRONIC_FIELD = "Seller electronic address";
+const SELLER_VAT_FIELD = "Seller VAT Identifier (TRN / TIN)";
+const BUYER_ELECTRONIC_FIELD = "Buyer electronic address";
+const BUYER_VAT_FIELD = "Buyer VAT identifier";
+
+/**
+ * Self-billed invoice type 261/389: seller TRN/electronic ↔ buyer TRN/electronic.
+ * Normal seller identity moves to buyer columns; counterparty moves to seller columns.
+ */
+export function applySelfBilledPartyIdentitySwap<
+  T extends Record<string, string>,
+>(row: T): T {
+  const sellerEl = String(row[SELLER_ELECTRONIC_FIELD] ?? DEFAULT_OMAN_SELLER_VATIN);
+  const sellerVat = String(row[SELLER_VAT_FIELD] ?? DEFAULT_OMAN_SELLER_VATIN);
+  const buyerEl = String(
+    row[BUYER_ELECTRONIC_FIELD] ?? getCounterpartyElectronicAddress()
+  );
+  const buyerVat = String(row[BUYER_VAT_FIELD] ?? getCounterpartyVatIdentifier());
+
+  return {
+    ...row,
+    [SELLER_ELECTRONIC_FIELD]: buyerEl,
+    [SELLER_VAT_FIELD]: buyerVat,
+    [BUYER_ELECTRONIC_FIELD]: sellerEl,
+    [BUYER_VAT_FIELD]: sellerVat,
+  };
+}
+
+/** Patch Buyer electronic address for normal invoices only (skip 261/389). */
 export function applyCounterpartyElectronicAddressOverrides<
   T extends Record<string, unknown>,
 >(row: T): T {
-  return { ...row, "Buyer electronic address": getCounterpartyElectronicAddress() };
+  if (isSelfBilledInvoiceType(row["Invoice Type Code"])) {
+    return { ...row };
+  }
+  return { ...row, [BUYER_ELECTRONIC_FIELD]: getCounterpartyElectronicAddress() };
 }

@@ -43,7 +43,7 @@ What is the test asserting?
 | Formula | `testData/FieldValidations/Min_max_field_validation.ts` (`defaultInvoiceData`) + scenario overlays | camelCase |
 | Field patch | `testData/FieldValidations/*` configs with `field` = Excel header | header + value/length |
 | Submit | `testData/FieldValidations/SubmitInvoice.ts` (etc.) | Excel header keys |
-| Conditional | builders in `Helpers/conditionalValidationHelper.ts` + configs | header keys after prepare |
+| Conditional | builders in `Helpers/excel/conditionalValidationHelper.ts` + configs | header keys after prepare |
 
 For authoring a new row/payload, also load `author-excel-testcase-data`.
 
@@ -53,7 +53,7 @@ Prefer an existing helper entry point:
 
 ```ts
 // Formula
-import { generateInvoiceExcel } from "../utils/invoiceExcel";
+import { generateInvoiceExcel } from "../utils/excel/invoiceExcel";
 import { defaultInvoiceData } from "../testData/FieldValidations/Min_max_field_validation";
 
 const payload = { ...defaultInvoiceData, ...fields };

@@ -13,7 +13,7 @@ description: Add or extend submit and delivery test cases for Covoro/OMN templat
 
 ## Prerequisites
 
-- Read `Helpers/submitInvoiceCaseHelper.ts` and the target spec (e.g. `tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`).
+- Read `Helpers/excel/submitInvoiceCaseHelper.ts` and the target spec (e.g. `tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts`).
 - Confirm template: Covoro/OMN primary (`template.xlsx`).
 
 ## Workflow
@@ -42,7 +42,7 @@ Spec pattern:
 ```ts
 import { test } from "../Src/baseTest";
 import { invoiceData } from "../testData/FieldValidations/SubmitInvoice";
-import { runSubmitInvoiceCase } from "../Helpers/submitInvoiceCaseHelper";
+import { runSubmitInvoiceCase } from "../Helpers/excel/submitInvoiceCaseHelper";
 
 test("Excel upload · Covoro | Submit | ... → delivered", async ({ page }) => {
   await runSubmitInvoiceCase(page, row);
@@ -80,6 +80,6 @@ Delivery timeout: `SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS` (default 2–4 min).
 - [ ] Row uses Excel header keys consistent with template
 - [ ] No manual total overrides that fight recalculation
 - [ ] Test title includes type code, currency, tax dimensions
-- [ ] Spec stays thin — logic in `Helpers/submitInvoiceCaseHelper.ts`
+- [ ] Spec stays thin — logic in `Helpers/excel/submitInvoiceCaseHelper.ts`
 - [ ] Parallel-safe invoice numbers (no hardcoded collisions)
 - [ ] Targeted npm script or grep run passes

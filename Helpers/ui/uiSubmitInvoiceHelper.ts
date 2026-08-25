@@ -35,13 +35,13 @@
 //   UI_MASTER_CLASSIFICATION_SCHEME_LABEL,
 //   UI_MASTER_ITEM_TAX_CATEGORY_OPTIONS,
 // } from "./uiMasterItemTestData";
-// import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
+// import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
 // import { getDeemedSupplyBuyerElectronicAddress } from "../utils/envPartyIdentity";
 // import {
 //   isUiSubmitFieldDebugEnabled,
 //   terminalLog,
 //   flowLog,
-// } from "./diagnosticLog";
+// } from "../diagnosticLog";
 // 
 // /**
 //  * Per-test timeout for UI submit specs (fill all sections + page Submit + dashboard delivery).
@@ -64,7 +64,7 @@
 // 
 // const ITEM_SETTLE_MS = 800;
 // 
-// export { UI_SUBMIT_FIELD_DEBUG_ENV, isUiSubmitFieldDebugEnabled } from "./diagnosticLog";
+// export { UI_SUBMIT_FIELD_DEBUG_ENV, isUiSubmitFieldDebugEnabled } from "../diagnosticLog";
 // 
 // type UiSubmitFieldAction = "text" | "select" | "date" | "numeric" | "search" | "action" | "section-skip";
 // 

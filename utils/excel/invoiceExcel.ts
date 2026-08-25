@@ -2,13 +2,13 @@
  * **Two Excel generation pipelines** (keep separate; do not route formula payloads through submit, or vice versa):
  *
  * 1. **`generateInvoiceExcel`** — Formula / min–max style tests only. CamelCase generator payload → thin column set +
- *    calculated totals; **`Helpers/formulaValidationHelper`** is the only caller. Uses `clearRow: false` + template clone.
+ *    calculated totals; **`Helpers/excel/formulaValidationHelper`** is the only caller. Uses `clearRow: false` + template clone.
  *
  * 2. **`generateInvoiceFromSubmitData`** — Full Covoro row (Excel header keys) for real upload shape. Used by
  *    **`runSubmitInvoiceCase` / SubmitInvoice specs** and **`ConditionalValidation_*`** after row builders run.
  *    Clears data row first, then applies submit-time rules here (e.g. payment block for credit note / deemed supply,
  *    VAT reverse-charge document clears, forced calculated totals). IBT-003 / credit-note / profit-margin *scenario*
- *    shaping stays in **`Helpers/conditionalValidationHelper`** (not in this file).
+ *    shaping stays in **`Helpers/excel/conditionalValidationHelper`** (not in this file).
  *
  * VAT reverse-charge document columns cleared on every submit-shaped write are defined in
  * `ConditionalValidation.ts` (`DOCUMENT_LEVEL_FIELDS_CLEARED_FOR_VAT_REVERSE_CHARGE`).
@@ -19,10 +19,10 @@ import {
   DOCUMENT_LEVEL_FIELDS_CLEARED_FOR_VAT_REVERSE_CHARGE,
   INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
   PAYMENT_MEANS_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
-} from "../testData/FieldValidations/ConditionalValidation";
-import { INVOICE_EXCEL_FIELD_TO_HEADER } from "../testData/FieldValidations/submitInvoiceExcelHeaderMap";
-import { applyCounterpartyElectronicAddressOverrides } from "./envPartyIdentity";
-import { runPythonForStatus, runPythonForStdout } from "./pythonRunner";
+} from "../../testData/FieldValidations/ConditionalValidation";
+import { INVOICE_EXCEL_FIELD_TO_HEADER } from "../../testData/FieldValidations/submitInvoiceExcelHeaderMap";
+import { applyCounterpartyElectronicAddressOverrides } from "../envPartyIdentity";
+import { runPythonForStatus, runPythonForStdout } from "../pythonRunner";
 
 const DEFAULT_TEMPLATE_RELATIVE = path.join("testData", "uploads", "template.xlsx");
 const GENERATED_INVOICE_EXCEL_RELATIVE = path.join("testData", "generated", "excel");
@@ -130,7 +130,7 @@ async function readEInvoiceSheetHeaders(absolutePath: string): Promise<string[]>
  * not only `invoiceColumnMapping.ts`.
  */
 export function readInvoiceTemplateHeadersSync(absoluteTemplatePath: string): string[] {
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   const stdout = runPythonForStdout(scriptPath, [
     "read_e_invoice_headers",
     absoluteTemplatePath,
@@ -321,7 +321,7 @@ export async function getErrorFieldExcelDetails(
   fieldName: string,
   row = 6
 ): Promise<ErrorFieldExcelDetails> {
-  const scriptPath = path.join(process.cwd(), "utils", "error_excel_reader.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "error_excel_reader.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Comment reader script not found at: ${scriptPath}`);
   }
@@ -365,7 +365,7 @@ export function printErrorWorkbookMessages(
   errorFilePath: string,
   row: number = INVOICE_TEMPLATE_DATA_ROW
 ): void {
-  const scriptPath = path.join(process.cwd(), "utils", "error_excel_reader.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "error_excel_reader.py");
   const lines: string[] = [];
   try {
     const output = runPythonForStdout(scriptPath, [
@@ -539,7 +539,7 @@ export function patchInvoiceDataCellInFile(
   value: number,
   dataRow = INVOICE_TEMPLATE_DATA_ROW
 ): void {
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -570,7 +570,7 @@ export function patchInvoiceTextCellInFile(
   dataRow = INVOICE_TEMPLATE_DATA_ROW,
   timeoutMs = 300_000
 ): void {
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -600,7 +600,7 @@ export function patchInvoiceTextCellsInFile(
   timeoutMs = 300_000
 ): void {
   if (!patches.length) return;
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -656,7 +656,7 @@ export function readInvoiceTextCellFromFile(
   dataRow = INVOICE_TEMPLATE_DATA_ROW,
   timeoutMs = 300_000
 ): { value: string; dropdownPresent: boolean } {
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -816,7 +816,7 @@ function runPythonTemplateWriter(
   value: string
 ): { filePath: string; invoiceNumber: string } {
   // Clones template, writes one cell (or invoice+field variant), returns new file path + invoice id.
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -846,7 +846,7 @@ function writeTemplateRowWithPython(input: {
   clearRow?: boolean;
   strictHeaders?: boolean;
 }): { filePath: string; invoiceNumber: string } {
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -901,7 +901,7 @@ function writeSubmitFlowRowsWithPython(input: {
   /** openpyxl multi-row writes often exceed the default 45s bridge timeout. */
   timeoutMs?: number;
 }): { filePath: string; invoiceNumber: string } {
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -950,7 +950,7 @@ export function applyInvoiceCalculationsToFile(
   rowCount = 1
 ): void {
   // Same numeric rules as calculateInvoiceValues; Python writers do not evaluate Excel formulas.
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -997,7 +997,7 @@ export async function validateErrorFileColumn(
   errorFilePath: string,
   expectedField: string
 ) {
-  const pythonScript = path.join(process.cwd(), "utils", "error_excel_reader.py");
+  const pythonScript = path.join(process.cwd(), "utils", "excel", "error_excel_reader.py");
   if (!fs.existsSync(pythonScript)) {
     throw new Error(`Error reader script not found at: ${pythonScript}`);
   }
@@ -1216,7 +1216,7 @@ export async function generateDropdownMasterExcel(
 ): Promise<DropdownGeneratedWorkbook[]> {
   const values = Array.isArray(masterData) ? masterData : [masterData];
   const files: DropdownGeneratedWorkbook[] = [];
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }
@@ -1279,7 +1279,7 @@ export async function generateInvoiceCurrencyExchangeBatchExcel(
   if (currencyCodes.length === 0) {
     throw new Error("currencyCodes cannot be empty");
   }
-  const scriptPath = path.join(process.cwd(), "utils", "invoice_excel_writer.py");
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "invoice_excel_writer.py");
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Python writer script not found at: ${scriptPath}`);
   }

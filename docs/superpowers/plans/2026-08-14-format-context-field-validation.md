@@ -24,7 +24,7 @@
 
 **Files:**
 - Create: `testData/FieldValidations/FormatContextFieldValidation.ts`
-- Create: `Helpers/formatContextFieldValidationHelper.ts`
+- Create: `Helpers/excel/formatContextFieldValidationHelper.ts`
 - Modify: `testData/FieldValidations/index.ts`
 - Modify: `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` (append describes before closing of outer describe)
 

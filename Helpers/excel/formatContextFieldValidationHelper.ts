@@ -2,8 +2,8 @@
  * Build Oman full-tax Excel with one format/context overlay, then patch the
  * target field (seller VATIN errors after generate so worker identity is not used).
  */
-import * as FV from "../testData/FieldValidations";
-import type { FormatContextFieldCase } from "../testData/FieldValidations/FormatContextFieldValidation";
+import * as FV from "../../testData/FieldValidations";
+import type { FormatContextFieldCase } from "../../testData/FieldValidations/FormatContextFieldValidation";
 import {
   applyPartyIdentifiersByTxnType,
   buildValidOmanFullTaxInvoiceRow,
@@ -11,7 +11,7 @@ import {
 import {
   generateInvoiceFromSubmitData,
   patchInvoiceTextCellInFile,
-} from "../utils/invoiceExcel";
+} from "../../utils/excel/invoiceExcel";
 
 const PREPAY_UUID_FIELD = "Prepayment invoice UUID";
 const PREPAY_NUMBER_FIELD = "Prepayment invoice number";

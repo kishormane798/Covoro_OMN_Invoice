@@ -5,9 +5,9 @@
 import "dotenv/config";
 import fs from "fs";
 import path from "path";
-import { buildValidOmanFullTaxInvoiceRow } from "../Helpers/conditionalValidationHelper";
+import { buildValidOmanFullTaxInvoiceRow } from "../Helpers/excel/conditionalValidationHelper";
 import { fieldValidationMandatory } from "../testData/FieldValidations/Min_max_field_validation";
-import { generateInvoiceFromSubmitData } from "../utils/invoiceExcel";
+import { generateInvoiceFromSubmitData } from "../utils/excel/invoiceExcel";
 
 function assertMandatoryFilled(row: Record<string, string>): void {
   const missing: string[] = [];

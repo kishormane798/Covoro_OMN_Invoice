@@ -1,7 +1,7 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
-// import { getParallelWorkerIndex } from "./parallelWorkerSubmitIdentity";
+// import { getParallelWorkerIndex } from "../worker/parallelWorkerSubmitIdentity";
 // 
 // /** UAE **Country Subdivision** options on Buyer/Seller Add New (after Country = UAE). */
 // export const UAE_COUNTRY_SUBDIVISION_DROPDOWN_OPTIONS = [

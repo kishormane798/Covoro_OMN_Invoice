@@ -19,17 +19,17 @@ import {
   OMAN_SELLER_VAT,
   resolveRowKey,
 } from "./fieldValidationExcelPackHelper";
-import * as FV from "../testData/FieldValidations/ConditionalValidation";
-import { InvalidTestData } from "../testData/Master";
+import * as FV from "../../testData/FieldValidations/ConditionalValidation";
+import { InvalidTestData } from "../../testData/Master";
 import {
   generateDistinctSubmitInvoices,
   generateInvoiceFromSubmitData,
   getCachedInvoiceTemplateHeaders,
   patchInvoiceTextCellInFile,
   applyInvoiceCalculationsToFile,
-} from "../utils/invoiceExcel";
-import { createPackProgressReporter, packOutputAlreadyExists } from "./packProgressReporter";
-import { runPythonForStdout } from "../utils/pythonRunner";
+} from "../../utils/excel/invoiceExcel";
+import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
+import { runPythonForStdout } from "../../utils/pythonRunner";
 
 export type ConditionalMatrixCase = {
   id: string;
@@ -738,6 +738,7 @@ export function loadConditionalValidationMatrix(
   const script = path.join(
     process.cwd(),
     "utils",
+    "excel",
     "read_conditional_validation_matrix.py"
   );
   const outJson = path.join(
@@ -1045,6 +1046,11 @@ export function transactionTypeExcelDescription(raw: string): string {
     /^x1x+$/i.test(t)
   ) {
     return FV.TXN_SIMPLIFIED_TAX_INVOICE;
+  }
+  const asBits = t.replace(/X/gi, "0");
+  if (FV.isOmanTxnPeppolBitString(asBits) || /^[01]{20}$/.test(asBits)) {
+    const fromBits = FV.omanTxnBitsToExcelDescriptions(asBits);
+    if (fromBits) return fromBits;
   }
   return t;
 }
@@ -1754,6 +1760,7 @@ export async function generateConditionalValidationExcelPack(options: {
   const batchScript = path.join(
     process.cwd(),
     "utils",
+    "excel",
     "batch_clone_patch_invoice.py"
   );
   const tmpDir = path.join(packRoot, "_tmp");

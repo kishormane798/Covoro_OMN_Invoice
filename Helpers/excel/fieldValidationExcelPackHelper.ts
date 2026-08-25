@@ -13,18 +13,18 @@ import {
   applyServiceTypeDropdownValidationContext,
   buildValidOmanFullTaxInvoiceRow,
 } from "./conditionalValidationHelper";
-import * as FV from "../testData/FieldValidations";
+import * as FV from "../../testData/FieldValidations";
 import {
   dropdownFieldMasterConfig,
   conditionalDropdownFieldMasterConfig,
   mergeDropdownFieldConfigs,
-} from "../testData/FieldValidations/TestDataConfig";
+} from "../../testData/FieldValidations/TestDataConfig";
 import {
   InvalidTestData,
   buyerSellerIdentifierCodeValidTestData,
   electronicAddressSchemeValidTestData,
   schemeIdentifierValidTestData,
-} from "../testData/Master";
+} from "../../testData/Master";
 import {
   fieldInvoice_number,
   fieldValidationMandatory,
@@ -34,14 +34,14 @@ import {
   formatOmanNumericBoundaryValue,
   type FieldLengthRule,
   type FieldNumericRule,
-} from "../testData/FieldValidations/Min_max_field_validation";
+} from "../../testData/FieldValidations/Min_max_field_validation";
 import {
   generateInvoiceFromSubmitData,
   getCachedInvoiceTemplateHeaders,
   patchInvoiceTextCellInFile,
-} from "../utils/invoiceExcel";
-import { createPackProgressReporter, packOutputAlreadyExists } from "./packProgressReporter";
-import { runPythonForStdout } from "../utils/pythonRunner";
+} from "../../utils/excel/invoiceExcel";
+import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
+import { runPythonForStdout } from "../../utils/pythonRunner";
 
 export type FieldValidationMatrixCase = {
   id: string;
@@ -905,6 +905,7 @@ export function loadFieldValidationMatrix(
   const script = path.join(
     process.cwd(),
     "utils",
+    "excel",
     "read_field_validation_matrix.py"
   );
   const stdout = runPythonForStdout(script, [matrixPath]);
@@ -1179,6 +1180,7 @@ export async function generateFieldValidationExcelPack(options: {
   const batchScript = path.join(
     process.cwd(),
     "utils",
+    "excel",
     "batch_clone_patch_invoice.py"
   );
   const tmpDir = path.join(packRoot, "_tmp");

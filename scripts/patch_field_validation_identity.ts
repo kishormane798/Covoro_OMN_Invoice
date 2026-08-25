@@ -17,8 +17,8 @@ import {
   OMAN_SELLER_ELECTRONIC,
   OMAN_BUYER_ELECTRONIC,
   OMAN_ELECTRONIC_SCHEME,
-} from "../Helpers/fieldValidationExcelPackHelper";
-import { buildValidOmanFullTaxInvoiceRow } from "../Helpers/conditionalValidationHelper";
+} from "../Helpers/excel/fieldValidationExcelPackHelper";
+import { buildValidOmanFullTaxInvoiceRow } from "../Helpers/excel/conditionalValidationHelper";
 import { execSync } from "child_process";
 
 const IDENTITY_PATCHES: Array<{ header: string; value: string; rowKeys: string[] }> = [
@@ -87,7 +87,7 @@ function main(): void {
   const jobsFile = path.join(tmp, "identity-patches.json");
   fs.writeFileSync(jobsFile, JSON.stringify({ jobs }, null, 2), "utf8");
 
-  const script = path.join(process.cwd(), "utils", "batch_patch_identity_inplace.py");
+  const script = path.join(process.cwd(), "utils", "excel", "batch_patch_identity_inplace.py");
   const out = execSync(`python "${script}" "${jobsFile}"`, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],

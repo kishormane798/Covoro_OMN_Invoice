@@ -50,7 +50,7 @@ Consult `docs/troubleshooting.md`. Common patterns:
 ### TIN missing in header
 
 - Dashboard re-entry in upload flow
-- Worker TIN slot: `Helpers/parallelWorkerSubmitIdentity.ts`
+- Worker TIN slot: `Helpers/worker/parallelWorkerSubmitIdentity.ts`
 
 ### Site unavailable / tests skipped
 
@@ -76,7 +76,7 @@ pip install -r requirements.txt
 |---------|-----------|
 | Selector / wait / refresh | `pageObjects/` |
 | Flow orchestration | `Helpers/` |
-| Wrong totals / tax / headers | `utils/invoiceExcel.ts` (+ Python) |
+| Wrong totals / tax / headers | `utils/excel/invoiceExcel.ts` (+ Python) |
 | Wrong test data | `testData/` |
 | Attachments / worker cleanup | `Src/baseTest.ts` (careful) |
 

@@ -13,7 +13,7 @@ alwaysApply: false
 - Submit rows use Excel header keys: `Invoice Type Code`, `Tax Category`, `Tax Rate`, etc.
 - Header mapping lives in one place — avoid duplicating column names across files.
 
-## Excel generation (`utils/invoiceExcel.ts`)
+## Excel generation (`utils/excel/invoiceExcel.ts`)
 
 - Calls Python via `utils/pythonRunner.ts` — ensure `requirements.txt` packages are installed.
 - Submit pipeline recalculates totals; do not assume manual totals in input rows persist.

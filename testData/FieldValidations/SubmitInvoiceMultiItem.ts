@@ -1,13 +1,32 @@
 /**
  * Oman submit multi-item matrix (Excel header keys).
- * 32 invoice types × 15 transaction types; each case 4 lines
+ * 32 invoice types × 14 transaction types (Profit Margin Self-Invoice
+ * omitted — IBR-086-OM requires every line tax category O, which this
+ * mixed 4-category matrix cannot satisfy); IBR-177-OM further limits
+ * Self billed credit note / Self-billed invoice to Self-billed Invoice,
+ * Import of Services (RCM), and Import of Goods. IBR-138-OM further
+ * drops any BTOM-001 cell that combines Self-billed with Third-party /
+ * Export / RCM / Profit margin / Profit Margin Self-Invoice / Import of
+ * Goods. IBR-139-OM further drops Self-billed combined with Third-party
+ * Invoice on BTOM-001. IBR-140-OM further drops any BTOM-001 cell that
+ * combines Summary with Continuous / Export / Profit margin / Profit
+ * Margin Self-Invoice / Import of Goods. IBR-141-OM further drops any
+ * BTOM-001 cell that combines Continuous Supply with Summary / Deemed
+ * Supply / Profit margin / Profit Margin Self-Invoice / Import of Goods.
+ * IBR-142-OM … IBR-149-OM further drop subject ⊕ named partner
+ * combinations (single Master labels never violate these pair rules).
+ * Each case 4 lines
  * (2 Goods + 2 Services, all 4 Oman tax categories, OMR).
  */
 import {
   buildValidOmanFullTaxInvoiceRow,
   applyOmanDeliveryOverlay,
   applyPartyIdentifiersByTxnType,
-} from "../../Helpers/conditionalValidationHelper";
+} from "../../Helpers/excel/conditionalValidationHelper";
+import {
+  applySelfBilledPartyIdentitySwap,
+  isSelfBilledInvoiceType,
+} from "../../utils/envPartyIdentity";
 import * as FV from "./ConditionalValidation";
 import {
   invoiceTypeCodeValidTestData,
@@ -100,10 +119,24 @@ function applySubmitTxnExtras(
     next["Customs Declaration number"] =
       next["Customs Declaration number"] || "CUST-OMN-001";
     next["Incoterms"] = next["Incoterms"] || "Cost, Insurance, and Freight";
+    // IBR-084-OM: origin is mandatory on every line for Import of Goods.
+    next[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] =
+      next[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] || FV.UAE_COUNTRY_CODE;
+  }
+
+  if (txn === FV.TXN_IMPORT_OF_SERVICES_RCM) {
+    // IBR-160-OM: seller country must not be OM.
+    next[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
   }
 
   if (txn === FV.TXN_EXPORT_INVOICE) {
     next = applyOmanDeliveryOverlay(next, "export");
+  }
+
+  // IBR-040-OM: Deliver To address (line 1–3, city, post code, country code)
+  // MUST be present when Invoice transaction type is E-commerce supplies.
+  if (txn === FV.TXN_ECOMMERCE_TRANSACTION) {
+    next = applyOmanDeliveryOverlay(next, "domestic");
   }
 
   if (txn === FV.TXN_THIRD_PARTY_INVOICE) {
@@ -144,7 +177,36 @@ function applySubmitTxnExtras(
       FV.SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13;
   }
 
+  // IBR-175-OM: Profit Margin Invoice → IBT-025 + BTOM-031 MUST be present.
+  if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
+    next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] =
+      next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] || "PREV-OMN-001";
+    next[FV.PRECEDING_INVOICE_UUID_FIELD] =
+      next[FV.PRECEDING_INVOICE_UUID_FIELD] || FV.PRECEDING_INVOICE_UUID_SAMPLE;
+    next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] =
+      next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
+  }
+
   return applyPartyIdentifiersByTxnType(next);
+}
+
+/**
+ * IBR-177-OM: Self billed credit note (261) / Self-billed invoice (389)
+ * may only pair with Self-billed Invoice, Import of Services (RCM),
+ * Profit Margin Self-Invoice, or Import of Goods.
+ */
+export function isAllowedOmanSubmitTypeTxnPair(
+  invoiceTypeCode: string,
+  txn: string
+): boolean {
+  if (
+    !(FV.SELF_BILLED_DOCUMENT_INVOICE_TYPES as readonly string[]).includes(
+      invoiceTypeCode
+    )
+  ) {
+    return true;
+  }
+  return (FV.SELF_BILLED_OR_RCM_TXN_TYPES as readonly string[]).includes(txn);
 }
 
 /** Shared Oman document seed for submit matrices (OMR + type/txn extras). */
@@ -158,7 +220,11 @@ export function buildOmanSubmitDocumentRow(
   common = applySubmitTxnExtras(common, txn);
   common = applySubmitInvoiceTypeExtras(common, invoiceTypeCode);
   common["Buyer electronic address"] = "om-receiver-dev";
-  return asStringRow(common);
+  let row = asStringRow(common);
+  if (isSelfBilledInvoiceType(invoiceTypeCode)) {
+    row = applySelfBilledPartyIdentitySwap(row);
+  }
+  return row;
 }
 
 function applySubmitInvoiceTypeExtras(
@@ -171,9 +237,15 @@ function applySubmitInvoiceTypeExtras(
   };
   if (!isCreditOrDebitInvoiceType(invoiceTypeCode)) {
     next[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] = "";
-    next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "";
-    next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "";
-    next[FV.PRECEDING_INVOICE_UUID_FIELD] = "";
+    const txn = String(
+      next[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] ?? ""
+    ).trim();
+    // Keep IBR-175-OM preceding fields for Profit Margin Invoice.
+    if (txn !== FV.TXN_PROFIT_MARGIN_INVOICE) {
+      next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "";
+      next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "";
+      next[FV.PRECEDING_INVOICE_UUID_FIELD] = "";
+    }
     return next;
   }
   next[FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD] = FV.CREDIT_DEBIT_REASON_SAMPLE;
@@ -217,6 +289,56 @@ export function buildOmanMultiItemSubmitCases(): MultiItemSubmitInvoiceCase[] {
     for (const txnEntry of invoiceTransactionTypeValidTestData) {
       const invoiceTypeCode = typeEntry.label;
       const txn = txnEntry.label;
+      // IBR-086-OM: Profit Margin Self-Invoice MUST be tax category O on
+      // every line — skip this txn from the mixed 4-category matrix.
+      if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
+        continue;
+      }
+      // IBR-177-OM: drop self-billed document × disallowed txn pairs.
+      if (!isAllowedOmanSubmitTypeTxnPair(invoiceTypeCode, txn)) {
+        continue;
+      }
+      // IBR-138-OM: drop Self-billed ⊕ Third-party/Export/RCM/PM/Import bits.
+      if (FV.txnViolatesIbr138Om(txn)) {
+        continue;
+      }
+      // IBR-139-OM: drop Self-billed ⊕ Third-party bits.
+      if (FV.txnViolatesIbr139Om(txn)) {
+        continue;
+      }
+      // IBR-140-OM: drop Summary ⊕ Continuous/Export/PM/Import bits.
+      if (FV.txnViolatesIbr140Om(txn)) {
+        continue;
+      }
+      // IBR-141-OM: drop Continuous ⊕ Summary/Deemed/PM/Import descriptions.
+      if (FV.txnViolatesIbr141Om(txn)) {
+        continue;
+      }
+      // IBR-142-OM … IBR-149-OM: drop subject ⊕ named partner combinations.
+      if (FV.txnViolatesIbr142Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr143Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr144Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr145Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr146Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr147Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr148Om(txn)) {
+        continue;
+      }
+      if (FV.txnViolatesIbr149Om(txn)) {
+        continue;
+      }
       const commonStr = buildOmanSubmitDocumentRow(invoiceTypeCode, txn);
       const rows = LINE_DEFS.map((def) => overlayLine(commonStr, def, txn));
       cases.push({

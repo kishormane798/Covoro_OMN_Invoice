@@ -33,10 +33,10 @@ When **Charges On Document Level** or **Allowances On Document Level** are prese
 
 | Layer | Path | Change |
 |---|---|---|
-| Formula helper | `Helpers/formulaValidationHelper.ts` | After Profit Margin companions, fill/clear document VAT category + exemption from the final item tax; 2-line overlay with non-zero charges/allowances |
+| Formula helper | `Helpers/excel/formulaValidationHelper.ts` | After Profit Margin companions, fill/clear document VAT category + exemption from the final item tax; 2-line overlay with non-zero charges/allowances |
 | Formula spec | `tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts` | 2-line Standard accepted (OMR/USD) + Standard invoice-level mismatch; Zero/Exempt 2-line with charges not in this slice (no error-file, invoice `Error`) |
 | Conditional data | `testData/FieldValidations/ConditionalValidation.ts` | Empty VAT category error cases; Standard charge accepted (IBR-045-OM) |
-| Conditional builder | `Helpers/conditionalValidationHelper.ts` | Empty document VAT category must not blank item Tax Category |
+| Conditional builder | `Helpers/excel/conditionalValidationHelper.ts` | Empty document VAT category must not blank item Tax Category |
 | Conditional spec | existing IBR-062/064 and IBR-047/094 loops | No new describe required |
 
 ## Non-goals

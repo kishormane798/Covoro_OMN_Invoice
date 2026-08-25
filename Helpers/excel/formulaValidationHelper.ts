@@ -15,11 +15,11 @@ import {
   OMAN_HOME_CURRENCY,
   patchInvoiceDataCellInFile,
   patchInvoiceTextCellInFile,
-} from "../utils/invoiceExcel";
+} from "../../utils/excel/invoiceExcel";
 import { uploadAndVerify } from "./uploadHelper";
 import { runErrorValidation } from "./excelEditMessageCheck";
-import { defaultInvoiceData } from "../testData/FieldValidations/Min_max_field_validation";
-import * as FV from "../testData/FieldValidations/ConditionalValidation";
+import { defaultInvoiceData } from "../../testData/FieldValidations/Min_max_field_validation";
+import * as FV from "../../testData/FieldValidations/ConditionalValidation";
 import {
   applyPartyIdentifiersByTxnType,
 } from "./conditionalValidationHelper";
@@ -29,7 +29,7 @@ import {
   OMAN_BUYER_ELECTRONIC,
   OMAN_BUYER_VAT,
 } from "./fieldValidationExcelPackHelper";
-import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
+import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
 
 export const FOREIGN_CURRENCY_CODE = "USD";
 export const DEFAULT_FOREIGN_EXCHANGE_RATE = 3.67;

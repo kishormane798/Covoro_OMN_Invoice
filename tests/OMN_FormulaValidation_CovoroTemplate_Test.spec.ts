@@ -31,14 +31,13 @@ import {
   runIbr082OmScenario,
   CALCULATED_FIELD_MISMATCH_TARGETS,
   type FormulaScenarioRow,
-} from "../Helpers/formulaValidationHelper";
+} from "../Helpers/excel/formulaValidationHelper";
 import {
   getCachedInvoiceTemplateHeaders,
   hasHeaderLabel,
   templateSupportsGenerateInvoiceExcel,
-} from "../utils/invoiceExcel";
-
-const TEMPLATE = "Covoro";
+} from "../utils/excel/invoiceExcel";
+import { FORMULA_VALIDATION_TEMPLATE as TEMPLATE } from "../Helpers/excel/formulaValidationSpecSupport";
 
 test.describe(`Excel upload — formula validation (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel" });

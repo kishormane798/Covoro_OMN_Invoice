@@ -11,9 +11,9 @@ import fs from 'fs';
 import {
   type UploadTemplateUiMode,
   labelForUploadTemplateMode,
-} from '../Helpers/uploadHelper';
+} from '../Helpers/excel/uploadHelper';
 import { waitForLocatorWithPageRefresh } from '../Helpers/waitForWithPageRefresh';
-import { generatedFiles } from '../utils/invoiceExcel';
+import { generatedFiles } from '../utils/excel/invoiceExcel';
 
 const SELECTORS = {
     uploadButton: '#upload-invoice-btn',

@@ -4,15 +4,15 @@ import type { Page } from "@playwright/test";
 import {
   DashboardPage,
   INVOICE_DOWNLOAD_FORMAT_LABEL,
-} from "../pageObjects/OMN_DashboardPage";
-import { parallelWorkerDashboardOpenOpts } from "./parallelWorkerSubmitIdentity";
-import { flowLog } from "./diagnosticLog";
+} from "../../pageObjects/OMN_DashboardPage";
+import { parallelWorkerDashboardOpenOpts } from "../worker/parallelWorkerSubmitIdentity";
+import { flowLog } from "../diagnosticLog";
 import {
   compareInvoiceExcelRoundTrip,
   formatRoundTripMismatchMessage,
   readInvoiceExcelRoundTrip,
-} from "../utils/invoiceExcelRoundTrip";
-import { generatedFiles, getGeneratedInvoiceExcelDir } from "../utils/invoiceExcel";
+} from "../../utils/excel/invoiceExcelRoundTrip";
+import { generatedFiles, getGeneratedInvoiceExcelDir } from "../../utils/excel/invoiceExcel";
 
 export async function assertSingleLineUploadedExcelRoundTrip(
   page: Page,

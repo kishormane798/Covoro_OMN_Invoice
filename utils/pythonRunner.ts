@@ -1,5 +1,5 @@
 /**
- * Python bridge for Excel writers and validators (`utils/invoice_excel_writer.py`, etc.).
+ * Python bridge for Excel writers and validators (`utils/excel/invoice_excel_writer.py`, etc.).
  * Tries platform launchers in order (`py` / `python3` / `python`) with a 45s timeout.
  */
 import { execSync } from "child_process";

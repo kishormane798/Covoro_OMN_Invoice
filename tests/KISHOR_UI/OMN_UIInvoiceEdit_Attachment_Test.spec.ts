@@ -1,4 +1,4 @@
-﻿// UI SUITE DISABLED FOR OMN — entire file commented out (do not execute)
+// UI SUITE DISABLED FOR OMN — entire file commented out (do not execute)
 // import { test } from "../../Src/baseTest";
 // import {
 //   runUiEditAttachmentAtLimitSingleCase,
@@ -33,7 +33,7 @@
 // import {
 //   BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS,
 //   runBulkSubmitInvoiceCase,
-// } from "../../Helpers/submitInvoiceCaseHelper";
+// } from "../../Helpers/excel/submitInvoiceCaseHelper";
 // import { invoiceData } from "../../testData/ui/SubmitInvoice";
 // import {
 //   UI_ATTACHMENT_INVALID_FORMAT,

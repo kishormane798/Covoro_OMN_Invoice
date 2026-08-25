@@ -2,7 +2,7 @@
  * Oman PINT-OM conditional validation scenarios (Excel upload).
  * Source: Conditional Validations sheet + Peppol PINT OM. No UAE / BTUAE rules.
  *
- * Shared constants below are also imported by `utils/invoiceExcel.ts` for submit writes.
+ * Shared constants below are also imported by `utils/excel/invoiceExcel.ts` for submit writes.
  */
 
 import {
@@ -284,15 +284,103 @@ export const TXN_ECOMMERCE_TRANSACTION = "E-commerce Transaction";
 export const TXN_PREPAYMENT_INVOICE = "Prepayment Invoice";
 
 /**
- * Peppol BTOM-001 20-bit patterns (PINT-OM). Covoro Excel usually uses Master
- * labels (one primary bit); mutual-exclusion conflict rows write an OR'd bit
- * string so Prepayment + Summary/Deemed/PM-Self can both be set on one field.
+ * Peppol BTOM-001 20-bit patterns (documentation / pack internals only).
+ * Covoro Excel `Invoice Transaction Type Code` MUST be a Master.omnCore
+ * label (e.g. "Summary Invoice"), never these 0/1 strings.
  */
+/** Peppol Self-billed Invoice/credit note (XX1XXXXXXXXXXXXXXXXX) — 1 at position 3. */
+export const TXN_BIT_SELF_BILLED = "00100000000000000000";
+/** Peppol Third-party Invoice (XXX1XXXXXXXXXXXXXXXX) — 1 at position 4. */
+export const TXN_BIT_THIRD_PARTY = "00010000000000000000";
 export const TXN_BIT_SUMMARY = "00001000000000000000";
+export const TXN_BIT_CONTINUOUS = "00000100000000000000";
+export const TXN_BIT_EXPORT = "00000010000000000000";
 export const TXN_BIT_DEEMED_SUPPLY = "00000001000000000000";
+/** Peppol Import of services for RCM (XXXXXXXX1XXXXXXXXXXX) — 1 at position 9. */
+export const TXN_BIT_IMPORT_SERVICES_RCM = "00000000100000000000";
+export const TXN_BIT_PROFIT_MARGIN = "00000000010000000000";
 export const TXN_BIT_PROFIT_MARGIN_SELF = "00000000001000000000";
+export const TXN_BIT_IMPORT_OF_GOODS = "00000000000010000000";
+/** Peppol E-commerce supplies (XXXXXXXXXXX1XXXXXXXX) — 1 at position 12. */
+export const TXN_BIT_ECOMMERCE = "00000000000100000000";
+/** Peppol Special Zone Supplies (XXXXXXXXXXXXX1XXXXXX) — 1 at position 14. */
+export const TXN_BIT_SPECIAL_ZONE = "00000000000001000000";
+/** Peppol Full Tax Invoice (1XXXXXXXXXXXXXXXXXXX) — 1 at position 1. */
+export const TXN_BIT_FULL_TAX = "10000000000000000000";
+/** Peppol Simplified Tax Invoice (X1XXXXXXXXXXXXXXXXXX) — 1 at position 2. */
+export const TXN_BIT_SIMPLIFIED = "01000000000000000000";
 /** Peppol Prepayment (XXXXXXXXXXXXXXX1XXXX) — 1 at position 16. */
 export const TXN_BIT_PREPAYMENT = "00000000000000010000";
+
+/** Master.omnCore label → Peppol 20-bit (internal only; Excel still gets the label). */
+export const OMAN_TXN_LABEL_TO_BIT: Readonly<Record<string, string>> = {
+  [TXN_FULL_TAX_INVOICE]: TXN_BIT_FULL_TAX,
+  [TXN_SIMPLIFIED_TAX_INVOICE]: TXN_BIT_SIMPLIFIED,
+  [TXN_SELF_BILLED_INVOICE]: TXN_BIT_SELF_BILLED,
+  [TXN_THIRD_PARTY_INVOICE]: TXN_BIT_THIRD_PARTY,
+  [TXN_SUMMARY_INVOICE]: TXN_BIT_SUMMARY,
+  [TXN_CONTINUOUS_SUPPLY]: TXN_BIT_CONTINUOUS,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_DEEMED_SUPPLY_INVOICE]: TXN_BIT_DEEMED_SUPPLY,
+  [TXN_IMPORT_OF_SERVICES_RCM]: TXN_BIT_IMPORT_SERVICES_RCM,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_ECOMMERCE_TRANSACTION]: TXN_BIT_ECOMMERCE,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+  [TXN_SPECIAL_ZONE_SUPPLIES]: TXN_BIT_SPECIAL_ZONE,
+  [TXN_PREPAYMENT_INVOICE]: TXN_BIT_PREPAYMENT,
+};
+
+/** True when BTOM-001 is a Peppol 20-bit string rather than a Master label. */
+export function isOmanTxnPeppolBitString(value: string): boolean {
+  return /^[01]{20}$/.test(String(value ?? "").trim());
+}
+
+/** Join Covoro Master dropdown descriptions for one BTOM-001 Excel cell. */
+export const combineOmanTxnTypeDescriptions = (
+  ...labels: string[]
+): string =>
+  labels
+    .map((x) => String(x ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+
+/** Map a Peppol 20-bit BTOM-001 string to Covoro Master description(s). */
+export function omanTxnBitsToExcelDescriptions(bits: string): string {
+  const s = String(bits ?? "")
+    .trim()
+    .replace(/X/gi, "0")
+    .padEnd(20, "0")
+    .slice(0, 20);
+  if (!/^[01]{20}$/.test(s)) {
+    return "";
+  }
+  const pairs: Array<[string, string]> = [
+    [TXN_BIT_FULL_TAX, TXN_FULL_TAX_INVOICE],
+    [TXN_BIT_SIMPLIFIED, TXN_SIMPLIFIED_TAX_INVOICE],
+    [TXN_BIT_SELF_BILLED, TXN_SELF_BILLED_INVOICE],
+    [TXN_BIT_THIRD_PARTY, TXN_THIRD_PARTY_INVOICE],
+    [TXN_BIT_SUMMARY, TXN_SUMMARY_INVOICE],
+    [TXN_BIT_CONTINUOUS, TXN_CONTINUOUS_SUPPLY],
+    [TXN_BIT_EXPORT, TXN_EXPORT_INVOICE],
+    [TXN_BIT_DEEMED_SUPPLY, TXN_DEEMED_SUPPLY_INVOICE],
+    [TXN_BIT_IMPORT_SERVICES_RCM, TXN_IMPORT_OF_SERVICES_RCM],
+    [TXN_BIT_PROFIT_MARGIN, TXN_PROFIT_MARGIN_INVOICE],
+    [TXN_BIT_PROFIT_MARGIN_SELF, TXN_PROFIT_MARGIN_SELF_INVOICE],
+    [TXN_BIT_ECOMMERCE, TXN_ECOMMERCE_TRANSACTION],
+    [TXN_BIT_IMPORT_OF_GOODS, TXN_IMPORT_OF_GOODS],
+    [TXN_BIT_SPECIAL_ZONE, TXN_SPECIAL_ZONE_SUPPLIES],
+    [TXN_BIT_PREPAYMENT, TXN_PREPAYMENT_INVOICE],
+  ];
+  const labels: string[] = [];
+  for (const [bit, label] of pairs) {
+    const idx = bit.indexOf("1");
+    if (idx >= 0 && s.charAt(idx) === "1") {
+      labels.push(label);
+    }
+  }
+  return combineOmanTxnTypeDescriptions(...labels);
+}
 
 /** OR Peppol BTOM-001 bit strings (X treated as 0). */
 export function combineOmanTxnTypeBits(...bits: string[]): string {
@@ -309,6 +397,17 @@ export function combineOmanTxnTypeBits(...bits: string[]): string {
     }
   }
   return out.join("");
+}
+
+/** True when BTOM-001 has both Self-billed and Third-party (bits or descriptions). */
+export function omanTxnCombinesSelfBilledAndThirdParty(txn: string): boolean {
+  return txnViolatesIbr139Om(txn);
+}
+
+/** IBR-139-OM: Self-billed cannot also be Third-party on the same BTOM-001 cell. */
+export function txnViolatesIbr139Om(txn: string): boolean {
+  const bits = normalizeOmanTxnBits(txn);
+  return bits.charAt(2) === "1" && bits.charAt(3) === "1";
 }
 
 export const SPECIAL_ZONE_LICENSE_SCHEME = "Special Zone License Number";
@@ -454,7 +553,7 @@ export type VatCategoryTaxAmountZ09Scenario = OmanConditionalScenario & {
   vatCategoryTaxAmount: string;
 };
 
-/** Mutual-exclusion BTOM-001 pairs (IBR-138…149-OM family). */
+/** Mutual-exclusion BTOM-001 pairs (IBR-149-OM representative). */
 export type TxnMutualExclusionScenario = OmanConditionalScenario & {
   /** Conflict bit-string written into Invoice Transaction Type Code. */
   invoiceTransactionTypeCode: string;
@@ -756,6 +855,48 @@ export type PrepaymentTxnExclusionScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
 };
 
+/**
+ * IBR-140-OM: Summary bit mutually exclusive with Continuous / Export /
+ * Profit margin / Profit Margin Self-Invoice / Import of Goods.
+ */
+export type SummaryTxnExclusionScenario = OmanConditionalScenario & {
+  /** Partner Master label for titles / companion overlays (empty = Summary-alone). */
+  conflictingTxnType: string;
+  /** Excel cell: Master description, or comma-joined descriptions for Not Allowed. */
+  invoiceTransactionTypeCode: string;
+  /** Master Invoice Type Code (expanded across OMAN_INVOICE_TYPES). */
+  invoiceTypeCode?: string;
+};
+
+/**
+ * IBR-141-OM: Continuous Supply mutually exclusive with Summary / Deemed /
+ * Profit margin / Profit Margin Self-Invoice / Import of Goods.
+ */
+export type ContinuousTxnExclusionScenario = OmanConditionalScenario & {
+  /** Partner Master label for titles / companion overlays (empty = Continuous-alone). */
+  conflictingTxnType: string;
+  /** Excel cell: Master description, or comma-joined descriptions for Not Allowed. */
+  invoiceTransactionTypeCode: string;
+  /** Master Invoice Type Code (expanded across OMAN_INVOICE_TYPES). */
+  invoiceTypeCode?: string;
+};
+
+/** IBR-142-OM … IBR-149-OM: BTOM-001 Master-description exclusion pairs. */
+export type TxnPairExclusionScenario = ContinuousTxnExclusionScenario;
+
+/**
+ * IBR-138-OM: Self-billed mutually exclusive with Third-party / Export /
+ * RCM / Profit margin / Profit Margin Self / Import of Goods on BTOM-001.
+ */
+export type SelfBilledTxnExclusionScenario = OmanConditionalScenario & {
+  /** Partner Master label for titles / companion overlays (empty = control). */
+  conflictingTxnType: string;
+  /** Excel cell: Master description, or comma-joined descriptions for Not Allowed. */
+  invoiceTransactionTypeCode: string;
+  /** Master Invoice Type Code (expanded across OMAN_INVOICE_TYPES). */
+  invoiceTypeCode?: string;
+};
+
 /** IBR-155-OM: Export + Export of Services → Service Type (CL-12) mandatory. */
 export type ExportServiceTypeScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
@@ -833,6 +974,378 @@ export const PREPAYMENT_EXCLUSION_PARTNER_BITS: Record<string, string> = {
   [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
 };
 
+/** IBR-140-OM partners that must not combine with Summary on BTOM-001. */
+export const IBR_140_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_EXPORT_INVOICE,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+] as const;
+
+export const IBR_140_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_CONTINUOUS_SUPPLY]: TXN_BIT_CONTINUOUS,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+};
+
+/** IBR-140-OM Allowed polarities: Summary and each partner as a single Master label. */
+export const IBR_140_ALLOWED_STANDALONE_TXN_TYPES = [
+  TXN_SUMMARY_INVOICE,
+  ...IBR_140_EXCLUSION_PARTNER_TXN_TYPES,
+] as const;
+
+/** IBR-141-OM partners that must not combine with Continuous Supply on BTOM-001. */
+export const IBR_141_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_SUMMARY_INVOICE,
+  TXN_DEEMED_SUPPLY_INVOICE,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+] as const;
+
+export const IBR_141_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_SUMMARY_INVOICE]: TXN_BIT_SUMMARY,
+  [TXN_DEEMED_SUPPLY_INVOICE]: TXN_BIT_DEEMED_SUPPLY,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+};
+
+/** IBR-141-OM Allowed polarities: Continuous Supply and each partner as a single Master label. */
+export const IBR_141_ALLOWED_STANDALONE_TXN_TYPES = [
+  TXN_CONTINUOUS_SUPPLY,
+  ...IBR_141_EXCLUSION_PARTNER_TXN_TYPES,
+] as const;
+
+/** IBR-138-OM partners that must not combine with Self-billed on BTOM-001. */
+export const SELF_BILLED_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_THIRD_PARTY_INVOICE,
+  TXN_EXPORT_INVOICE,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+] as const;
+
+export const SELF_BILLED_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_THIRD_PARTY_INVOICE]: TXN_BIT_THIRD_PARTY,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_IMPORT_OF_SERVICES_RCM]: TXN_BIT_IMPORT_SERVICES_RCM,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+};
+
+/** IBR-142-OM: Export Invoice cannot combine with these Master labels. */
+export const IBR_142_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_SELF_BILLED_INVOICE,
+  TXN_SUMMARY_INVOICE,
+  TXN_DEEMED_SUPPLY_INVOICE,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+] as const;
+
+export const IBR_142_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_SELF_BILLED_INVOICE]: TXN_BIT_SELF_BILLED,
+  [TXN_SUMMARY_INVOICE]: TXN_BIT_SUMMARY,
+  [TXN_DEEMED_SUPPLY_INVOICE]: TXN_BIT_DEEMED_SUPPLY,
+  [TXN_IMPORT_OF_SERVICES_RCM]: TXN_BIT_IMPORT_SERVICES_RCM,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+};
+
+/** IBR-143-OM: Deemed Supply Invoice cannot combine with these Master labels. */
+export const IBR_143_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_EXPORT_INVOICE,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+] as const;
+
+export const IBR_143_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_CONTINUOUS_SUPPLY]: TXN_BIT_CONTINUOUS,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+};
+
+/** IBR-144-OM: Import of Services (RCM) cannot combine with these Master labels. */
+export const IBR_144_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_EXPORT_INVOICE,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+  TXN_SELF_BILLED_INVOICE,
+] as const;
+
+export const IBR_144_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+  [TXN_SELF_BILLED_INVOICE]: TXN_BIT_SELF_BILLED,
+};
+
+/** IBR-145-OM: Profit Margin Invoice cannot combine with these Master labels. */
+export const IBR_145_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_SUMMARY_INVOICE,
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_EXPORT_INVOICE,
+  TXN_DEEMED_SUPPLY_INVOICE,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_SELF_BILLED_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+] as const;
+
+export const IBR_145_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_SUMMARY_INVOICE]: TXN_BIT_SUMMARY,
+  [TXN_CONTINUOUS_SUPPLY]: TXN_BIT_CONTINUOUS,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_DEEMED_SUPPLY_INVOICE]: TXN_BIT_DEEMED_SUPPLY,
+  [TXN_IMPORT_OF_SERVICES_RCM]: TXN_BIT_IMPORT_SERVICES_RCM,
+  [TXN_SELF_BILLED_INVOICE]: TXN_BIT_SELF_BILLED,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+};
+
+/** IBR-146-OM: Profit Margin Self-Invoice cannot combine with these Master labels. */
+export const IBR_146_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_SUMMARY_INVOICE,
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_EXPORT_INVOICE,
+  TXN_DEEMED_SUPPLY_INVOICE,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_SELF_BILLED_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+] as const;
+
+export const IBR_146_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_SUMMARY_INVOICE]: TXN_BIT_SUMMARY,
+  [TXN_CONTINUOUS_SUPPLY]: TXN_BIT_CONTINUOUS,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_DEEMED_SUPPLY_INVOICE]: TXN_BIT_DEEMED_SUPPLY,
+  [TXN_IMPORT_OF_SERVICES_RCM]: TXN_BIT_IMPORT_SERVICES_RCM,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_SELF_BILLED_INVOICE]: TXN_BIT_SELF_BILLED,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+};
+
+/** IBR-147-OM: Import of Goods cannot combine with these Master labels. */
+export const IBR_147_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_SUMMARY_INVOICE,
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_EXPORT_INVOICE,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_SELF_BILLED_INVOICE,
+  TXN_ECOMMERCE_TRANSACTION,
+] as const;
+
+export const IBR_147_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_SUMMARY_INVOICE]: TXN_BIT_SUMMARY,
+  [TXN_CONTINUOUS_SUPPLY]: TXN_BIT_CONTINUOUS,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_IMPORT_OF_SERVICES_RCM]: TXN_BIT_IMPORT_SERVICES_RCM,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_SELF_BILLED_INVOICE]: TXN_BIT_SELF_BILLED,
+  [TXN_ECOMMERCE_TRANSACTION]: TXN_BIT_ECOMMERCE,
+};
+
+/** IBR-148-OM: E-commerce Transaction cannot combine with Profit Margin Self-Invoice. */
+export const IBR_148_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+] as const;
+
+export const IBR_148_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+};
+
+/** IBR-149-OM: Simplified Tax Invoice cannot combine with these Master labels. */
+export const IBR_149_EXCLUSION_PARTNER_TXN_TYPES = [
+  TXN_SELF_BILLED_INVOICE,
+  TXN_THIRD_PARTY_INVOICE,
+  TXN_SUMMARY_INVOICE,
+  TXN_EXPORT_INVOICE,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+  TXN_SPECIAL_ZONE_SUPPLIES,
+] as const;
+
+export const IBR_149_EXCLUSION_PARTNER_BITS: Record<string, string> = {
+  [TXN_SELF_BILLED_INVOICE]: TXN_BIT_SELF_BILLED,
+  [TXN_THIRD_PARTY_INVOICE]: TXN_BIT_THIRD_PARTY,
+  [TXN_SUMMARY_INVOICE]: TXN_BIT_SUMMARY,
+  [TXN_EXPORT_INVOICE]: TXN_BIT_EXPORT,
+  [TXN_IMPORT_OF_SERVICES_RCM]: TXN_BIT_IMPORT_SERVICES_RCM,
+  [TXN_PROFIT_MARGIN_INVOICE]: TXN_BIT_PROFIT_MARGIN,
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: TXN_BIT_PROFIT_MARGIN_SELF,
+  [TXN_IMPORT_OF_GOODS]: TXN_BIT_IMPORT_OF_GOODS,
+  [TXN_SPECIAL_ZONE_SUPPLIES]: TXN_BIT_SPECIAL_ZONE,
+};
+
+/** Normalize Master label(s) or Peppol 20-bit BTOM-001 cell to a 0/1 string. */
+export function normalizeOmanTxnBits(txn: string): string {
+  const s = String(txn ?? "").trim();
+  const asBits = s.replace(/X/gi, "0");
+  if (/^[01]{20}$/.test(asBits)) {
+    return asBits;
+  }
+  if (/[,;|]/.test(s)) {
+    const parts = s
+      .split(/[,;|]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return combineOmanTxnTypeBits(...parts.map((part) => normalizeOmanTxnBits(part)));
+  }
+  return OMAN_TXN_LABEL_TO_BIT[s] ?? "00000000000000000000";
+}
+
+/**
+ * IBR-138-OM: Self-billed bit cannot be set together with Third-party, Export,
+ * Import of Services (RCM), Profit margin, Profit Margin Self-Invoice, or
+ * Import of Goods on the same BTOM-001 cell.
+ */
+export function txnViolatesIbr138Om(txn: string): boolean {
+  const bits = normalizeOmanTxnBits(txn);
+  if (bits.charAt(2) !== "1") {
+    return false;
+  }
+  return Object.values(SELF_BILLED_EXCLUSION_PARTNER_BITS).some((partnerBit) => {
+    const idx = partnerBit.indexOf("1");
+    return idx >= 0 && bits.charAt(idx) === "1";
+  });
+}
+
+/**
+ * IBR-140-OM: Summary bit cannot be set together with Continuous, Export,
+ * Profit margin, Profit Margin Self-Invoice, or Import of Goods on the
+ * same BTOM-001 cell.
+ */
+export function txnViolatesIbr140Om(txn: string): boolean {
+  const bits = normalizeOmanTxnBits(txn);
+  if (bits.charAt(4) !== "1") {
+    return false;
+  }
+  return Object.values(IBR_140_EXCLUSION_PARTNER_BITS).some((partnerBit) => {
+    const idx = partnerBit.indexOf("1");
+    return idx >= 0 && bits.charAt(idx) === "1";
+  });
+}
+
+/**
+ * IBR-141-OM: Continuous Supply bit cannot be set together with Summary,
+ * Deemed Supply, Profit margin, Profit Margin Self-Invoice, or Import of
+ * Goods on the same BTOM-001 cell.
+ */
+export function txnViolatesIbr141Om(txn: string): boolean {
+  const bits = normalizeOmanTxnBits(txn);
+  if (bits.charAt(5) !== "1") {
+    return false;
+  }
+  return Object.values(IBR_141_EXCLUSION_PARTNER_BITS).some((partnerBit) => {
+    const idx = partnerBit.indexOf("1");
+    return idx >= 0 && bits.charAt(idx) === "1";
+  });
+}
+
+function txnCombinesSubjectWithAnyPartner(
+  txn: string,
+  subjectBit: string,
+  partnerBits: Record<string, string>
+): boolean {
+  const bits = normalizeOmanTxnBits(txn);
+  const subjectIdx = subjectBit.indexOf("1");
+  if (subjectIdx < 0 || bits.charAt(subjectIdx) !== "1") {
+    return false;
+  }
+  return Object.values(partnerBits).some((partnerBit) => {
+    const idx = partnerBit.indexOf("1");
+    return idx >= 0 && bits.charAt(idx) === "1";
+  });
+}
+
+/** IBR-142-OM: Export Invoice cannot combine with named exclusion partners. */
+export function txnViolatesIbr142Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_EXPORT,
+    IBR_142_EXCLUSION_PARTNER_BITS
+  );
+}
+
+/** IBR-143-OM: Deemed Supply Invoice cannot combine with named exclusion partners. */
+export function txnViolatesIbr143Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_DEEMED_SUPPLY,
+    IBR_143_EXCLUSION_PARTNER_BITS
+  );
+}
+
+/** IBR-144-OM: Import of Services (RCM) cannot combine with named exclusion partners. */
+export function txnViolatesIbr144Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_IMPORT_SERVICES_RCM,
+    IBR_144_EXCLUSION_PARTNER_BITS
+  );
+}
+
+/** IBR-145-OM: Profit Margin Invoice cannot combine with named exclusion partners. */
+export function txnViolatesIbr145Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_PROFIT_MARGIN,
+    IBR_145_EXCLUSION_PARTNER_BITS
+  );
+}
+
+/** IBR-146-OM: Profit Margin Self-Invoice cannot combine with named exclusion partners. */
+export function txnViolatesIbr146Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_PROFIT_MARGIN_SELF,
+    IBR_146_EXCLUSION_PARTNER_BITS
+  );
+}
+
+/** IBR-147-OM: Import of Goods cannot combine with named exclusion partners. */
+export function txnViolatesIbr147Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_IMPORT_OF_GOODS,
+    IBR_147_EXCLUSION_PARTNER_BITS
+  );
+}
+
+/** IBR-148-OM: E-commerce Transaction cannot combine with Profit Margin Self-Invoice. */
+export function txnViolatesIbr148Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_ECOMMERCE,
+    IBR_148_EXCLUSION_PARTNER_BITS
+  );
+}
+
+/** IBR-149-OM: Simplified Tax Invoice cannot combine with named exclusion partners. */
+export function txnViolatesIbr149Om(txn: string): boolean {
+  return txnCombinesSubjectWithAnyPartner(
+    txn,
+    TXN_BIT_SIMPLIFIED,
+    IBR_149_EXCLUSION_PARTNER_BITS
+  );
+}
+
 /**
  * Pack multi-value expand: one same-polarity workbook with one invoice row per
  * alternate OR trigger. Trigger-not-met TCs stay single-row (pack helper).
@@ -851,6 +1364,11 @@ export type MultiValuePackExpandSpec = {
    * value's Peppol bit (via `valueBits`) so the Excel cell carries both flags.
    */
   conflictBit?: string;
+  /**
+   * Covoro dropdown description to join with each `values` label on conflict
+   * rows (preferred over writing Peppol 0/1 strings).
+   */
+  conflictLabel?: string;
   valueBits?: Readonly<Record<string, string>>;
 };
 
@@ -926,116 +1444,87 @@ export const MULTI_VALUE_PACK_EXPAND: Readonly<
   },
   "IBR-138-OM": {
     dimension: "txnType",
-    values: [
-      TXN_THIRD_PARTY_INVOICE,
-      TXN_EXPORT_INVOICE,
-      TXN_IMPORT_OF_SERVICES_RCM,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-    ],
+    values: SELF_BILLED_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_SELF_BILLED_INVOICE,
+    conflictBit: TXN_BIT_SELF_BILLED,
+    valueBits: SELF_BILLED_EXCLUSION_PARTNER_BITS,
+  },
+  "IBR-139-OM": {
+    dimension: "txnType",
+    values: [TXN_THIRD_PARTY_INVOICE],
+    conflictLabel: TXN_SELF_BILLED_INVOICE,
+    conflictBit: TXN_BIT_SELF_BILLED,
+    valueBits: { [TXN_THIRD_PARTY_INVOICE]: TXN_BIT_THIRD_PARTY },
   },
   "IBR-140-OM": {
     dimension: "txnType",
-    values: [
-      TXN_CONTINUOUS_SUPPLY,
-      TXN_EXPORT_INVOICE,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-    ],
+    values: IBR_140_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_SUMMARY_INVOICE,
+    conflictBit: TXN_BIT_SUMMARY,
+    valueBits: IBR_140_EXCLUSION_PARTNER_BITS,
   },
   "IBR-141-OM": {
     dimension: "txnType",
-    values: [
-      TXN_SUMMARY_INVOICE,
-      TXN_DEEMED_SUPPLY_INVOICE,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-    ],
+    values: IBR_141_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_CONTINUOUS_SUPPLY,
+    conflictBit: TXN_BIT_CONTINUOUS,
+    valueBits: IBR_141_EXCLUSION_PARTNER_BITS,
   },
   "IBR-142-OM": {
     dimension: "txnType",
-    values: [
-      TXN_SELF_BILLED_INVOICE,
-      TXN_SUMMARY_INVOICE,
-      TXN_DEEMED_SUPPLY_INVOICE,
-      TXN_IMPORT_OF_SERVICES_RCM,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-    ],
+    values: IBR_142_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_EXPORT_INVOICE,
+    conflictBit: TXN_BIT_EXPORT,
+    valueBits: IBR_142_EXCLUSION_PARTNER_BITS,
   },
   "IBR-143-OM": {
     dimension: "txnType",
-    values: [
-      TXN_CONTINUOUS_SUPPLY,
-      TXN_EXPORT_INVOICE,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-    ],
+    values: IBR_143_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_DEEMED_SUPPLY_INVOICE,
+    conflictBit: TXN_BIT_DEEMED_SUPPLY,
+    valueBits: IBR_143_EXCLUSION_PARTNER_BITS,
   },
   "IBR-144-OM": {
     dimension: "txnType",
-    values: [
-      TXN_EXPORT_INVOICE,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-      TXN_SELF_BILLED_INVOICE,
-    ],
+    values: IBR_144_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_IMPORT_OF_SERVICES_RCM,
+    conflictBit: TXN_BIT_IMPORT_SERVICES_RCM,
+    valueBits: IBR_144_EXCLUSION_PARTNER_BITS,
   },
   "IBR-145-OM": {
     dimension: "txnType",
-    values: [
-      TXN_SUMMARY_INVOICE,
-      TXN_CONTINUOUS_SUPPLY,
-      TXN_EXPORT_INVOICE,
-      TXN_DEEMED_SUPPLY_INVOICE,
-      TXN_IMPORT_OF_SERVICES_RCM,
-      TXN_SELF_BILLED_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-    ],
+    values: IBR_145_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_PROFIT_MARGIN_INVOICE,
+    conflictBit: TXN_BIT_PROFIT_MARGIN,
+    valueBits: IBR_145_EXCLUSION_PARTNER_BITS,
   },
   "IBR-146-OM": {
     dimension: "txnType",
-    values: [
-      TXN_SUMMARY_INVOICE,
-      TXN_CONTINUOUS_SUPPLY,
-      TXN_EXPORT_INVOICE,
-      TXN_DEEMED_SUPPLY_INVOICE,
-      TXN_IMPORT_OF_SERVICES_RCM,
-      TXN_SELF_BILLED_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-    ],
+    values: IBR_146_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_PROFIT_MARGIN_SELF_INVOICE,
+    conflictBit: TXN_BIT_PROFIT_MARGIN_SELF,
+    valueBits: IBR_146_EXCLUSION_PARTNER_BITS,
   },
   "IBR-147-OM": {
     dimension: "txnType",
-    values: [
-      TXN_SUMMARY_INVOICE,
-      TXN_CONTINUOUS_SUPPLY,
-      TXN_EXPORT_INVOICE,
-      TXN_IMPORT_OF_SERVICES_RCM,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-      TXN_SELF_BILLED_INVOICE,
-      TXN_ECOMMERCE_TRANSACTION,
-    ],
+    values: IBR_147_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_IMPORT_OF_GOODS,
+    conflictBit: TXN_BIT_IMPORT_OF_GOODS,
+    valueBits: IBR_147_EXCLUSION_PARTNER_BITS,
+  },
+  "IBR-148-OM": {
+    dimension: "txnType",
+    values: IBR_148_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_ECOMMERCE_TRANSACTION,
+    conflictBit: TXN_BIT_ECOMMERCE,
+    valueBits: IBR_148_EXCLUSION_PARTNER_BITS,
   },
   "IBR-149-OM": {
     dimension: "txnType",
-    values: [
-      TXN_SELF_BILLED_INVOICE,
-      TXN_THIRD_PARTY_INVOICE,
-      TXN_SUMMARY_INVOICE,
-      TXN_EXPORT_INVOICE,
-      TXN_IMPORT_OF_SERVICES_RCM,
-      TXN_PROFIT_MARGIN_INVOICE,
-      TXN_PROFIT_MARGIN_SELF_INVOICE,
-      TXN_IMPORT_OF_GOODS,
-      TXN_SPECIAL_ZONE_SUPPLIES,
-    ],
+    values: IBR_149_EXCLUSION_PARTNER_TXN_TYPES,
+    conflictLabel: TXN_SIMPLIFIED_TAX_INVOICE,
+    conflictBit: TXN_BIT_SIMPLIFIED,
+    valueBits: IBR_149_EXCLUSION_PARTNER_BITS,
   },
   "IBR-016-OM": {
     dimension: "txnType",
@@ -1100,6 +1589,77 @@ export function expandAcrossSelfBilledDocumentTypes<
   );
 }
 
+/** Split a BTOM-001 Excel cell into Master description labels. */
+export function splitOmanTxnMasterLabels(cell: string): string[] {
+  return String(cell ?? "")
+    .split(/[,;|]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/**
+ * IBR-177-OM: Self-billed document invoice types may only use Self-billed /
+ * RCM / Profit Margin Self-Invoice / Import of Goods Master labels on
+ * BTOM-001. Used to skip invoice-type × txn pairs that would be rejected
+ * by IBR-177 before an IBR-138…149 mutual-exclusion assertion.
+ */
+export function isIbr177CompatibleInvoiceTxnPair(
+  invoiceTypeCode: string,
+  txnCell: string
+): boolean {
+  if (
+    !(SELF_BILLED_DOCUMENT_INVOICE_TYPES as readonly string[]).includes(
+      invoiceTypeCode
+    )
+  ) {
+    return true;
+  }
+  const labels = splitOmanTxnMasterLabels(txnCell);
+  if (labels.length === 0) {
+    return false;
+  }
+  return labels.every((label) =>
+    (SELF_BILLED_OR_RCM_TXN_TYPES as readonly string[]).includes(label)
+  );
+}
+
+/**
+ * Multiply IBR-138…149 polarity scenarios across every Master invoice type
+ * (`OMAN_INVOICE_TYPES` / `invoiceTypeCodeValidTestData`). Title gains
+ * ` | Invoice Type: {label}` before the rule id. Skips Self-billed document
+ * × txn cells that IBR-177 would reject first.
+ */
+export function expandTxnExclusionAcrossAllInvoiceTypes<
+  T extends {
+    title: string;
+    invoiceTransactionTypeCode: string;
+    invoiceTypeCode?: string;
+  },
+>(scenarios: readonly T[]): Array<T & { invoiceTypeCode: string }> {
+  const out: Array<T & { invoiceTypeCode: string }> = [];
+  for (const scenario of scenarios) {
+    for (const invoiceTypeCode of OMAN_INVOICE_TYPES) {
+      if (
+        !isIbr177CompatibleInvoiceTxnPair(
+          invoiceTypeCode,
+          scenario.invoiceTransactionTypeCode
+        )
+      ) {
+        continue;
+      }
+      out.push({
+        ...scenario,
+        invoiceTypeCode,
+        title: scenario.title.replace(
+          / \((IBR-\d+-OM)\)$/,
+          ` | Invoice Type: ${invoiceTypeCode} ($1)`
+        ),
+      });
+    }
+  }
+  return out;
+}
+
 /**
  * Expand one polarity across Summary / Deemed Supply / Profit Margin Self-Invoice.
  * Title must contain `{type}`. When `withPrepaymentBit`, cell is partner⊕Prepayment
@@ -1132,6 +1692,181 @@ export function expandAcrossPrepaymentExclusionPartners<
       title: template.title.replace(/\{type\}/g, partner),
     } as T;
   });
+}
+
+/**
+ * Expand one polarity across Third-party / Export / RCM / Profit margin /
+ * Profit Margin Self-Invoice / Import of Goods. Title must contain `{type}`.
+ * When `withSelfBilledBit`, cell is joined Master descriptions
+ * (`Self-billed Invoice, {partner}`); otherwise partner description alone.
+ */
+export function expandAcrossSelfBilledExclusionPartners<
+  T extends {
+    title: string;
+    conflictingTxnType: string;
+    invoiceTransactionTypeCode: string;
+  },
+>(
+  template: Omit<T, "conflictingTxnType" | "invoiceTransactionTypeCode"> & {
+    conflictingTxnType?: string;
+    invoiceTransactionTypeCode?: string;
+    withSelfBilledBit?: boolean;
+  }
+): T[] {
+  const withSelfBilled = Boolean(template.withSelfBilledBit);
+  return SELF_BILLED_EXCLUSION_PARTNER_TXN_TYPES.map((partner) => {
+    const invoiceTransactionTypeCode = withSelfBilled
+      ? combineOmanTxnTypeDescriptions(TXN_SELF_BILLED_INVOICE, partner)
+      : partner;
+    const { withSelfBilledBit: _omit, ...rest } = template;
+    return {
+      ...rest,
+      conflictingTxnType: partner,
+      invoiceTransactionTypeCode,
+      title: template.title.replace(/\{type\}/g, partner),
+    } as T;
+  });
+}
+
+/**
+ * Expand one polarity across IBR-140-OM Summary exclusion partners.
+ * Title must contain `{type}`. Excel cell is the partner Master description,
+ * or comma-joined Summary + partner descriptions when `withSummaryBit`.
+ */
+export function expandAcrossIbr140ExclusionPartners<
+  T extends {
+    title: string;
+    conflictingTxnType: string;
+    invoiceTransactionTypeCode: string;
+  },
+>(
+  template: Omit<T, "conflictingTxnType" | "invoiceTransactionTypeCode"> & {
+    conflictingTxnType?: string;
+    invoiceTransactionTypeCode?: string;
+    withSummaryBit?: boolean;
+  }
+): T[] {
+  const withSummary = Boolean(template.withSummaryBit);
+  return IBR_140_EXCLUSION_PARTNER_TXN_TYPES.map((partner) => {
+    const invoiceTransactionTypeCode = withSummary
+      ? combineOmanTxnTypeDescriptions(TXN_SUMMARY_INVOICE, partner)
+      : partner;
+    const { withSummaryBit: _omit, ...rest } = template;
+    return {
+      ...rest,
+      conflictingTxnType: partner,
+      invoiceTransactionTypeCode,
+      title: template.title.replace(/\{type\}/g, partner),
+    } as T;
+  });
+}
+
+/**
+ * Expand one polarity across IBR-141-OM Continuous Supply exclusion partners.
+ * Title must contain `{type}`. Excel cell is the partner Master description,
+ * or comma-joined Continuous + partner descriptions when `withContinuousBit`.
+ */
+export function expandAcrossIbr141ExclusionPartners<
+  T extends {
+    title: string;
+    conflictingTxnType: string;
+    invoiceTransactionTypeCode: string;
+  },
+>(
+  template: Omit<T, "conflictingTxnType" | "invoiceTransactionTypeCode"> & {
+    conflictingTxnType?: string;
+    invoiceTransactionTypeCode?: string;
+    withContinuousBit?: boolean;
+  }
+): T[] {
+  const withContinuous = Boolean(template.withContinuousBit);
+  return IBR_141_EXCLUSION_PARTNER_TXN_TYPES.map((partner) => {
+    const invoiceTransactionTypeCode = withContinuous
+      ? combineOmanTxnTypeDescriptions(TXN_CONTINUOUS_SUPPLY, partner)
+      : partner;
+    const { withContinuousBit: _omit, ...rest } = template;
+    return {
+      ...rest,
+      conflictingTxnType: partner,
+      invoiceTransactionTypeCode,
+      title: template.title.replace(/\{type\}/g, partner),
+    } as T;
+  });
+}
+
+/**
+ * Expand one polarity across a BTOM-001 exclusion partner list.
+ * Title must contain `{type}`. Excel cell is the partner Master description,
+ * or comma-joined subject + partner descriptions when `withSubject`.
+ */
+export function expandAcrossTxnExclusionPartners<
+  T extends {
+    title: string;
+    conflictingTxnType: string;
+    invoiceTransactionTypeCode: string;
+  },
+>(
+  subjectLabel: string,
+  partners: readonly string[],
+  template: Omit<T, "conflictingTxnType" | "invoiceTransactionTypeCode"> & {
+    conflictingTxnType?: string;
+    invoiceTransactionTypeCode?: string;
+    withSubject?: boolean;
+  }
+): T[] {
+  const withSubject = Boolean(template.withSubject);
+  return partners.map((partner) => {
+    const invoiceTransactionTypeCode = withSubject
+      ? combineOmanTxnTypeDescriptions(subjectLabel, partner)
+      : partner;
+    const { withSubject: _omit, ...rest } = template;
+    return {
+      ...rest,
+      conflictingTxnType: partner,
+      invoiceTransactionTypeCode,
+      title: template.title.replace(/\{type\}/g, partner),
+    } as T;
+  });
+}
+
+function buildTxnPairExclusionScenarios(
+  ruleId: string,
+  subjectLabel: string,
+  partners: readonly string[],
+  subjectAloneWhenClause: string
+): TxnPairExclusionScenario[] {
+  return expandTxnExclusionAcrossAllInvoiceTypes([
+    ...expandAcrossTxnExclusionPartners<TxnPairExclusionScenario>(
+      subjectLabel,
+      partners,
+      {
+        ruleId,
+        title: `Given {type} — When ${subjectLabel} is not combined — Then the invoice should be accepted. (${ruleId})`,
+        withSubject: false,
+        shouldError: false,
+        expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+      }
+    ),
+    ...expandAcrossTxnExclusionPartners<TxnPairExclusionScenario>(
+      subjectLabel,
+      partners,
+      {
+        ruleId,
+        title: `Given ${subjectLabel} combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
+        withSubject: true,
+        shouldError: true,
+        expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+      }
+    ),
+    {
+      ruleId,
+      title: `Given ${subjectLabel} alone — When ${subjectAloneWhenClause} — Then the invoice should be accepted. (${ruleId})`,
+      conflictingTxnType: "",
+      invoiceTransactionTypeCode: subjectLabel,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    },
+  ]);
 }
 
 /**
@@ -2165,6 +2900,18 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     expectedErrorField: ITEM_COUNTRY_OF_ORIGIN_FIELD,
   },
   {
+    ruleId: "IBR-084-OM",
+    title:
+      "Given Full Tax Invoice — When country of origin is left empty — Then the invoice should be accepted. (IBR-084-OM)",
+    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    itemCountryOfOrigin: "",
+    importDate: "",
+    customsDeclarationNumber: "",
+    incoterms: "",
+    shouldError: false,
+    expectedErrorField: ITEM_COUNTRY_OF_ORIGIN_FIELD,
+  },
+  {
     ruleId: "IBR-085-OM",
     title:
       "Given Import of Goods — When customs declaration number is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
@@ -2620,6 +3367,240 @@ export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
     },
   ];
+
+// ---------------------------------------------------------------------------
+// selfBilledTxnExclusion (IBR-138-OM)
+// ---------------------------------------------------------------------------
+/**
+ * IBR-138-OM: Self-billed cannot combine with Third-party OR Export OR
+ * Import of Services (RCM) OR Profit margin invoice OR Profit Margin
+ * Self-Invoice OR Import of Goods on BTOM-001. Allowed = partner Master
+ * description without Self-billed; Not Allowed = joined Master descriptions
+ * (Self-billed Invoice, {partner}); control = Self-billed description alone.
+ * Expanded across every Master invoice type (IBR-177 skips incompatible
+ * Self-billed document × txn cells). Never write Peppol 0/1 bit-strings.
+ */
+export const SELF_BILLED_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario[] =
+  expandTxnExclusionAcrossAllInvoiceTypes([
+    ...expandAcrossSelfBilledExclusionPartners<SelfBilledTxnExclusionScenario>({
+      ruleId: "IBR-138-OM",
+      title:
+        "Given {type} — When Self-billed is not combined — Then the invoice should be accepted. (IBR-138-OM)",
+      withSelfBilledBit: false,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    }),
+    ...expandAcrossSelfBilledExclusionPartners<SelfBilledTxnExclusionScenario>({
+      ruleId: "IBR-138-OM",
+      title:
+        "Given Self-billed combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-138-OM)",
+      withSelfBilledBit: true,
+      shouldError: true,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    }),
+    {
+      ruleId: "IBR-138-OM",
+      title:
+        "Given Self-billed alone — When Third-party, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined — Then the invoice should be accepted. (IBR-138-OM)",
+      conflictingTxnType: "",
+      invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    },
+  ]);
+
+// ---------------------------------------------------------------------------
+// thirdPartyVsSelfBilledExclusion (IBR-139-OM)
+// ---------------------------------------------------------------------------
+/**
+ * IBR-139-OM: cannot be Third-party Invoice if Self-billed Invoice/credit
+ * note on BTOM-001. Allowed = Third-party without Self-billed, plus
+ * Self-billed-alone; Not Allowed = combined Master descriptions in one cell.
+ * Expanded across every Master invoice type (IBR-177 aware).
+ */
+export const IBR_139_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario[] =
+  expandTxnExclusionAcrossAllInvoiceTypes([
+    {
+      ruleId: "IBR-139-OM",
+      title:
+        "Given Third-party Invoice — When Self-billed is not combined — Then the invoice should be accepted. (IBR-139-OM)",
+      conflictingTxnType: TXN_THIRD_PARTY_INVOICE,
+      invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-139-OM",
+      title:
+        "Given Self-billed combined with Third-party Invoice — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-139-OM)",
+      conflictingTxnType: TXN_THIRD_PARTY_INVOICE,
+      invoiceTransactionTypeCode: combineOmanTxnTypeDescriptions(
+        TXN_SELF_BILLED_INVOICE,
+        TXN_THIRD_PARTY_INVOICE
+      ),
+      shouldError: true,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-139-OM",
+      title:
+        "Given Self-billed alone — When Third-party is not combined — Then the invoice should be accepted. (IBR-139-OM)",
+      conflictingTxnType: "",
+      invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    },
+  ]);
+
+
+// ---------------------------------------------------------------------------
+// summaryTxnExclusion (IBR-140-OM)
+// ---------------------------------------------------------------------------
+/**
+ * IBR-140-OM: Summary cannot combine with Continuous OR Export OR
+ * Profit Margin Invoice OR Profit Margin Self-Invoice OR Import of Goods
+ * on BTOM-001. Allowed = partner Master description without Summary, plus
+ * Summary-alone; Not Allowed = comma-joined Master descriptions (never
+ * Peppol bit-strings). Expanded across every Master invoice type.
+ */
+export const SUMMARY_TXN_EXCLUSION_SCENARIOS: SummaryTxnExclusionScenario[] =
+  expandTxnExclusionAcrossAllInvoiceTypes([
+    ...expandAcrossIbr140ExclusionPartners<SummaryTxnExclusionScenario>({
+      ruleId: "IBR-140-OM",
+      title:
+        "Given {type} — When Summary is not combined — Then the invoice should be accepted. (IBR-140-OM)",
+      withSummaryBit: false,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    }),
+    ...expandAcrossIbr140ExclusionPartners<SummaryTxnExclusionScenario>({
+      ruleId: "IBR-140-OM",
+      title:
+        "Given Summary Invoice combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-140-OM)",
+      withSummaryBit: true,
+      shouldError: true,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    }),
+    {
+      ruleId: "IBR-140-OM",
+      title:
+        "Given Summary Invoice alone — When Continuous, Export, Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined — Then the invoice should be accepted. (IBR-140-OM)",
+      conflictingTxnType: "",
+      invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    },
+  ]);
+
+
+// ---------------------------------------------------------------------------
+// continuousTxnExclusion (IBR-141-OM)
+// ---------------------------------------------------------------------------
+/**
+ * IBR-141-OM: Continuous Supply cannot combine with Summary OR Deemed Supply
+ * OR Profit Margin Invoice OR Profit Margin Self-Invoice OR Import of Goods
+ * on BTOM-001. Allowed = partner Master description without Continuous, plus
+ * Continuous-alone; Not Allowed = comma-joined Master descriptions (never
+ * Peppol bit-strings). Expanded across every Master invoice type.
+ */
+export const CONTINUOUS_TXN_EXCLUSION_SCENARIOS: ContinuousTxnExclusionScenario[] =
+  expandTxnExclusionAcrossAllInvoiceTypes([
+    ...expandAcrossIbr141ExclusionPartners<ContinuousTxnExclusionScenario>({
+      ruleId: "IBR-141-OM",
+      title:
+        "Given {type} — When Continuous Supply is not combined — Then the invoice should be accepted. (IBR-141-OM)",
+      withContinuousBit: false,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    }),
+    ...expandAcrossIbr141ExclusionPartners<ContinuousTxnExclusionScenario>({
+      ruleId: "IBR-141-OM",
+      title:
+        "Given Continuous Supply combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-141-OM)",
+      withContinuousBit: true,
+      shouldError: true,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    }),
+    {
+      ruleId: "IBR-141-OM",
+      title:
+        "Given Continuous Supply alone — When Summary, Deemed Supply, Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined — Then the invoice should be accepted. (IBR-141-OM)",
+      conflictingTxnType: "",
+      invoiceTransactionTypeCode: TXN_CONTINUOUS_SUPPLY,
+      shouldError: false,
+      expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+    },
+  ]);
+
+/**
+ * IBR-142-OM … IBR-149-OM: BTOM-001 cannot combine the subject Master
+ * description with a named partner. Excel cell is always Master
+ * description(s), never Peppol 0/1 codes. Expanded across every Master
+ * invoice type via buildTxnPairExclusionScenarios.
+ */
+export const IBR_142_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-142-OM",
+    TXN_EXPORT_INVOICE,
+    IBR_142_EXCLUSION_PARTNER_TXN_TYPES,
+    "Self-billed, Summary, Deemed Supply, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined"
+  );
+
+export const IBR_143_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-143-OM",
+    TXN_DEEMED_SUPPLY_INVOICE,
+    IBR_143_EXCLUSION_PARTNER_TXN_TYPES,
+    "Continuous Supply, Export, Profit Margin, and Profit Margin Self-Invoice are not combined"
+  );
+
+export const IBR_144_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-144-OM",
+    TXN_IMPORT_OF_SERVICES_RCM,
+    IBR_144_EXCLUSION_PARTNER_TXN_TYPES,
+    "Export, Profit Margin, Profit Margin Self-Invoice, Import of Goods, and Self-billed are not combined"
+  );
+
+export const IBR_145_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-145-OM",
+    TXN_PROFIT_MARGIN_INVOICE,
+    IBR_145_EXCLUSION_PARTNER_TXN_TYPES,
+    "Summary, Continuous Supply, Export, Deemed Supply, Import of Services (RCM), Self-billed, and Import of Goods are not combined"
+  );
+
+export const IBR_146_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-146-OM",
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    IBR_146_EXCLUSION_PARTNER_TXN_TYPES,
+    "Summary, Continuous Supply, Export, Deemed Supply, Import of Services (RCM), Profit Margin, Import of Goods, and Self-billed are not combined"
+  );
+
+export const IBR_147_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-147-OM",
+    TXN_IMPORT_OF_GOODS,
+    IBR_147_EXCLUSION_PARTNER_TXN_TYPES,
+    "Summary, Continuous Supply, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, E-commerce, and Self-billed are not combined"
+  );
+
+export const IBR_148_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-148-OM",
+    TXN_ECOMMERCE_TRANSACTION,
+    IBR_148_EXCLUSION_PARTNER_TXN_TYPES,
+    "Profit Margin Self-Invoice is not combined"
+  );
+
+export const IBR_149_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  buildTxnPairExclusionScenarios(
+    "IBR-149-OM",
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    IBR_149_EXCLUSION_PARTNER_TXN_TYPES,
+    "Self-billed, Third-party, Summary, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, Import of Goods, and Special Zone Supplies are not combined"
+  );
 
 
 // ---------------------------------------------------------------------------
@@ -3870,48 +4851,10 @@ export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scena
   ];
 
 // ---------------------------------------------------------------------------
-// txnMutualExclusion (IBR-138…149-OM) — representative conflict pairs
+// txnMutualExclusion (IBR-149-OM) — full partner set, Master descriptions
 // ---------------------------------------------------------------------------
-export const TXN_MUTUAL_EXCLUSION_SCENARIOS: TxnMutualExclusionScenario[] = [
-  {
-    ruleId: "IBR-138-OM",
-    title:
-      "Given Self-billed combined with Third-party — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-138-OM)",
-    invoiceTransactionTypeCode: combineOmanTxnTypeBits(
-      "00100000000000000000",
-      "00010000000000000000"
-    ),
-    shouldError: true,
-    expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-  },
-  {
-    ruleId: "IBR-138-OM",
-    title:
-      "Given Self-billed alone — When the invoice is submitted — Then the invoice should be accepted. (IBR-138-OM)",
-    invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
-    shouldError: false,
-    expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-  },
-  {
-    ruleId: "IBR-149-OM",
-    title:
-      "Given Simplified combined with Self-billed — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-149-OM)",
-    invoiceTransactionTypeCode: combineOmanTxnTypeBits(
-      "01000000000000000000",
-      "00100000000000000000"
-    ),
-    shouldError: true,
-    expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-  },
-  {
-    ruleId: "IBR-149-OM",
-    title:
-      "Given Simplified alone — When the invoice is submitted — Then the invoice should be accepted. (IBR-149-OM)",
-    invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
-    shouldError: false,
-    expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-  },
-];
+export const TXN_MUTUAL_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
+  IBR_149_TXN_EXCLUSION_SCENARIOS;
 
 // ---------------------------------------------------------------------------
 // sellerVatMandatory (IBR-006-OM)
@@ -4755,6 +5698,24 @@ export const PROFIT_MARGIN_PRECEDING_SCENARIOS: ProfitMarginPrecedingScenario[] 
       precedingInvoiceUuid: "",
       shouldError: true,
       expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
+    },
+    {
+      ruleId: "IBR-175-OM",
+      title:
+        "Given Profit Margin — When preceding reference is left empty and UUID is provided — Then the invoice should be rejected with an error. (IBR-175-OM)",
+      precedingInvoiceReference: "",
+      precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+      shouldError: true,
+      expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
+    },
+    {
+      ruleId: "IBR-175-OM",
+      title:
+        "Given Profit Margin — When preceding UUID is left empty and reference is provided — Then the invoice should be rejected with an error. (IBR-175-OM)",
+      precedingInvoiceReference: "INV-PREV-175",
+      precedingInvoiceUuid: "",
+      shouldError: true,
+      expectedErrorField: PRECEDING_INVOICE_UUID_FIELD,
     },
   ];
 

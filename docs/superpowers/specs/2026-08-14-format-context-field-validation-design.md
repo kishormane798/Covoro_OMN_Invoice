@@ -40,8 +40,8 @@ Do not upload pre-generated matrix packs.
 | Spec | `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts` | Thin loop for new UUID scenarios |
 | Config | `testData/FieldValidations/` (new small module or extend existing) | Mutation rows: field, value, overlay, expect |
 | Config | `testData/FieldValidations/ConditionalValidation.ts` | Prepayment + supporting-document UUID scenarios |
-| Helper | `Helpers/fieldValidationHelper.ts` and/or overlay reuse from `Helpers/fieldValidationExcelPackHelper.ts` | Build workbook: overlay + single-field patch |
-| Helper | `Helpers/conditionalValidationHelper.ts` | Builders for the two new UUID fields if not already generic |
+| Helper | `Helpers/excel/fieldValidationHelper.ts` and/or overlay reuse from `Helpers/excel/fieldValidationExcelPackHelper.ts` | Build workbook: overlay + single-field patch |
+| Helper | `Helpers/excel/conditionalValidationHelper.ts` | Builders for the two new UUID fields if not already generic |
 
 Prefer reusing `applyDependentOverlay` / `generateInvoiceFromSubmitData` / `patchInvoiceTextCellInFile` over a second overlay engine.
 

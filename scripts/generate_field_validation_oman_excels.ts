@@ -15,7 +15,7 @@ import {
   writePackReadme,
   MATRIX_DEFAULT_PATH,
   PACK_ROOT,
-} from "../Helpers/fieldValidationExcelPackHelper";
+} from "../Helpers/excel/fieldValidationExcelPackHelper";
 
 function parseArgs(argv: string[]): {
   section?: string;

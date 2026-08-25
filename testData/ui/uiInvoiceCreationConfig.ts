@@ -1,11 +1,11 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under testData/ui/; executable code is commented out.
 //
 // /**
 //  * Create E-Invoice manual UI — re-exports section-ordered validation rules (Excel-aligned).
 //  */
 //
-// import { buildInvoiceNumber } from "../../Helpers/fieldValidationHelper";
+// import { buildInvoiceNumber } from "../../Helpers/excel/fieldValidationHelper";
 // import { getCounterpartyVatIdentifier } from "../../utils/envPartyIdentity";
 //
 // /** Per-test timeout for Create Invoice UI specs (no upload preamble). */

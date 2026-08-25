@@ -90,9 +90,9 @@ Update shared party-identifier helpers so every row they produce obeys XOR (sche
 | Config | `testData/FieldValidations/` (new module or extend `Min_max_field_validation.ts`) | Companion modes + expected outcomes for field-validation matrix |
 | Config | `testData/FieldValidations/Min_max_field_validation.ts` | Remove `Buyer Identifier (textual code)` and `Seller Identifier (textual code)` from `fieldValidationConditional` |
 | Spec | `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` | Skip buyer/seller identifier from generic length loop; add companion-matrix describe |
-| Helper | `Helpers/omanFieldValidationExcelHelper.ts` | `generateOmanPartyIdentifierLengthExcel({ party, companion, length })` |
-| Helper | `Helpers/fieldValidationExcelPackHelper.ts` | Stop dual-filling party-identifier companions |
-| Helper | `Helpers/conditionalValidationHelper.ts` | XOR in `applyPartyIdentifiersByTxnType` and buyer/seller identifier scenario builders |
+| Helper | `Helpers/excel/omanFieldValidationExcelHelper.ts` | `generateOmanPartyIdentifierLengthExcel({ party, companion, length })` |
+| Helper | `Helpers/excel/fieldValidationExcelPackHelper.ts` | Stop dual-filling party-identifier companions |
+| Helper | `Helpers/excel/conditionalValidationHelper.ts` | XOR in `applyPartyIdentifiersByTxnType` and buyer/seller identifier scenario builders |
 | Spec | `tests/OMN_ConditionalValidation_CovoroTemplate_Test.spec.ts` | No new matrix; existing IBR-007 / IBR-152/153 (and any overlay consumers) re-verified after helper XOR |
 
 ## Spec titles — field validation (examples)

@@ -6,10 +6,10 @@ This document explains the end-to-end upload path used by submit and validation 
 
 Primary code paths:
 
-- `Helpers/uploadHelper.ts`
+- `Helpers/excel/uploadHelper.ts`
 - `pageObjects/OMN_UploadInvoicePage.ts`
 - `pageObjects/OMN_DashboardPage.ts`
-- `Helpers/submitInvoiceCaseHelper.ts`
+- `Helpers/excel/submitInvoiceCaseHelper.ts`
 
 ## End-to-End Flow
 

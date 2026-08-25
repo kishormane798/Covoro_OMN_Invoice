@@ -1,16 +1,16 @@
 import type { Page } from "@playwright/test";
 import { test } from "../Src/baseTest";
-import { uploadAndVerify, uploadAndVerifyError } from "../Helpers/uploadHelper";
-import { generateInvoiceCurrencyExchangeBatchExcel } from "../utils/invoiceExcel";
+import { uploadAndVerify, uploadAndVerifyError } from "../Helpers/excel/uploadHelper";
+import { generateInvoiceCurrencyExchangeBatchExcel } from "../utils/excel/invoiceExcel";
 import * as FV from "../testData/FieldValidations";
 import { unitOfMeasurementValidTestData } from "../testData/Master";
 import {
   runErrorValidation,
   runErrorValidationForAnyOfFields,
   runErrorValidationPassIfLengthAccepted,
-} from "../Helpers/excelEditMessageCheck";
-import { buildInvoiceNumber, randomAlphaNumeric } from "../Helpers/fieldValidationHelper";
-import { generateFormatContextFieldExcel } from "../Helpers/formatContextFieldValidationHelper";
+} from "../Helpers/excel/excelEditMessageCheck";
+import { buildInvoiceNumber, randomAlphaNumeric } from "../Helpers/excel/fieldValidationHelper";
+import { generateFormatContextFieldExcel } from "../Helpers/excel/formatContextFieldValidationHelper";
 import {
   generateOmanDropdownMasterExcel,
   generateOmanExemptReasonExcel,
@@ -24,65 +24,18 @@ import {
   generateOmanPrepaymentPairExcel,
   generateOmanSeededFieldExcel,
   generateOmanSupportingDocumentPairExcel,
-  type DropdownWriteCasing,
-} from "../Helpers/omanFieldValidationExcelHelper";
-
-const TEMPLATE = "Covoro";
-const dropdownMasterOnCovoro = FV.mergeDropdownFieldConfigs(
-  FV.dropdownFieldMasterConfig,
-  FV.conditionalDropdownFieldMasterConfig
-);
-const dropdownInvalidOnCovoro = FV.mergeDropdownFieldConfigs(
-  FV.dropdownFieldInvalidConfig,
-  FV.documentChargesAllowancesDropdownInvalidConfig,
-  FV.conditionalDropdownFieldInvalidConfig
-);
-const NON_OMR_INVOICE_CURRENCY_CODES = FV.INVOICE_CURRENCY_DROPDOWN_CODES.filter(
-  (code) => code !== "OMR"
-);
-const DROPDOWN_TIMEOUT_MS = 6 * 60 * 1000;
-const UNIT_OF_MEASUREMENT_TIMEOUT_MS = 10 * 60 * 1000;
-const DROPDOWN_ACCEPT_CASINGS: Array<{
-  writeCasing: DropdownWriteCasing;
-  condition: string;
-}> = [
-  { writeCasing: "exact", condition: "exact master values" },
-  { writeCasing: "lower", condition: "lowercase master values" },
-  { writeCasing: "upper", condition: "uppercase master values" },
-];
-
-/**
- * Length-rule fields that need pattern/format suites (IBR-002 / IBR-003 / Tax Rate),
- * not random length strings.
- */
-const CONDITIONAL_LENGTH_SKIP = new Set([
-  // Covered by explicit accepted/error cases in the prepayment interdependency suite.
-  "Prepayment invoice number",
-  "Seller VAT Identifier (TRN / TIN)",
-  "Buyer VAT identifier",
-  "Third Party VATIN",
-  "Unique Identifier Number",
-  "Prepayment invoice UUID",
-  "Supporting document UUID",
-  "Tax Rate",
-  // Covered by Party identifier — companion length (XOR scheme/code matrix).
-  "Buyer identifier",
-  "Seller identifier",
-]);
-
-/** Numeric fields that need FX / accounting-currency / profit-margin txn context. */
-const NUMERIC_CONTEXT_SKIP = new Set([
-  "Currency Exchange Rate",
-  "Invoice total tax amount in tax accounting currency",
-  "Total amount due (profit margin)",
-]);
-
-const conditionalLengthConfigs = FV.fieldValidationConditional.filter(
-  (c) => !CONDITIONAL_LENGTH_SKIP.has(c.field)
-);
-const numericFieldConfigs = FV.fieldValidationNumeric.filter(
-  (c) => !NUMERIC_CONTEXT_SKIP.has(c.field)
-);
+} from "../Helpers/excel/omanFieldValidationExcelHelper";
+import {
+  FIELD_VALIDATION_TEMPLATE as TEMPLATE,
+  DROPDOWN_ACCEPT_CASINGS,
+  DROPDOWN_TIMEOUT_MS,
+  NON_OMR_INVOICE_CURRENCY_CODES,
+  UNIT_OF_MEASUREMENT_TIMEOUT_MS,
+  conditionalLengthConfigs,
+  dropdownInvalidOnCovoro,
+  dropdownMasterOnCovoro,
+  numericFieldConfigs,
+} from "../Helpers/excel/fieldValidationSpecSupport";
 
 test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel" });

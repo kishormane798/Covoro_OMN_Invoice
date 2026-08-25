@@ -14,7 +14,7 @@
 //   buildNearLimitMultiAttachmentPaths,
 //   buildNearLimitSingleAttachmentPath,
 //   buildOversizeAttachmentPath,
-// } from "../utils/uiAttachmentFiles";
+// } from "../utils/ui/uiAttachmentFiles";
 // import type {
 //   UiAttachmentAcceptScenario,
 //   UiAttachmentScenario,
@@ -24,7 +24,7 @@
 //   UI_ATTACHMENT_SIZE_ERROR,
 // } from "../../testData/ui/uiInvoiceAttachmentScenarios";
 // import { uploadBaselineInvoiceAndOpenEdit } from "./uiInvoiceEditEntryHelper";
-// import { flowLog } from "./diagnosticLog";
+// import { flowLog } from "../diagnosticLog";
 // 
 // /** Per-test budget: upload baseline + edit + attachment assert. */
 // export const UI_ATTACHMENT_TEST_TIMEOUT_MS = 3 * 60 * 1000;

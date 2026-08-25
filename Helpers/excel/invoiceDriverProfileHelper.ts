@@ -11,8 +11,8 @@ import {
   applySelfBilledDocumentInvoiceType,
   buildValidOmanFullTaxInvoiceRow,
 } from "./conditionalValidationHelper";
-import * as FV from "../testData/FieldValidations/ConditionalValidation";
-import { generateInvoiceFromSubmitData } from "../utils/invoiceExcel";
+import * as FV from "../../testData/FieldValidations/ConditionalValidation";
+import { generateInvoiceFromSubmitData } from "../../utils/excel/invoiceExcel";
 
 export type InvoiceDriverProfile = {
   invoiceTransactionTypeCode: string;

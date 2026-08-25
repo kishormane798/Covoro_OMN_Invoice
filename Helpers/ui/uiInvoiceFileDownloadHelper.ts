@@ -11,7 +11,7 @@
 //   type InvoiceFileDownloadResponse,
 //   type ReusableDashboardInvoice,
 // } from "../pageObjects/OMN_DashboardPage";
-// import { flowLog } from "./diagnosticLog";
+// import { flowLog } from "../diagnosticLog";
 // 
 // export { INVOICE_DOWNLOAD_FORMAT_LABEL };
 // 

@@ -2,11 +2,11 @@
  * Runtime field-validation Excel: full Oman seed (same as testcase packs), then
  * current worker seller + buyer identity, then patch one target field.
  */
-import * as FV from "../testData/FieldValidations";
+import * as FV from "../../testData/FieldValidations";
 import type {
   PartyIdentifierCompanion,
   PartyIdentifierParty,
-} from "../testData/FieldValidations/partyIdentifierCompanionLength";
+} from "../../testData/FieldValidations/partyIdentifierCompanionLength";
 import {
   applyDependentOverlay,
   applyPaidAmountPrepaymentCompanions,
@@ -26,13 +26,13 @@ import {
   applyServiceTypeDropdownValidationContext,
 } from "./conditionalValidationHelper";
 import { randomAlphaNumeric } from "./fieldValidationHelper";
-import { applyParallelWorkerIdentityToSubmitRow } from "./parallelWorkerSubmitIdentity";
+import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
 import {
   buyerSellerIdentifierCodeValidTestData,
   omanCountrySubdivisionValidTestData,
   profitMarginItemTypeValidTestData,
   schemeIdentifierValidTestData,
-} from "../testData/Master";
+} from "../../testData/Master";
 import {
   generateDistinctSubmitInvoices,
   generateFullRowDropdownFieldExcel,
@@ -41,12 +41,12 @@ import {
   patchInvoiceTextCellInFile,
   patchInvoiceTextCellsInFile,
   readInvoiceTextCellFromFile,
-} from "../utils/invoiceExcel";
+} from "../../utils/excel/invoiceExcel";
 import {
   formatOmanNumericBoundaryValue,
   type FieldLengthRule,
   type FieldNumericRule,
-} from "../testData/FieldValidations/Min_max_field_validation";
+} from "../../testData/FieldValidations/Min_max_field_validation";
 
 function lengthValue(length: number): string {
   if (length === 0) return "";

@@ -1,17 +1,17 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under testData/ui/; executable code is commented out.
 //
 // /**
 //  * Create Invoice manual UI — formula / auto-calculation checks (same math as Excel formula suite).
 //  */
 //
-// import type { FormulaScenarioRow } from "../../Helpers/formulaValidationHelper";
+// import type { FormulaScenarioRow } from "../../Helpers/excel/formulaValidationHelper";
 // import {
 //   CURRENCY_SUITES,
 //   type CurrencyMode,
 //   isScenarioApplicableForMode,
-// } from "../../Helpers/formulaValidationHelper";
-// import type { calculateInvoiceValues } from "../../utils/invoiceExcel";
+// } from "../../Helpers/excel/formulaValidationHelper";
+// import type { calculateInvoiceValues } from "../../utils/excel/invoiceExcel";
 // import { invoiceFormulaTestData } from "../FieldValidations/Min_max_field_validation";
 //
 // export { CURRENCY_SUITES, isScenarioApplicableForMode };

@@ -1,4 +1,4 @@
-﻿// MOVED TO ui/ — DISABLED FOR OMN
+// MOVED TO ui/ — DISABLED FOR OMN
 // This file was relocated under a ui/ subfolder; executable code is commented out.
 //
 // /**
@@ -58,9 +58,9 @@
 //   UI_PRECEDING_INVOICE_ISSUE_DATE_INPUT_ID,
 //   UI_PRECEDING_INVOICE_REFERENCE_INPUT_ID,
 // } from "../../testData/ui/uiInvoiceCreationCreditNote";
-// import { parallelWorkerDashboardOpenOpts } from "../Helpers/parallelWorkerSubmitIdentity";
+// import { parallelWorkerDashboardOpenOpts } from "../Helpers/worker/parallelWorkerSubmitIdentity";
 // import { waitForEInvoiceListValidatingGone } from "../Helpers/waitForWithPageRefresh";
-// import { buildUniqueSubmitInvoiceNumber } from "../utils/invoiceExcel";
+// import { buildUniqueSubmitInvoiceNumber } from "../utils/excel/invoiceExcel";
 // import { DashboardPage } from "./DashboardPage";
 // import {
 //   isNonUaeCountryCode,

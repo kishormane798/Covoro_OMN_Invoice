@@ -84,7 +84,7 @@ Pattern (same as field/conditional Covoro specs):
 
 - `import { test } from "../Src/baseTest"`
 - `import { multiItemInvoiceCases } from "../testData/FieldValidations"`
-- `import { runSubmitInvoiceMultiItemCase } from "../Helpers/submitInvoiceCaseHelper"`
+- `import { runSubmitInvoiceMultiItemCase } from "../Helpers/excel/submitInvoiceCaseHelper"`
 - `const TEMPLATE = "Covoro"`
 - `test.describe.configure({ mode: "parallel" })`
 - Timeout: existing multi-item submit timeout (8 minutes)
@@ -109,7 +109,7 @@ Picked up by `npm run test:covoro` (`tests/**/*CovoroTemplate*.spec.ts`).
 | `tests/kishorsubmit/testData/SubmitInvoiceMultiItem.ts` | Stop loading compact JSON; re-export `multiItemInvoiceCases` from `testData/FieldValidations/SubmitInvoiceMultiItem.ts`. |
 | `tests/sanitysubmit/OMN_SubmitInvoice_Sanity_Test.spec.ts` | Keep the file in sanitysubmit; switch `invoiceData[0]` to `multiItemInvoiceCases[0]` (FieldValidations generator) so empty `invoiceData` does not crash sanity. Do **not** copy the 480-case suite into that folder. |
 
-`Helpers/submitInvoiceCaseHelper.ts` stays a re-export of the existing runner.
+`Helpers/excel/submitInvoiceCaseHelper.ts` stays a re-export of the existing runner.
 
 ## Success criteria
 

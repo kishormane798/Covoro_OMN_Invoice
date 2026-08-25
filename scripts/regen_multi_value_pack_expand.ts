@@ -21,7 +21,7 @@ import {
   generateConditionalValidationExcelPack,
   writeConditionalPackReadme,
   PACK_ROOT,
-} from "../Helpers/conditionalValidationExcelPackHelper";
+} from "../Helpers/excel/conditionalValidationExcelPackHelper";
 import { MULTI_VALUE_PACK_EXPAND } from "../testData/FieldValidations/ConditionalValidation";
 
 type RuleSummary = {

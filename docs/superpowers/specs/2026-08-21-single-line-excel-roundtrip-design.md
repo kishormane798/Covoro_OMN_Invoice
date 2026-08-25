@@ -31,7 +31,7 @@ Upload **completed** only proves the file was accepted. It does not prove the in
 
 ## Trigger
 
-Hook after `uploadAndVerify` succeeds (`Helpers/uploadHelper.ts`).
+Hook after `uploadAndVerify` succeeds (`Helpers/excel/uploadHelper.ts`).
 
 `uploadAndVerify` already waits for upload-file **completed**. Then:
 
@@ -93,8 +93,8 @@ Do not fail on the first column only; report **all** mismatches in that message.
 
 | Layer | Path | Responsibility |
 |---|---|---|
-| Upload hook | `Helpers/uploadHelper.ts` | After completed, if single-line, call round-trip |
-| Orchestration | `Helpers/invoiceExcelRoundTripHelper.ts` (new) | Dashboard wait, click invoice number, download, compare |
+| Upload hook | `Helpers/excel/uploadHelper.ts` | After completed, if single-line, call round-trip |
+| Orchestration | `Helpers/excel/invoiceExcelRoundTripHelper.ts` (new) | Dashboard wait, click invoice number, download, compare |
 | Page object | `pageObjects/OMN_DashboardPage.ts` | Click invoice number on row; reuse Download Excel |
 | Excel I/O | `utils/` (extend existing Python/TS bridge; no second generator) | Read header+row from upload and download; compare map |
 

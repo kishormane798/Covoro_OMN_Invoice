@@ -14,7 +14,7 @@ import {
   writeFormulaPackReadme,
   MATRIX_DEFAULT_PATH,
   PACK_ROOT,
-} from "../Helpers/formulaValidationExcelPackHelper";
+} from "../Helpers/excel/formulaValidationExcelPackHelper";
 
 function parseArgs(argv: string[]): {
   section?: string;
