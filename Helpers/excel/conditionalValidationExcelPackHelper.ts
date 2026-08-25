@@ -151,17 +151,18 @@ const CONDITIONAL_FIELD_TO_ROW_KEY: Record<string, string> = {
   "Item classification identifier": "Item classification identifier",
   "Industrial Classification Code must be provided for each ITEM INFORMATION":
     "Industrial Classification Code",
-  "Delivery to Country code": "Deliver to country code",
-  "Deliver to Country code": "Deliver to country code",
+  "Delivery to Country code": "Deliver To Country Code",
+  "Deliver to Country code": "Deliver To Country Code",
   // Matrix prose names postal code; map to Deliver to post code (not address line 1).
   "Deliver to address line 1 - Postal code": "Deliver to post code",
-  "Customs Declaration number": "Customs Declaration number",
-  "Import date": "Import date",
+  "Customs Declaration number": "Customs Declaration Number",
+  "Import date": "Import Date",
   "Invoicing period start date": "Invoicing period start date",
   "Invoicing period Start date": "Invoicing period start date",
-  "Invoicing Period Start Date": "Invoicing period start date",
+  "Invoicing Period Start Date": "Invoicing Period Start Date",
   "Invoicing period end date": "Invoicing period end date",
   "Invoicing period End date": "Invoicing period end date",
+  "Invoicing Period End Date": "Invoicing Period End Date",
   // IBT-134 — no line-period column; proxy to document Invoicing Period Start Date.
   "Invoice line period start date": "Invoicing period start date",
   "Invoice line period Start date": "Invoicing period start date",
@@ -271,8 +272,6 @@ const CONDITIONAL_FIELD_TO_ROW_KEY: Record<string, string> = {
   // Invoicing period (IBR-036/037)
   "IBT-073": "Invoicing Period Start Date",
   "IBT-074": "Invoicing Period End Date",
-  "Invoicing Period Start Date": "Invoicing Period Start Date",
-  "Invoicing Period End Date": "Invoicing Period End Date",
   "Invoicing Period Start Date (IBT-073) – Invoicing Period End Date (IBT-074)":
     "Invoicing Period Start Date",
   "Invoicing Period Start Date (IBT-073) - Invoicing Period End Date (IBT-074)":
@@ -287,8 +286,6 @@ const CONDITIONAL_FIELD_TO_ROW_KEY: Record<string, string> = {
   "Invoice Line Period Start Date (IBT-134) / Invoice Line Period End Date (IBT-135)":
     "Invoicing Period Start Date",
   "VAT Category Rate (IBT-119)": "Tax Rate",
-  "IBT-119": "Tax Rate",
-  "IBT-118": "Tax Category",
   "Invoice Total Tax Amount in Accounting Currency (IBT-111)":
     "Invoice Total Tax Amount In Tax Accounting Currency",
   "IBG-31": "Industrial Classification Code",
@@ -313,8 +310,6 @@ const CONDITIONAL_FIELD_TO_ROW_KEY: Record<string, string> = {
   "Delivery to Country Code": "Deliver To Country Code",
   "Deliver to Country Code": "Deliver To Country Code",
   "Deliver To Country Code": "Deliver To Country Code",
-  "Delivery to Country code": "Deliver To Country Code",
-  "Deliver to Country code": "Deliver To Country Code",
   // Seller / buyer tax ids
   "IBT-031": "Seller VAT Identifier (TRN / TIN)",
   "IBT-048": "Buyer VAT Identifier",
@@ -355,8 +350,6 @@ const CONDITIONAL_FIELD_TO_ROW_KEY: Record<string, string> = {
   "IBT-158": "Item Classification Identifier",
   "Item Classification Identifier": "Item Classification Identifier",
   "Item Classification Identifier (HS Code)": "Item Classification Identifier",
-  "Item Classification Identifier (HS Code) (IBT-158)":
-    "Item Classification Identifier",
   "Item Classification Identifier (IBT-158) – Invoice Transaction Type (BTOM-001)":
     "Item Classification Identifier",
   "Item Classification Identifier (IBT-158) - Invoice Transaction Type (BTOM-001)":
@@ -369,9 +362,6 @@ const CONDITIONAL_FIELD_TO_ROW_KEY: Record<string, string> = {
   "Import Details": "Import Date",
   "BTOM-021": "Customs Declaration Number",
   "BTOM-022": "Incoterms",
-  "Customs Declaration Number": "Customs Declaration Number",
-  "Customs Declaration number": "Customs Declaration Number",
-  "Import date": "Import Date",
   "Import Date (BTOM-020)": "Import Date",
   // Prepayment / paid (IBR-058) + IBR-093 (non-OM): IBT-113 ≠ IBT-180
   "IBT-180": "Paid Amount",

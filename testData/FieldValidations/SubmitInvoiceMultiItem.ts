@@ -254,10 +254,11 @@ function overlayLine(
     [FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD]: def.hsCode,
     [FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD]: "",
   };
+  // CL-11-OM: BTOM-025 required on every line for Profit Margin txn types
+  // (goods and services).
   if (
-    (txn === FV.TXN_PROFIT_MARGIN_INVOICE ||
-      txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) &&
-    def.itemType === FV.ITEM_TYPE_GOODS
+    txn === FV.TXN_PROFIT_MARGIN_INVOICE ||
+    txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE
   ) {
     line[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
       FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;

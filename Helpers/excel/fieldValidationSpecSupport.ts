@@ -39,8 +39,7 @@ export const DROPDOWN_ACCEPT_CASINGS: Array<{
  * not random length strings.
  */
 export const CONDITIONAL_LENGTH_SKIP = new Set([
-  // Covered by explicit accepted/error cases in the prepayment interdependency suite.
-  "Prepayment invoice number",
+  // Format / pattern suites (format-context + Conditional IBR-002 / IBR-003).
   "Seller VAT Identifier (TRN / TIN)",
   "Buyer VAT identifier",
   "Third Party VATIN",
@@ -48,7 +47,10 @@ export const CONDITIONAL_LENGTH_SKIP = new Set([
   "Prepayment invoice UUID",
   "Supporting document UUID",
   "Tax Rate",
-  // Covered by Party identifier — companion length (XOR scheme/code matrix).
+  // Presence + length covered by Conditional IBR-CO-21.
+  "Item attribute name",
+  "Item attribute value",
+  // Presence covered by Conditional PARTY-ID; length stays in party companion suite.
   "Buyer identifier",
   "Seller identifier",
 ]);

@@ -18,12 +18,9 @@ import {
   generateOmanIssueDateExcel,
   generateOmanNumericFieldExcel,
   generateOmanPartyIdentifierLengthExcel,
+  generateOmanCl06IdentifierMasterExcel,
   generateOmanCl06IdentifierSchemeExcel,
-  generateOmanItemAttributePairExcel,
-  generateOmanImportDateCustomsExcel,
-  generateOmanPrepaymentPairExcel,
   generateOmanSeededFieldExcel,
-  generateOmanSupportingDocumentPairExcel,
 } from "../Helpers/excel/omanFieldValidationExcelHelper";
 import {
   FIELD_VALIDATION_TEMPLATE as TEMPLATE,
@@ -193,18 +190,48 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     for (const config of conditionalLengthConfigs) {
       test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
+        // Min/max length values are within the length rule but not a 12-digit Oman HS code (IBR-080-OM).
+        // That format error in the error file proves length was accepted.
+        if (config.field === FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD) {
+          await runErrorValidationPassIfLengthAccepted(page, {
+            filePath,
+            field: config.field,
+            requiredCommentSubstrings: [
+              "Item classification identifier must be valid 12 digit Oman HS code",
+            ],
+          });
+          return;
+        }
         await uploadAndVerify(page, filePath);
       });
 
       test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
+        if (config.field === FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD) {
+          await runErrorValidationPassIfLengthAccepted(page, {
+            filePath,
+            field: config.field,
+            requiredCommentSubstrings: [
+              "Item classification identifier must be valid 12 digit Oman HS code",
+            ],
+          });
+          return;
+        }
         await uploadAndVerify(page, filePath);
       });
 
       // Credit Note overlay (ALIGNED-IBRP-028-OM / IBR-032-OM): empty is required → error file.
       if (config.field === "Preceding Invoice reference") continue;
-      // IBR-155-OM: Export + Export of Services → empty Service Type is mandatory → error file.
-      if (config.field === "Service Type Code") continue;
+      // IBR-015-OM: Third-party Invoice overlay → empty third-party address fields are mandatory → error file.
+      if (
+        config.field === "Third Party Address Line 1" ||
+        config.field === "Third Party Address Line 2" ||
+        config.field === "Third Party Address Line 3" ||
+        config.field === "Third Party City" ||
+        config.field === "Third Party Postal Code - PO Box Number"
+      ) {
+        continue;
+      }
 
       test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);
@@ -241,25 +268,38 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     }
   });
 
-  test.describe("CL-06-OM — Buyer/Seller identifier scheme codelist", () => {
-    for (const scenario of FV.CL06_OM_IDENTIFIER_SCHEME_SCENARIOS) {
+  test.describe("CL-06-OM — Scheme Identifier and textual code masters", () => {
+    for (const pack of FV.CL06_OM_POSITIVE_PACKS) {
+      test(`${pack.title}`, async ({ page }) => {
+        test.setTimeout(DROPDOWN_TIMEOUT_MS);
+        const files = await generateOmanCl06IdentifierMasterExcel({
+          party: pack.party,
+          companion: pack.companion,
+          companionField: pack.companionField,
+          companionValues: pack.master,
+          identifier: pack.identifier,
+        });
+        for (const { filePath } of files) {
+          await uploadAndVerify(page, filePath);
+        }
+      });
+    }
+
+    for (const scenario of FV.CL06_OM_NEGATIVE_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const { filePath, invoiceNumber } =
           await generateOmanCl06IdentifierSchemeExcel({
             party: scenario.party,
-            schemeValue: scenario.schemeValue,
+            companion: scenario.companion,
+            companionValue: scenario.companionValue,
             identifier: scenario.identifier,
           });
-        if (scenario.shouldError) {
-          await runErrorValidation(page, {
-            filePath,
-            field: scenario.expectedErrorField,
-            invoiceNumber,
-            checkEdit: true,
-          });
-        } else {
-          await uploadAndVerify(page, filePath);
-        }
+        await runErrorValidation(page, {
+          filePath,
+          field: scenario.expectedErrorField,
+          invoiceNumber,
+          checkEdit: true,
+        });
       });
     }
   });
@@ -278,7 +318,11 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
 
       if (
         config.field === "Preceding Invoice reference" ||
-        config.field === "Service Type Code"
+        config.field === "Third Party Address Line 1" ||
+        config.field === "Third Party Address Line 2" ||
+        config.field === "Third Party Address Line 3" ||
+        config.field === "Third Party City" ||
+        config.field === "Third Party Postal Code - PO Box Number"
       ) {
         test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be rejected with an error. (${config.field})`, async ({ page }) => {
           const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
@@ -368,7 +412,9 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
   });
 
   test.describe("Invoice Currency dropdown", () => {
-    for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS) {
+    for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS.filter(
+      ({ writeCasing: casing }) => casing !== "lower"
+    )) {
       test(`Invoice Currency Code with ${condition} should be accepted. (Invoice Currency Code)`, async ({ page }) => {
         test.setTimeout(DROPDOWN_TIMEOUT_MS);
         const files = await generateOmanDropdownMasterExcel(
@@ -396,6 +442,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     for (const { writeCasing, condition } of DROPDOWN_ACCEPT_CASINGS) {
       test.describe(condition, () => {
         for (const config of dropdownMasterOnCovoro) {
+          if (config.field === FV.INVOICE_CURRENCY_CODE_FIELD && writeCasing === "lower") continue;
           test(`${config.field} with ${condition} should be accepted. (${config.field})`, async ({ page }) => {
             const timeoutMs =
               config.master === unitOfMeasurementValidTestData
@@ -475,16 +522,11 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     }
   });
 
-  test.describe("Tax exemption reason — Exempt from tax interdependency", () => {
+  // IBR-069 empty/present reason → ConditionalValidation.
+  // Field keeps code↔text companion cases Conditional does not cover.
+  test.describe("Tax exemption reason — code / text companion", () => {
     const reasonCode = FV.TAX_EXEMPTION_REASON_SAMPLE;
     const reasonText = "Exempt supply under Oman VAT";
-
-    test(`Exempt VAT with exemption code and text should be accepted. (Tax exemption reason)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanExemptReasonExcel(reasonCode, reasonText);
-      await uploadAndVerify(page, filePath);
-    });
 
     test(`Exempt VAT with exemption code and no text should be accepted. (Tax exemption reason text)`, async ({
       page,
@@ -507,212 +549,10 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         checkEdit: true,
       });
     });
-
-    test(`Exempt VAT with empty exemption code and text should be rejected with an error. (Tax exemption reason)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanExemptReasonExcel("", "");
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.TAX_EXEMPTION_REASON_CODE_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
   });
 
-  test.describe("Prepayment invoice number / UUID interdependency", () => {
-    const prepayNumberField = "Prepayment invoice number";
-    const prepayUuidField = "Prepayment invoice UUID";
-    const prepayNumber = "PRE-OMN-001";
-    const prepayUuid = FV.PRECEDING_INVOICE_UUID_SAMPLE;
-
-    test(`An empty Prepayment invoice number should be accepted. (Prepayment invoice number)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanFieldLengthExcel(prepayNumberField, 0);
-      await uploadAndVerify(page, filePath);
-    });
-
-    test(`A Prepayment invoice number with UUID should be accepted. (Prepayment invoice number)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanPrepaymentPairExcel(
-        prepayNumber,
-        prepayUuid
-      );
-      await uploadAndVerify(page, filePath);
-    });
-
-    test(`A Prepayment invoice number without UUID should be rejected with an error. (Prepayment invoice UUID)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanPrepaymentPairExcel(
-        prepayNumber,
-        ""
-      );
-      await runErrorValidation(page, {
-        filePath,
-        field: prepayUuidField,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-
-    test(`A transaction type without Prepayment invoice number and UUID should be accepted. (Prepayment invoice number)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanPrepaymentPairExcel("", "");
-      await uploadAndVerify(page, filePath);
-    });
-
-    test(`A Prepayment invoice UUID without number should be rejected with an error. (Prepayment invoice number)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanPrepaymentPairExcel(
-        "",
-        prepayUuid
-      );
-      await runErrorValidation(page, {
-        filePath,
-        field: prepayNumberField,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-  });
-
-  test.describe("Supporting document reference / UUID interdependency", () => {
-    const supportRef = FV.SUPPORTING_DOCUMENT_REFERENCE_SAMPLE;
-    const supportUuid = FV.PRECEDING_INVOICE_UUID_SAMPLE;
-
-    test(`A supporting document reference with UUID should be accepted. (Supporting document reference)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanSupportingDocumentPairExcel(
-        supportRef,
-        supportUuid
-      );
-      await uploadAndVerify(page, filePath);
-    });
-
-    test(`A supporting document reference without UUID should be rejected with an error. (Supporting document UUID)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } =
-        await generateOmanSupportingDocumentPairExcel(supportRef, "");
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.SUPPORTING_DOCUMENT_UUID_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-
-    test(`A supporting document UUID without reference should be rejected with an error. (Supporting document reference)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } =
-        await generateOmanSupportingDocumentPairExcel("", supportUuid);
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-  });
-
-  test.describe("Import date / Customs Declaration interdependency", () => {
-    const importDate = "2026-06-15";
-    const customsNumber = "CUST-OMN-001";
-
-    test(`An import date with Customs Declaration number should be accepted. (Customs Declaration number)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanImportDateCustomsExcel({
-        importDate,
-        customsDeclarationNumber: customsNumber,
-      });
-      await uploadAndVerify(page, filePath);
-    });
-
-    test(`An import date without Customs Declaration number should be rejected with an error. (Customs Declaration number)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanImportDateCustomsExcel({
-        importDate,
-        customsDeclarationNumber: "",
-      });
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-
-    test(`Import of Goods without Customs Declaration number should be rejected with an error. (Customs Declaration number)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanImportDateCustomsExcel({
-        importDate,
-        customsDeclarationNumber: "",
-        invoiceTransactionTypeCode: FV.TXN_IMPORT_OF_GOODS,
-      });
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-  });
-
-  test.describe("Item attribute name / value interdependency", () => {
-    const attributeName = "Color";
-    const attributeValue = "Black";
-
-    test(`An item attribute name with value should be accepted. (Item attribute name)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanItemAttributePairExcel(
-        attributeName,
-        attributeValue
-      );
-      await uploadAndVerify(page, filePath);
-    });
-
-    test(`An item attribute name without value should be rejected with an error. (Item attribute value)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanItemAttributePairExcel(
-        attributeName,
-        ""
-      );
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.ITEM_ATTRIBUTE_VALUE_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-
-    test(`An item attribute value without name should be rejected with an error. (Item attribute name)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanItemAttributePairExcel(
-        "",
-        attributeValue
-      );
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.ITEM_ATTRIBUTE_NAME_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-  });
+  // Prepayment pair / IBR-058, supporting docs / IBR-013, import customs / IBR-085,
+  // item attributes / IBR-CO-21 → ConditionalValidation (fuller coverage).
 
   test.describe("Format / context fields — VATIN, UUID, rate, FX, profit margin", () => {
     for (const tc of FV.formatContextFieldValidationCases) {

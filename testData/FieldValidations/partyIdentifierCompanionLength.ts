@@ -1,6 +1,8 @@
 /**
  * Buyer/Seller identifier free-text length cases with scheme/code companions.
  * Identifier may stand alone; scheme and/or textual code require identifier.
+ * Empty/companion presence XOR is covered by Conditional PARTY-ID — this suite
+ * only asserts min / max / above-max length under each companion mode.
  */
 import type { FieldLengthRule } from "./Min_max_field_validation";
 
@@ -84,12 +86,8 @@ function buildCasesForParty(
   party: PartyIdentifierParty,
   rule: FieldLengthRule
 ): PartyIdentifierLengthCase[] {
-  const kinds: PartyIdentifierLengthKind[] = [
-    "empty",
-    "min",
-    "max",
-    "aboveMax",
-  ];
+  // Presence empty/companion XOR lives in Conditional PARTY-ID; Field keeps length only.
+  const kinds: PartyIdentifierLengthKind[] = ["min", "max", "aboveMax"];
   const cases: PartyIdentifierLengthCase[] = [];
   for (const companion of COMPANIONS) {
     for (const lengthKind of kinds) {

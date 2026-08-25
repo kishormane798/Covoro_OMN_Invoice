@@ -198,7 +198,8 @@ function taxCategoryKey(value: string): string {
  *   charges/allowances VAT + Tax exemption reason - charges/allowances
  * - Exempt from tax → Tax Rate omitted + Exemption-* reason code/text
  *   + the same document charges/allowances companions
- * - Not subject to tax → Tax Rate omitted, no exemption reason
+ * - Not subject to tax → Tax Rate omitted, no exemption reason,
+ *   Line Item VAT Amount 0 (must not keep Full Tax seed 50 / Total 1050)
  * Exempt / not-subject lines also use Invoice out of scope of tax
  * (Commercial invoice cannot contain only E/O lines).
  */
@@ -240,7 +241,7 @@ function applyTaxCategoryDropdownColumns(
       "exempt"
     );
     next[FV.TAX_CATEGORY_FIELD] = taxCategory;
-    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
     return next;
   }
   if (isNotSubject) {
@@ -249,6 +250,9 @@ function applyTaxCategoryDropdownColumns(
     row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
     row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
     row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    // Companion patch after generateDistinctSubmitInvoices rewrites Line Item VAT
+    // from this object — must not keep Full Tax seed "50" (Total stays calc'd net).
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
   }
   return row;
 }
@@ -580,6 +584,21 @@ export async function generateOmanDropdownMasterExcel(
           value: String(lineVat),
           dataRow,
         });
+        // Zero / Exempt / Not subject force VAT 0; keep BTOM-017 = line net after this patch.
+        if (String(lineVat).trim() === "0") {
+          const lineNet = String(
+            companions["Invoice line net amount"] ??
+              companions["Item net price"] ??
+              ""
+          ).trim();
+          if (lineNet) {
+            patches.push({
+              header: "Total amount including VAT",
+              value: lineNet,
+              dataRow,
+            });
+          }
+        }
       }
       for (const header of [
         FV.CHARGES_ON_DOCUMENT_LEVEL_FIELD,
@@ -722,116 +741,6 @@ export async function generateOmanExemptReasonExcel(
 }
 
 const PREPAY_NUMBER_FIELD = "Prepayment invoice number";
-const PREPAY_UUID_FIELD = "Prepayment invoice UUID";
-
-/**
- * Prepayment number + UUID pair (both-or-neither). Overlay fills prepayment
- * context; both cells are patched afterward so one-sided cases stay explicit.
- */
-export async function generateOmanPrepaymentPairExcel(
-  prepaymentNumber: string,
-  prepaymentUuid: string
-): Promise<{ filePath: string; invoiceNumber: string }> {
-  const generated = await generateOmanSeededFieldExcel(
-    PREPAY_NUMBER_FIELD,
-    prepaymentNumber
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    PREPAY_NUMBER_FIELD,
-    prepaymentNumber
-  );
-  patchInvoiceTextCellInFile(generated.filePath, PREPAY_UUID_FIELD, prepaymentUuid);
-  return generated;
-}
-
-/**
- * Supporting document reference + UUID pair (both-or-neither). Overlay fills
- * supporting-document context; both cells are patched afterward.
- */
-export async function generateOmanSupportingDocumentPairExcel(
-  supportingReference: string,
-  supportingUuid: string
-): Promise<{ filePath: string; invoiceNumber: string }> {
-  const generated = await generateOmanSeededFieldExcel(
-    FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD,
-    supportingReference
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    FV.SUPPORTING_DOCUMENT_REFERENCE_FIELD,
-    supportingReference
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    FV.SUPPORTING_DOCUMENT_UUID_FIELD,
-    supportingUuid
-  );
-  return generated;
-}
-
-/**
- * Import date + Customs Declaration pair (IBR-085-OM companion).
- * Full Tax + skip overlay isolates "customs required when Import date is provided".
- * Import of Goods uses the overlay so txn/date/incoterms/origin stay in play.
- */
-export async function generateOmanImportDateCustomsExcel(opts: {
-  importDate: string;
-  customsDeclarationNumber: string;
-  invoiceTransactionTypeCode?: string;
-}): Promise<{ filePath: string; invoiceNumber: string }> {
-  const txn = opts.invoiceTransactionTypeCode ?? FV.TXN_FULL_TAX_INVOICE;
-  const isImportOfGoods = txn === FV.TXN_IMPORT_OF_GOODS;
-  const generated = await generateOmanSeededFieldExcel(
-    FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
-    opts.customsDeclarationNumber,
-    { skipDependentOverlay: !isImportOfGoods }
-  );
-  if (!isImportOfGoods) {
-    patchInvoiceTextCellInFile(
-      generated.filePath,
-      FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-      txn
-    );
-    patchInvoiceTextCellInFile(
-      generated.filePath,
-      FV.IMPORT_DATE_FIELD,
-      opts.importDate
-    );
-  }
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    FV.CUSTOMS_DECLARATION_NUMBER_FIELD,
-    opts.customsDeclarationNumber
-  );
-  return generated;
-}
-
-/**
- * Item attribute name + value pair (IBR-CO-21: both-or-neither).
- * Both cells are patched afterward so one-without-the-other error cases stay empty.
- */
-export async function generateOmanItemAttributePairExcel(
-  itemAttributeName: string,
-  itemAttributeValue: string
-): Promise<{ filePath: string; invoiceNumber: string }> {
-  const generated = await generateOmanSeededFieldExcel(
-    FV.ITEM_ATTRIBUTE_NAME_FIELD,
-    itemAttributeName,
-    { skipDependentOverlay: true }
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    FV.ITEM_ATTRIBUTE_NAME_FIELD,
-    itemAttributeName
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    FV.ITEM_ATTRIBUTE_VALUE_FIELD,
-    itemAttributeValue
-  );
-  return generated;
-}
 
 /**
  * Buyer/Seller identifier length with scheme/code companions
@@ -880,12 +789,57 @@ export async function generateOmanPartyIdentifierLengthExcel(opts: {
 }
 
 /**
- * CL-06-OM: scheme XOR textual code — write Buyer/Seller Identifier list
- * (or an invalid label) on IBT-046-1 / IBT-029-1 and keep identifier present.
+ * CL-06-OM positive pack: multi-row Excel (dropdown-style) — one invoice row per
+ * master label on the companion column; XOR clears the other companion; identifier
+ * stays set on every cloned row.
+ */
+export async function generateOmanCl06IdentifierMasterExcel(opts: {
+  party: "buyer" | "seller";
+  companion: "scheme" | "code";
+  companionField: string;
+  companionValues: Array<string | { label: string }>;
+  identifier: string;
+}): Promise<Array<{ filePath: string; invoiceNumber: string }>> {
+  const identifierField =
+    opts.party === "buyer" ? BUYER_IDENTIFIER_FIELD : SELLER_IDENTIFIER_FIELD;
+  const schemeField =
+    opts.party === "buyer" ? BUYER_SCHEME_FIELD : SELLER_SCHEME_FIELD;
+  const codeField =
+    opts.party === "buyer" ? BUYER_CODE_FIELD : SELLER_CODE_FIELD;
+
+  const labels = opts.companionValues.map((item) =>
+    typeof item === "string" ? item : item.label
+  );
+  if (labels.length === 0) {
+    throw new Error("generateOmanCl06IdentifierMasterExcel: companionValues empty");
+  }
+
+  const seed = buildValidOmanFullTaxInvoiceRow();
+  const baseRow = applyParallelWorkerIdentityToSubmitRow({
+    ...seed,
+    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
+    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
+  });
+  baseRow[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+  baseRow[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  baseRow[identifierField] = opts.identifier;
+  baseRow[schemeField] = opts.companion === "scheme" ? labels[0] : "";
+  baseRow[codeField] = opts.companion === "code" ? labels[0] : "";
+
+  return generateFullRowDropdownFieldExcel(
+    opts.companionField,
+    labels.map((label) => ({ label })),
+    baseRow
+  );
+}
+
+/**
+ * CL-06-OM single companion value (used for invalid/negative cases).
  */
 export async function generateOmanCl06IdentifierSchemeExcel(opts: {
   party: "buyer" | "seller";
-  schemeValue: string;
+  companion: "scheme" | "code";
+  companionValue: string;
   identifier: string;
 }): Promise<{ filePath: string; invoiceNumber: string }> {
   const identifierField =
@@ -895,13 +849,17 @@ export async function generateOmanCl06IdentifierSchemeExcel(opts: {
   const codeField =
     opts.party === "buyer" ? BUYER_CODE_FIELD : SELLER_CODE_FIELD;
 
+  const schemeValue =
+    opts.companion === "scheme" ? opts.companionValue : "";
+  const codeValue = opts.companion === "code" ? opts.companionValue : "";
+
   const generated = await generateOmanSeededFieldExcel(
     identifierField,
     opts.identifier,
     { skipDependentOverlay: true }
   );
-  patchInvoiceTextCellInFile(generated.filePath, schemeField, opts.schemeValue);
-  patchInvoiceTextCellInFile(generated.filePath, codeField, "");
+  patchInvoiceTextCellInFile(generated.filePath, schemeField, schemeValue);
+  patchInvoiceTextCellInFile(generated.filePath, codeField, codeValue);
   patchInvoiceTextCellInFile(
     generated.filePath,
     identifierField,

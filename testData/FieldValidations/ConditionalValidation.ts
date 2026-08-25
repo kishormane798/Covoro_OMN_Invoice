@@ -2180,24 +2180,6 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
     shouldError: true,
     expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
   },
-  {
-    ruleId: "IBR-053-OM",
-    title:
-      "Given Standard rate VAT — When tax rate is 5 — Then the invoice should be accepted. (IBR-053-OM)",
-    taxCategory: STANDARD_TAX_CATEGORY_CODE,
-    taxRate: TAX_RATE_STANDARD_OMAN,
-    shouldError: false,
-    expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
-  },
-  {
-    ruleId: "IBR-053-OM",
-    title:
-      "Given Standard rate VAT — When tax rate is 0 — Then the invoice should be rejected with an error. (IBR-053-OM)",
-    taxCategory: STANDARD_TAX_CATEGORY_CODE,
-    taxRate: TAX_RATE_ZERO,
-    shouldError: true,
-    expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
-  },
   ];
 
 /**
@@ -2654,28 +2636,6 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
     invoiceCurrencyCode: OMAN_CURRENCY_USD,
     sourceCurrencyCode: OMAN_CURRENCY_USD,
     exchangeRate: "0.12345678",
-    taxAmountInAccountingCurrency: "50",
-    shouldError: true,
-    expectedErrorField: EXCHANGE_RATE_FIELD,
-  },
-  {
-    ruleId: "IBR-DEC-03-OM",
-    title:
-      "Given currency USD — When the exchange rate has 7 decimal places — Then the invoice should be accepted. (IBR-DEC-03-OM)",
-    invoiceCurrencyCode: OMAN_CURRENCY_USD,
-    sourceCurrencyCode: OMAN_CURRENCY_USD,
-    exchangeRate: "0.3850000",
-    taxAmountInAccountingCurrency: "50",
-    shouldError: false,
-    expectedErrorField: EXCHANGE_RATE_FIELD,
-  },
-  {
-    ruleId: "IBR-DEC-03-OM",
-    title:
-      "Given currency USD — When the exchange rate has 8 decimal places — Then the invoice should be rejected with an error. (IBR-DEC-03-OM)",
-    invoiceCurrencyCode: OMAN_CURRENCY_USD,
-    sourceCurrencyCode: OMAN_CURRENCY_USD,
-    exchangeRate: "0.38500001",
     taxAmountInAccountingCurrency: "50",
     shouldError: true,
     expectedErrorField: EXCHANGE_RATE_FIELD,

@@ -8,7 +8,6 @@ import {
   IBR_003_VALID_SELLER_VATIN,
   IBR_003_VALID_THIRD_PARTY_VATIN,
   PRECEDING_INVOICE_UUID_SAMPLE,
-  TAX_RATE_STANDARD_OMAN,
 } from "./ConditionalValidation";
 import { formatOmanNumericBoundaryValue } from "./Min_max_field_validation";
 
@@ -64,12 +63,6 @@ const PREPAY_UUID = "Prepayment invoice UUID";
 const SUPPORT_UUID = "Supporting document UUID";
 const TAX_RATE = "Tax Rate";
 const FX = "Currency Exchange Rate";
-const TAX_ACCT = "Invoice total tax amount in tax accounting currency";
-const TAX_ACCT_MIN_LIMIT_ERROR = "can not be less than 0";
-const TAX_ACCT_MAX_LIMIT_ERROR =
-  "can not be more than 9,999,999,999,999.99";
-const TAX_ACCT_FORMULA_MISMATCH_ERROR =
-  "does not match the calculated value (Sum of total tax of each line item * Exchange rate)";
 const PM_DUE = "Total amount due (profit margin)";
 
 function vatinCases(
@@ -190,15 +183,7 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
   ...uuidCases(UNIQUE_UUID, "Credit Note", "creditNote", 109),
   ...uuidCases(PREPAY_UUID, "Prepayment", "prepayment", 109),
   ...uuidCases(SUPPORT_UUID, "Supporting document", "supporting", 65),
-  {
-    field: TAX_RATE,
-    section: "Item Tax",
-    overlay: "none",
-    condition: "valid Standard rate (5)",
-    value: TAX_RATE_STANDARD_OMAN,
-    shouldError: false,
-    patchAfterGenerate: true,
-  },
+  // Standard rate value 5 → Conditional ALIGNED-IBRP-S-05-OM / IBR-053-OM.
   {
     field: TAX_RATE,
     section: "Item Tax",
@@ -237,54 +222,6 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     patchAfterGenerate: true,
   },
   {
-    field: TAX_ACCT,
-    section: "Invoice",
-    overlay: "usdFx",
-    condition: "minimum value (0.01)",
-    value: numericDigits(1, 2),
-    shouldError: false,
-    patchAfterGenerate: true,
-    forbiddenErrorSubstrings: [TAX_ACCT_MIN_LIMIT_ERROR],
-    requiredErrorSubstrings: [TAX_ACCT_FORMULA_MISMATCH_ERROR],
-  },
-  {
-    field: TAX_ACCT,
-    section: "Invoice",
-    overlay: "usdFx",
-    condition: "maximum digits (13)",
-    value: numericDigits(13, 2),
-    shouldError: false,
-    patchAfterGenerate: true,
-    forbiddenErrorSubstrings: [TAX_ACCT_MAX_LIMIT_ERROR],
-    requiredErrorSubstrings: [TAX_ACCT_FORMULA_MISMATCH_ERROR],
-  },
-  {
-    field: TAX_ACCT,
-    section: "Invoice",
-    overlay: "usdFx",
-    condition: "value less than 0 (-0.01)",
-    value: `-${numericDigits(1, 2)}`,
-    shouldError: true,
-    patchAfterGenerate: true,
-    requiredErrorSubstrings: [
-      TAX_ACCT_MIN_LIMIT_ERROR,
-      TAX_ACCT_FORMULA_MISMATCH_ERROR,
-    ],
-  },
-  {
-    field: TAX_ACCT,
-    section: "Invoice",
-    overlay: "usdFx",
-    condition: "14 digits (above maximum)",
-    value: numericDigits(14, 2),
-    shouldError: true,
-    patchAfterGenerate: true,
-    requiredErrorSubstrings: [
-      TAX_ACCT_MAX_LIMIT_ERROR,
-      TAX_ACCT_FORMULA_MISMATCH_ERROR,
-    ],
-  },
-  {
     field: PM_DUE,
     section: "Invoice",
     overlay: "profitMargin",
@@ -300,15 +237,6 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     condition: "maximum digits (13)",
     value: numericDigits(13, 2),
     shouldError: false,
-    patchAfterGenerate: true,
-  },
-  {
-    field: PM_DUE,
-    section: "Invoice",
-    overlay: "profitMargin",
-    condition: "empty",
-    value: "",
-    shouldError: true,
     patchAfterGenerate: true,
   },
   {

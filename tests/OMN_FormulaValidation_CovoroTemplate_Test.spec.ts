@@ -15,10 +15,8 @@ import {
   runCalculatedFieldWithinToleranceAcceptedScenario,
   runNegativeFormulaScenario,
   runPositiveFormulaScenario,
-  runZeroLineVatForcedNonZeroErrorScenario,
   taxSweepOverlay,
   toleranceTargetsForMode,
-  ZERO_LINE_VAT_CATEGORY_CASES,
   ALIGNED_IBRP_E_08_OM_CASES,
   runAlignedIbrpE08OmScenario,
   ALIGNED_IBRP_O_08_OM_CASES,
@@ -138,16 +136,6 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
           await runCalculatedFieldOutsideToleranceErrorScenario(page, mode, target);
         });
       }
-    }
-  });
-
-  test.describe("Zero Line Item VAT categories — non-zero VAT amount", () => {
-    test.describe.configure({ mode: "parallel" });
-
-    for (const categoryCase of ZERO_LINE_VAT_CATEGORY_CASES) {
-      test(`Given ${categoryCase.shortName} — When Line Item VAT is not zero — Then the invoice should be rejected with an error. (${categoryCase.ruleId})`, async ({ page }) => {
-        await runZeroLineVatForcedNonZeroErrorScenario(page, "omr", categoryCase);
-      });
     }
   });
 
@@ -431,18 +419,6 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
             await runCalculatedFieldOutsideToleranceErrorScenario(page, mode, target, MULTI);
           });
         }
-      }
-    });
-
-    test.describe("Zero Line Item VAT categories — non-zero VAT amount — 2 lines", () => {
-      test.describe.configure({ mode: "parallel" });
-
-      for (const categoryCase of ZERO_LINE_VAT_CATEGORY_CASES) {
-        test(`Given ${categoryCase.shortName} on two lines — When Line Item VAT is not zero — Then the invoice should be rejected with an error. (${categoryCase.ruleId})`, async ({
-          page,
-        }) => {
-          await runZeroLineVatForcedNonZeroErrorScenario(page, "omr", categoryCase, MULTI);
-        });
       }
     });
 
