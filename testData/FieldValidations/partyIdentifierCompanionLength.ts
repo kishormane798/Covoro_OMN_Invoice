@@ -39,25 +39,23 @@ const SELLER_RULE: FieldLengthRule = {
 const COMPANIONS: PartyIdentifierCompanion[] = ["none", "scheme", "code", "both"];
 
 function companionLabel(companion: PartyIdentifierCompanion): string {
-  if (companion === "none") return "no scheme/code";
+  if (companion === "none") return "no scheme or textual code";
   if (companion === "scheme") return "scheme only";
-  if (companion === "code") return "code only";
+  if (companion === "code") return "textual code only";
   return "scheme and textual code";
 }
 
 function lengthLabel(kind: PartyIdentifierLengthKind, rule: FieldLengthRule): string {
   if (kind === "empty") {
-    return rule.belowMin === 0
-      ? "empty (below minimum)"
-      : `${rule.belowMin} chars (below minimum)`;
+    return rule.belowMin === 0 ? "an empty value" : `${rule.belowMin} characters`;
   }
   if (kind === "min") {
-    return `minimum length (${rule.min} char${rule.min === 1 ? "" : "s"})`;
+    return `minimum length (${rule.min} character${rule.min === 1 ? "" : "s"})`;
   }
   if (kind === "max") {
-    return `maximum length (${rule.max} chars)`;
+    return `maximum length (${rule.max} characters)`;
   }
-  return `${rule.aboveMax} chars (above maximum)`;
+  return `${rule.aboveMax} characters (above maximum)`;
 }
 
 function shouldAccept(
@@ -101,7 +99,7 @@ function buildCasesForParty(
         lengthKind,
         length: lengthFor(lengthKind, rule),
         shouldAccept: shouldAccept(companion, lengthKind),
-        titleSuffix: `${lengthLabel(lengthKind, rule)}, ${companionLabel(companion)}`,
+        titleSuffix: `${lengthLabel(lengthKind, rule)} and ${companionLabel(companion)}`,
         identifierField: rule.field,
       });
     }

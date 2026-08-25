@@ -27,17 +27,17 @@ function firstMultiRows(): Array<Record<string, string>> {
   return tc.rows;
 }
 
-test.describe("Excel upload — submit sanity (post-deploy)", () => {
+test.describe("Submit sanity (post-deploy)", () => {
   test.describe.configure({ mode: "parallel" });
 
-  test("Verify invoice delivered successfully for Covoro Submit Sanity – OMR single-item.", async ({
+  test("Given a valid OMR invoice — When uploaded — Then the invoice should be delivered.", async ({
     page,
   }) => {
     test.setTimeout(SUBMIT_SANITY_TIMEOUT_MS);
     await runSubmitInvoiceCase(page, firstSingleRow());
   });
 
-  test("Verify invoice delivered successfully for Covoro Submit Sanity – OMR multi-item.", async ({
+  test("Given a valid OMR invoice with 4 lines — When uploaded — Then the invoice should be delivered.", async ({
     page,
   }) => {
     test.setTimeout(SUBMIT_SANITY_TIMEOUT_MS);
@@ -48,12 +48,12 @@ test.describe("Excel upload — submit sanity (post-deploy)", () => {
 test.describe("Bulk submit — sanity (post-deploy)", () => {
   test.describe.configure({ mode: "parallel" });
 
-  test("Verify bulk submit delivers 5 invoices (Submit).", async ({ page }) => {
+  test("Given 5 valid invoices — When bulk Submit is used — Then all invoices should be delivered.", async ({ page }) => {
     test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
     await runBulkSubmitInvoiceCase(page, firstSingleRow(), { invoiceCount: 5 });
   });
 
-  test("Verify bulk submit delivers 5 invoices (Submit as PDF).", async ({ page }) => {
+  test("Given 5 valid invoices — When bulk Submit as PDF is used — Then all invoices should be delivered.", async ({ page }) => {
     test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
     await runBulkSubmitInvoiceCase(page, firstSingleRow(), {
       invoiceCount: 5,
@@ -62,7 +62,7 @@ test.describe("Bulk submit — sanity (post-deploy)", () => {
   });
 });
 
-test("Post-deploy sanity fixtures are present", () => {
+test("Post-deploy submit fixtures should be present", () => {
   expect(invoiceData.length).toBeGreaterThan(0);
   expect(multiItemInvoiceCases.length).toBeGreaterThan(0);
   expect(multiItemInvoiceCases[0]?.rows.length).toBe(4);

@@ -37,7 +37,7 @@ import {
   numericFieldConfigs,
 } from "../Helpers/excel/fieldValidationSpecSupport";
 
-test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
+test.describe(`Field validation (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel" });
 
   test.describe("Invoice Number — valid length", () => {
@@ -75,10 +75,7 @@ test.describe(`Excel upload — field validation (${TEMPLATE})`, () => {
   test.describe("Invoice Issue Date", () => {
     const scenarios = FV.createInvoiceIssueDateScenarios();
     for (const scenario of scenarios) {
-      const condition = scenario.name
-        .replace(/ \(should pass\)/gi, "")
-        .replace(/ \(should error\)/gi, "")
-        .trim();
+      const condition = scenario.name.trim();
       test(`Invoice Issue Date in ${condition} should be ${scenario.shouldError ? "rejected with an error" : "accepted"}. (Invoice Issue Date)`, async ({ page }) => {
         const invoiceNumber = FV.buildDynamicInvoiceNumber(scenario.invoicePrefix);
         const { filePath } = await generateOmanIssueDateExcel(

@@ -1833,7 +1833,8 @@ function buildTxnPairExclusionScenarios(
   ruleId: string,
   subjectLabel: string,
   partners: readonly string[],
-  subjectAloneWhenClause: string
+  /** Forbidden partner labels listed after "without" when the subject stands alone. */
+  subjectAloneWithoutList: string
 ): TxnPairExclusionScenario[] {
   return expandTxnExclusionAcrossAllInvoiceTypes([
     ...expandAcrossTxnExclusionPartners<TxnPairExclusionScenario>(
@@ -1841,7 +1842,7 @@ function buildTxnPairExclusionScenarios(
       partners,
       {
         ruleId,
-        title: `Given {type} — When ${subjectLabel} is not combined — Then the invoice should be accepted. (${ruleId})`,
+        title: `Given {type} without ${subjectLabel} — When the invoice is uploaded — Then the invoice should be accepted. (${ruleId})`,
         withSubject: false,
         shouldError: false,
         expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -1852,7 +1853,7 @@ function buildTxnPairExclusionScenarios(
       partners,
       {
         ruleId,
-        title: `Given ${subjectLabel} combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
+        title: `Given ${subjectLabel} together with {type} — When the invoice is uploaded — Then the invoice should be rejected with an error. (${ruleId})`,
         withSubject: true,
         shouldError: true,
         expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -1860,7 +1861,7 @@ function buildTxnPairExclusionScenarios(
     ),
     {
       ruleId,
-      title: `Given ${subjectLabel} alone — When ${subjectAloneWhenClause} — Then the invoice should be accepted. (${ruleId})`,
+      title: `Given ${subjectLabel} alone without ${subjectAloneWithoutList} — When the invoice is uploaded — Then the invoice should be accepted. (${ruleId})`,
       conflictingTxnType: "",
       invoiceTransactionTypeCode: subjectLabel,
       shouldError: false,
@@ -2741,7 +2742,7 @@ export const AMOUNT_QUANTITY_SIGN_SCENARIOS: AmountQuantitySignScenario[] = [
   {
     ruleId: "IBR-137-OM",
     title:
-      "Given a negative invoiced quantity — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-137-OM)",
+      "Given a negative invoiced quantity — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-137-OM)",
     invoicedQuantity: "-1",
     roundingAmount: "0",
     shouldError: true,
@@ -3344,7 +3345,7 @@ export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[
     ...expandAcrossPrepaymentExclusionPartners<PrepaymentTxnExclusionScenario>({
       ruleId: "IBR-176-OM",
       title:
-        "Given {type} — When Prepayment is not combined — Then the invoice should be accepted. (IBR-176-OM)",
+        "Given {type} without Prepayment — When the invoice is uploaded — Then the invoice should be accepted. (IBR-176-OM)",
       withPrepaymentBit: false,
       shouldError: false,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3352,7 +3353,7 @@ export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[
     ...expandAcrossPrepaymentExclusionPartners<PrepaymentTxnExclusionScenario>({
       ruleId: "IBR-176-OM",
       title:
-        "Given Prepayment combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-176-OM)",
+        "Given Prepayment together with {type} — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-176-OM)",
       withPrepaymentBit: true,
       shouldError: true,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3360,7 +3361,7 @@ export const PREPAYMENT_TXN_EXCLUSION_SCENARIOS: PrepaymentTxnExclusionScenario[
     {
       ruleId: "IBR-176-OM",
       title:
-        "Given Prepayment alone — When Summary, Deemed, and Profit Margin Self-Invoice are not combined — Then the invoice should be accepted. (IBR-176-OM)",
+        "Given Prepayment alone without Summary, Deemed, or Profit Margin Self-Invoice — When the invoice is uploaded — Then the invoice should be accepted. (IBR-176-OM)",
       conflictingTxnType: "",
       invoiceTransactionTypeCode: TXN_PREPAYMENT_INVOICE,
       shouldError: false,
@@ -3385,7 +3386,7 @@ export const SELF_BILLED_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario
     ...expandAcrossSelfBilledExclusionPartners<SelfBilledTxnExclusionScenario>({
       ruleId: "IBR-138-OM",
       title:
-        "Given {type} — When Self-billed is not combined — Then the invoice should be accepted. (IBR-138-OM)",
+        "Given {type} without Self-billed — When the invoice is uploaded — Then the invoice should be accepted. (IBR-138-OM)",
       withSelfBilledBit: false,
       shouldError: false,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3393,7 +3394,7 @@ export const SELF_BILLED_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario
     ...expandAcrossSelfBilledExclusionPartners<SelfBilledTxnExclusionScenario>({
       ruleId: "IBR-138-OM",
       title:
-        "Given Self-billed combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-138-OM)",
+        "Given Self-billed together with {type} — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-138-OM)",
       withSelfBilledBit: true,
       shouldError: true,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3401,7 +3402,7 @@ export const SELF_BILLED_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario
     {
       ruleId: "IBR-138-OM",
       title:
-        "Given Self-billed alone — When Third-party, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined — Then the invoice should be accepted. (IBR-138-OM)",
+        "Given Self-billed alone without Third-party, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, or Import of Goods — When the invoice is uploaded — Then the invoice should be accepted. (IBR-138-OM)",
       conflictingTxnType: "",
       invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
       shouldError: false,
@@ -3423,7 +3424,7 @@ export const IBR_139_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario[] =
     {
       ruleId: "IBR-139-OM",
       title:
-        "Given Third-party Invoice — When Self-billed is not combined — Then the invoice should be accepted. (IBR-139-OM)",
+        "Given Third-party Invoice without Self-billed — When the invoice is uploaded — Then the invoice should be accepted. (IBR-139-OM)",
       conflictingTxnType: TXN_THIRD_PARTY_INVOICE,
       invoiceTransactionTypeCode: TXN_THIRD_PARTY_INVOICE,
       shouldError: false,
@@ -3432,7 +3433,7 @@ export const IBR_139_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario[] =
     {
       ruleId: "IBR-139-OM",
       title:
-        "Given Self-billed combined with Third-party Invoice — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-139-OM)",
+        "Given Self-billed together with Third-party Invoice — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-139-OM)",
       conflictingTxnType: TXN_THIRD_PARTY_INVOICE,
       invoiceTransactionTypeCode: combineOmanTxnTypeDescriptions(
         TXN_SELF_BILLED_INVOICE,
@@ -3444,7 +3445,7 @@ export const IBR_139_TXN_EXCLUSION_SCENARIOS: SelfBilledTxnExclusionScenario[] =
     {
       ruleId: "IBR-139-OM",
       title:
-        "Given Self-billed alone — When Third-party is not combined — Then the invoice should be accepted. (IBR-139-OM)",
+        "Given Self-billed alone without Third-party — When the invoice is uploaded — Then the invoice should be accepted. (IBR-139-OM)",
       conflictingTxnType: "",
       invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
       shouldError: false,
@@ -3468,7 +3469,7 @@ export const SUMMARY_TXN_EXCLUSION_SCENARIOS: SummaryTxnExclusionScenario[] =
     ...expandAcrossIbr140ExclusionPartners<SummaryTxnExclusionScenario>({
       ruleId: "IBR-140-OM",
       title:
-        "Given {type} — When Summary is not combined — Then the invoice should be accepted. (IBR-140-OM)",
+        "Given {type} without Summary — When the invoice is uploaded — Then the invoice should be accepted. (IBR-140-OM)",
       withSummaryBit: false,
       shouldError: false,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3476,7 +3477,7 @@ export const SUMMARY_TXN_EXCLUSION_SCENARIOS: SummaryTxnExclusionScenario[] =
     ...expandAcrossIbr140ExclusionPartners<SummaryTxnExclusionScenario>({
       ruleId: "IBR-140-OM",
       title:
-        "Given Summary Invoice combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-140-OM)",
+        "Given Summary Invoice together with {type} — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-140-OM)",
       withSummaryBit: true,
       shouldError: true,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3484,7 +3485,7 @@ export const SUMMARY_TXN_EXCLUSION_SCENARIOS: SummaryTxnExclusionScenario[] =
     {
       ruleId: "IBR-140-OM",
       title:
-        "Given Summary Invoice alone — When Continuous, Export, Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined — Then the invoice should be accepted. (IBR-140-OM)",
+        "Given Summary Invoice alone without Continuous, Export, Profit Margin, Profit Margin Self-Invoice, or Import of Goods — When the invoice is uploaded — Then the invoice should be accepted. (IBR-140-OM)",
       conflictingTxnType: "",
       invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
       shouldError: false,
@@ -3508,7 +3509,7 @@ export const CONTINUOUS_TXN_EXCLUSION_SCENARIOS: ContinuousTxnExclusionScenario[
     ...expandAcrossIbr141ExclusionPartners<ContinuousTxnExclusionScenario>({
       ruleId: "IBR-141-OM",
       title:
-        "Given {type} — When Continuous Supply is not combined — Then the invoice should be accepted. (IBR-141-OM)",
+        "Given {type} without Continuous Supply — When the invoice is uploaded — Then the invoice should be accepted. (IBR-141-OM)",
       withContinuousBit: false,
       shouldError: false,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3516,7 +3517,7 @@ export const CONTINUOUS_TXN_EXCLUSION_SCENARIOS: ContinuousTxnExclusionScenario[
     ...expandAcrossIbr141ExclusionPartners<ContinuousTxnExclusionScenario>({
       ruleId: "IBR-141-OM",
       title:
-        "Given Continuous Supply combined with {type} — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-141-OM)",
+        "Given Continuous Supply together with {type} — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-141-OM)",
       withContinuousBit: true,
       shouldError: true,
       expectedErrorField: INVOICE_TRANSACTION_TYPE_CODE_FIELD,
@@ -3524,7 +3525,7 @@ export const CONTINUOUS_TXN_EXCLUSION_SCENARIOS: ContinuousTxnExclusionScenario[
     {
       ruleId: "IBR-141-OM",
       title:
-        "Given Continuous Supply alone — When Summary, Deemed Supply, Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined — Then the invoice should be accepted. (IBR-141-OM)",
+        "Given Continuous Supply alone without Summary, Deemed Supply, Profit Margin, Profit Margin Self-Invoice, or Import of Goods — When the invoice is uploaded — Then the invoice should be accepted. (IBR-141-OM)",
       conflictingTxnType: "",
       invoiceTransactionTypeCode: TXN_CONTINUOUS_SUPPLY,
       shouldError: false,
@@ -3543,7 +3544,7 @@ export const IBR_142_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-142-OM",
     TXN_EXPORT_INVOICE,
     IBR_142_EXCLUSION_PARTNER_TXN_TYPES,
-    "Self-billed, Summary, Deemed Supply, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, and Import of Goods are not combined"
+    "Self-billed, Summary, Deemed Supply, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, or Import of Goods"
   );
 
 export const IBR_143_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
@@ -3551,7 +3552,7 @@ export const IBR_143_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-143-OM",
     TXN_DEEMED_SUPPLY_INVOICE,
     IBR_143_EXCLUSION_PARTNER_TXN_TYPES,
-    "Continuous Supply, Export, Profit Margin, and Profit Margin Self-Invoice are not combined"
+    "Continuous Supply, Export, Profit Margin, or Profit Margin Self-Invoice"
   );
 
 export const IBR_144_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
@@ -3559,7 +3560,7 @@ export const IBR_144_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-144-OM",
     TXN_IMPORT_OF_SERVICES_RCM,
     IBR_144_EXCLUSION_PARTNER_TXN_TYPES,
-    "Export, Profit Margin, Profit Margin Self-Invoice, Import of Goods, and Self-billed are not combined"
+    "Export, Profit Margin, Profit Margin Self-Invoice, Import of Goods, or Self-billed"
   );
 
 export const IBR_145_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
@@ -3567,7 +3568,7 @@ export const IBR_145_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-145-OM",
     TXN_PROFIT_MARGIN_INVOICE,
     IBR_145_EXCLUSION_PARTNER_TXN_TYPES,
-    "Summary, Continuous Supply, Export, Deemed Supply, Import of Services (RCM), Self-billed, and Import of Goods are not combined"
+    "Summary, Continuous Supply, Export, Deemed Supply, Import of Services (RCM), Self-billed, or Import of Goods"
   );
 
 export const IBR_146_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
@@ -3575,7 +3576,7 @@ export const IBR_146_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-146-OM",
     TXN_PROFIT_MARGIN_SELF_INVOICE,
     IBR_146_EXCLUSION_PARTNER_TXN_TYPES,
-    "Summary, Continuous Supply, Export, Deemed Supply, Import of Services (RCM), Profit Margin, Import of Goods, and Self-billed are not combined"
+    "Summary, Continuous Supply, Export, Deemed Supply, Import of Services (RCM), Profit Margin, Import of Goods, or Self-billed"
   );
 
 export const IBR_147_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
@@ -3583,7 +3584,7 @@ export const IBR_147_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-147-OM",
     TXN_IMPORT_OF_GOODS,
     IBR_147_EXCLUSION_PARTNER_TXN_TYPES,
-    "Summary, Continuous Supply, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, E-commerce, and Self-billed are not combined"
+    "Summary, Continuous Supply, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, E-commerce, or Self-billed"
   );
 
 export const IBR_148_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
@@ -3591,7 +3592,7 @@ export const IBR_148_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-148-OM",
     TXN_ECOMMERCE_TRANSACTION,
     IBR_148_EXCLUSION_PARTNER_TXN_TYPES,
-    "Profit Margin Self-Invoice is not combined"
+    "Profit Margin Self-Invoice"
   );
 
 export const IBR_149_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
@@ -3599,7 +3600,7 @@ export const IBR_149_TXN_EXCLUSION_SCENARIOS: TxnPairExclusionScenario[] =
     "IBR-149-OM",
     TXN_SIMPLIFIED_TAX_INVOICE,
     IBR_149_EXCLUSION_PARTNER_TXN_TYPES,
-    "Self-billed, Third-party, Summary, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, Import of Goods, and Special Zone Supplies are not combined"
+    "Self-billed, Third-party, Summary, Export, Import of Services (RCM), Profit Margin, Profit Margin Self-Invoice, Import of Goods, or Special Zone Supplies"
   );
 
 
@@ -4034,7 +4035,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Seller VATIN that is OM plus 10 digits — When the invoice is submitted — Then the invoice should be accepted. (IBR-003-OM)",
+      "Given a Seller VATIN that is OM plus 10 digits — When the invoice is uploaded — Then the invoice should be accepted. (IBR-003-OM)",
     party: "seller",
     vatinValue: IBR_003_VALID_SELLER_VATIN,
     shouldError: false,
@@ -4045,7 +4046,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Seller VATIN with prefix XX instead of OM — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
+      "Given a Seller VATIN with prefix XX instead of OM — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "seller",
     vatinValue: "XX1108202600",
     shouldError: true,
@@ -4055,7 +4056,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Seller VATIN that is OM plus a non-digit — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
+      "Given a Seller VATIN that is OM plus a non-digit — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "seller",
     vatinValue: "OM110820260A",
     shouldError: true,
@@ -4065,7 +4066,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Buyer VATIN that is OM plus 10 digits — When the invoice is submitted — Then the invoice should be accepted. (IBR-003-OM)",
+      "Given a Buyer VATIN that is OM plus 10 digits — When the invoice is uploaded — Then the invoice should be accepted. (IBR-003-OM)",
     party: "buyer",
     vatinValue: IBR_003_VALID_BUYER_VATIN,
     shouldError: false,
@@ -4074,7 +4075,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Buyer VATIN with prefix XX instead of OM — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
+      "Given a Buyer VATIN with prefix XX instead of OM — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "buyer",
     vatinValue: "XX1000091919",
     shouldError: true,
@@ -4083,7 +4084,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Buyer VATIN that is OM plus a non-digit — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
+      "Given a Buyer VATIN that is OM plus a non-digit — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "buyer",
     vatinValue: "OM100009191A",
     shouldError: true,
@@ -4092,7 +4093,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Third Party VATIN that is OM plus 10 digits — When the invoice is submitted — Then the invoice should be accepted. (IBR-003-OM)",
+      "Given a Third Party VATIN that is OM plus 10 digits — When the invoice is uploaded — Then the invoice should be accepted. (IBR-003-OM)",
     party: "thirdParty",
     vatinValue: IBR_003_VALID_THIRD_PARTY_VATIN,
     shouldError: false,
@@ -4101,7 +4102,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Third Party VATIN with prefix XX instead of OM — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
+      "Given a Third Party VATIN with prefix XX instead of OM — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "thirdParty",
     vatinValue: "XX2000091919",
     shouldError: true,
@@ -4110,7 +4111,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
   {
     ruleId: "IBR-003-OM",
     title:
-      "Given a Third Party VATIN that is OM plus a non-digit — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-003-OM)",
+      "Given a Third Party VATIN that is OM plus a non-digit — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-003-OM)",
     party: "thirdParty",
     vatinValue: "OM200009191A",
     shouldError: true,
@@ -4166,7 +4167,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Given a Full Tax invoice with no Exempt VAT — When the invoice is submitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
+        "Given a Full Tax invoice with no Exempt VAT — When the invoice is uploaded — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -4287,7 +4288,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Given a Full Tax invoice with no Not subject VAT — When the invoice is submitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
+        "Given a Full Tax invoice with no Not subject VAT — When the invoice is uploaded — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -4492,7 +4493,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Given a Full Tax invoice with no Zero rated VAT — When the invoice is submitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
+        "Given a Full Tax invoice with no Zero rated VAT — When the invoice is uploaded — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -4986,7 +4987,7 @@ export const SELLER_ADDRESS_REQUIRED_SCENARIOS: SellerAddressRequiredScenario[] 
     {
       ruleId: "IBR-010-OM",
       title:
-        "Given a complete Seller postal address — When the invoice is submitted — Then the invoice should be accepted. (IBR-010-OM)",
+        "Given a complete Seller postal address — When the invoice is uploaded — Then the invoice should be accepted. (IBR-010-OM)",
       ...SELLER_ADDRESS_COMPLETE,
       shouldError: false,
       expectedErrorField: SELLER_ADDRESS_LINE_1_FIELD,
@@ -5506,7 +5507,7 @@ export const HS_CODE_LENGTH_SCENARIOS: HsCodeLengthScenario[] = [
   {
     ruleId: "IBR-080-OM",
     title:
-      "Given an item classification that is not an HS code — When the invoice is submitted — Then the invoice should be rejected with an error. (IBR-080-OM)",
+      "Given an item classification that is not an HS code — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-080-OM)",
     itemClassificationIdentifier: "FREE-TEXT-CODE",
     shouldError: true,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
@@ -5961,56 +5962,56 @@ function partyIdentifierCompanionScenarios(
   return [
     {
       ...base,
-      title: `Given ${who} identifier without scheme or textual code — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
+      title: `Given ${who} identifier without scheme or textual code — When the invoice is uploaded — Then the invoice should be accepted. (${ruleId})`,
       companion: "none",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Given ${who} identifier with scheme only — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
+      title: `Given ${who} identifier with scheme only — When the invoice is uploaded — Then the invoice should be accepted. (${ruleId})`,
       companion: "scheme",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Given ${who} identifier with textual code only — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
+      title: `Given ${who} identifier with textual code only — When the invoice is uploaded — Then the invoice should be accepted. (${ruleId})`,
       companion: "code",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Given ${who} identifier with scheme and textual code — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
+      title: `Given ${who} identifier with scheme and textual code — When the invoice is uploaded — Then the invoice should be accepted. (${ruleId})`,
       companion: "both",
       identifier: validIdentifier,
       shouldError: false,
     },
     {
       ...base,
-      title: `Given empty ${who} identifier with no scheme or textual code — When the invoice is submitted — Then the invoice should be accepted. (${ruleId})`,
+      title: `Given empty ${who} identifier with no scheme or textual code — When the invoice is uploaded — Then the invoice should be accepted. (${ruleId})`,
       companion: "none",
       identifier: "",
       shouldError: false,
     },
     {
       ...base,
-      title: `Given ${who} identifier scheme without identifier — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
+      title: `Given ${who} identifier scheme without identifier — When the invoice is uploaded — Then the invoice should be rejected with an error. (${ruleId})`,
       companion: "scheme",
       identifier: "",
       shouldError: true,
     },
     {
       ...base,
-      title: `Given ${who} identifier textual code without identifier — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
+      title: `Given ${who} identifier textual code without identifier — When the invoice is uploaded — Then the invoice should be rejected with an error. (${ruleId})`,
       companion: "code",
       identifier: "",
       shouldError: true,
     },
     {
       ...base,
-      title: `Given ${who} identifier scheme and textual code without identifier — When the invoice is submitted — Then the invoice should be rejected with an error. (${ruleId})`,
+      title: `Given ${who} identifier scheme and textual code without identifier — When the invoice is uploaded — Then the invoice should be rejected with an error. (${ruleId})`,
       companion: "both",
       identifier: "",
       shouldError: true,

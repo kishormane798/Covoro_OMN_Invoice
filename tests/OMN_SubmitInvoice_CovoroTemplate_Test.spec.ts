@@ -9,10 +9,10 @@ import {
   SUBMIT_EXPECTED_CASE_COUNT as EXPECTED_CASE_COUNT,
 } from "../Helpers/excel/submitInvoiceSpecSupport";
 
-test.describe(`Excel upload — submit invoice (${TEMPLATE})`, () => {
+test.describe(`Submit invoice (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel" });
 
-  test("Oman submit matrix shape: 32 types × txns × tax cats (IBR-086 / IBR-177 / IBR-138 / IBR-139 / IBR-140 / IBR-141 / IBR-142…149) × Goods", () => {
+  test("Submit matrix includes all invoice types, transaction types, and tax categories (IBR-086, IBR-177, IBR-138–149).", () => {
     expect(invoiceData.length).toBe(EXPECTED_CASE_COUNT);
     expect(EXPECTED_CASE_COUNT).toBe(1736);
     for (const row of invoiceData) {
@@ -99,7 +99,7 @@ test.describe(`Excel upload — submit invoice (${TEMPLATE})`, () => {
       ? `${row["Tax Category"]} ${taxRate}%`
       : row["Tax Category"];
     test(
-      `Excel upload · ${TEMPLATE} | Submit | ${row["Invoice Type Code"]} | ${row["Invoice Transaction Type Code"]} | OMR | Goods | ${taxLabel} → delivered`,
+      `Given ${row["Invoice Type Code"]} with ${row["Invoice Transaction Type Code"]} and ${taxLabel} (OMR) — When the invoice is uploaded — Then the invoice should be delivered.`,
       async ({ page }) => {
         test.setTimeout(SUBMIT_INVOICE_TEST_TIMEOUT_MS);
         await runSubmitInvoiceCase(page, row);

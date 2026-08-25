@@ -7,7 +7,7 @@ import { clearSiteUnavailableMarker } from '../utils/siteUnavailableMarker';
 const EMAIL = process.env.TEST_USER_EMAIL ?? '';
 const PASSWORD = process.env.TEST_USER_PASSWORD ?? '';
 
-  test('Login · email and password → business dashboard', async ({ freshPage }) => {
+  test('Given a valid email and password — When logging in — Then the business dashboard should open', async ({ freshPage }) => {
     const loginPage = new LoginPage(freshPage);
     await loginPage.loginAtBaseUrl(resolveBaseUrl(), EMAIL, PASSWORD);
     await expect(freshPage).toHaveURL(/\/business-dashboard/);

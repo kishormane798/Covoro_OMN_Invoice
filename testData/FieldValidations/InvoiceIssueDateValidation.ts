@@ -49,42 +49,42 @@ export function muscatTomorrowYmd(): string {
 export function createInvoiceIssueDateScenarios(): InvoiceIssueDateScenario[] {
   return [
     {
-      name: "correct format YYYY-MM-DD (should pass)",
+      name: "correct YYYY-MM-DD format",
       invoicePrefix: "INV-DATE",
       shouldError: false,
       issueDateValue: new Date(),
       issueDateFormat: "yyyy-mm-dd",
     },
     {
-      name: "other allowed format dd-mm-yyyy (should pass)",
+      name: "allowed dd-mm-yyyy format",
       invoicePrefix: "INV-DATEFMT",
       shouldError: false,
       issueDateValue: new Date(),
       issueDateFormat: "dd-mm-yyyy",
     },
     {
-      name: "future date Asia/Muscat tomorrow IBR-171-OM (should error)",
+      name: "a future date (Muscat tomorrow)",
       invoicePrefix: "INV-DATE-FUTURE",
       shouldError: true,
       issueDateValue: muscatTomorrowYmd(),
       issueDateFormat: "yyyy-mm-dd",
     },
     {
-      name: "wrong format 31/02/2026 (should error)",
+      name: "an invalid calendar date 31/02/2026",
       invoicePrefix: "INV-DATE-BADFMT",
       shouldError: true,
       issueDateValue: "31/02/2026",
       issueDateFormat: "@",
     },
     {
-      name: "text / non-date (should error)",
+      name: "non-date text",
       invoicePrefix: "INV-DATE-INVALID",
       shouldError: true,
       issueDateValue: "tesr2345",
       issueDateFormat: "@",
     },
     {
-      name: "whitespace only (should error)",
+      name: "whitespace only",
       invoicePrefix: "INV-DATE-WS",
       shouldError: true,
       issueDateValue: "   ",

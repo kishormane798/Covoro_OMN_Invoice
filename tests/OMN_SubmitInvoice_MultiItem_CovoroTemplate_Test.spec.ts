@@ -9,10 +9,10 @@ import {
   SUBMIT_MULTI_ITEM_EXPECTED_CASE_COUNT as EXPECTED_CASE_COUNT,
 } from "../Helpers/excel/submitInvoiceSpecSupport";
 
-test.describe(`Excel upload — submit invoice (multi-item) (${TEMPLATE})`, () => {
+test.describe(`Submit invoice multi-item (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel" });
 
-  test("Oman submit matrix shape: 32 types × txns (IBR-086 / IBR-177 / IBR-138 / IBR-139 / IBR-140 / IBR-141 / IBR-142…149) × 4 lines (2 Goods + 2 Services)", () => {
+  test("Submit multi-item matrix includes all invoice types and transaction types on 4 lines (IBR-086, IBR-177, IBR-138–149).", () => {
     expect(multiItemInvoiceCases.length).toBe(EXPECTED_CASE_COUNT);
     expect(EXPECTED_CASE_COUNT).toBe(426);
     const first = multiItemInvoiceCases[0];
@@ -120,7 +120,7 @@ test.describe(`Excel upload — submit invoice (multi-item) (${TEMPLATE})`, () =
   for (const tc of multiItemInvoiceCases) {
     const first = tc.rows[0] ?? {};
     test(
-      `Excel upload · ${TEMPLATE} | Submit multi-item | ${first["Invoice Type Code"] ?? ""} | ${first["Invoice Transaction Type Code"] ?? ""} | OMR | 4 items (2 Goods + 2 Services) → delivered`,
+      `Given ${first["Invoice Type Code"] ?? ""} with ${first["Invoice Transaction Type Code"] ?? ""} (OMR, 4 lines) — When the invoice is uploaded — Then the invoice should be delivered.`,
       async ({ page }) => {
         test.setTimeout(SUBMIT_INVOICE_TEST_TIMEOUT_MS);
         await runSubmitInvoiceMultiItemCase(page, tc.rows);
