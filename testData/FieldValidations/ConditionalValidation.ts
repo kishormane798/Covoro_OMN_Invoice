@@ -755,7 +755,7 @@ export type SpecialZoneSellerScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   sellerIdentifierTextualCode: string;
   sellerIdentifier: string;
-  /** BTOM-024. Omit to keep Sohar Free Zone (IBR-151 IF: subdivision ≠ MO). */
+  /** BTOM-024. Omit for Sohar Free Zone default; set Mainland for MO exception; set free-zone on Full Tax wrong-target. */
   sellerCountrySubdivisionCode?: string;
 };
 
@@ -3647,7 +3647,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given Special Zone Supplies — When seller uses Special Zone License — Then the invoice should be accepted. (IBR-151-OM)",
+      "Given Special Zone Supplies with seller subdivision not Mainland Oman — When seller uses Special Zone License — Then the invoice should be accepted. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "SZ-LIC-001",
@@ -3657,7 +3657,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given Special Zone Supplies — When seller identifier is left empty — Then the invoice should be rejected with an error. (IBR-151-OM)",
+      "Given Special Zone Supplies with seller subdivision not Mainland Oman — When seller identifier is left empty — Then the invoice should be rejected with an error. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "",
@@ -3667,7 +3667,7 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given Special Zone Supplies in Mainland Oman — When seller identifier is omitted — Then the invoice should be accepted. (IBR-151-OM)",
+      "Given Special Zone Supplies with seller subdivision Mainland Oman — When seller identifier is left empty — Then the invoice should be accepted. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "",
@@ -3678,10 +3678,12 @@ export const SPECIAL_ZONE_SELLER_SCENARIOS: SpecialZoneSellerScenario[] = [
   {
     ruleId: "IBR-151-OM",
     title:
-      "Given a Full Tax invoice — When seller uses Special Zone License — Then the invoice should be rejected with an error. (IBR-151-OM)",
+      "Given a Full Tax invoice with free-zone seller subdivision — When seller uses Special Zone License — Then the invoice should be rejected with an error. (IBR-151-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     sellerIdentifierTextualCode: SPECIAL_ZONE_LICENSE_SCHEME,
     sellerIdentifier: "SZ-LIC-001",
+    // Clone Allowed free-zone subdivision (wrong-target changes txn only).
+    sellerCountrySubdivisionCode: SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
     shouldError: true,
     expectedErrorField: SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD,
   },
@@ -4138,7 +4140,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Given a Simplified invoice — When Exempt VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
+        "Given a Simplified invoice — When Exempt VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -4174,7 +4176,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Given a Simplified invoice with an Exempt allowance — When Exempt VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
+        "Given a Simplified invoice with an Exempt allowance — When Exempt VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -4212,7 +4214,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-E-01-OM",
       title:
-        "Given a Simplified invoice with an Exempt charge — When Exempt VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
+        "Given a Simplified invoice with an Exempt charge — When Exempt VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -4259,7 +4261,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Given a Simplified invoice — When Not subject VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
+        "Given a Simplified invoice — When Not subject VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
@@ -4295,7 +4297,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Given a Simplified invoice with a Not subject allowance — When Not subject VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
+        "Given a Simplified invoice with a Not subject allowance — When Not subject VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -4333,7 +4335,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-O-01-OM",
       title:
-        "Given a Simplified invoice with a Not subject charge — When Not subject VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
+        "Given a Simplified invoice with a Not subject charge — When Not subject VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -4369,7 +4371,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-S-01-OM",
       title:
-        "Given a Simplified invoice — When Standard rate VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-S-01-OM)",
+        "Given a Simplified invoice — When Standard rate VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-S-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
@@ -4464,7 +4466,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Given a Simplified invoice — When Zero rated VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
+        "Given a Simplified invoice — When Zero rated VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
@@ -4500,7 +4502,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Given a Simplified invoice with a Zero rated allowance — When Zero rated VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
+        "Given a Simplified invoice with a Zero rated allowance — When Zero rated VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "allowance",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -4538,7 +4540,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
     {
       ruleId: "ALIGNED-IBRP-Z-01-OM",
       title:
-        "Given a Simplified invoice with a Zero rated charge — When Zero rated VAT breakdown is omitted — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
+        "Given a Simplified invoice with a Zero rated charge — When Zero rated VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "charge",
       breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
@@ -5736,7 +5738,7 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-152-OM",
       title:
-        "Given Special Zone Supplies — When the buyer uses Special Zone License — Then the invoice should be accepted. (IBR-152-OM)",
+        "Given Special Zone Supplies with buyer subdivision not Mainland Oman — When the buyer uses Special Zone License — Then the invoice should be accepted. (IBR-152-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       buyerIdentifierScheme: SPECIAL_ZONE_LICENSE_SCHEME,
       buyerIdentifier: "SZ-BUYER-001",
@@ -5746,10 +5748,20 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-152-OM",
       title:
-        "Given Special Zone Supplies — When buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-152-OM)",
+        "Given Special Zone Supplies with buyer subdivision not Mainland Oman — When buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-152-OM)",
       invoiceTransactionTypeCode: TXN_SPECIAL_ZONE_SUPPLIES,
       buyerIdentifierScheme: SPECIAL_ZONE_LICENSE_SCHEME,
       buyerIdentifier: "",
+      shouldError: true,
+      expectedErrorField: "Buyer identifier",
+    },
+    {
+      ruleId: "IBR-152-OM",
+      title:
+        "Given a Full Tax invoice with free-zone buyer subdivision — When buyer uses Special Zone License — Then the invoice should be rejected with an error. (IBR-152-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      buyerIdentifierScheme: SPECIAL_ZONE_LICENSE_SCHEME,
+      buyerIdentifier: "SZ-BUYER-001",
       shouldError: true,
       expectedErrorField: "Buyer identifier",
     },

@@ -1044,15 +1044,16 @@ export function buildSpecialZoneSellerScenarioRow(
   row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
     scenario.sellerIdentifierTextualCode;
   row[FV.SELLER_IDENTIFIER_FIELD] = scenario.sellerIdentifier;
-  if (scenario.invoiceTransactionTypeCode !== FV.TXN_SPECIAL_ZONE_SUPPLIES) {
-    return row;
-  }
+  // Free-zone subdivisions for Special Zone and wrong-target Full Tax
+  // (clone Allowed; only txn differs). Mainland exception overrides below.
   const next = applySpecialZoneCountrySubdivisions(row);
-  // IBR-152 companion so seller-identifier polarities are the only IBR-151 probe.
-  next[FV.BUYER_IDENTIFIER_SCHEME_FIELD] = "";
-  next[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-  next[FV.BUYER_IDENTIFIER_FIELD] =
-    next[FV.BUYER_IDENTIFIER_FIELD] || "SZ-BUYER-001";
+  if (scenario.invoiceTransactionTypeCode === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    // IBR-152 companion so seller-identifier polarities are the only IBR-151 probe.
+    next[FV.BUYER_IDENTIFIER_SCHEME_FIELD] = "";
+    next[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
+    next[FV.BUYER_IDENTIFIER_FIELD] =
+      next[FV.BUYER_IDENTIFIER_FIELD] || "SZ-BUYER-001";
+  }
   if (scenario.sellerCountrySubdivisionCode !== undefined) {
     next[FV.SELLER_COUNTRY_SUBDIVISION_CODE_FIELD] =
       scenario.sellerCountrySubdivisionCode;
@@ -2245,7 +2246,12 @@ export function buildBuyerIdentifierSchemeScenarioRow(
     row["Scheme identifier"] = scenario.buyerIdentifierScheme;
     row["Buyer Identifier (textual code)"] = "";
   }
-  if (scenario.invoiceTransactionTypeCode === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+  // Free-zone subdivisions for Special Zone and wrong-target Full Tax + SZLN
+  // (clone Allowed; only txn differs). Import of Goods leaves seed blank.
+  if (
+    scenario.invoiceTransactionTypeCode === FV.TXN_SPECIAL_ZONE_SUPPLIES ||
+    scenario.buyerIdentifierScheme === FV.SPECIAL_ZONE_LICENSE_SCHEME
+  ) {
     return applySpecialZoneCountrySubdivisions(row);
   }
   return row;
