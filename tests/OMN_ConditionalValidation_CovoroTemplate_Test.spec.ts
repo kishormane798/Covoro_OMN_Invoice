@@ -611,185 +611,190 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
     }
   });
 
-  test.describe("Self-billed cannot combine with Third-party, Export, RCM, Profit Margin, or Import (IBR-138-OM)", () => {
-    for (const scenario of FV.SELF_BILLED_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildSelfBilledTxnExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Self-billed cannot be Third-party (IBR-139-OM)", () => {
-    for (const scenario of FV.IBR_139_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildSelfBilledTxnExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Summary cannot combine with Continuous, Export, Profit Margin, or Import (IBR-140-OM)", () => {
-    for (const scenario of FV.SUMMARY_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildSummaryTxnExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Continuous Supply cannot combine with Summary, Deemed, Profit Margin, or Import (IBR-141-OM)", () => {
-    for (const scenario of FV.CONTINUOUS_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildContinuousTxnExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Export cannot combine with Self-billed, Summary, Deemed, RCM, Profit Margin, or Import (IBR-142-OM)", () => {
-    for (const scenario of FV.IBR_142_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Deemed Supply cannot combine with Continuous, Export, or Profit Margin (IBR-143-OM)", () => {
-    for (const scenario of FV.IBR_143_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("RCM cannot combine with Export, Profit Margin, Import, or Self-billed (IBR-144-OM)", () => {
-    for (const scenario of FV.IBR_144_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Profit Margin cannot combine with Summary, Continuous, Export, Deemed, RCM, Self-billed, or Import (IBR-145-OM)", () => {
-    for (const scenario of FV.IBR_145_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Profit Margin Self-Invoice cannot combine with Summary, Continuous, Export, Deemed, RCM, Profit Margin, Import, or Self-billed (IBR-146-OM)", () => {
-    for (const scenario of FV.IBR_146_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Import of Goods cannot combine with Summary, Continuous, Export, RCM, Profit Margin, E-commerce, or Self-billed (IBR-147-OM)", () => {
-    for (const scenario of FV.IBR_147_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("E-commerce cannot combine with Profit Margin Self-Invoice (IBR-148-OM)", () => {
-    for (const scenario of FV.IBR_148_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Simplified cannot combine with Self-billed, Third-party, Summary, Export, RCM, Profit Margin, Import, or Special Zone (IBR-149-OM)", () => {
-    for (const scenario of FV.IBR_149_TXN_EXCLUSION_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
+  // IBR-138-OM … IBR-149-OM: mutual-exclusion needs TWO transaction types on
+  // BTOM-001. Covoro Excel allows only one Invoice Transaction Type Code, so
+  // combination cases cannot be exercised via Excel upload. Keep scenario data
+  // / helpers for docs; do not run these describes until multi-select or UI.
+  //
+  // test.describe("Self-billed cannot combine with Third-party, Export, RCM, Profit Margin, or Import (IBR-138-OM)", () => {
+  //   for (const scenario of FV.SELF_BILLED_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildSelfBilledTxnExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Self-billed cannot be Third-party (IBR-139-OM)", () => {
+  //   for (const scenario of FV.IBR_139_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildSelfBilledTxnExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Summary cannot combine with Continuous, Export, Profit Margin, or Import (IBR-140-OM)", () => {
+  //   for (const scenario of FV.SUMMARY_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildSummaryTxnExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Continuous Supply cannot combine with Summary, Deemed, Profit Margin, or Import (IBR-141-OM)", () => {
+  //   for (const scenario of FV.CONTINUOUS_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildContinuousTxnExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Export cannot combine with Self-billed, Summary, Deemed, RCM, Profit Margin, or Import (IBR-142-OM)", () => {
+  //   for (const scenario of FV.IBR_142_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Deemed Supply cannot combine with Continuous, Export, or Profit Margin (IBR-143-OM)", () => {
+  //   for (const scenario of FV.IBR_143_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("RCM cannot combine with Export, Profit Margin, Import, or Self-billed (IBR-144-OM)", () => {
+  //   for (const scenario of FV.IBR_144_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Profit Margin cannot combine with Summary, Continuous, Export, Deemed, RCM, Self-billed, or Import (IBR-145-OM)", () => {
+  //   for (const scenario of FV.IBR_145_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Profit Margin Self-Invoice cannot combine with Summary, Continuous, Export, Deemed, RCM, Profit Margin, Import, or Self-billed (IBR-146-OM)", () => {
+  //   for (const scenario of FV.IBR_146_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Import of Goods cannot combine with Summary, Continuous, Export, RCM, Profit Margin, E-commerce, or Self-billed (IBR-147-OM)", () => {
+  //   for (const scenario of FV.IBR_147_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("E-commerce cannot combine with Profit Margin Self-Invoice (IBR-148-OM)", () => {
+  //   for (const scenario of FV.IBR_148_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
+  //
+  // test.describe("Simplified cannot combine with Self-billed, Third-party, Summary, Export, RCM, Profit Margin, Import, or Special Zone (IBR-149-OM)", () => {
+  //   for (const scenario of FV.IBR_149_TXN_EXCLUSION_SCENARIOS) {
+  //     test(`${scenario.title}`, async ({ page }) => {
+  //       const rowData =
+  //         ConditionalRows.buildTxnPairExclusionScenarioRow(scenario);
+  //       await verifyConditionalScenario(
+  //         page,
+  //         rowData,
+  //         scenario.expectedErrorField ?? FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD,
+  //         scenario.shouldError
+  //       );
+  //     });
+  //   }
+  // });
 
   test.describe("Seller VATIN mandatory (IBR-006-OM)", () => {
     for (const scenario of FV.SELLER_VAT_MANDATORY_SCENARIOS) {

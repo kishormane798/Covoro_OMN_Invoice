@@ -2,19 +2,19 @@
  * Oman submit single-item matrix (Excel header keys).
  * 32 invoice types × 15 transaction types × 4 tax categories, except
  * IBR-086-OM: Profit Margin Self-Invoice uses only Not subject to VAT,
- * IBR-177-OM: Self billed credit note / Self-billed invoice only pair
- * with Self-billed Invoice, Import of Services (RCM), Profit Margin
- * Self-Invoice, or Import of Goods, IBR-138-OM: BTOM-001 must not
- * combine Self-billed with Third-party / Export / RCM / Profit margin /
- * Profit Margin Self-Invoice / Import of Goods, IBR-139-OM: Self-billed
- * Invoice/credit note cannot also be Third-party Invoice on BTOM-001,
- * IBR-140-OM: BTOM-001 must not combine Summary with Continuous / Export /
- * Profit margin / Profit Margin Self-Invoice / Import of Goods,
- * IBR-141-OM: BTOM-001 must not combine Continuous Supply with Summary /
- * Deemed Supply / Profit margin / Profit Margin Self-Invoice / Import of
- * Goods, and IBR-142-OM … IBR-149-OM: BTOM-001 must not combine each
- * subject txn with its named exclusion partners (single Master labels
- * never violate these pair rules).
+ * IBR-177-OM: Self billed credit note (261) / Self-billed invoice (389)
+ * only pair with Self-billed Invoice, Import of Services (RCM), Profit
+ * Margin Self-Invoice, or Import of Goods, IBR-138-OM: BTOM-001 must
+ * not combine Self-billed with Third-party / Export / RCM / Profit
+ * margin / Profit Margin Self-Invoice / Import of Goods, IBR-139-OM:
+ * Self-billed Invoice/credit note cannot also be Third-party Invoice on
+ * BTOM-001, IBR-140-OM: BTOM-001 must not combine Summary with
+ * Continuous / Export / Profit margin / Profit Margin Self-Invoice /
+ * Import of Goods, IBR-141-OM: BTOM-001 must not combine Continuous
+ * Supply with Summary / Deemed Supply / Profit margin / Profit Margin
+ * Self-Invoice / Import of Goods, and IBR-142-OM … IBR-149-OM:
+ * BTOM-001 must not combine each subject txn with its named exclusion
+ * partners (single Master labels never violate these pair rules).
  * One Goods line per invoice (one tax category per invoice).
  */
 import * as FV from "./ConditionalValidation";
@@ -22,10 +22,7 @@ import {
   invoiceTypeCodeValidTestData,
   invoiceTransactionTypeValidTestData,
 } from "../Master/Master.omnCore";
-import {
-  buildOmanSubmitDocumentRow,
-  isAllowedOmanSubmitTypeTxnPair,
-} from "./SubmitInvoiceMultiItem";
+import { buildOmanSubmitDocumentRow } from "./SubmitInvoiceMultiItem";
 
 type GoodsTaxDef = {
   taxCategory: string;
@@ -89,8 +86,8 @@ export function buildOmanSingleItemSubmitRows(): Record<string, string>[] {
     for (const txnEntry of invoiceTransactionTypeValidTestData) {
       const invoiceTypeCode = typeEntry.label;
       const txn = txnEntry.label;
-      // IBR-177-OM: drop self-billed document × disallowed txn pairs.
-      if (!isAllowedOmanSubmitTypeTxnPair(invoiceTypeCode, txn)) {
+      // IBR-177-OM: 261/389 may only use Self-billed / RCM / PM-Self / Import of Goods.
+      if (!FV.isIbr177CompatibleInvoiceTxnPair(invoiceTypeCode, txn)) {
         continue;
       }
       // IBR-138-OM: drop Self-billed ⊕ Third-party/Export/RCM/PM/Import bits.

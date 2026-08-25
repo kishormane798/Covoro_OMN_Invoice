@@ -32,6 +32,8 @@ import {
   CALCULATED_FIELD_MISMATCH_TARGETS,
   FORMULA_BAISA_TOLERANCE,
   FORMULA_MONETARY_TOLERANCE,
+  TWENTY_LINE_FORMULA_CASES,
+  runPositiveTwentyLineFormulaScenario,
   type FormulaScenarioRow,
 } from "../Helpers/excel/formulaValidationHelper";
 import {
@@ -732,5 +734,26 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
         });
       }
     });
+  });
+
+  test.describe("Multi-line (20 lines) — positive (OMR)", () => {
+    test.describe.configure({ mode: "parallel" });
+
+    let twentyLineSuiteEnabled = false;
+
+    test.beforeAll(async () => {
+      const headers = await getCachedInvoiceTemplateHeaders();
+      twentyLineSuiteEnabled = templateSupportsGenerateInvoiceExcel(headers);
+    });
+
+    for (const scenario of TWENTY_LINE_FORMULA_CASES) {
+      test(scenario.title, async ({ page }) => {
+        test.skip(
+          !twentyLineSuiteEnabled,
+          "Active template lacks columns required for formula generator checks"
+        );
+        await runPositiveTwentyLineFormulaScenario(page, scenario.kind);
+      });
+    }
   });
 });

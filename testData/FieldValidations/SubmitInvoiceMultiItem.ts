@@ -4,10 +4,11 @@
  * omitted — IBR-086-OM requires every line tax category O, which this
  * mixed 4-category matrix cannot satisfy); IBR-177-OM further limits
  * Self billed credit note / Self-billed invoice to Self-billed Invoice,
- * Import of Services (RCM), and Import of Goods. IBR-138-OM further
- * drops any BTOM-001 cell that combines Self-billed with Third-party /
- * Export / RCM / Profit margin / Profit Margin Self-Invoice / Import of
- * Goods. IBR-139-OM further drops Self-billed combined with Third-party
+ * Import of Services (RCM), and Import of Goods (Profit Margin
+ * Self-Invoice already omitted). IBR-138-OM further drops any BTOM-001
+ * cell that combines Self-billed with Third-party / Export / RCM /
+ * Profit margin / Profit Margin Self-Invoice / Import of Goods.
+ * IBR-139-OM further drops Self-billed combined with Third-party
  * Invoice on BTOM-001. IBR-140-OM further drops any BTOM-001 cell that
  * combines Summary with Continuous / Export / Profit margin / Profit
  * Margin Self-Invoice / Import of Goods. IBR-141-OM further drops any
@@ -190,25 +191,6 @@ function applySubmitTxnExtras(
   return applyPartyIdentifiersByTxnType(next);
 }
 
-/**
- * IBR-177-OM: Self billed credit note (261) / Self-billed invoice (389)
- * may only pair with Self-billed Invoice, Import of Services (RCM),
- * Profit Margin Self-Invoice, or Import of Goods.
- */
-export function isAllowedOmanSubmitTypeTxnPair(
-  invoiceTypeCode: string,
-  txn: string
-): boolean {
-  if (
-    !(FV.SELF_BILLED_DOCUMENT_INVOICE_TYPES as readonly string[]).includes(
-      invoiceTypeCode
-    )
-  ) {
-    return true;
-  }
-  return (FV.SELF_BILLED_OR_RCM_TXN_TYPES as readonly string[]).includes(txn);
-}
-
 /** Shared Oman document seed for submit matrices (OMR + type/txn extras). */
 export function buildOmanSubmitDocumentRow(
   invoiceTypeCode: string,
@@ -294,8 +276,8 @@ export function buildOmanMultiItemSubmitCases(): MultiItemSubmitInvoiceCase[] {
       if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
         continue;
       }
-      // IBR-177-OM: drop self-billed document × disallowed txn pairs.
-      if (!isAllowedOmanSubmitTypeTxnPair(invoiceTypeCode, txn)) {
+      // IBR-177-OM: 261/389 may only use Self-billed / RCM / Import of Goods.
+      if (!FV.isIbr177CompatibleInvoiceTxnPair(invoiceTypeCode, txn)) {
         continue;
       }
       // IBR-138-OM: drop Self-billed ⊕ Third-party/Export/RCM/PM/Import bits.

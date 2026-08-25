@@ -30,6 +30,10 @@ import {
   OMAN_BUYER_VAT,
 } from "./fieldValidationExcelPackHelper";
 import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
+import {
+  taxExemptionReasonExemptValidTestData,
+  taxExemptionReasonZeroRatedValidTestData,
+} from "../../testData/Master/Master.omnCore";
 
 export const FOREIGN_CURRENCY_CODE = "USD";
 export const DEFAULT_FOREIGN_EXCHANGE_RATE = 3.67;
@@ -1596,4 +1600,239 @@ export async function runNegativeFormulaScenario(
     invoiceNumber,
     checkEdit: true,
   });
+}
+
+// ---------------------------------------------------------------------------
+// 20-line positive suite (OMR only) — mixed + same-category × 4
+// ---------------------------------------------------------------------------
+
+export const FORMULA_TWENTY_LINE_COUNT = 20;
+
+export type TwentyLineFormulaCaseKind =
+  | "mixed"
+  | "same_standard"
+  | "same_zero"
+  | "same_exempt"
+  | "same_not_subject";
+
+export type TwentyLineFormulaCase = {
+  kind: TwentyLineFormulaCaseKind;
+  shortName: string;
+  title: string;
+};
+
+/** Five OMR accept-only cases: mixed tax + one category for all 20 lines. */
+export const TWENTY_LINE_FORMULA_CASES: TwentyLineFormulaCase[] = [
+  {
+    kind: "mixed",
+    shortName: "Mixed tax categories",
+    title:
+      "Given 20 lines with all four tax categories and distinct cycling Z/E reasons in OMR — When calculated totals match — Then the invoice should be accepted. (20-line mixed)",
+  },
+  {
+    kind: "same_standard",
+    shortName: "Same — Standard",
+    title:
+      "Given 20 Standard rate lines in OMR — When calculated totals match — Then the invoice should be accepted. (20-line Standard)",
+  },
+  {
+    kind: "same_zero",
+    shortName: "Same — Zero rated",
+    title:
+      "Given 20 Zero rated lines with cycling exemption reasons in OMR — When calculated totals match — Then the invoice should be accepted. (20-line Zero)",
+  },
+  {
+    kind: "same_exempt",
+    shortName: "Same — Exempt",
+    title:
+      "Given 20 Exempt from tax lines with cycling exemption reasons in OMR — When calculated totals match — Then the invoice should be accepted. (20-line Exempt)",
+  },
+  {
+    kind: "same_not_subject",
+    shortName: "Same — Not subject",
+    title:
+      "Given 20 Not subject to tax lines in OMR — When calculated totals match — Then the invoice should be accepted. (20-line Not subject)",
+  },
+];
+
+type TwentyLineTaxDef = {
+  taxCategory: string;
+  taxRate: number | null;
+  taxExemptionReasonCode: string;
+  itemType: string;
+  serviceTypeCode: string;
+  hsCode: string;
+  invoiceTypeCode?: string;
+  paymentMeansTypeCode?: string;
+};
+
+function cycleMasterLabel(
+  masters: ReadonlyArray<{ label: string }>,
+  index: number
+): string {
+  if (masters.length === 0) {
+    throw new Error("cycleMasterLabel: empty master list");
+  }
+  return masters[index % masters.length]!.label;
+}
+
+function twentyLineTaxDef(
+  kind: TwentyLineFormulaCaseKind,
+  lineIndex: number
+): TwentyLineTaxDef {
+  const outOfScope = {
+    invoiceTypeCode: FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
+    paymentMeansTypeCode: "Instrument not defined",
+  };
+
+  const standard = (): TwentyLineTaxDef => ({
+    taxCategory: FV.STANDARD_TAX_CATEGORY_CODE,
+    taxRate: 5,
+    taxExemptionReasonCode: "",
+    itemType: FV.ITEM_TYPE_GOODS,
+    serviceTypeCode: "",
+    hsCode: FV.OMAN_HS_CODE_12,
+  });
+
+  const zero = (reasonIndex: number): TwentyLineTaxDef => ({
+    taxCategory: FV.ZERO_RATED_TAX_CATEGORY_CODE,
+    taxRate: 0,
+    taxExemptionReasonCode: cycleMasterLabel(
+      taxExemptionReasonZeroRatedValidTestData,
+      reasonIndex
+    ),
+    itemType: FV.ITEM_TYPE_GOODS,
+    serviceTypeCode: "",
+    hsCode: FV.OMAN_HS_CODE_12,
+  });
+
+  const exempt = (
+    reasonIndex: number,
+    withOutOfScopeDoc: boolean
+  ): TwentyLineTaxDef => ({
+    taxCategory: FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: cycleMasterLabel(
+      taxExemptionReasonExemptValidTestData,
+      reasonIndex
+    ),
+    itemType: FV.ITEM_TYPE_SERVICES,
+    serviceTypeCode: FV.SERVICE_TYPE_CODE_SAMPLE,
+    hsCode: "",
+    ...(withOutOfScopeDoc ? outOfScope : {}),
+  });
+
+  const notSubject = (withOutOfScopeDoc: boolean): TwentyLineTaxDef => ({
+    taxCategory: FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: "",
+    itemType: FV.ITEM_TYPE_SERVICES,
+    serviceTypeCode: FV.SERVICE_TYPE_CODE_SAMPLE,
+    hsCode: "",
+    ...(withOutOfScopeDoc ? outOfScope : {}),
+  });
+
+  if (kind === "same_standard") return standard();
+  if (kind === "same_zero") return zero(lineIndex);
+  if (kind === "same_exempt") return exempt(lineIndex, true);
+  if (kind === "same_not_subject") return notSubject(true);
+
+  // Mixed: blocks of 5 — Standard, Zero, Exempt, Not subject (document stays Full Tax)
+  const block = Math.floor(lineIndex / 5);
+  const withinBlock = lineIndex % 5;
+  if (block === 0) return standard();
+  if (block === 1) return zero(withinBlock);
+  if (block === 2) return exempt(withinBlock, false);
+  return notSubject(false);
+}
+
+function applyTwentyLineItemCompanions(
+  row: Record<string, string>,
+  def: TwentyLineTaxDef
+): Record<string, string> {
+  const next = { ...row };
+  headerSet(next, FV.ITEM_TYPE_FIELD, def.itemType);
+  headerSet(next, FV.SERVICE_TYPE_CODE_FIELD, def.serviceTypeCode);
+  headerSet(next, FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD, def.hsCode);
+  headerSet(
+    next,
+    FV.TAX_EXEMPTION_REASON_TEXT_FIELD,
+    def.taxExemptionReasonCode
+  );
+  if (def.invoiceTypeCode) {
+    headerSet(next, FV.INVOICE_TYPE_CODE_FIELD, def.invoiceTypeCode);
+  }
+  if (def.paymentMeansTypeCode) {
+    headerSet(next, "Payment Means Type Code", def.paymentMeansTypeCode);
+  }
+  return next;
+}
+
+/**
+ * Build 20 submit rows for a twenty-line positive formula case.
+ * Doc charges/allowances/paid/rounding stay on line 1 only (other lines blanked).
+ */
+export function buildTwentyLineFormulaSubmitRows(
+  kind: TwentyLineFormulaCaseKind
+): Record<string, string>[] {
+  const rows: Record<string, string>[] = [];
+  for (let i = 0; i < FORMULA_TWENTY_LINE_COUNT; i++) {
+    const def = twentyLineTaxDef(kind, i);
+    const formulaRow: FormulaDataRow = {
+      ...FORMULA_TWO_LINE_SWEEP_BASE_ROW,
+      name: `20-line ${kind} — line ${i + 1}`,
+      invoiceLineIdentifier: String(i + 1),
+      taxCategory: def.taxCategory,
+      taxRate: def.taxRate,
+      taxExemptionReasonCode: def.taxExemptionReasonCode,
+      ...(def.invoiceTypeCode ? { invoiceTypeCode: def.invoiceTypeCode } : {}),
+      ...(def.paymentMeansTypeCode
+        ? { paymentMeansTypeCode: def.paymentMeansTypeCode }
+        : {}),
+      ...(i === 0
+        ? {}
+        : {
+            docCharges: 0,
+            docAllowances: 0,
+            paidAmount: 0,
+            roundingAmount: 0,
+          }),
+    };
+    rows.push(
+      applyTwentyLineItemCompanions(buildFormulaSubmitRow(formulaRow, "omr"), def)
+    );
+  }
+  return rows;
+}
+
+async function generateTwentyLineFormulaWorkbook(
+  kind: TwentyLineFormulaCaseKind
+): Promise<{ filePath: string; invoiceNumber: string }> {
+  const rows = buildTwentyLineFormulaSubmitRows(kind);
+  const generated = await generateInvoiceFromSubmitRows(rows);
+  for (let i = 0; i < FORMULA_TWENTY_LINE_COUNT; i++) {
+    const excelRow = INVOICE_TEMPLATE_DATA_ROW + i;
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      BUYER_VAT_FIELD,
+      OMAN_BUYER_VAT,
+      excelRow
+    );
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      BUYER_EL_FIELD,
+      OMAN_BUYER_ELECTRONIC,
+      excelRow
+    );
+  }
+  return generated;
+}
+
+/** OMR accept-only: 20-line workbook → uploadAndVerify. */
+export async function runPositiveTwentyLineFormulaScenario(
+  page: Page,
+  kind: TwentyLineFormulaCaseKind
+) {
+  const { filePath } = await generateTwentyLineFormulaWorkbook(kind);
+  await uploadAndVerify(page, filePath);
 }

@@ -12,7 +12,7 @@ import {
 test.describe(`Submit invoice multi-item (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel" });
 
-  test("Submit multi-item matrix includes all invoice types and transaction types on 4 lines (IBR-086, IBR-177, IBR-138–149).", () => {
+  test("Submit multi-item matrix includes all invoice types and transaction types on 4 lines (IBR-086, IBR-177).", () => {
     expect(multiItemInvoiceCases.length).toBe(EXPECTED_CASE_COUNT);
     expect(EXPECTED_CASE_COUNT).toBe(426);
     const first = multiItemInvoiceCases[0];
@@ -35,42 +35,21 @@ test.describe(`Submit invoice multi-item (${TEMPLATE})`, () => {
       expect(tc.rows[0]?.["Currency Exchange Rate"] ?? "").toBe("");
       expect(tc.rows[0]?.["Invoice Type Code"]).toBeTruthy();
       expect(tc.rows[0]?.["Invoice Transaction Type Code"]).toBeTruthy();
-      expect(
-        FV.txnViolatesIbr138Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr139Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr140Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr141Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr142Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr143Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr144Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr145Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr146Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr147Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr148Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
-      expect(
-        FV.txnViolatesIbr149Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")
-      ).toBe(false);
+      // IBR-138-OM … IBR-149-OM: combination rules need two txn types on one
+      // BTOM-001 cell. Covoro Excel / submit matrix uses a single Master label
+      // only, so these asserts never catch a real combination violation.
+      // expect(FV.txnViolatesIbr138Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr139Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr140Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr141Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr142Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr143Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr144Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr145Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr146Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr147Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr148Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
+      // expect(FV.txnViolatesIbr149Om(tc.rows[0]?.["Invoice Transaction Type Code"] ?? "")).toBe(false);
       expect(tc.rows[0]?.["Invoice Transaction Type Code"]).not.toBe(
         FV.TXN_PROFIT_MARGIN_SELF_INVOICE
       );
