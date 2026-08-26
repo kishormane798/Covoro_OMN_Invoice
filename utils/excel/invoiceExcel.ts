@@ -419,6 +419,8 @@ export function isProfitMarginTransactionType(value: unknown): boolean {
  * Line-item and document totals: intermediate math at **6 dp**, written amounts **ceil to 2 dp**.
  * Must stay aligned with Python `apply_invoice_calculations_to_data_row` in `invoice_excel_writer.py`.
  * Pass an effective `taxRate` (0 for non–Standard rate categories; see submit helpers / formula path resolvers).
+ * Doc charge/allowance tax uses `docChargeTaxCategory` / `docAllowanceTaxCategory` when set
+ * (Exempt/Z/O → 0; empty → line `taxRate`); optional explicit `docChargeTaxRate` / `docAllowanceTaxRate` override.
  * Non-OMR (IBR-065-OM): IBT-111 = IBT-110 × `currencyRate` (uses ceiled invoice total tax, not raw tax); omitted when currency is OMR.
  */
 export function calculateInvoiceValues(data: any) {
@@ -429,6 +431,13 @@ export function calculateInvoiceValues(data: any) {
     if (!Number.isFinite(num)) return 0;
     return Math.ceil(num * 100 - 1e-12) / 100;
   };
+  const toNumber = (value: unknown, fallback = 0): number => {
+    if (value === null || value === undefined || String(value).trim() === "") {
+      return fallback;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
 
   const itemPriceBaseQty = Number(data.itemPriceBaseQty ?? 1);
   const itemGrossPrice = Number(data.itemGrossPrice ?? 0);
@@ -437,12 +446,43 @@ export function calculateInvoiceValues(data: any) {
   const lineCharge = Number(data.lineCharge ?? 0);
   const lineAllowance = Number(data.lineAllowance ?? 0);
   const taxRate = Number(data.taxRate ?? 0);
+  const rawSheetRate = toNumber(data.rawTaxRate, taxRate);
   const docCharges = Number(data.docCharges ?? 0);
   const docAllowances = Number(data.docAllowances ?? 0);
   const paidAmount = Number(data.paidAmount ?? 0);
   const roundingAmount = Number(data.roundingAmount ?? 0);
   const currencyCode = data.invoiceCurrencyCode ?? OMAN_HOME_CURRENCY;
   const currencyRate = Number(data.currencyRate) > 0 ? Number(data.currencyRate) : 1;
+
+  const resolveDocTaxRate = (
+    explicitRate: unknown,
+    docCategory: unknown
+  ): number => {
+    if (
+      explicitRate !== undefined &&
+      explicitRate !== null &&
+      String(explicitRate).trim() !== ""
+    ) {
+      return toNumber(explicitRate, 0);
+    }
+    const cat = String(docCategory ?? "").trim();
+    if (!cat) {
+      return taxRate;
+    }
+    return resolveEffectiveTaxRate(
+      docCategory,
+      rawSheetRate > 0 ? rawSheetRate : taxRate,
+      toNumber
+    );
+  };
+  const docChargeTaxRate = resolveDocTaxRate(
+    data.docChargeTaxRate,
+    data.docChargeTaxCategory
+  );
+  const docAllowanceTaxRate = resolveDocTaxRate(
+    data.docAllowanceTaxRate,
+    data.docAllowanceTaxCategory
+  );
 
   const rawItemNet = fix6(itemGrossPrice - itemPriceDiscount);
   const rawLineNet = fix6(
@@ -451,8 +491,8 @@ export function calculateInvoiceValues(data: any) {
       : lineCharge - lineAllowance
   );
   const rawVatBase = fix6(rawLineNet * (taxRate / 100));
-  const docChargeTax = fix6(docCharges * (taxRate / 100));
-  const docAllowanceTax = fix6(docAllowances * (taxRate / 100));
+  const docChargeTax = fix6(docCharges * (docChargeTaxRate / 100));
+  const docAllowanceTax = fix6(docAllowances * (docAllowanceTaxRate / 100));
   const rawInvoiceTotalTax = fix6(rawVatBase + docChargeTax - docAllowanceTax);
 
   const rawLinePlusVat = fix6(rawLineNet + rawVatBase);
@@ -526,6 +566,9 @@ export function calculateInvoiceValuesForGeneratorPayload(
     ...data,
     taxCategory: data.taxCategory,
     taxRate: effectiveTaxRate,
+    rawTaxRate: toNumber(data.taxRate, 0),
+    docChargeTaxCategory: data.docChargeTaxCategory,
+    docAllowanceTaxCategory: data.docAllowanceTaxCategory,
   });
 }
 
@@ -1034,6 +1077,9 @@ export async function generateInvoiceExcel(
     ...data,
     taxCategory: data.taxCategory,
     taxRate: effectiveTaxRate,
+    rawTaxRate: toNumber(data.taxRate, 0),
+    docChargeTaxCategory: data.docChargeTaxCategory,
+    docAllowanceTaxCategory: data.docAllowanceTaxCategory,
   });
   const rowValues: Record<string, unknown> = {};
   // Map logical test keys to exact Excel header text (or passthrough if already a header).
@@ -1093,6 +1139,18 @@ export async function generateInvoiceExcel(
   }
   setCell("Document Charges", formulaInputCell(data.docCharges));
   setCell("Document Allowances", formulaInputCell(data.docAllowances));
+  if (data.docChargeTaxCategory !== undefined) {
+    setCell(
+      "Vat category - charges",
+      formulaInputCell(data.docChargeTaxCategory)
+    );
+  }
+  if (data.docAllowanceTaxCategory !== undefined) {
+    setCell(
+      "Vat category - allowances",
+      formulaInputCell(data.docAllowanceTaxCategory)
+    );
+  }
   setCell("Paid Amount", formulaInputCell(data.paidAmount));
   setCell("Rounding Amount", formulaInputCell(data.roundingAmount));
   if (data.invoiceLineIdentifier !== undefined) {
@@ -1420,6 +1478,10 @@ async function buildSubmitFlowRowValuesForWrite(
   };
 
   const effectiveTaxRate = resolveEffectiveTaxRateFromSplitTaxColumns(calcSourceRow, toNumber);
+  const rawSheetTaxRate = toNumber(
+    calcSourceRow["Tax Rate"] ?? calcSourceRow["Standard Tax Rate"],
+    0
+  );
 
   const submissionCalcInput = {
     invoiceCurrencyCode: calcSourceRow["Invoice Currency Code"] ?? OMAN_HOME_CURRENCY,
@@ -1433,8 +1495,11 @@ async function buildSubmitFlowRowValuesForWrite(
     lineCharge: toNumber(calcSourceRow["Invoice line charge amount"], 0),
     lineAllowance: toNumber(calcSourceRow["Invoice line allowance amount"], 0),
     taxRate: effectiveTaxRate,
+    rawTaxRate: rawSheetTaxRate,
     docCharges: toNumber(calcSourceRow["Charges on document level"], 0),
     docAllowances: toNumber(calcSourceRow["Allowances on document level"], 0),
+    docChargeTaxCategory: calcSourceRow["Vat category - charges"],
+    docAllowanceTaxCategory: calcSourceRow["Vat category - allowances"],
     paidAmount: toNumber(calcSourceRow["Paid amount"], 0),
     roundingAmount: toNumber(calcSourceRow["Rounding amount"], 0),
   };
@@ -1678,8 +1743,30 @@ async function buildSubmitFlowMultiLineRowPayloads(
     rows[0],
     toNumber
   );
-  const docChargeTaxRaw = fix6(docCharges * (firstEffectiveTaxRate / 100));
-  const docAllowanceTaxRaw = fix6(docAllowances * (firstEffectiveTaxRate / 100));
+  const rawSheetTaxRate = toNumber(
+    rows[0]["Tax Rate"] ?? rows[0]["Standard Tax Rate"],
+    0
+  );
+  const docChargeTaxRate = (() => {
+    const cat = rows[0]["Vat category - charges"];
+    if (String(cat ?? "").trim() === "") return firstEffectiveTaxRate;
+    return resolveEffectiveTaxRate(
+      cat,
+      rawSheetTaxRate > 0 ? rawSheetTaxRate : firstEffectiveTaxRate,
+      toNumber
+    );
+  })();
+  const docAllowanceTaxRate = (() => {
+    const cat = rows[0]["Vat category - allowances"];
+    if (String(cat ?? "").trim() === "") return firstEffectiveTaxRate;
+    return resolveEffectiveTaxRate(
+      cat,
+      rawSheetTaxRate > 0 ? rawSheetTaxRate : firstEffectiveTaxRate,
+      toNumber
+    );
+  })();
+  const docChargeTaxRaw = fix6(docCharges * (docChargeTaxRate / 100));
+  const docAllowanceTaxRaw = fix6(docAllowances * (docAllowanceTaxRate / 100));
 
   const perLine = rows.map((r) => {
     const effectiveTaxRate = resolveEffectiveTaxRateFromSplitTaxColumns(r, toNumber);

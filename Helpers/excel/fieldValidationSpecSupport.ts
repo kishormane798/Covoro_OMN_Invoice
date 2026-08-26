@@ -50,6 +50,8 @@ export const CONDITIONAL_LENGTH_SKIP = new Set([
   // Presence + length covered by Conditional IBR-CO-21.
   "Item attribute name",
   "Item attribute value",
+  // 12-digit HS rule owned by Conditional IBR-080-OM (min/max length only re-assert it).
+  "Item classification identifier",
   // Presence covered by Conditional PARTY-ID; length stays in party companion suite.
   "Buyer identifier",
   "Seller identifier",

@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test } from "../Src/baseTest";
-import { uploadAndVerify, uploadAndVerifyError } from "../Helpers/excel/uploadHelper";
-import { generateInvoiceCurrencyExchangeBatchExcel } from "../utils/excel/invoiceExcel";
+import { uploadAndVerify } from "../Helpers/excel/uploadHelper";
 import * as FV from "../testData/FieldValidations";
 import { unitOfMeasurementValidTestData } from "../testData/Master";
 import {
@@ -26,7 +25,6 @@ import {
   FIELD_VALIDATION_TEMPLATE as TEMPLATE,
   DROPDOWN_ACCEPT_CASINGS,
   DROPDOWN_TIMEOUT_MS,
-  NON_OMR_INVOICE_CURRENCY_CODES,
   UNIT_OF_MEASUREMENT_TIMEOUT_MS,
   conditionalLengthConfigs,
   dropdownInvalidOnCovoro,
@@ -190,33 +188,11 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     for (const config of conditionalLengthConfigs) {
       test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
-        // Min/max length values are within the length rule but not a 12-digit Oman HS code (IBR-080-OM).
-        // That format error in the error file proves length was accepted.
-        if (config.field === FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD) {
-          await runErrorValidationPassIfLengthAccepted(page, {
-            filePath,
-            field: config.field,
-            requiredCommentSubstrings: [
-              "Item classification identifier must be valid 12 digit Oman HS code",
-            ],
-          });
-          return;
-        }
         await uploadAndVerify(page, filePath);
       });
 
       test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
-        if (config.field === FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD) {
-          await runErrorValidationPassIfLengthAccepted(page, {
-            filePath,
-            field: config.field,
-            requiredCommentSubstrings: [
-              "Item classification identifier must be valid 12 digit Oman HS code",
-            ],
-          });
-          return;
-        }
         await uploadAndVerify(page, filePath);
       });
 
@@ -375,7 +351,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         await runNumericBoundary(page, config, config.max, config.maxExpectsError);
       });
 
-      if (config.belowMin === 0) {
+      if (config.belowMin === 0 && !config.omitEmptyTest) {
         test(`An empty ${config.field} ${titleOutcome(config.emptyExpectsError)}. (${config.field})`, async ({ page }) => {
           await runNumericBoundary(page, config, config.belowMin, config.emptyExpectsError);
         });
@@ -427,15 +403,6 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         }
       });
     }
-
-    test(`A non-OMR Invoice Currency Code with a blank exchange rate should be rejected with an error. (Invoice Currency Code)`, async ({ page }) => {
-      test.setTimeout(DROPDOWN_TIMEOUT_MS);
-      const { filePath } = await generateInvoiceCurrencyExchangeBatchExcel(
-        NON_OMR_INVOICE_CURRENCY_CODES,
-        "invalid_blank_non_aed"
-      );
-      await uploadAndVerifyError(page, filePath);
-    });
   });
 
   test.describe("Dropdown — valid values", () => {

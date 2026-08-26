@@ -4093,7 +4093,9 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
  * Covoro Excel has no separate IBG-23 VAT category column — line Tax Category
  * is the IBT-118 proxy. E-01 / O-01 / S-01 / Z-01 also drive IBT-95 (allowance) and
  * IBT-102 (charge). Blank/whitespace/null Excel negatives collapse to empty
- * Tax Category (omit). Simplified Tax Invoice is the documented exception.
+ * Tax Category (omit). Simplified Tax Invoice is the documented exception:
+ * doc source E/Z/O with `breakdownMatches: false` (Standard line) simulates
+ * “VAT breakdown left empty”; doc tax uses Vat category - allowances/charges (0% for E).
  */
 export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPresenceScenario[] =
   [
@@ -4304,10 +4306,9 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Not subject allowance — When Not subject VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "allowance",
-      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxRate: null,
       taxExemptionReasonCode: "",
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
@@ -4342,10 +4343,9 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Not subject charge — When Not subject VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "charge",
-      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxRate: null,
       taxExemptionReasonCode: "",
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
@@ -4509,10 +4509,9 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Zero rated allowance — When Zero rated VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "allowance",
-      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
@@ -4547,10 +4546,9 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Zero rated charge — When Zero rated VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "charge",
-      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_STANDARD_OMAN,
+      taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,

@@ -331,6 +331,8 @@ export const INVOICE_EXCEL_FIELD_TO_HEADER: Record<string, string> = {
   "Payment Means Type Code": "Payment Means Type Code",
   "Document Charges": "Charges On Document Level",
   "Document Allowances": "Allowances On Document Level",
+  "Vat category - charges": "Vat category - charges",
+  "Vat category - allowances": "Vat category - allowances",
   "Paid Amount": "Paid Amount",
   "Rounding Amount": "Rounding Amount",
   /** Optional formula-suite text (multiline allowed); written when present on the payload. */

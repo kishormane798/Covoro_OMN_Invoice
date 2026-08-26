@@ -381,6 +381,28 @@ def effective_tax_rate(tax_category: object, raw_rate: float) -> float:
     return 0.0
 
 
+def doc_level_effective_tax_rate(
+    doc_tax_category: object,
+    *,
+    line_effective_rate: float,
+    raw_sheet_rate: float,
+) -> float:
+    """
+    Document charge/allowance VAT follows Vat category - charges / - allowances.
+    Exempt / Zero rated / Not subject / other non-Standard → 0 (same as line items).
+    Empty category → fall back to the line effective rate (legacy single-rate behaviour).
+    Standard → sheet Tax Rate when > 0, else line effective rate.
+    """
+    cat = normalize_category(doc_tax_category)
+    if not cat:
+        return line_effective_rate
+    if cat in ("standard rate", "standard rate."):
+        if raw_sheet_rate > 0:
+            return raw_sheet_rate
+        return line_effective_rate
+    return 0.0
+
+
 def cell_value(ws, data_row: int, header_map: dict[str, int], *header_names: str) -> object:
     for name in header_names:
         col = header_map.get(normalize(name))
@@ -449,6 +471,14 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
     tax_cat = cell_value(ws, data_row, header_map, "Tax Category")
     raw_tax = read_number(ws, data_row, header_map, "Tax Rate", "Standard Tax Rate", default=0.0)
     tax_rate = effective_tax_rate(tax_cat, raw_tax)
+    charge_cat = cell_value(ws, data_row, header_map, FIELD_VAT_CATEGORY_CHARGES)
+    allowance_cat = cell_value(ws, data_row, header_map, FIELD_VAT_CATEGORY_ALLOWANCES)
+    doc_charge_rate = doc_level_effective_tax_rate(
+        charge_cat, line_effective_rate=tax_rate, raw_sheet_rate=raw_tax
+    )
+    doc_allowance_rate = doc_level_effective_tax_rate(
+        allowance_cat, line_effective_rate=tax_rate, raw_sheet_rate=raw_tax
+    )
 
     item_net_price_raw = fix6(item_gross_price - item_price_discount)
     # Base quantity <= 0 is invalid for per-unit scaling; avoid ZeroDivisionError (negative formula tests).
@@ -460,8 +490,8 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
         line_net_raw = fix6(line_charge - line_allowance)
 
     vat_base_raw = fix6(line_net_raw * (tax_rate / 100.0))
-    doc_charge_tax = fix6(doc_charges * (tax_rate / 100.0))
-    doc_allowance_tax = fix6(doc_allowances * (tax_rate / 100.0))
+    doc_charge_tax = fix6(doc_charges * (doc_charge_rate / 100.0))
+    doc_allowance_tax = fix6(doc_allowances * (doc_allowance_rate / 100.0))
     invoice_total_tax_raw = fix6(vat_base_raw + doc_charge_tax - doc_allowance_tax)
 
     line_plus_vat_raw = fix6(line_net_raw + vat_base_raw)

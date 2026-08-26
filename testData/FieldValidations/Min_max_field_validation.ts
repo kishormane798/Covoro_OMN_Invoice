@@ -32,6 +32,11 @@ export type FieldNumericRule = FieldLengthRule & {
    */
   emptyExpectsError?: boolean;
   /**
+   * Skip the empty-value numeric test (presence owned by Conditional).
+   * Digits min/max/aboveMax still run.
+   */
+  omitEmptyTest?: boolean;
+  /**
    * Signed amounts: negative of the min boundary is accepted (e.g. rounding).
    * Default false: only unsigned (positive) values are generated.
    */
@@ -243,8 +248,10 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     decimals: 2,
     minExpectsError: true,
     maxExpectsError: true,
-    emptyExpectsError: true,
+    // Empty presence → Conditional IBR-038-OM (Full Tax / Simplified matrix).
+    omitEmptyTest: true,
   },
+
   {
     field: "Total amount including VAT",
     min: 1,
@@ -337,9 +344,9 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     belowMin: 0,
     aboveMax: 14,
     decimals: 2,
-    // Optional: empty, positive, and negative values are accepted.
-    allowsNegative: true,
+    // Optional empty/positive stay in Field; negative rounding → Conditional IBR-137-OM.
   },
+
   {
     field: "Amount due for payment",
     min: 1,
@@ -486,22 +493,6 @@ docAllowances:0,
 paidAmount:0,
 roundingAmount:0.50
 },
-
-{
-expect: "success",
-name: "Negative Rounding",
-itemPriceBaseQty:1,
-itemGrossPrice:1000,
-itemPriceDiscount:1,
-invoicedQty:10,
-lineCharge:0,
-lineAllowance:0,
-taxRate:5,
-docCharges:0,
-docAllowances:0,
-paidAmount:0,
-roundingAmount:-0.50
-},
 {
 expect: "success",
 name: "Valid Base Quantity",
@@ -549,272 +540,8 @@ docAllowances: 0,
 paidAmount: 0,
 roundingAmount: 0
 },
-{
-expect: "success",
-name: "Empty Item price discount",
-itemPriceBaseQty: 1,
-itemGrossPrice: 1000,
-itemPriceDiscount: null,
-invoicedQty: 1.65,
-lineCharge: 0,
-lineAllowance: 0,
-taxRate: 5,
-docCharges: 0,
-docAllowances: 0,
-paidAmount: 0,
-roundingAmount: 0
-},
-{
-expect: "success",
-name: "Empty Invoice line charge amount",
-itemPriceBaseQty: 1,
-itemGrossPrice: 1000,
-itemPriceDiscount: null,
-invoicedQty: 1.65,
-lineCharge: null,
-lineAllowance: 0,
-taxRate: 5,
-docCharges: 0,
-docAllowances: 0,
-paidAmount: 0,
-roundingAmount: 0
-},
-{
-expect: "success",
-name: "Empty Invoice line allowance amount",
-itemPriceBaseQty: 1,
-itemGrossPrice: 1000,
-itemPriceDiscount: null,
-invoicedQty: 1.65,
-lineCharge: null,
-lineAllowance: null,
-taxRate: 5,
-docCharges: 0,
-docAllowances: 0,
-paidAmount: 0,
-roundingAmount: 0
-},
-{
-expect: "success",
-name: "Empty Paid amount",
-itemPriceBaseQty: 1,
-itemGrossPrice: 1000,
-itemPriceDiscount: 1,
-invoicedQty: 1.65,
-lineCharge: 0,
-lineAllowance: 0,
-taxRate: 5,
-docCharges: 0,
-docAllowances: 0,
-paidAmount: null,
-roundingAmount: 0
-},
-{
-expect: "success",
-name: "Empty Rounding amount",
-itemPriceBaseQty: 1,
-itemGrossPrice: 1000,
-itemPriceDiscount: 1,
-invoicedQty: 1.65,
-lineCharge: 0,
-lineAllowance: 0,
-taxRate: 5,
-docCharges: 0,
-docAllowances: 0,
-paidAmount: 0,
-roundingAmount: null
-},
-
-{
-expect: "error",
-name: "Empty Base Quantity",
-errorField: "Item price base quantity",
-itemPriceBaseQty: null, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-{
-expect: "error",
-name: "Empty Item gross price",
-errorField: "Item gross price",
-itemPriceBaseQty: 1, itemGrossPrice: null, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-{
-expect: "error",
-name: "Empty Invoiced quantity",
-errorField: "Invoiced quantity",
-itemPriceBaseQty: 1, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: null,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-{
-expect: "error",
-name: "Base Quantity Above Max",
-errorField: "Item price base quantity",
-itemPriceBaseQty: 10000000000, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-
-{
-expect: "error",
-name: "Empty Gross Price",
-errorField: "Item gross price",
-itemPriceBaseQty: 1, itemGrossPrice: null, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-
-{
-expect: "error",
-name: "Gross Price Above Max",
-errorField: "Item gross price",
-itemPriceBaseQty: 1, itemGrossPrice: 10000000000000, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-
-{
-expect: "error",
-name: "Empty Quantity",
-errorField: "Invoiced quantity",
-itemPriceBaseQty: 1, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: null,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-
-{
-expect: "error",
-name: "Quantity Above Max",
-errorField: "Invoiced quantity",
-itemPriceBaseQty: 1, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: 10000000000,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-
-{
-expect: "error",
-name: "Line Charge Above Max",
-errorField: "Invoice line charge amount",
-itemPriceBaseQty: 1, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 10000000000000, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-
-{
-expect: "error",
-name: "Document Charge Above Max",
-errorField: "Charges on document level",
-itemPriceBaseQty: 1, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 10000000000000, docAllowances: 0, paidAmount: 0, roundingAmount: 0
-},
-
-{
-expect: "error",
-name: "Document Allowance Above Max",
-errorField: "Allowances on document level",
-itemPriceBaseQty: 1, itemGrossPrice: 1000, itemPriceDiscount: 1, invoicedQty: 10,
-lineCharge: 0, lineAllowance: 0, taxRate: 5,
-docCharges: 0, docAllowances: 10000000000000, paidAmount: 0, roundingAmount: 0
-},
-{
-expect: "success",
-name: "Empty Charges on document level",
-itemPriceBaseQty: 1,
-itemGrossPrice: 1000,
-itemPriceDiscount: null,
-invoicedQty: 1.65,
-lineCharge: null,
-lineAllowance: null,
-taxRate: 5,
-docCharges: null,
-docAllowances: 0,
-paidAmount: 0,
-roundingAmount: 0
-},
-{
-expect: "success",
-name: "Empty Allowances on document level",
-itemPriceBaseQty: 1,
-itemGrossPrice: 1000,
-itemPriceDiscount: null,
-invoicedQty: 1.65,
-lineCharge: null,
-lineAllowance: null,
-taxRate: 5,
-docCharges: null,
-docAllowances: null,
-paidAmount: 0,
-roundingAmount: 0
-},
-
-{
-  expect: "error",
-  name: "Line Allowance Above Max",
-  errorField: "Invoice line allowance amount",
-  itemPriceBaseQty: 1,
-  itemGrossPrice: 1000,
-  itemPriceDiscount: 1,
-  invoicedQty: 10,
-  lineCharge: 0,
-  lineAllowance: 10000000000000,
-  taxRate: 5,
-  docCharges: 0,
-  docAllowances: 0,
-  paidAmount: 0,
-  roundingAmount: 0,
-},
-{
-  expect: "error",
-  name: "Item price discount Above Max",
-  errorField: "Item price discount",
-  itemPriceBaseQty: 1,
-  itemGrossPrice: 1000,
-  itemPriceDiscount: 10000000000000,
-  invoicedQty: 10,
-  lineCharge: 0,
-  lineAllowance: 0,
-  taxRate: 5,
-  docCharges: 0,
-  docAllowances: 0,
-  paidAmount: 0,
-  roundingAmount: 0,
-},
-{
-  expect: "error",
-  name: "Paid amount Above Max",
-  errorField: "Paid amount",
-  itemPriceBaseQty: 1,
-  itemGrossPrice: 1000,
-  itemPriceDiscount: 1,
-  invoicedQty: 10,
-  lineCharge: 0,
-  lineAllowance: 0,
-  taxRate: 5,
-  docCharges: 0,
-  docAllowances: 0,
-  paidAmount: 10000000000000,
-  roundingAmount: 0,
-},
-{
-  expect: "error",
-  name: "Rounding amount Above Max",
-  errorField: "Rounding amount",
-  itemPriceBaseQty: 1,
-  itemGrossPrice: 1000,
-  itemPriceDiscount: 1,
-  invoicedQty: 10,
-  lineCharge: 0,
-  lineAllowance: 0,
-  taxRate: 5,
-  docCharges: 0,
-  docAllowances: 0,
-  paidAmount: 0,
-  roundingAmount: 10000000000000,
-},
+/* Empty optional / mandatory empties + above-max digits → Field numeric suite.
+   Negative rounding → Conditional IBR-137-OM. */
 {
   expect: "error",
   name: "Base Quantity zero (below minimum)",
