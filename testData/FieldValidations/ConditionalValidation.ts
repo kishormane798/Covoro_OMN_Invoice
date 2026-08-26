@@ -48,6 +48,11 @@ export const PAYMENT_MEANS_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX =
 export const TAX_CATEGORY_FIELD = "Tax Category";
 export const INVOICED_ITEM_TAX_RATE_FIELD = "Tax Rate";
 export const INVOICED_ITEM_TAX_RATE_NULL_TOKEN = "__TAX_RATE_NULL__";
+/**
+ * Whitespace-only Excel cell (>5 spaces). Short `"   "` often looks/acts empty in
+ * Covoro Tax Rate / dropdown cells; keep this longer so negatives actually write.
+ */
+export const WHITESPACE_ONLY_FIELD_VALUE = "        ";
 export const TAX_EXEMPTION_REASON_CODE_FIELD = "Tax exemption reason code";
 export const TAX_EXEMPTION_REASON_TEXT_FIELD = "Tax exemption reason text";
 export const TAX_EXEMPTION_REASON_CODE_NULL_TOKEN =
@@ -113,8 +118,12 @@ export const AMOUNT_QUANTITY_NEGATIVE_ERROR_FIELDS = [
   INVOICED_QUANTITY_FIELD,
   INVOICE_LINE_NET_AMOUNT_FIELD,
 ] as const;
-/** IBT-117 proxy — Covoro has no IBG-23 VAT breakdown tax-amount column. */
-export const INVOICE_TOTAL_TAX_AMOUNT_FIELD = "Invoice Total Tax Amount";
+/**
+ * IBT-117 proxy — Covoro has no IBG-23 VAT breakdown tax-amount column.
+ * Must match template / seed casing (`Invoice total tax amount`) so collapse +
+ * patchVatCategoryTaxAmountAfterGenerate find the scenario value (e.g. "50").
+ */
+export const INVOICE_TOTAL_TAX_AMOUNT_FIELD = "Invoice total tax amount";
 export const ITEM_TYPE_FIELD = "Item Type";
 export const ITEM_CLASSIFICATION_IDENTIFIER_FIELD =
   "Item classification identifier";
@@ -510,14 +519,14 @@ export type LineItemVatAmountZeroScenario = OmanConditionalScenario & {
  * (IBG-23) where VAT category code (IBT-118) is "E" MUST be 0, unless
  * Simplified Tax Invoice (X1XXXXXXXXXXXXXXXXXX). VAT breakdown is UI/backend
  * auto-map — Excel provides values and asserts upload status (do not blank
- * Invoice Total Tax Amount to fake IBT-117 omit).
+ * Invoice total tax amount to fake IBT-117 omit).
  */
 export type VatCategoryTaxAmountE09Scenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   taxCategory: string;
   taxRate: string | null;
   taxExemptionReasonCode?: string;
-  /** IBT-117 proxy (Invoice Total Tax Amount). Use "0" / non-zero; do not blank for Simplified. */
+  /** IBT-117 proxy (Invoice total tax amount). Use "0" / non-zero; do not blank for Simplified. */
   vatCategoryTaxAmount: string;
 };
 
@@ -567,11 +576,20 @@ export type SellerVatMandatoryScenario = OmanConditionalScenario & {
   patchSellerVatAfterGenerate?: boolean;
 };
 
-/** IBR-007-OM: Seller identifier scheme (IBT-029-1) required for named txn types. */
+/**
+ * IBR-007-OM companion mode on named txn types.
+ * Only `scheme` + Seller identifier is Allowed; `none` / `code` (and missing ID) error.
+ */
+export type SellerIdentifierIbr007Companion = "none" | "scheme" | "code";
+
+/**
+ * IBR-007-OM: on named txn types, Seller identifier (IBT-029) and scheme
+ * (IBT-029-1) must both be provided. Textual code alone is not Allowed.
+ */
 export type SellerIdentifierSchemeScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
-  /** When false, clear IBT-029-1 after overlay so the scheme column is the probe. */
-  sellerIdentifierSchemeProvided: boolean;
+  sellerIdentifierProvided: boolean;
+  sellerCompanion: SellerIdentifierIbr007Companion;
 };
 
 /** IBR-016-OM: Buyer identifier OR Buyer VATIN for named BTOM-001 txn types. */
@@ -1892,7 +1910,7 @@ export function expandAcrossSelfBilledOrRcmTxnTypes<
 }
 
 /**
- * Expand one polarity across IBR-007-OM seller-scheme txn types
+ * Expand one polarity across IBR-007-OM seller-identifier txn types
  * (Import of Goods / Import of Services RCM / Profit Margin Self-Invoice /
  * Special Zone Supplies). Title must contain `{txn}`.
  */
@@ -1980,6 +1998,53 @@ export function expandAcrossSummaryOrContinuousTxnTypes<
 }
 
 /**
+ * ALIGNED-IBRP-E-09-OM (and siblings E-08 / Z-08 / Z-09): non-Simplified BTOM-001
+ * labels where Exempt (E) or Zero rated (Z) can drive IBT-117 / IBT-116. Excludes
+ * Profit Margin Self-Invoice (IBR-086-OM → O only). Title must contain `{txn}`.
+ */
+export const E09_OM_NON_SIMPLIFIED_TXN_TYPES = OMAN_TXN_TYPES.filter(
+  (t) =>
+    t !== TXN_SIMPLIFIED_TAX_INVOICE && t !== TXN_PROFIT_MARGIN_SELF_INVOICE
+);
+
+export function expandAcrossE09OmNonSimplifiedTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return E09_OM_NON_SIMPLIFIED_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
+    ...template,
+    invoiceTransactionTypeCode,
+    title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+  })) as T[];
+}
+
+/**
+ * ALIGNED-IBRP-O-09-OM / O-08-OM: non-Simplified BTOM-001 labels where Not subject
+ * (O) can drive IBT-117 / IBT-116. Includes Profit Margin Self-Invoice (IBR-086-OM → O).
+ * Title must contain `{txn}`.
+ */
+export const O09_OM_NON_SIMPLIFIED_TXN_TYPES = OMAN_TXN_TYPES.filter(
+  (t) => t !== TXN_SIMPLIFIED_TAX_INVOICE
+);
+
+export function expandAcrossO09OmNonSimplifiedTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return O09_OM_NON_SIMPLIFIED_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
+    ...template,
+    invoiceTransactionTypeCode,
+    title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+  })) as T[];
+}
+
+/**
  * Expand one polarity template across Exempt + Zero rated for doc allowance/charge.
  * Title must contain `{cat}` (replaced with the VAT category label).
  */
@@ -2051,10 +2116,10 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-E-05-OM",
       title:
-        "Given Exempt VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-05-OM)",
+        "Given Exempt VAT — When tax rate is only spaces — Then the invoice should be accepted. (ALIGNED-IBRP-E-05-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
-      taxRate: "   ",
-      shouldError: true,
+      taxRate: WHITESPACE_ONLY_FIELD_VALUE,
+      shouldError: false,
       expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
     },
     {
@@ -2088,10 +2153,10 @@ export const VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS: VatCategoryTaxRateScenario[]
     {
       ruleId: "ALIGNED-IBRP-O-05-OM",
       title:
-        "Given Not subject to VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-05-OM)",
+        "Given Not subject to VAT — When tax rate is only spaces — Then the invoice should be accepted. (ALIGNED-IBRP-O-05-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: "   ",
-      shouldError: true,
+      taxRate: WHITESPACE_ONLY_FIELD_VALUE,
+      shouldError: false,
       expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
     },
     {
@@ -2176,7 +2241,7 @@ export const STANDARD_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
     title:
       "Given Standard rate VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-S-05-OM)",
     taxCategory: STANDARD_TAX_CATEGORY_CODE,
-    taxRate: "   ",
+    taxRate: WHITESPACE_ONLY_FIELD_VALUE,
     shouldError: true,
     expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
   },
@@ -2253,7 +2318,7 @@ export const ZERO_RATED_TAX_RATE_SCENARIOS: VatCategoryTaxRateScenario[] = [
     title:
       "Given Zero rated VAT — When tax rate is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-05-OM)",
     taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
-    taxRate: "   ",
+    taxRate: WHITESPACE_ONLY_FIELD_VALUE,
     shouldError: true,
     expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
   },
@@ -3864,6 +3929,26 @@ export const EXPORT_DELIVER_COUNTRY_FORBIDDEN_OM_SCENARIOS: ExportDeliverCountry
       shouldError: false,
       expectedErrorField: DELIVER_TO_COUNTRY_CODE_FIELD,
     },
+    {
+      ruleId: "IBR-012-OM",
+      title:
+        "Given Full Tax with Export of Services — When Deliver to country is Oman — Then the invoice should be accepted. (IBR-012-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
+      deliverToCountryCode: OMAN_COUNTRY_CODE,
+      shouldError: false,
+      expectedErrorField: DELIVER_TO_COUNTRY_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-012-OM",
+      title:
+        "Given Export with another zero-rated reason — When Deliver to country is Oman — Then the invoice should be accepted. (IBR-012-OM)",
+      invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      deliverToCountryCode: OMAN_COUNTRY_CODE,
+      shouldError: false,
+      expectedErrorField: DELIVER_TO_COUNTRY_CODE_FIELD,
+    },
   ];
 
 
@@ -4127,7 +4212,7 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Full Tax invoice — When Exempt VAT breakdown is only spaces — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-01-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      taxCategory: "   ",
+      taxCategory: WHITESPACE_ONLY_FIELD_VALUE,
       taxRate: null,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
       shouldError: true,
@@ -4306,9 +4391,10 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Not subject allowance — When Not subject VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "allowance",
+      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: null,
+      taxRate: TAX_RATE_STANDARD_OMAN,
       taxExemptionReasonCode: "",
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
@@ -4343,9 +4429,10 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Not subject charge — When Not subject VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
       source: "charge",
+      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: null,
+      taxRate: TAX_RATE_STANDARD_OMAN,
       taxExemptionReasonCode: "",
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
@@ -4509,9 +4596,10 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Zero rated allowance — When Zero rated VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "allowance",
+      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_ZERO,
+      taxRate: TAX_RATE_STANDARD_OMAN,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_ALLOWANCES_FIELD,
@@ -4546,9 +4634,10 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
       title:
         "Given a Simplified invoice with a Zero rated charge — When Zero rated VAT breakdown is left empty — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
       source: "charge",
+      breakdownMatches: false,
       invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_ZERO,
+      taxRate: TAX_RATE_STANDARD_OMAN,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       shouldError: false,
       expectedErrorField: VAT_CATEGORY_CHARGES_FIELD,
@@ -4690,32 +4779,20 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
 // ---------------------------------------------------------------------------
 // vatCategoryTaxAmount (ALIGNED-IBRP-E-09-OM)
 // ---------------------------------------------------------------------------
-export const VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS: VatCategoryTaxAmountE09Scenario[] =
+/** Allowed (IBT-117 = 0): uploaded as one Excel (one row per txn), like dropdown master. */
+export const VAT_CATEGORY_TAX_AMOUNT_E09_ALLOWED_SCENARIOS: VatCategoryTaxAmountE09Scenario[] =
   [
-    {
+    ...expandAcrossE09OmNonSimplifiedTxnTypes<VatCategoryTaxAmountE09Scenario>({
       ruleId: "ALIGNED-IBRP-E-09-OM",
       title:
-        "Given a Full Tax Exempt invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-E-09-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+        "Given a {txn} Exempt invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-E-09-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
       vatCategoryTaxAmount: "0",
       shouldError: false,
       expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-    },
-    {
-      ruleId: "ALIGNED-IBRP-E-09-OM",
-      title:
-        "Given a Full Tax Exempt invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-09-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
-      taxRate: null,
-      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
-      vatCategoryTaxAmount: "50",
-      shouldError: true,
-      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-    },
+    }),
     {
       ruleId: "ALIGNED-IBRP-E-09-OM",
       title:
@@ -4730,35 +4807,44 @@ export const VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS: VatCategoryTaxAmountE09Scena
     },
   ];
 
+/** Not Allowed (IBT-117 ≠ 0): one workbook per txn (error-file asserts). */
+export const VAT_CATEGORY_TAX_AMOUNT_E09_NOT_ALLOWED_SCENARIOS: VatCategoryTaxAmountE09Scenario[] =
+  expandAcrossE09OmNonSimplifiedTxnTypes<VatCategoryTaxAmountE09Scenario>({
+    ruleId: "ALIGNED-IBRP-E-09-OM",
+    title:
+      "Given a {txn} Exempt invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-09-OM)",
+    taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
+    vatCategoryTaxAmount: "50",
+    shouldError: true,
+    expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+  });
+
+/** All E-09 scenarios (allowed batch + not-allowed singles). */
+export const VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS: VatCategoryTaxAmountE09Scenario[] =
+  [
+    ...VAT_CATEGORY_TAX_AMOUNT_E09_ALLOWED_SCENARIOS,
+    ...VAT_CATEGORY_TAX_AMOUNT_E09_NOT_ALLOWED_SCENARIOS,
+  ];
+
 // ---------------------------------------------------------------------------
 // vatCategoryTaxAmount (ALIGNED-IBRP-O-09-OM)
 // ---------------------------------------------------------------------------
-export const VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS: VatCategoryTaxAmountO09Scenario[] =
+/** Allowed (IBT-117 = 0): uploaded as one Excel (one row per txn), like E-09. */
+export const VAT_CATEGORY_TAX_AMOUNT_O09_ALLOWED_SCENARIOS: VatCategoryTaxAmountO09Scenario[] =
   [
-    {
+    ...expandAcrossO09OmNonSimplifiedTxnTypes<VatCategoryTaxAmountO09Scenario>({
       ruleId: "ALIGNED-IBRP-O-09-OM",
       title:
-        "Given a Full Tax Not subject invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-O-09-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+        "Given a {txn} Not subject invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-O-09-OM)",
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       taxExemptionReasonCode: "",
       vatCategoryTaxAmount: "0",
       shouldError: false,
       expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-    },
-    {
-      ruleId: "ALIGNED-IBRP-O-09-OM",
-      title:
-        "Given a Full Tax Not subject invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-09-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: null,
-      taxExemptionReasonCode: "",
-      vatCategoryTaxAmount: "50",
-      shouldError: true,
-      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-    },
+    }),
     {
       ruleId: "ALIGNED-IBRP-O-09-OM",
       title:
@@ -4773,35 +4859,44 @@ export const VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS: VatCategoryTaxAmountO09Scena
     },
   ];
 
+/** Not Allowed (IBT-117 ≠ 0): one workbook per txn (error-file asserts). */
+export const VAT_CATEGORY_TAX_AMOUNT_O09_NOT_ALLOWED_SCENARIOS: VatCategoryTaxAmountO09Scenario[] =
+  expandAcrossO09OmNonSimplifiedTxnTypes<VatCategoryTaxAmountO09Scenario>({
+    ruleId: "ALIGNED-IBRP-O-09-OM",
+    title:
+      "Given a {txn} Not subject invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-09-OM)",
+    taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: "",
+    vatCategoryTaxAmount: "50",
+    shouldError: true,
+    expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+  });
+
+/** All O-09 scenarios (allowed batch + not-allowed singles). */
+export const VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS: VatCategoryTaxAmountO09Scenario[] =
+  [
+    ...VAT_CATEGORY_TAX_AMOUNT_O09_ALLOWED_SCENARIOS,
+    ...VAT_CATEGORY_TAX_AMOUNT_O09_NOT_ALLOWED_SCENARIOS,
+  ];
+
 // ---------------------------------------------------------------------------
 // vatCategoryTaxAmount (ALIGNED-IBRP-Z-09-OM)
 // ---------------------------------------------------------------------------
-export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scenario[] =
+/** Allowed (IBT-117 = 0): uploaded as one Excel (one row per txn), like E-09. */
+export const VAT_CATEGORY_TAX_AMOUNT_Z09_ALLOWED_SCENARIOS: VatCategoryTaxAmountZ09Scenario[] =
   [
-    {
+    ...expandAcrossE09OmNonSimplifiedTxnTypes<VatCategoryTaxAmountZ09Scenario>({
       ruleId: "ALIGNED-IBRP-Z-09-OM",
       title:
-        "Given a Full Tax Zero rated invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-Z-09-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+        "Given a {txn} Zero rated invoice — When VAT category tax amount is 0 — Then the invoice should be accepted. (ALIGNED-IBRP-Z-09-OM)",
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
       vatCategoryTaxAmount: "0",
       shouldError: false,
       expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-    },
-    {
-      ruleId: "ALIGNED-IBRP-Z-09-OM",
-      title:
-        "Given a Full Tax Zero rated invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-09-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_ZERO,
-      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
-      vatCategoryTaxAmount: "50",
-      shouldError: true,
-      expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-    },
+    }),
     {
       ruleId: "ALIGNED-IBRP-Z-09-OM",
       title:
@@ -4814,6 +4909,27 @@ export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scena
       shouldError: false,
       expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
     },
+  ];
+
+/** Not Allowed (IBT-117 ≠ 0): one workbook per txn (error-file asserts). */
+export const VAT_CATEGORY_TAX_AMOUNT_Z09_NOT_ALLOWED_SCENARIOS: VatCategoryTaxAmountZ09Scenario[] =
+  expandAcrossE09OmNonSimplifiedTxnTypes<VatCategoryTaxAmountZ09Scenario>({
+    ruleId: "ALIGNED-IBRP-Z-09-OM",
+    title:
+      "Given a {txn} Zero rated invoice — When VAT category tax amount is 50 — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-09-OM)",
+    taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+    taxRate: TAX_RATE_ZERO,
+    taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+    vatCategoryTaxAmount: "50",
+    shouldError: true,
+    expectedErrorField: INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+  });
+
+/** All Z-09 scenarios (allowed batch + not-allowed batch). */
+export const VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS: VatCategoryTaxAmountZ09Scenario[] =
+  [
+    ...VAT_CATEGORY_TAX_AMOUNT_Z09_ALLOWED_SCENARIOS,
+    ...VAT_CATEGORY_TAX_AMOUNT_Z09_NOT_ALLOWED_SCENARIOS,
   ];
 
 // ---------------------------------------------------------------------------
@@ -4878,26 +4994,64 @@ export const SELLER_VAT_MANDATORY_SCENARIOS: SellerVatMandatoryScenario[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// sellerIdentifierScheme (IBR-007-OM)
+// sellerIdentifierScheme (IBR-007-OM) — only scheme + Seller ID Allowed
 // ---------------------------------------------------------------------------
-/** IBR-007-OM: named txn types require Seller identifier scheme (IBT-029-1). */
+/** IBR-007-OM: named txn types require both Seller identifier and scheme. */
 export const SELLER_IDENTIFIER_SCHEME_SCENARIOS: SellerIdentifierSchemeScenario[] =
   [
     ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
       ruleId: "IBR-007-OM",
       title:
-        "Given {txn} — When Seller identifier scheme is provided — Then the invoice should be accepted. (IBR-007-OM)",
-      sellerIdentifierSchemeProvided: true,
+        "Given {txn} — When Seller identifier and scheme are both provided — Then the invoice should be accepted. (IBR-007-OM)",
+      sellerIdentifierProvided: true,
+      sellerCompanion: "scheme",
       shouldError: false,
+      expectedErrorField: SELLER_IDENTIFIER_FIELD,
+    }),
+    ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
+      ruleId: "IBR-007-OM",
+      title:
+        "Given {txn} — When Seller identifier is provided without scheme — Then the invoice should be rejected with an error. (IBR-007-OM)",
+      sellerIdentifierProvided: true,
+      sellerCompanion: "none",
+      shouldError: true,
       expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
     }),
     ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
       ruleId: "IBR-007-OM",
       title:
-        "Given {txn} — When Seller identifier scheme is left empty — Then the invoice should be rejected with an error. (IBR-007-OM)",
-      sellerIdentifierSchemeProvided: false,
+        "Given {txn} — When Seller identifier and scheme are both left empty — Then the invoice should be rejected with an error. (IBR-007-OM)",
+      sellerIdentifierProvided: false,
+      sellerCompanion: "none",
+      shouldError: true,
+      expectedErrorField: SELLER_IDENTIFIER_FIELD,
+    }),
+    ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
+      ruleId: "IBR-007-OM",
+      title:
+        "Given {txn} — When Seller identifier scheme is provided without Seller identifier — Then the invoice should be rejected with an error. (IBR-007-OM)",
+      sellerIdentifierProvided: false,
+      sellerCompanion: "scheme",
+      shouldError: true,
+      expectedErrorField: SELLER_IDENTIFIER_FIELD,
+    }),
+    ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
+      ruleId: "IBR-007-OM",
+      title:
+        "Given {txn} — When Seller identifier is provided with textual code only — Then the invoice should be rejected with an error. (IBR-007-OM)",
+      sellerIdentifierProvided: true,
+      sellerCompanion: "code",
       shouldError: true,
       expectedErrorField: SELLER_IDENTIFIER_SCHEME_FIELD,
+    }),
+    ...expandAcrossIbr007SellerSchemeTxnTypes<SellerIdentifierSchemeScenario>({
+      ruleId: "IBR-007-OM",
+      title:
+        "Given {txn} — When Seller textual code is provided without Seller identifier — Then the invoice should be rejected with an error. (IBR-007-OM)",
+      sellerIdentifierProvided: false,
+      sellerCompanion: "code",
+      shouldError: true,
+      expectedErrorField: SELLER_IDENTIFIER_FIELD,
     }),
   ];
 

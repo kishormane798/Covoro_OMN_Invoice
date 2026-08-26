@@ -1,7 +1,7 @@
 /**
  * Error-file upload validation — workbook cell comments, Errors column, and optional edit-dialog message check.
- * After download, every Errors-column field comment is printed to stdout (comma-separated fields each get a line).
- * Extra flow detail is emitted only when `silent: false` and `E2E_TERMINAL_LOGS=1`.
+ * After download, Errors-column field comments are buffered (`printErrorWorkbookMessages`) and attached
+ * as `error-validation.txt` on test failure only. Extra flow detail when `silent: false` and `E2E_TERMINAL_LOGS=1`.
  */
 import fs from "fs";
 import path from "path";
@@ -12,6 +12,7 @@ import { DashboardPage } from "../../pageObjects/OMN_DashboardPage";
 import { uploadAndVerifyStatus } from "./uploadHelper";
 import {
   applyInvoiceCalculationsToFile,
+  countErrorDataRowsInWorkbook,
   generatedFiles,
   getErrorFieldExcelDetails,
   getInvoiceTemplatePath,
@@ -63,6 +64,141 @@ export async function runErrorValidation(
     strictExcelComment: input.strictExcelComment,
     silent: input.silent,
   });
+}
+
+type ErrorValidationAllRowsInput = {
+  filePath: string;
+  field: string;
+  /** Number of invoice data rows uploaded (Excel data starts at row 6). */
+  expectedDataRowCount: number;
+  /** When true, edit UI is checked for `invoiceNumber` on the first data row only. */
+  checkEdit?: boolean;
+  invoiceNumber?: string;
+  strictExcelComment?: boolean;
+  silent?: boolean;
+};
+
+/**
+ * Multi-invoice error upload: error-file Errors-column row count must **equal**
+ * uploaded data rows (e.g. 10 uploaded → exactly 10 error rows; less or more fails).
+ * Also every row must show an error on `field`.
+ */
+export async function runErrorValidationForAllDataRows(
+  page: Page,
+  input: ErrorValidationAllRowsInput
+) {
+  const expected = Math.floor(input.expectedDataRowCount);
+  if (!Number.isFinite(expected) || expected < 1) {
+    throw new Error(
+      `runErrorValidationForAllDataRows: expectedDataRowCount must be >= 1 (got ${input.expectedDataRowCount})`
+    );
+  }
+
+  const strictExcelComment = input.strictExcelComment ?? true;
+  const silent = input.silent ?? true;
+  const checkEdit = input.checkEdit ?? false;
+
+  await uploadAndVerifyStatus(page, input.filePath, "error");
+
+  const uploadPage = new UploadInvoicePage(page);
+  await uploadPage.waitForErrorFileDownloadEnabled();
+  const errorFilePath = await uploadPage.downloadErrorFileViaClick();
+
+  const { errorRowCount, rowsWithErrors } = countErrorDataRowsInWorkbook(
+    errorFilePath,
+    expected,
+    TEMPLATE_DATA_ROW
+  );
+  if (errorRowCount !== expected) {
+    const expectedRows = Array.from(
+      { length: expected },
+      (_, i) => TEMPLATE_DATA_ROW + i
+    );
+    const missing = expectedRows.filter((r) => !rowsWithErrors.includes(r));
+    const extra = rowsWithErrors.filter((r) => !expectedRows.includes(r));
+    const details: string[] = [];
+    if (missing.length) {
+      details.push(`missing Excel row(s): ${missing.join(", ")}`);
+    }
+    if (extra.length) {
+      details.push(`extra Excel row(s): ${extra.join(", ")}`);
+    }
+    throw new Error(
+      `Uploaded ${expected} invoice row(s) but error file has ${errorRowCount} error row(s) ` +
+        `(Errors column non-empty). Must be equal, not less or more` +
+        (details.length ? ` (${details.join("; ")})` : "") +
+        `.`
+    );
+  }
+  if (!silent) {
+    flowLog(
+      "ErrorValidation",
+      `Error row count OK — ${errorRowCount}/${expected} data rows have Errors column entries (exact match)`
+    );
+  }
+
+  const missingRows: number[] = [];
+  for (let i = 0; i < expected; i++) {
+    const row = TEMPLATE_DATA_ROW + i;
+    printErrorWorkbookMessages(errorFilePath, row);
+    const hasError = await fieldHasErrorInWorkbook(
+      errorFilePath,
+      input.field,
+      row,
+      strictExcelComment
+    );
+    if (!hasError) {
+      missingRows.push(row);
+    } else if (!silent) {
+      flowLog(
+        "ErrorValidation",
+        `Error in file — row ${row} field "${input.field}" (batch ${i + 1}/${expected})`
+      );
+    }
+  }
+
+  if (missingRows.length > 0) {
+    throw new Error(
+      `Expected error on "${input.field}" for all ${expected} uploaded data row(s); ` +
+        `missing on Excel row(s): ${missingRows.join(", ")} ` +
+        `(found ${expected - missingRows.length}/${expected}).`
+    );
+  }
+
+  if (!checkEdit) {
+    return;
+  }
+
+  if (input.invoiceNumber === undefined) {
+    throw new Error(
+      "invoiceNumber is required when checkEdit is true for runErrorValidationForAllDataRows."
+    );
+  }
+
+  const table = new DashboardPage(page);
+  await table.waitForInvoiceRowVisible(input.invoiceNumber, INVOICE_ROW_TIMEOUT_MS);
+  await table.openInvoiceEdit(input.invoiceNumber);
+  try {
+    await table.openErrorEdit(input.field);
+  } catch {
+    if (!silent) {
+      flowLog(
+        "ErrorValidation",
+        `Error in edit — could not open field editor for "${input.field}". Skipping edit-message check.`
+      );
+    }
+    return;
+  }
+
+  const editFieldValue = await table.readVisibleEditFieldValue();
+  const visibleEditMessage =
+    await table.readVisibleEditValidationMessageWithFallback();
+  if (!silent) {
+    flowLog(
+      "ErrorValidation",
+      `Error in edit — field "${input.field}" | input value: ${JSON.stringify(editFieldValue)} | message: ${visibleEditMessage ? visibleEditMessage : "(none)"}`
+    );
+  }
 }
 
 type ErrorCommentRulesInput = {

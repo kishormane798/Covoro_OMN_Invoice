@@ -1,7 +1,11 @@
 import { test as base, type Request, type Page } from '@playwright/test';
 import { parallelWorkerTinSlot } from '../Helpers/worker/parallelWorkerSubmitIdentity';
 import { resolveBaseUrl } from '../utils/appConfig';
-import { deleteGeneratedExcelFiles, generatedFiles } from '../utils/excel/invoiceExcel';
+import {
+  deleteGeneratedExcelFiles,
+  errorValidationLogLines,
+  generatedFiles,
+} from '../utils/excel/invoiceExcel';
 import {
   isUnreachableNetworkError,
   readSiteUnavailableReasonForWorker,
@@ -473,6 +477,7 @@ test.beforeEach(async ({}, testInfo) => {
   }
 
   generatedFiles.length = 0;
+  errorValidationLogLines.length = 0;
   failureDiagnosticsByTest.set(testInfo, { consoleLines: [], apiLines: [] });
   // Multi-TIN: slot 0–4 → Python/Excel worker TINs 1779700001…5. Prefer TEST_PARALLEL_INDEX when set; subprocesses inherit env.
   const tp = process.env.TEST_PARALLEL_INDEX;
@@ -517,6 +522,13 @@ test.afterEach(async ({}, testInfo) => {
       contentType: 'text/plain; charset=utf-8',
     });
 
+    if (errorValidationLogLines.length > 0) {
+      await testInfo.attach('error-validation.txt', {
+        body: `${errorValidationLogLines.join('\n')}\n`,
+        contentType: 'text/plain; charset=utf-8',
+      });
+    }
+
     // Deduplicate: generators and `uploadFile` may register the same path under different strings.
     const excelPaths = existingDedupedAbsolutePaths(generatedFiles);
     for (const resolvedPath of excelPaths) {
@@ -556,6 +568,7 @@ test.afterEach(async ({}, testInfo) => {
     (testInfo.status ?? "UNKNOWN").toUpperCase();
 
   await deleteGeneratedExcelFiles();
+  errorValidationLogLines.length = 0;
   failureDiagnosticsByTest.delete(testInfo);
   testTimingByTest.delete(testInfo);
 });

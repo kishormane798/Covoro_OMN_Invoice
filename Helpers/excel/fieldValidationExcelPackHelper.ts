@@ -555,7 +555,7 @@ export function buildMutatedValue(
       return "";
     case "dropdown_whitespace":
     case "field_whitespace":
-      return "   ";
+      return FV.WHITESPACE_ONLY_FIELD_VALUE;
     case "dropdown_correct":
       return validLabel;
     case "dropdown_wrong":

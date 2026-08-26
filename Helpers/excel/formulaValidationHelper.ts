@@ -7,21 +7,18 @@
  * attaches workbooks only on failure/timeout in `afterEach`, then deletes them from disk.
  */
 import type { Page } from "@playwright/test";
-import {
-  calculateInvoiceValuesForGeneratorPayload,
-  generateInvoiceFromSubmitData,
-  generateInvoiceFromSubmitRows,
-  INVOICE_TEMPLATE_DATA_ROW,
-  OMAN_HOME_CURRENCY,
-  patchInvoiceDataCellInFile,
-  patchInvoiceTextCellInFile,
-} from "../../utils/excel/invoiceExcel";
 import { uploadAndVerify } from "./uploadHelper";
-import { runErrorValidation } from "./excelEditMessageCheck";
+import {
+  runErrorValidation,
+  runErrorValidationForAllDataRows,
+} from "./excelEditMessageCheck";
 import { defaultInvoiceData } from "../../testData/FieldValidations/Min_max_field_validation";
 import * as FV from "../../testData/FieldValidations/ConditionalValidation";
 import {
   applyPartyIdentifiersByTxnType,
+  buildVatCategoryTaxAmountE09ScenarioRow,
+  buildVatCategoryTaxAmountO09ScenarioRow,
+  buildVatCategoryTaxAmountZ09ScenarioRow,
 } from "./conditionalValidationHelper";
 import {
   applyPaidAmountPrepaymentCompanions,
@@ -34,6 +31,16 @@ import {
   taxExemptionReasonExemptValidTestData,
   taxExemptionReasonZeroRatedValidTestData,
 } from "../../testData/Master/Master.omnCore";
+import {
+  calculateInvoiceValuesForGeneratorPayload,
+  generateInvoiceFromSubmitData,
+  generateInvoiceFromSubmitRows,
+  generateDistinctSubmitInvoices,
+  INVOICE_TEMPLATE_DATA_ROW,
+  OMAN_HOME_CURRENCY,
+  patchInvoiceDataCellInFile,
+  patchInvoiceTextCellInFile,
+} from "../../utils/excel/invoiceExcel";
 
 export const FOREIGN_CURRENCY_CODE = "USD";
 export const DEFAULT_FOREIGN_EXCHANGE_RATE = 3.67;
@@ -952,6 +959,8 @@ export async function runCalculatedFieldOutsideToleranceErrorScenario(
  * Σ mismatch is Invoice Total Amount Without Tax. VAT breakdown (IBG-23) is UI/backend
  * and auto-maps by transaction type; Excel cases provide totals and assert upload status.
  * Simplified + E: provide values (do not blank IBT-116 proxy) → accepted.
+ * Non-Simplified txn matrix reuses E09_OM_NON_SIMPLIFIED_TXN_TYPES (excludes Profit Margin
+ * Self-Invoice — IBR-086-OM → O only).
  */
 export const E08_OM_IBT116_PROXY_HEADER = "Invoice Total Amount Without Tax";
 
@@ -966,29 +975,24 @@ export type AlignedIbrpE08OmCase = {
   polarity: AlignedIbrpE08OmPolarity;
   title: string;
   shouldError: boolean;
+  invoiceTransactionTypeCode: string;
 };
 
-export const ALIGNED_IBRP_E_08_OM_CASES: AlignedIbrpE08OmCase[] = [
-  {
+export const ALIGNED_IBRP_E_08_OM_ALLOWED_CASES: AlignedIbrpE08OmCase[] = [
+  ...FV.expandAcrossE09OmNonSimplifiedTxnTypes<AlignedIbrpE08OmCase>({
     ruleId: "ALIGNED-IBRP-E-08-OM",
     polarity: "allowed_line",
     title:
-      "Given Exempt VAT on a Full Tax invoice — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
+      "Given Exempt VAT on a {txn} — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
     shouldError: false,
-  },
+  }),
   {
     ruleId: "ALIGNED-IBRP-E-08-OM",
     polarity: "allowed_line_allowance_charge",
     title:
       "Given Exempt VAT on a Full Tax invoice — When line, allowance, and charge taxable amounts match — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
     shouldError: false,
-  },
-  {
-    ruleId: "ALIGNED-IBRP-E-08-OM",
-    polarity: "not_allowed_mismatch",
-    title:
-      "Given Exempt VAT on a Full Tax invoice — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-08-OM)",
-    shouldError: true,
+    invoiceTransactionTypeCode: FV.TXN_FULL_TAX_INVOICE,
   },
   {
     ruleId: "ALIGNED-IBRP-E-08-OM",
@@ -996,7 +1000,23 @@ export const ALIGNED_IBRP_E_08_OM_CASES: AlignedIbrpE08OmCase[] = [
     title:
       "Given Exempt VAT on a Simplified invoice — When a taxable amount is provided — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
     shouldError: false,
+    invoiceTransactionTypeCode: FV.TXN_SIMPLIFIED_TAX_INVOICE,
   },
+];
+
+export const ALIGNED_IBRP_E_08_OM_NOT_ALLOWED_CASES: AlignedIbrpE08OmCase[] =
+  FV.expandAcrossE09OmNonSimplifiedTxnTypes<AlignedIbrpE08OmCase>({
+    ruleId: "ALIGNED-IBRP-E-08-OM",
+    polarity: "not_allowed_mismatch",
+    title:
+      "Given Exempt VAT on a {txn} — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-E-08-OM)",
+    shouldError: true,
+  });
+
+/** All E-08 cases (allowed batch + not-allowed batch polarities). */
+export const ALIGNED_IBRP_E_08_OM_CASES: AlignedIbrpE08OmCase[] = [
+  ...ALIGNED_IBRP_E_08_OM_ALLOWED_CASES,
+  ...ALIGNED_IBRP_E_08_OM_NOT_ALLOWED_CASES,
 ];
 
 function e08OmExemptBaseRow(
@@ -1029,22 +1049,156 @@ function e08OmExemptBaseRow(
   };
 }
 
-function clearSimplifiedTxnCompanions(filePath: string): void {
-  patchInvoiceTextCellInFile(filePath, FV.ITEM_TYPE_FIELD, "");
-  patchInvoiceTextCellInFile(filePath, FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD, "");
-  patchInvoiceTextCellInFile(filePath, FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD, "");
+/**
+ * E-08 submit row: E-09 txn companions (keeps Exempt on Profit Margin Invoice) +
+ * formula amount overlay. Avoids buildFormulaSubmitRow's Profit Margin → O force.
+ */
+function buildE08OmSubmitRow(
+  polarity: AlignedIbrpE08OmPolarity,
+  txn: string
+): Record<string, string> {
+  const formulaRow = e08OmExemptBaseRow(polarity, txn);
+  const companions = buildVatCategoryTaxAmountE09ScenarioRow({
+    ruleId: "ALIGNED-IBRP-E-08-OM",
+    title: formulaRow.name,
+    invoiceTransactionTypeCode: txn,
+    taxCategory: FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: FV.TAX_EXEMPTION_REASON_SAMPLE,
+    vatCategoryTaxAmount: "0",
+    shouldError: false,
+    expectedErrorField: E08_OM_IBT116_PROXY_HEADER,
+  });
+  const amountOverlay = formulaPayloadToHeaderOverlay(
+    buildFormulaExcelPayload(formulaRow, "omr")
+  );
+  let row = overlayHeaderValues(asStringRow(companions), amountOverlay);
+  row = applyParallelWorkerIdentityToSubmitRow(row);
+  row[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+  row[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  row[FV.TAX_CATEGORY_FIELD] = FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE;
+  row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+  row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = FV.TAX_EXEMPTION_REASON_SAMPLE;
+  row[FV.INVOICE_TYPE_CODE_FIELD] =
+    FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
+  return applyDocumentLevelCompanionsToSubmitRow(row);
+}
+
+function clearSimplifiedTxnCompanions(
+  filePath: string,
+  dataRow = INVOICE_TEMPLATE_DATA_ROW
+): void {
+  patchInvoiceTextCellInFile(filePath, FV.ITEM_TYPE_FIELD, "", dataRow);
+  patchInvoiceTextCellInFile(
+    filePath,
+    FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    "",
+    dataRow
+  );
+  patchInvoiceTextCellInFile(
+    filePath,
+    FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+    "",
+    dataRow
+  );
+}
+
+/**
+ * ALIGNED-IBRP-E-08-OM Allowed: one workbook, one invoice row per scenario
+ * (all non-Simplified txns + Full Tax line/allowance/charge + Simplified).
+ */
+export async function verifyAlignedIbrpE08OmAllowedBatch(
+  page: Page,
+  scenarios: readonly AlignedIbrpE08OmCase[] = ALIGNED_IBRP_E_08_OM_ALLOWED_CASES
+): Promise<void> {
+  if (!scenarios.length) {
+    throw new Error("verifyAlignedIbrpE08OmAllowedBatch: no allowed scenarios");
+  }
+  const rows = scenarios.map((scenario) =>
+    buildE08OmSubmitRow(scenario.polarity, scenario.invoiceTransactionTypeCode)
+  );
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `ALIGNED-IBRP-E-08-OM-allowed-${Date.now()}.xlsx`,
+  });
+  for (let i = 0; i < scenarios.length; i++) {
+    if (
+      scenarios[i]!.invoiceTransactionTypeCode === FV.TXN_SIMPLIFIED_TAX_INVOICE
+    ) {
+      clearSimplifiedTxnCompanions(filePath, INVOICE_TEMPLATE_DATA_ROW + i);
+    }
+  }
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * ALIGNED-IBRP-E-08-OM Not Allowed: same batch shape as Allowed — one workbook,
+ * mismatch IBT-116 proxy on every non-Simplified txn row. Fails if fewer rows
+ * than uploaded show an error on Invoice Total Amount Without Tax.
+ */
+export async function verifyAlignedIbrpE08OmNotAllowedBatch(
+  page: Page,
+  scenarios: readonly AlignedIbrpE08OmCase[] = ALIGNED_IBRP_E_08_OM_NOT_ALLOWED_CASES
+): Promise<void> {
+  if (!scenarios.length) {
+    throw new Error(
+      "verifyAlignedIbrpE08OmNotAllowedBatch: no not-allowed scenarios"
+    );
+  }
+  const rows = scenarios.map((scenario) =>
+    buildE08OmSubmitRow(scenario.polarity, scenario.invoiceTransactionTypeCode)
+  );
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `ALIGNED-IBRP-E-08-OM-not-allowed-${Date.now()}.xlsx`,
+  });
+
+  const mismatchTarget = CALCULATED_FIELD_MISMATCH_TARGETS.find(
+    (t) => t.excelHeader === E08_OM_IBT116_PROXY_HEADER
+  )!;
+  for (let i = 0; i < scenarios.length; i++) {
+    const scenario = scenarios[i]!;
+    const formulaRow = e08OmExemptBaseRow(
+      scenario.polarity,
+      scenario.invoiceTransactionTypeCode
+    );
+    const correctRaw = pickCorrectForWorkbook(
+      mismatchTarget,
+      "omr",
+      formulaRow,
+      1
+    );
+    if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
+      throw new Error(
+        `ALIGNED-IBRP-E-08-OM: no baseline for ${E08_OM_IBT116_PROXY_HEADER} (${scenario.invoiceTransactionTypeCode})`
+      );
+    }
+    patchInvoiceDataCellInFile(
+      filePath,
+      E08_OM_IBT116_PROXY_HEADER,
+      applyToleranceDelta(Number(correctRaw), CALCULATED_FIELD_MISMATCH_DELTA),
+      INVOICE_TEMPLATE_DATA_ROW + i
+    );
+  }
+
+  await runErrorValidationForAllDataRows(page, {
+    filePath,
+    field: E08_OM_IBT116_PROXY_HEADER,
+    expectedDataRowCount: scenarios.length,
+    checkEdit: false,
+  });
 }
 
 export async function runAlignedIbrpE08OmScenario(
   page: Page,
   scenario: AlignedIbrpE08OmCase
 ) {
-  const txn =
-    scenario.polarity === "exception_simplified_e_accepted"
-      ? FV.TXN_SIMPLIFIED_TAX_INVOICE
-      : FV.TXN_FULL_TAX_INVOICE;
-  const row = e08OmExemptBaseRow(scenario.polarity, txn);
-  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+  const txn = scenario.invoiceTransactionTypeCode;
+  const formulaRow = e08OmExemptBaseRow(scenario.polarity, txn);
+  const submitRow = buildE08OmSubmitRow(scenario.polarity, txn);
+  const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(
+    submitRow
+  );
+  patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
+  patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
 
   if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     clearSimplifiedTxnCompanions(filePath);
@@ -1056,7 +1210,7 @@ export async function runAlignedIbrpE08OmScenario(
         (t) => t.excelHeader === E08_OM_IBT116_PROXY_HEADER
       )!,
       "omr",
-      row,
+      formulaRow,
       1
     );
     if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
@@ -1089,6 +1243,8 @@ export async function runAlignedIbrpE08OmScenario(
  * Σ mismatch is Invoice Total Amount Without Tax. VAT breakdown (IBG-23) is UI/backend
  * and auto-maps by transaction type; Excel cases provide totals and assert upload status.
  * Simplified + O: provide values (do not blank IBT-116 proxy) → accepted.
+ * Non-Simplified txn matrix reuses O09_OM_NON_SIMPLIFIED_TXN_TYPES (includes Profit
+ * Margin Self-Invoice — IBR-086-OM → O).
  */
 export const O08_OM_IBT116_PROXY_HEADER = "Invoice Total Amount Without Tax";
 
@@ -1103,29 +1259,24 @@ export type AlignedIbrpO08OmCase = {
   polarity: AlignedIbrpO08OmPolarity;
   title: string;
   shouldError: boolean;
+  invoiceTransactionTypeCode: string;
 };
 
-export const ALIGNED_IBRP_O_08_OM_CASES: AlignedIbrpO08OmCase[] = [
-  {
+export const ALIGNED_IBRP_O_08_OM_ALLOWED_CASES: AlignedIbrpO08OmCase[] = [
+  ...FV.expandAcrossO09OmNonSimplifiedTxnTypes<AlignedIbrpO08OmCase>({
     ruleId: "ALIGNED-IBRP-O-08-OM",
     polarity: "allowed_line",
     title:
-      "Given Not subject to VAT on a Full Tax invoice — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
+      "Given Not subject to VAT on a {txn} — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
     shouldError: false,
-  },
+  }),
   {
     ruleId: "ALIGNED-IBRP-O-08-OM",
     polarity: "allowed_line_allowance_charge",
     title:
       "Given Not subject to VAT on a Full Tax invoice — When line, allowance, and charge taxable amounts match — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
     shouldError: false,
-  },
-  {
-    ruleId: "ALIGNED-IBRP-O-08-OM",
-    polarity: "not_allowed_mismatch",
-    title:
-      "Given Not subject to VAT on a Full Tax invoice — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-08-OM)",
-    shouldError: true,
+    invoiceTransactionTypeCode: FV.TXN_FULL_TAX_INVOICE,
   },
   {
     ruleId: "ALIGNED-IBRP-O-08-OM",
@@ -1133,7 +1284,23 @@ export const ALIGNED_IBRP_O_08_OM_CASES: AlignedIbrpO08OmCase[] = [
     title:
       "Given Not subject to VAT on a Simplified invoice — When a taxable amount is provided — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
     shouldError: false,
+    invoiceTransactionTypeCode: FV.TXN_SIMPLIFIED_TAX_INVOICE,
   },
+];
+
+export const ALIGNED_IBRP_O_08_OM_NOT_ALLOWED_CASES: AlignedIbrpO08OmCase[] =
+  FV.expandAcrossO09OmNonSimplifiedTxnTypes<AlignedIbrpO08OmCase>({
+    ruleId: "ALIGNED-IBRP-O-08-OM",
+    polarity: "not_allowed_mismatch",
+    title:
+      "Given Not subject to VAT on a {txn} — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-O-08-OM)",
+    shouldError: true,
+  });
+
+/** All O-08 cases (allowed batch + not-allowed batch polarities). */
+export const ALIGNED_IBRP_O_08_OM_CASES: AlignedIbrpO08OmCase[] = [
+  ...ALIGNED_IBRP_O_08_OM_ALLOWED_CASES,
+  ...ALIGNED_IBRP_O_08_OM_NOT_ALLOWED_CASES,
 ];
 
 function o08OmNotSubjectBaseRow(
@@ -1166,16 +1333,136 @@ function o08OmNotSubjectBaseRow(
   };
 }
 
+/**
+ * O-08 submit row: O-09 txn companions + formula amount overlay.
+ */
+function buildO08OmSubmitRow(
+  polarity: AlignedIbrpO08OmPolarity,
+  txn: string
+): Record<string, string> {
+  const formulaRow = o08OmNotSubjectBaseRow(polarity, txn);
+  const companions = buildVatCategoryTaxAmountO09ScenarioRow({
+    ruleId: "ALIGNED-IBRP-O-08-OM",
+    title: formulaRow.name,
+    invoiceTransactionTypeCode: txn,
+    taxCategory: FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+    taxRate: null,
+    taxExemptionReasonCode: "",
+    vatCategoryTaxAmount: "0",
+    shouldError: false,
+    expectedErrorField: O08_OM_IBT116_PROXY_HEADER,
+  });
+  const amountOverlay = formulaPayloadToHeaderOverlay(
+    buildFormulaExcelPayload(formulaRow, "omr")
+  );
+  let row = overlayHeaderValues(asStringRow(companions), amountOverlay);
+  row = applyParallelWorkerIdentityToSubmitRow(row);
+  row[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+  row[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+  row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+  row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+  row[FV.INVOICE_TYPE_CODE_FIELD] =
+    FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
+  return applyDocumentLevelCompanionsToSubmitRow(row);
+}
+
+/**
+ * ALIGNED-IBRP-O-08-OM Allowed: one workbook, one invoice row per scenario
+ * (all non-Simplified txns + Full Tax line/allowance/charge + Simplified).
+ */
+export async function verifyAlignedIbrpO08OmAllowedBatch(
+  page: Page,
+  scenarios: readonly AlignedIbrpO08OmCase[] = ALIGNED_IBRP_O_08_OM_ALLOWED_CASES
+): Promise<void> {
+  if (!scenarios.length) {
+    throw new Error("verifyAlignedIbrpO08OmAllowedBatch: no allowed scenarios");
+  }
+  const rows = scenarios.map((scenario) =>
+    buildO08OmSubmitRow(scenario.polarity, scenario.invoiceTransactionTypeCode)
+  );
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `ALIGNED-IBRP-O-08-OM-allowed-${Date.now()}.xlsx`,
+  });
+  for (let i = 0; i < scenarios.length; i++) {
+    if (
+      scenarios[i]!.invoiceTransactionTypeCode === FV.TXN_SIMPLIFIED_TAX_INVOICE
+    ) {
+      clearSimplifiedTxnCompanions(filePath, INVOICE_TEMPLATE_DATA_ROW + i);
+    }
+  }
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * ALIGNED-IBRP-O-08-OM Not Allowed: same batch shape as Allowed — one workbook,
+ * mismatch IBT-116 proxy on every non-Simplified txn row. Fails if fewer rows
+ * than uploaded show an error on Invoice Total Amount Without Tax.
+ */
+export async function verifyAlignedIbrpO08OmNotAllowedBatch(
+  page: Page,
+  scenarios: readonly AlignedIbrpO08OmCase[] = ALIGNED_IBRP_O_08_OM_NOT_ALLOWED_CASES
+): Promise<void> {
+  if (!scenarios.length) {
+    throw new Error(
+      "verifyAlignedIbrpO08OmNotAllowedBatch: no not-allowed scenarios"
+    );
+  }
+  const rows = scenarios.map((scenario) =>
+    buildO08OmSubmitRow(scenario.polarity, scenario.invoiceTransactionTypeCode)
+  );
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `ALIGNED-IBRP-O-08-OM-not-allowed-${Date.now()}.xlsx`,
+  });
+
+  const mismatchTarget = CALCULATED_FIELD_MISMATCH_TARGETS.find(
+    (t) => t.excelHeader === O08_OM_IBT116_PROXY_HEADER
+  )!;
+  for (let i = 0; i < scenarios.length; i++) {
+    const scenario = scenarios[i]!;
+    const formulaRow = o08OmNotSubjectBaseRow(
+      scenario.polarity,
+      scenario.invoiceTransactionTypeCode
+    );
+    const correctRaw = pickCorrectForWorkbook(
+      mismatchTarget,
+      "omr",
+      formulaRow,
+      1
+    );
+    if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
+      throw new Error(
+        `ALIGNED-IBRP-O-08-OM: no baseline for ${O08_OM_IBT116_PROXY_HEADER} (${scenario.invoiceTransactionTypeCode})`
+      );
+    }
+    patchInvoiceDataCellInFile(
+      filePath,
+      O08_OM_IBT116_PROXY_HEADER,
+      applyToleranceDelta(Number(correctRaw), CALCULATED_FIELD_MISMATCH_DELTA),
+      INVOICE_TEMPLATE_DATA_ROW + i
+    );
+  }
+
+  await runErrorValidationForAllDataRows(page, {
+    filePath,
+    field: O08_OM_IBT116_PROXY_HEADER,
+    expectedDataRowCount: scenarios.length,
+    checkEdit: false,
+  });
+}
+
 export async function runAlignedIbrpO08OmScenario(
   page: Page,
   scenario: AlignedIbrpO08OmCase
 ) {
-  const txn =
-    scenario.polarity === "exception_simplified_o_accepted"
-      ? FV.TXN_SIMPLIFIED_TAX_INVOICE
-      : FV.TXN_FULL_TAX_INVOICE;
-  const row = o08OmNotSubjectBaseRow(scenario.polarity, txn);
-  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+  const txn = scenario.invoiceTransactionTypeCode;
+  const formulaRow = o08OmNotSubjectBaseRow(scenario.polarity, txn);
+  const submitRow = buildO08OmSubmitRow(scenario.polarity, txn);
+  const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(
+    submitRow
+  );
+  patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
+  patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
 
   if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     clearSimplifiedTxnCompanions(filePath);
@@ -1187,7 +1474,7 @@ export async function runAlignedIbrpO08OmScenario(
         (t) => t.excelHeader === O08_OM_IBT116_PROXY_HEADER
       )!,
       "omr",
-      row,
+      formulaRow,
       1
     );
     if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
@@ -1332,6 +1619,8 @@ export async function runAlignedIbrpS08OmScenario(
  * Σ mismatch is Invoice Total Amount Without Tax. VAT breakdown (IBG-23) is UI/backend
  * and auto-maps by transaction type; Excel cases provide totals and assert upload status.
  * Simplified + Z: provide values (do not blank IBT-116 proxy) → accepted.
+ * Non-Simplified txn matrix reuses E09_OM_NON_SIMPLIFIED_TXN_TYPES (excludes Profit Margin
+ * Self-Invoice — IBR-086-OM → O only).
  */
 export const Z08_OM_IBT116_PROXY_HEADER = "Invoice Total Amount Without Tax";
 
@@ -1346,29 +1635,24 @@ export type AlignedIbrpZ08OmCase = {
   polarity: AlignedIbrpZ08OmPolarity;
   title: string;
   shouldError: boolean;
+  invoiceTransactionTypeCode: string;
 };
 
-export const ALIGNED_IBRP_Z_08_OM_CASES: AlignedIbrpZ08OmCase[] = [
-  {
+export const ALIGNED_IBRP_Z_08_OM_ALLOWED_CASES: AlignedIbrpZ08OmCase[] = [
+  ...FV.expandAcrossE09OmNonSimplifiedTxnTypes<AlignedIbrpZ08OmCase>({
     ruleId: "ALIGNED-IBRP-Z-08-OM",
     polarity: "allowed_line",
     title:
-      "Given Zero rated VAT on a Full Tax invoice — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
+      "Given Zero rated VAT on a {txn} — When the line taxable amount matches — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
     shouldError: false,
-  },
+  }),
   {
     ruleId: "ALIGNED-IBRP-Z-08-OM",
     polarity: "allowed_line_allowance_charge",
     title:
       "Given Zero rated VAT on a Full Tax invoice — When line, allowance, and charge taxable amounts match — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
     shouldError: false,
-  },
-  {
-    ruleId: "ALIGNED-IBRP-Z-08-OM",
-    polarity: "not_allowed_mismatch",
-    title:
-      "Given Zero rated VAT on a Full Tax invoice — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-08-OM)",
-    shouldError: true,
+    invoiceTransactionTypeCode: FV.TXN_FULL_TAX_INVOICE,
   },
   {
     ruleId: "ALIGNED-IBRP-Z-08-OM",
@@ -1376,7 +1660,23 @@ export const ALIGNED_IBRP_Z_08_OM_CASES: AlignedIbrpZ08OmCase[] = [
     title:
       "Given Zero rated VAT on a Simplified invoice — When a taxable amount is provided — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
     shouldError: false,
+    invoiceTransactionTypeCode: FV.TXN_SIMPLIFIED_TAX_INVOICE,
   },
+];
+
+export const ALIGNED_IBRP_Z_08_OM_NOT_ALLOWED_CASES: AlignedIbrpZ08OmCase[] =
+  FV.expandAcrossE09OmNonSimplifiedTxnTypes<AlignedIbrpZ08OmCase>({
+    ruleId: "ALIGNED-IBRP-Z-08-OM",
+    polarity: "not_allowed_mismatch",
+    title:
+      "Given Zero rated VAT on a {txn} — When the taxable amount does not match — Then the invoice should be rejected with an error. (ALIGNED-IBRP-Z-08-OM)",
+    shouldError: true,
+  });
+
+/** All Z-08 cases (allowed batch + not-allowed batch polarities). */
+export const ALIGNED_IBRP_Z_08_OM_CASES: AlignedIbrpZ08OmCase[] = [
+  ...ALIGNED_IBRP_Z_08_OM_ALLOWED_CASES,
+  ...ALIGNED_IBRP_Z_08_OM_NOT_ALLOWED_CASES,
 ];
 
 function z08OmZeroRatedBaseRow(
@@ -1407,16 +1707,136 @@ function z08OmZeroRatedBaseRow(
   };
 }
 
+/**
+ * Z-08 submit row: Z-09 txn companions (keeps Zero rated on Profit Margin Invoice) +
+ * formula amount overlay. Avoids buildFormulaSubmitRow's Profit Margin → O force.
+ */
+function buildZ08OmSubmitRow(
+  polarity: AlignedIbrpZ08OmPolarity,
+  txn: string
+): Record<string, string> {
+  const formulaRow = z08OmZeroRatedBaseRow(polarity, txn);
+  const companions = buildVatCategoryTaxAmountZ09ScenarioRow({
+    ruleId: "ALIGNED-IBRP-Z-08-OM",
+    title: formulaRow.name,
+    invoiceTransactionTypeCode: txn,
+    taxCategory: FV.ZERO_RATED_TAX_CATEGORY_CODE,
+    taxRate: FV.TAX_RATE_ZERO,
+    taxExemptionReasonCode: FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+    vatCategoryTaxAmount: "0",
+    shouldError: false,
+    expectedErrorField: Z08_OM_IBT116_PROXY_HEADER,
+  });
+  const amountOverlay = formulaPayloadToHeaderOverlay(
+    buildFormulaExcelPayload(formulaRow, "omr")
+  );
+  let row = overlayHeaderValues(asStringRow(companions), amountOverlay);
+  row = applyParallelWorkerIdentityToSubmitRow(row);
+  row[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+  row[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  row[FV.TAX_CATEGORY_FIELD] = FV.ZERO_RATED_TAX_CATEGORY_CODE;
+  row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
+  row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] =
+    FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+  return applyDocumentLevelCompanionsToSubmitRow(row);
+}
+
+/**
+ * ALIGNED-IBRP-Z-08-OM Allowed: one workbook, one invoice row per scenario
+ * (all non-Simplified txns + Full Tax line/allowance/charge + Simplified).
+ */
+export async function verifyAlignedIbrpZ08OmAllowedBatch(
+  page: Page,
+  scenarios: readonly AlignedIbrpZ08OmCase[] = ALIGNED_IBRP_Z_08_OM_ALLOWED_CASES
+): Promise<void> {
+  if (!scenarios.length) {
+    throw new Error("verifyAlignedIbrpZ08OmAllowedBatch: no allowed scenarios");
+  }
+  const rows = scenarios.map((scenario) =>
+    buildZ08OmSubmitRow(scenario.polarity, scenario.invoiceTransactionTypeCode)
+  );
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `ALIGNED-IBRP-Z-08-OM-allowed-${Date.now()}.xlsx`,
+  });
+  for (let i = 0; i < scenarios.length; i++) {
+    if (
+      scenarios[i]!.invoiceTransactionTypeCode === FV.TXN_SIMPLIFIED_TAX_INVOICE
+    ) {
+      clearSimplifiedTxnCompanions(filePath, INVOICE_TEMPLATE_DATA_ROW + i);
+    }
+  }
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * ALIGNED-IBRP-Z-08-OM Not Allowed: same batch shape as Allowed — one workbook,
+ * mismatch IBT-116 proxy on every non-Simplified txn row. Fails if fewer rows
+ * than uploaded show an error on Invoice Total Amount Without Tax.
+ */
+export async function verifyAlignedIbrpZ08OmNotAllowedBatch(
+  page: Page,
+  scenarios: readonly AlignedIbrpZ08OmCase[] = ALIGNED_IBRP_Z_08_OM_NOT_ALLOWED_CASES
+): Promise<void> {
+  if (!scenarios.length) {
+    throw new Error(
+      "verifyAlignedIbrpZ08OmNotAllowedBatch: no not-allowed scenarios"
+    );
+  }
+  const rows = scenarios.map((scenario) =>
+    buildZ08OmSubmitRow(scenario.polarity, scenario.invoiceTransactionTypeCode)
+  );
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `ALIGNED-IBRP-Z-08-OM-not-allowed-${Date.now()}.xlsx`,
+  });
+
+  const mismatchTarget = CALCULATED_FIELD_MISMATCH_TARGETS.find(
+    (t) => t.excelHeader === Z08_OM_IBT116_PROXY_HEADER
+  )!;
+  for (let i = 0; i < scenarios.length; i++) {
+    const scenario = scenarios[i]!;
+    const formulaRow = z08OmZeroRatedBaseRow(
+      scenario.polarity,
+      scenario.invoiceTransactionTypeCode
+    );
+    const correctRaw = pickCorrectForWorkbook(
+      mismatchTarget,
+      "omr",
+      formulaRow,
+      1
+    );
+    if (correctRaw === null || Number.isNaN(Number(correctRaw))) {
+      throw new Error(
+        `ALIGNED-IBRP-Z-08-OM: no baseline for ${Z08_OM_IBT116_PROXY_HEADER} (${scenario.invoiceTransactionTypeCode})`
+      );
+    }
+    patchInvoiceDataCellInFile(
+      filePath,
+      Z08_OM_IBT116_PROXY_HEADER,
+      applyToleranceDelta(Number(correctRaw), CALCULATED_FIELD_MISMATCH_DELTA),
+      INVOICE_TEMPLATE_DATA_ROW + i
+    );
+  }
+
+  await runErrorValidationForAllDataRows(page, {
+    filePath,
+    field: Z08_OM_IBT116_PROXY_HEADER,
+    expectedDataRowCount: scenarios.length,
+    checkEdit: false,
+  });
+}
+
 export async function runAlignedIbrpZ08OmScenario(
   page: Page,
   scenario: AlignedIbrpZ08OmCase
 ) {
-  const txn =
-    scenario.polarity === "exception_simplified_z_accepted"
-      ? FV.TXN_SIMPLIFIED_TAX_INVOICE
-      : FV.TXN_FULL_TAX_INVOICE;
-  const row = z08OmZeroRatedBaseRow(scenario.polarity, txn);
-  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
+  const txn = scenario.invoiceTransactionTypeCode;
+  const formulaRow = z08OmZeroRatedBaseRow(scenario.polarity, txn);
+  const submitRow = buildZ08OmSubmitRow(scenario.polarity, txn);
+  const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(
+    submitRow
+  );
+  patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
+  patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
 
   if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     clearSimplifiedTxnCompanions(filePath);
@@ -1428,7 +1848,7 @@ export async function runAlignedIbrpZ08OmScenario(
         (t) => t.excelHeader === Z08_OM_IBT116_PROXY_HEADER
       )!,
       "omr",
-      row,
+      formulaRow,
       1
     );
     if (correctRaw === null || Number.isNaN(Number(correctRaw))) {

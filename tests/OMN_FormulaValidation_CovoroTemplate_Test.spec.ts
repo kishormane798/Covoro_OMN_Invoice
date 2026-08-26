@@ -17,14 +17,14 @@ import {
   runPositiveFormulaScenario,
   taxSweepOverlay,
   toleranceTargetsForMode,
-  ALIGNED_IBRP_E_08_OM_CASES,
-  runAlignedIbrpE08OmScenario,
-  ALIGNED_IBRP_O_08_OM_CASES,
-  runAlignedIbrpO08OmScenario,
+  verifyAlignedIbrpE08OmAllowedBatch,
+  verifyAlignedIbrpE08OmNotAllowedBatch,
+  verifyAlignedIbrpO08OmAllowedBatch,
+  verifyAlignedIbrpO08OmNotAllowedBatch,
+  verifyAlignedIbrpZ08OmAllowedBatch,
+  verifyAlignedIbrpZ08OmNotAllowedBatch,
   ALIGNED_IBRP_S_08_OM_CASES,
   runAlignedIbrpS08OmScenario,
-  ALIGNED_IBRP_Z_08_OM_CASES,
-  runAlignedIbrpZ08OmScenario,
   IBR_082_OM_CASES,
   runIbr082OmScenario,
   CALCULATED_FIELD_MISMATCH_TARGETS,
@@ -141,32 +141,54 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
 
   /**
    * ALIGNED-IBRP-E-08-OM: Exempt IBT-116 = Σ IBT-131(E) − Σ IBT-092(E) + Σ IBT-099(E).
-   * Simplified + E: provide totals (do not blank IBT-116 proxy). Assert upload status.
+   * Allowed and Not Allowed use one Excel each (all txn rows), same pattern as E-09.
+   * Not Allowed fails if fewer data rows than uploaded show an IBT-116 proxy error.
    * Proxy for Σ mismatch: Invoice Total Amount Without Tax.
    */
   test.describe("Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM)", () => {
     test.describe.configure({ mode: "parallel" });
 
-    for (const scenario of ALIGNED_IBRP_E_08_OM_CASES) {
-      test(scenario.title, async ({ page }) => {
-        await runAlignedIbrpE08OmScenario(page, scenario);
-      });
-    }
+    test(
+      "Given Exempt VAT taxable amounts match across all tax transaction types — When uploaded in one Excel — Then the invoice should be accepted. (ALIGNED-IBRP-E-08-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpE08OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      "Given Exempt VAT taxable amounts do not match across all tax transaction types — When uploaded in one Excel — Then every row should be rejected with an error. (ALIGNED-IBRP-E-08-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpE08OmNotAllowedBatch(page);
+      }
+    );
   });
 
   /**
    * ALIGNED-IBRP-O-08-OM: Not subject IBT-116 = Σ IBT-131(O) − Σ IBT-092(O) + Σ IBT-099(O).
-   * Simplified + O: provide totals (do not blank IBT-116 proxy). Assert upload status.
+   * Allowed and Not Allowed use one Excel each (all txn rows), same pattern as E-08.
+   * Not Allowed fails if fewer data rows than uploaded show an IBT-116 proxy error.
    * Proxy for Σ mismatch: Invoice Total Amount Without Tax.
    */
   test.describe("Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM)", () => {
     test.describe.configure({ mode: "parallel" });
 
-    for (const scenario of ALIGNED_IBRP_O_08_OM_CASES) {
-      test(scenario.title, async ({ page }) => {
-        await runAlignedIbrpO08OmScenario(page, scenario);
-      });
-    }
+    test(
+      "Given Not subject VAT taxable amounts match across all tax transaction types — When uploaded in one Excel — Then the invoice should be accepted. (ALIGNED-IBRP-O-08-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpO08OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      "Given Not subject VAT taxable amounts do not match across all tax transaction types — When uploaded in one Excel — Then every row should be rejected with an error. (ALIGNED-IBRP-O-08-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpO08OmNotAllowedBatch(page);
+      }
+    );
   });
 
   /**
@@ -186,17 +208,28 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
 
   /**
    * ALIGNED-IBRP-Z-08-OM: Zero rated IBT-116 = Σ IBT-131(Z) − Σ IBT-092(Z) + Σ IBT-099(Z).
-   * Simplified + Z: provide totals (do not blank IBT-116 proxy). Assert upload status.
+   * Allowed and Not Allowed use one Excel each (all txn rows), same pattern as E-08.
+   * Not Allowed fails if fewer data rows than uploaded show an IBT-116 proxy error.
    * Proxy for Σ mismatch: Invoice Total Amount Without Tax.
    */
   test.describe("Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM)", () => {
     test.describe.configure({ mode: "parallel" });
 
-    for (const scenario of ALIGNED_IBRP_Z_08_OM_CASES) {
-      test(scenario.title, async ({ page }) => {
-        await runAlignedIbrpZ08OmScenario(page, scenario);
-      });
-    }
+    test(
+      "Given Zero rated VAT taxable amounts match across all tax transaction types — When uploaded in one Excel — Then the invoice should be accepted. (ALIGNED-IBRP-Z-08-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpZ08OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      "Given Zero rated VAT taxable amounts do not match across all tax transaction types — When uploaded in one Excel — Then every row should be rejected with an error. (ALIGNED-IBRP-Z-08-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpZ08OmNotAllowedBatch(page);
+      }
+    );
   });
 
   /**

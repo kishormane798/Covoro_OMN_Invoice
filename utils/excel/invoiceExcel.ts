@@ -42,6 +42,12 @@ const BATCH_SIZE = 1250;
 
 export const generatedFiles: string[] = [];
 
+/**
+ * Buffered `[ErrorValidation]` lines from `printErrorWorkbookMessages`.
+ * Cleared each test in `baseTest` beforeEach; attached as `error-validation.txt` on failure only.
+ */
+export const errorValidationLogLines: string[] = [];
+
 let submitInvoiceNumberSeq = 0;
 
 /** Parallel-safe numeric invoice # (`INV-{timestamp}{worker}{seq}`; max 64 chars). */
@@ -360,7 +366,11 @@ type ErrorWorkbookCommentsPayload = {
   fields?: ErrorWorkbookFieldComment[];
 };
 
-/** Print every Errors-column field comment from a downloaded error workbook (comma-separated fields each get a line). */
+/**
+ * Capture every Errors-column field comment from a downloaded error workbook
+ * (comma-separated fields each get a line). Does not write to stdout — lines
+ * go to `errorValidationLogLines` and are attached on test failure only.
+ */
 export function printErrorWorkbookMessages(
   errorFilePath: string,
   row: number = INVOICE_TEMPLATE_DATA_ROW
@@ -389,9 +399,56 @@ export function printErrorWorkbookMessages(
     const message = error instanceof Error ? error.message : String(error);
     lines.push(`[ErrorValidation] Could not print error-file comments: ${message}`);
   }
-  for (const line of lines) {
-    console.log(line);
+  errorValidationLogLines.push(...lines);
+}
+
+export type ErrorDataRowCountResult = {
+  errorRowCount: number;
+  expected: number;
+  startRow: number;
+  rowsWithErrors: number[];
+};
+
+/**
+ * Count every data row from startRow through sheet end with a non-empty Errors column.
+ * Used for Not Allowed batches: upload N rows → error file must have exactly N error rows.
+ */
+export function countErrorDataRowsInWorkbook(
+  errorFilePath: string,
+  expectedCount: number,
+  startRow: number = INVOICE_TEMPLATE_DATA_ROW
+): ErrorDataRowCountResult {
+  const scriptPath = path.join(process.cwd(), "utils", "excel", "error_excel_reader.py");
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Comment reader script not found at: ${scriptPath}`);
   }
+  const output = runPythonForStdout(scriptPath, [
+    "count_error_rows",
+    errorFilePath,
+    String(startRow),
+    String(expectedCount),
+  ]).trim();
+
+  let parsed: {
+    error_row_count?: number;
+    expected?: number;
+    start_row?: number;
+    rows_with_errors?: number[];
+  };
+  try {
+    parsed = JSON.parse(output) as typeof parsed;
+  } catch {
+    throw new Error(`Invalid JSON from error_excel_reader.py count_error_rows: ${output}`);
+  }
+
+  return {
+    errorRowCount: Number(parsed.error_row_count) || 0,
+    expected: Number(parsed.expected) || expectedCount,
+    startRow: Number(parsed.start_row) || startRow,
+    rowsWithErrors: Array.isArray(parsed.rows_with_errors)
+      ? parsed.rows_with_errors.map((r) => Number(r))
+      : [],
+  };
 }
 
 /** Oman home / tax-accounting currency for formula + submit totals. */
@@ -763,12 +820,36 @@ const EXEMPT_BLANK_TAX_FIELD_HEADERS = [
   "Standard Tax Rate",
 ] as const;
 
+/**
+ * Internal submit-row marker: keep Tax Rate on Exempt lines for ALIGNED-IBRP-E-05-OM
+ * (and IBR-067-OM) negatives. Stripped before Excel write — not a template column.
+ */
+export const PRESERVE_EXEMPT_TAX_RATE_MARKER = "__preserveExemptTaxRate";
+
+function consumePreserveExemptTaxRateMarker(
+  row: Record<string, unknown>
+): boolean {
+  const raw = row[PRESERVE_EXEMPT_TAX_RATE_MARKER];
+  const preserve =
+    raw === true || raw === 1 || raw === "1" || raw === "true" || raw === "TRUE";
+  delete row[PRESERVE_EXEMPT_TAX_RATE_MARKER];
+  return preserve;
+}
+
 /** IBG-30: exempt lines keep tax-rate unset. Line item VAT amount stays 0 (IBR-038 / IBR-039). */
 export function applyExemptFromTaxBlankTaxFields(
   row: Record<string, unknown>,
   taxCategory: unknown
 ): void {
   if (!isExemptFromTaxTaxCategory(taxCategory)) {
+    delete row[PRESERVE_EXEMPT_TAX_RATE_MARKER];
+    return;
+  }
+  // E-05 / IBR-067 negatives: keep intentional rate (e.g. "5" or whitespace-only).
+  // Re-arm marker so a later applyExempt in the same submit build also skips
+  // (marker is stripped by filterSubmitRowToTemplateHeaders before Excel write).
+  if (consumePreserveExemptTaxRateMarker(row)) {
+    row[PRESERVE_EXEMPT_TAX_RATE_MARKER] = "1";
     return;
   }
   for (const header of EXEMPT_BLANK_TAX_FIELD_HEADERS) {

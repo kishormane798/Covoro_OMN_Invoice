@@ -166,7 +166,7 @@ async function main(): Promise<void> {
 
     const negValues: string[] = [
       "",
-      "   ",
+      "        ",
       ...InvalidTestData.map((x) => String(x.label)),
     ];
 

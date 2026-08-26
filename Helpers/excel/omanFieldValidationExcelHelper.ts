@@ -51,7 +51,7 @@ import {
 function lengthValue(length: number): string {
   if (length === 0) return "";
   if (length === -1) return " ";
-  if (length === -2) return "   ";
+  if (length === -2) return FV.WHITESPACE_ONLY_FIELD_VALUE;
   return randomAlphaNumeric(length);
 }
 

@@ -440,13 +440,48 @@ def validate_field(file_path, expected_field, data_row):
         _safe_unlink(cleanup_path)
 
 
+def count_error_rows(file_path, start_row, expected_count):
+    """
+    Count every data row from start_row through sheet.max_row whose Errors column
+    is non-empty (exact row only — no adjacent-row fallback). Callers assert
+    error_row_count == expected_count (not less, not more).
+    """
+    wb, sheet, cleanup_path = get_sheet(file_path)
+    try:
+        errors_col = find_column(sheet, "Errors")
+        rows_with_errors = []
+        if errors_col is not None:
+            last_row = max(int(sheet.max_row or start_row), int(start_row))
+            for row in range(int(start_row), last_row + 1):
+                if normalize(sheet.cell(row=row, column=errors_col).value):
+                    rows_with_errors.append(row)
+        print(
+            json.dumps(
+                {
+                    "error_row_count": len(rows_with_errors),
+                    "expected": int(expected_count),
+                    "start_row": int(start_row),
+                    "rows_with_errors": rows_with_errors,
+                }
+            )
+        )
+        sys.exit(0)
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
+        _safe_unlink(cleanup_path)
+
+
 def main():
     if len(sys.argv) < 2:
         fail(
             "Usage:\n"
             "  error_excel_reader.py comment <file_path> <field_name> [data_row]\n"
             "  error_excel_reader.py validate <file_path> <expected_field> [data_row]\n"
-            "  error_excel_reader.py list_comments <file_path> [data_row]"
+            "  error_excel_reader.py list_comments <file_path> [data_row]\n"
+            "  error_excel_reader.py count_error_rows <file_path> <start_row> <expected_count>"
         )
 
     mode = sys.argv[1].strip().lower()
@@ -477,8 +512,21 @@ def main():
         list_comments(file_path, data_row)
         return
 
-    fail(f"Unknown mode '{mode}'. Use 'comment', 'validate', or 'list_comments'.")
+    if mode == "count_error_rows":
+        if len(sys.argv) < 5:
+            fail(
+                "Usage: error_excel_reader.py count_error_rows "
+                "<file_path> <start_row> <expected_count>"
+            )
+        file_path = sys.argv[2]
+        start_row = int(sys.argv[3])
+        expected_count = int(sys.argv[4])
+        count_error_rows(file_path, start_row, expected_count)
+        return
 
+    fail(
+        f"Unknown mode '{mode}'. Use 'comment', 'validate', 'list_comments', or 'count_error_rows'."
+    )
 
 if __name__ == "__main__":
     main()

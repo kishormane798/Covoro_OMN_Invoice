@@ -3,7 +3,13 @@ import {
   patchBlankLineItemVatAmountIfEmpty,
   patchProfitMarginItemTypeFromRow,
   patchSellerVatFromRow,
-  patchVatCategoryTaxAmountAfterGenerate,
+  patchTaxRateFromRow,
+  verifyAlignedIbrpE09OmAllowedBatch,
+  verifyAlignedIbrpE09OmNotAllowedBatch,
+  verifyAlignedIbrpO09OmAllowedBatch,
+  verifyAlignedIbrpO09OmNotAllowedBatch,
+  verifyAlignedIbrpZ09OmAllowedBatch,
+  verifyAlignedIbrpZ09OmNotAllowedBatch,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
 } from "../Helpers/excel/conditionalValidationSpecHelpers";
@@ -23,7 +29,8 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.INVOICED_ITEM_TAX_RATE_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchTaxRateFromRow }
         );
       });
     }
@@ -38,7 +45,8 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.INVOICED_ITEM_TAX_RATE_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchTaxRateFromRow }
         );
       });
     }
@@ -70,7 +78,8 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.INVOICED_ITEM_TAX_RATE_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchTaxRateFromRow }
         );
       });
     }
@@ -85,7 +94,8 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.INVOICED_ITEM_TAX_RATE_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchTaxRateFromRow }
         );
       });
     }
@@ -564,51 +574,57 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
   });
 
   test.describe("Exempt VAT category tax amount must be zero (ALIGNED-IBRP-E-09-OM)", () => {
-    for (const scenario of FV.VAT_CATEGORY_TAX_AMOUNT_E09_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildVatCategoryTaxAmountE09ScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-          scenario.shouldError,
-          { patchFile: patchVatCategoryTaxAmountAfterGenerate }
-        );
-      });
-    }
+    test(
+      "Given Exempt VAT category tax amount is 0 across all tax transaction types — When uploaded in one Excel — Then the invoice should be accepted. (ALIGNED-IBRP-E-09-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpE09OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      "Given Exempt VAT category tax amount is not 0 across all tax transaction types — When uploaded in one Excel — Then every row should be rejected with an error. (ALIGNED-IBRP-E-09-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpE09OmNotAllowedBatch(page);
+      }
+    );
   });
 
   test.describe("Not subject VAT category tax amount must be zero (ALIGNED-IBRP-O-09-OM)", () => {
-    for (const scenario of FV.VAT_CATEGORY_TAX_AMOUNT_O09_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildVatCategoryTaxAmountO09ScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-          scenario.shouldError,
-          { patchFile: patchVatCategoryTaxAmountAfterGenerate }
-        );
-      });
-    }
+    test(
+      "Given Not subject VAT category tax amount is 0 across all tax transaction types — When uploaded in one Excel — Then the invoice should be accepted. (ALIGNED-IBRP-O-09-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpO09OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      "Given Not subject VAT category tax amount is not 0 across all tax transaction types — When uploaded in one Excel — Then every row should be rejected with an error. (ALIGNED-IBRP-O-09-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpO09OmNotAllowedBatch(page);
+      }
+    );
   });
 
   test.describe("Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)", () => {
-    for (const scenario of FV.VAT_CATEGORY_TAX_AMOUNT_Z09_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildVatCategoryTaxAmountZ09ScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICE_TOTAL_TAX_AMOUNT_FIELD,
-          scenario.shouldError,
-          { patchFile: patchVatCategoryTaxAmountAfterGenerate }
-        );
-      });
-    }
+    test(
+      "Given Zero rated VAT category tax amount is 0 across all tax transaction types — When uploaded in one Excel — Then the invoice should be accepted. (ALIGNED-IBRP-Z-09-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpZ09OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      "Given Zero rated VAT category tax amount is not 0 across all tax transaction types — When uploaded in one Excel — Then every row should be rejected with an error. (ALIGNED-IBRP-Z-09-OM)",
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyAlignedIbrpZ09OmNotAllowedBatch(page);
+      }
+    );
   });
 
   // IBR-138-OM … IBR-149-OM: mutual-exclusion needs TWO transaction types on
@@ -814,7 +830,7 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
     }
   });
 
-  test.describe("Seller identifier scheme (IBR-007-OM)", () => {
+  test.describe("Seller identifier + scheme mandatory (IBR-007-OM)", () => {
     for (const scenario of FV.SELLER_IDENTIFIER_SCHEME_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
@@ -822,7 +838,7 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
         await verifyConditionalScenario(
           page,
           rowData,
-          scenario.expectedErrorField ?? FV.SELLER_IDENTIFIER_SCHEME_FIELD,
+          scenario.expectedErrorField ?? FV.SELLER_IDENTIFIER_FIELD,
           scenario.shouldError
         );
       });

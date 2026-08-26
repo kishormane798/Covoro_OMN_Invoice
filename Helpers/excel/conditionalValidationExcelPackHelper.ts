@@ -716,7 +716,8 @@ function applyIbr032CompanionClears(
     mutationKind === "omit_null" ||
     mutationKind === "trigger_off_blank"
   ) {
-    overlaid["Preceding Invoice reference"] = mutationKind === "whitespace" ? "   " : "";
+    overlaid["Preceding Invoice reference"] =
+      mutationKind === "whitespace" ? FV.WHITESPACE_ONLY_FIELD_VALUE : "";
     overlaid["Preceding Invoice issue date"] = "";
     overlaid["Unique Identifier Number"] = "";
   }
@@ -1205,7 +1206,7 @@ export function planConditionalMutation(
     return { kind: "trigger_off_blank", value: "" };
   }
   if (title.includes("whitespace")) {
-    return { kind: "whitespace", value: "   " };
+    return { kind: "whitespace", value: FV.WHITESPACE_ONLY_FIELD_VALUE };
   }
   if (title.includes("omit/null") || title.includes("omit / null") || title.includes("null cell")) {
     return { kind: "omit_null", value: "" };

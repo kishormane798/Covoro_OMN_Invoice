@@ -87,7 +87,7 @@ export function createInvoiceIssueDateScenarios(): InvoiceIssueDateScenario[] {
       name: "whitespace only",
       invoicePrefix: "INV-DATE-WS",
       shouldError: true,
-      issueDateValue: "   ",
+      issueDateValue: "        ",
       issueDateFormat: "@",
     },
   ];

@@ -358,13 +358,39 @@ EXEMPT_BLANK_TAX_FIELD_HEADERS = (
 )
 
 
+def _payload_preserves_exempt_tax_rate(values: dict | None) -> bool:
+    """
+    True when the submit payload intentionally sets Tax Rate (including whitespace-only).
+    Empty string / null → omit (blank). Used so ALIGNED-IBRP-E-05-OM negatives keep IBT-152.
+    """
+    if not isinstance(values, dict):
+        return False
+    for key in EXEMPT_BLANK_TAX_FIELD_HEADERS:
+        if key not in values:
+            continue
+        raw = values[key]
+        if raw is None:
+            continue
+        # Preserve "5", "0", and whitespace-only (8 spaces). Do not preserve "".
+        if str(raw) != "":
+            return True
+    return False
+
+
 def _apply_exempt_from_tax_blank_tax_fields(
-    ws, header_row: int, data_row: int, header_map: dict[str, int]
+    ws,
+    header_row: int,
+    data_row: int,
+    header_map: dict[str, int],
+    *,
+    preserve_tax_rate: bool = False,
 ) -> None:
     """IBG-30: exempt lines keep tax-rate unset. Line item VAT amount stays 0 (IBR-038 / IBR-039)."""
     if not is_exempt_from_tax_tax_category(
         cell_value(ws, data_row, header_map, FIELD_TAX_CATEGORY)
     ):
+        return
+    if preserve_tax_rate:
         return
     for header in EXEMPT_BLANK_TAX_FIELD_HEADERS:
         clear_cell_optional(ws, data_row, header_map, header)
@@ -523,7 +549,14 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
     set_cell_optional(ws, data_row, header_map, "Item net price", item_net_price)
     set_cell_optional(ws, data_row, header_map, "Invoice line net amount", invoice_line_net_amount)
     if is_exempt_from_tax_tax_category(tax_cat):
-        _apply_exempt_from_tax_blank_tax_fields(ws, header_row, data_row, header_map)
+        # Keep intentional IBT-152 on Exempt (ALIGNED-IBRP-E-05-OM) when already on the sheet.
+        existing_rate = cell_value(ws, data_row, header_map, FIELD_TAX_RATE)
+        # Formula cells for whitespace-only (`="        "`) must also be preserved.
+        existing_s = "" if existing_rate is None else str(existing_rate)
+        preserve = existing_s != ""
+        _apply_exempt_from_tax_blank_tax_fields(
+            ws, header_row, data_row, header_map, preserve_tax_rate=preserve
+        )
     set_cell_optional(
         ws, data_row, header_map, FIELD_LINE_ITEM_VAT_AMOUNT, line_item_vat_amount
     )
@@ -649,7 +682,17 @@ def set_numeric_cell_value(ws, row_number: int, column_number: int, value: float
 
 def set_text_value(ws, row_number: int, column_number: int, value: object) -> None:
     force_text_cell(ws, row_number, column_number)
-    ws.cell(row=row_number, column=column_number).value = "" if value is None else str(value)
+    text = "" if value is None else str(value)
+    cell = ws.cell(row=row_number, column=column_number)
+    # Pure whitespace (e.g. 8 spaces) is dropped by Excel/OOXML as a plain string.
+    # Store as a text formula so the spaces remain when the workbook is opened/uploaded.
+    if text != "" and text.strip() == "":
+        escaped = text.replace('"', '""')
+        cell.value = f'="{escaped}"'
+        cell.number_format = "@"
+        return
+    cell.value = text
+    cell.number_format = "@"
 
 
 def cmd_patch_invoice_cell(args: list[str]) -> None:
@@ -817,7 +860,8 @@ def cmd_update_field(args: list[str]) -> None:
     elif length == -1:
         set_text_value(ws, data_row, target_col, " ")
     elif length == -2:
-        set_text_value(ws, data_row, target_col, "   ")
+        # >5 spaces — short whitespace often collapses visually / in parsers.
+        set_text_value(ws, data_row, target_col, "        ")
     else:
         set_text_value(ws, data_row, target_col, random_string(length))
 
@@ -1007,6 +1051,9 @@ def cmd_write_row_json(args: list[str]) -> None:
         # JSON null: do not write this column (submit row was cleared; avoids forcing '' on optional fields).
         if value is None:
             continue
+        # Internal markers (e.g. __preserveExemptTaxRate) are not template columns.
+        if str(key).startswith("__"):
+            continue
         _set_by_header_name(ws, header_row, data_row, str(key), value)
         if strict_headers and not _header_exists(ws, header_row, str(key)):
             fail(f"Column not found: {key}")
@@ -1016,7 +1063,13 @@ def cmd_write_row_json(args: list[str]) -> None:
         for hdr in DOCUMENT_LEVEL_CLEARED_FOR_VAT_REVERSE_CHARGE:
             _set_by_header_name(ws, header_row, data_row, hdr, "")
     if is_exempt_from_tax_tax_category(tax_after_write):
-        _apply_exempt_from_tax_blank_tax_fields(ws, header_row, data_row, header_map)
+        _apply_exempt_from_tax_blank_tax_fields(
+            ws,
+            header_row,
+            data_row,
+            header_map,
+            preserve_tax_rate=_payload_preserves_exempt_tax_rate(values),
+        )
 
     _maybe_apply_parallel_worker_identity_row(ws, header_row, data_row)
     save_result(wb, resolve_write_row_output_dir(), file_name, invoice_number)
@@ -1102,6 +1155,8 @@ def cmd_write_rows_json(args: list[str]) -> None:
         for key, value in values.items():
             if value is None:
                 continue
+            if str(key).startswith("__"):
+                continue
             _set_by_header_name(ws, header_row, row_number, str(key), value)
             if strict_headers and not _header_exists(ws, header_row, str(key)):
                 fail(f"Column not found: {key}")
@@ -1111,7 +1166,13 @@ def cmd_write_rows_json(args: list[str]) -> None:
             for hdr in DOCUMENT_LEVEL_CLEARED_FOR_VAT_REVERSE_CHARGE:
                 _set_by_header_name(ws, header_row, row_number, hdr, "")
         if is_exempt_from_tax_tax_category(tax_after_write):
-            _apply_exempt_from_tax_blank_tax_fields(ws, header_row, row_number, header_map)
+            _apply_exempt_from_tax_blank_tax_fields(
+                ws,
+                header_row,
+                row_number,
+                header_map,
+                preserve_tax_rate=_payload_preserves_exempt_tax_rate(values),
+            )
 
     # IMPORTANT:
     # Do NOT apply `apply_invoice_calculations_to_data_row` here. Multi-line submit cases can include
@@ -2110,6 +2171,8 @@ def _run_write_regression_batch(
                     continue
                 if value is None:
                     continue
+                if str(key).startswith("__"):
+                    continue
                 _set_by_header_name(ws, header_row, row_number, str(key), value)
 
             tax_after_write = cell_value(ws, row_number, header_map, FIELD_TAX_CATEGORY)
@@ -2120,7 +2183,11 @@ def _run_write_regression_batch(
                     _set_by_header_name(ws, header_row, row_number, hdr, "")
             if is_exempt_from_tax_tax_category(tax_after_write):
                 _apply_exempt_from_tax_blank_tax_fields(
-                    ws, header_row, row_number, header_map
+                    ws,
+                    header_row,
+                    row_number,
+                    header_map,
+                    preserve_tax_rate=_payload_preserves_exempt_tax_rate(values),
                 )
 
             if not skip_calc:
