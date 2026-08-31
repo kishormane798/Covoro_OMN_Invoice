@@ -30,6 +30,7 @@ import {
   dropdownInvalidOnCovoro,
   dropdownMasterOnCovoro,
   numericFieldConfigs,
+  uploadAndVerifyFieldAccepted,
 } from "../Helpers/excel/fieldValidationSpecSupport";
 
 test.describe(`Field validation (${TEMPLATE})`, () => {
@@ -39,12 +40,12 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     for (const config of FV.fieldInvoice_number) {
       test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
 
       test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
     }
   });
@@ -84,7 +85,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
             { filePath, field: "Invoice Issue Date", invoiceNumber, checkEdit: true });
           return;
         }
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
     }
   });
@@ -108,7 +109,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
             { filePath, field: config.field, invoiceNumber, checkEdit: true });
           return;
         }
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
 
       test(`${config.field} at maximum length (${config.max} characters) ${outcome}. (${config.field})`, async ({ page }) => {
@@ -122,7 +123,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
             { filePath, field: config.field, invoiceNumber, checkEdit: true });
           return;
         }
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
     }
   });
@@ -155,17 +156,17 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     for (const config of FV.fieldValidationOptional) {
       test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
 
       test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
 
       test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
     }
   });
@@ -188,16 +189,30 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     for (const config of conditionalLengthConfigs) {
       test(`${config.field} at minimum length (${config.min} character${config.min === 1 ? "" : "s"}) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
 
       test(`${config.field} at maximum length (${config.max} characters) should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.max);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
 
       // Credit Note overlay (ALIGNED-IBRP-028-OM / IBR-032-OM): empty is required → error file.
       if (config.field === "Preceding Invoice reference") continue;
+      // Pairing: empty is accepted only when UUID is also empty (no supporting overlay).
+      if (config.field === "Supporting document reference") {
+        test(`An empty Supporting document reference and Supporting document UUID should be accepted. (Supporting document reference)`, async ({
+          page,
+        }) => {
+          const { filePath } = await generateOmanSeededFieldExcel(
+            config.field,
+            "",
+            { skipDependentOverlay: true }
+          );
+          await uploadAndVerifyFieldAccepted(page, filePath);
+        });
+        continue;
+      }
       // IBR-015-OM: Third-party Invoice overlay → empty third-party address fields are mandatory → error file.
       if (
         config.field === "Third Party Address Line 1" ||
@@ -211,7 +226,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
 
       test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be accepted. (${config.field})`, async ({ page }) => {
         const { filePath } = await generateOmanFieldLengthExcel(config.field, config.belowMin);
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
       });
     }
   });
@@ -231,7 +246,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
             length: scenario.length,
           });
         if (scenario.shouldAccept) {
-          await uploadAndVerify(page, filePath);
+          await uploadAndVerifyFieldAccepted(page, filePath);
         } else {
           await runErrorValidation(page, {
             filePath,
@@ -292,7 +307,22 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
           { filePath, field: config.field, invoiceNumber, checkEdit: true });
       });
 
-      if (
+      if (config.field === "Supporting document reference") {
+        test(`When Supporting document UUID is provided, an empty Supporting document reference should be rejected with an error. (Supporting document reference)`, async ({
+          page,
+        }) => {
+          const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
+            config.field,
+            config.belowMin
+          );
+          await runErrorValidation(page, {
+            filePath,
+            field: config.field,
+            invoiceNumber,
+            checkEdit: true,
+          });
+        });
+      } else if (
         config.field === "Preceding Invoice reference" ||
         config.field === "Third Party Address Line 1" ||
         config.field === "Third Party Address Line 2" ||
@@ -329,7 +359,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         config.decimals
       );
       if (!expectsError) {
-        await uploadAndVerify(page, filePath);
+        await uploadAndVerifyFieldAccepted(page, filePath);
         return;
       }
       // Formula fields: min/max → wrong calculation; empty → length.
@@ -361,7 +391,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         const negativeValue = `-${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)}`;
         test(`${config.field} with negative value (${negativeValue}) should be accepted. (${config.field})`, async ({ page }) => {
           const { filePath } = await generateOmanSeededFieldExcel(config.field, negativeValue);
-          await uploadAndVerify(page, filePath);
+          await uploadAndVerifyFieldAccepted(page, filePath);
         });
       }
     }
@@ -499,7 +529,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
       page,
     }) => {
       const { filePath } = await generateOmanExemptReasonExcel(reasonCode, "");
-      await uploadAndVerify(page, filePath);
+      await uploadAndVerifyFieldAccepted(page, filePath);
     });
 
     test(`Exempt VAT with exemption text and no code should be rejected with an error. (Tax exemption reason code)`, async ({
@@ -526,7 +556,13 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
       const outcome = tc.shouldError
         ? "should be rejected with an error"
         : "should be accepted";
-      test(`${tc.field} with ${tc.condition} ${outcome}. (${tc.field})`, async ({
+      const title =
+        tc.field === "Supporting document UUID" &&
+        tc.value === "" &&
+        tc.shouldError
+          ? `When Supporting document reference is provided, an empty Supporting document UUID should be rejected with an error. (${tc.field})`
+          : `${tc.field} with ${tc.condition} ${outcome}. (${tc.field})`;
+      test(`${title}`, async ({
         page,
       }) => {
         const { filePath, invoiceNumber } = await generateFormatContextFieldExcel(tc);
@@ -545,7 +581,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
             checkEdit: true,
           });
         } else {
-          await uploadAndVerify(page, filePath);
+          await uploadAndVerifyFieldAccepted(page, filePath);
         }
       });
     }

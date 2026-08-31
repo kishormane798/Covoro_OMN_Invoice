@@ -222,7 +222,15 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     includeEmpty: false,
   }),
   ...uuidCases(PREPAY_UUID, "Prepayment", "prepayment", 109),
-  ...uuidCases(SUPPORT_UUID, "Supporting document", "supporting", 65),
+  ...uuidCases(SUPPORT_UUID, "Supporting document", "supporting", 65).map((c) =>
+    c.condition === "empty"
+      ? {
+          ...c,
+          condition:
+            "an empty value while Supporting document reference is provided",
+        }
+      : c
+  ),
   // Length-only Tax Rate; value rules → Conditional S-05 / Formula IBR-046.
   {
     field: TAX_RATE,

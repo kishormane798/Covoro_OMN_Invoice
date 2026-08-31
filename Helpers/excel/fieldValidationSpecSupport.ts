@@ -2,8 +2,11 @@
  * Spec support for Covoro Excel field-validation suites.
  * Keeps orchestration constants / filters out of `*.spec.ts` (tests-only).
  */
+import type { Page } from "@playwright/test";
 import * as FV from "../../testData/FieldValidations";
 import type { DropdownWriteCasing } from "./omanFieldValidationExcelHelper";
+import { uploadAndVerify } from "./uploadHelper";
+import { assertSingleLineUploadedExcelRoundTrip } from "./invoiceExcelRoundTripHelper";
 
 export const FIELD_VALIDATION_TEMPLATE = "Covoro";
 
@@ -71,3 +74,16 @@ export const conditionalLengthConfigs = FV.fieldValidationConditional.filter(
 export const numericFieldConfigs = FV.fieldValidationNumeric.filter(
   (c) => !NUMERIC_CONTEXT_SKIP.has(c.field)
 );
+
+/**
+ * Accepted field-validation upload: completed, then Ready to Submit → Download Excel
+ * and compare filled cells. Skips multi-line workbooks. Do not use for dropdown /
+ * CL-06 master loops, formula, or conditional specs.
+ */
+export async function uploadAndVerifyFieldAccepted(
+  page: Page,
+  filePath: string
+): Promise<void> {
+  await uploadAndVerify(page, filePath);
+  await assertSingleLineUploadedExcelRoundTrip(page, filePath);
+}

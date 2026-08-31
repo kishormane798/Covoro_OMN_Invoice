@@ -15,9 +15,8 @@ import { parallelWorkerDashboardOpenOpts } from "../worker/parallelWorkerSubmitI
 import { resolveBaseUrl } from "../../utils/appConfig";
 import { flowLog } from "../diagnosticLog";
 import { printErrorWorkbookMessages } from "../../utils/excel/invoiceExcel";
-// ENABLE: single-line Excel round-trip (Ready to Submit → Download Excel → compare).
-// Say "enable it" to uncomment the import and the call in uploadAndVerify.
-// import { assertSingleLineUploadedExcelRoundTrip } from "./invoiceExcelRoundTripHelper";
+// Excel round-trip is field-validation only (`uploadAndVerifyFieldAccepted`).
+// Do not hook it here — formula, conditional, dropdown, and multi-line would inherit it.
 
 export type UploadTemplateUiMode = "normal" | "simplified";
 
@@ -136,7 +135,6 @@ export async function uploadAndVerify(
     filePath: string
 ) {
     await uploadAndVerifyStatus(page, filePath, 'completed');
-    // ENABLE: await assertSingleLineUploadedExcelRoundTrip(page, filePath);
 }
 
 

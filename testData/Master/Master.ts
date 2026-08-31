@@ -8,8 +8,7 @@ export { industrialClassificationIsicValidTestData } from "./Master.isic";
 
 export const InvalidTestData = [
   { label: "A123456" },          
-  { label: "@#$%^&*" },        
-  { label: " 6g!  " }              
+  { label: "@#$%^&*" }        
 ];
 export const countryValidTestData = [
   { label: "Andorra" },

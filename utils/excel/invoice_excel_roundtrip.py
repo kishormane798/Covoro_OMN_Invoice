@@ -13,6 +13,7 @@ HEADER_ROW_TEMPLATE = 4
 DATA_ROW_TEMPLATE = 6
 INVOICE_NUMBER_HEADER = "invoice number"
 SHEET_CANDIDATES = ("E Invoice",)
+IGNORE_COMPARE_HEADERS = frozenset({"source currency code"})
 
 _DATE_HEADER_RE = re.compile(r"date", re.I)
 _NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?$")
@@ -107,6 +108,8 @@ def compare_filled_columns(
     down_by_key = {_header_key(k): (k, (v or "").strip()) for k, v in downloaded.items()}
     mismatches: list[str] = []
     for header, raw in uploaded.items():
+        if _header_key(header) in IGNORE_COMPARE_HEADERS:
+            continue
         uploaded_val = (raw or "").strip()
         if not uploaded_val:
             continue

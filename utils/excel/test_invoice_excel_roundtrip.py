@@ -61,6 +61,20 @@ class ValuesMatchTests(unittest.TestCase):
         )
         self.assertEqual(len(mismatches), 2)
 
+    def test_source_currency_code_is_ignored(self):
+        mismatches = compare_filled_columns(
+            {"Buyer Name": "ACME", "Source Currency Code": "OMR"},
+            {"Buyer Name": "ACME", "Source Currency Code": "USD"},
+        )
+        self.assertEqual(mismatches, [])
+
+    def test_source_currency_code_missing_in_download_is_ignored(self):
+        mismatches = compare_filled_columns(
+            {"Buyer Name": "ACME", "Source Currency Code": "OMR"},
+            {"Buyer Name": "ACME"},
+        )
+        self.assertEqual(mismatches, [])
+
 
 if __name__ == "__main__":
     unittest.main()
