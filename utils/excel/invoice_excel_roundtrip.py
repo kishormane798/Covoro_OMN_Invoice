@@ -16,7 +16,8 @@ SHEET_CANDIDATES = ("E Invoice",)
 IGNORE_COMPARE_HEADERS = frozenset({"source currency code"})
 
 _DATE_HEADER_RE = re.compile(r"date", re.I)
-_NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?$")
+# Decimal or scientific notation (Excel/"g" format). Commas are stripped before match.
+_NUMBER_RE = re.compile(r"^-?\d+(\.\d+)?([eE][+-]?\d+)?$")
 
 
 def normalize_header(value: object) -> str:
@@ -80,7 +81,8 @@ def cell_to_text(value: object, header: str) -> str:
                 pass
         if float(value).is_integer():
             return str(int(value))
-        return format(value, "g")
+        # Avoid default "g" (6 sig figs → scientific notation for large amounts).
+        return format(float(value), ".15f").rstrip("0").rstrip(".")
     return str(value).strip()
 
 

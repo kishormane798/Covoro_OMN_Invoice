@@ -1,6 +1,6 @@
 import { test } from "../Src/baseTest";
 import {
-  patchBlankLineItemVatAmountIfEmpty,
+  patchBlankBuyerIdOrVatinIfEmpty,
   patchProfitMarginItemTypeFromRow,
   patchSellerVatFromRow,
   patchTaxRateFromRow,
@@ -12,6 +12,16 @@ import {
   verifyAlignedIbrpZ09OmNotAllowedBatch,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
+  verifyIbr019OmAllowedBatch,
+  verifyIbr019OmEmptyFieldBatch,
+  verifyIbr038OmAllowedBatch,
+  verifyIbr038OmNotAllowedBatch,
+  verifyIbr039OmAllowedBatch,
+  verifyIbr039OmNotAllowedBatch,
+  verifyIbr036OmAllowedBatch,
+  verifyIbr036OmNotAllowedBatch,
+  verifyIbr037OmAllowedBatch,
+  verifyIbr037OmNotAllowedBatch,
 } from "../Helpers/excel/conditionalValidationSpecHelpers";
 import * as ConditionalRows from "../Helpers/excel/conditionalValidationHelper";
 import * as FV from "../testData/FieldValidations";
@@ -254,36 +264,59 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
   });
 
   test.describe("Summary Invoice period (IBR-037-OM)", () => {
-    for (const scenario of FV.SUMMARY_INVOICE_PERIOD_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildSummaryInvoicePeriodScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICING_PERIOD_START_DATE_FIELD,
-          scenario.shouldError
-        );
-      });
+    for (const txn of FV.SUMMARY_OR_CONTINUOUS_TXN_TYPES) {
+      const acceptedRowCount = FV.SUMMARY_INVOICE_PERIOD_SCENARIOS.filter(
+        (scenario) =>
+          !scenario.shouldError &&
+          scenario.invoiceTransactionTypeCode === txn
+      ).length;
+      const errorRowCount = FV.SUMMARY_INVOICE_PERIOD_SCENARIOS.filter(
+        (scenario) =>
+          scenario.shouldError &&
+          scenario.invoiceTransactionTypeCode === txn
+      ).length;
+
+      test(
+        `Given ${txn} — When invoicing period dates are provided across all invoice types (${acceptedRowCount} rows) in one Excel — Then the invoice should be accepted. (IBR-037-OM)`,
+        async ({ page }) => {
+          test.setTimeout(10 * 60 * 1000);
+          await verifyIbr037OmAllowedBatch(page, txn);
+        }
+      );
+
+      test(
+        `Given ${txn} — When invoicing period is left empty across all invoice types (${errorRowCount} rows) in one Excel — Then the error file should have ${errorRowCount} error rows. (IBR-037-OM)`,
+        async ({ page }) => {
+          test.setTimeout(10 * 60 * 1000);
+          await verifyIbr037OmNotAllowedBatch(page, txn);
+        }
+      );
     }
   });
 
   test.describe("Summary Invoice period same calendar month (IBR-036-OM)", () => {
-    for (const scenario of FV.SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildSummaryInvoicePeriodScenarioRow(scenario);
-        await verifyConditionalScenarioAnyOf(
-          page,
-          rowData,
-          [
-            FV.INVOICING_PERIOD_START_DATE_FIELD,
-            FV.INVOICING_PERIOD_END_DATE_FIELD,
-          ],
-          scenario.shouldError
-        );
-      });
-    }
+    const acceptedRowCount = FV.SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS.filter(
+      (scenario) => !scenario.shouldError
+    ).length;
+    const errorRowCount = FV.SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS.filter(
+      (scenario) => scenario.shouldError
+    ).length;
+
+    test(
+      `Given Summary Invoice period dates are in the same calendar month across all invoice types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-036-OM)`,
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyIbr036OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      `Given Summary Invoice period dates are in different calendar months across all invoice types (${errorRowCount} rows) — When uploaded in one Excel — Then the error file should have ${errorRowCount} error rows. (IBR-036-OM)`,
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyIbr036OmNotAllowedBatch(page);
+      }
+    );
   });
 
   // Phase 5 — Doc allowance/charge
@@ -441,7 +474,8 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.BUYER_VAT_IDENTIFIER_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchBlankBuyerIdOrVatinIfEmpty }
         );
       });
     }
@@ -543,22 +577,71 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
   });
 
   test.describe("Line item VAT amount required (IBR-038-OM)", () => {
-    for (const scenario of FV.LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildLineItemVatAmountRequiredScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.LINE_ITEM_VAT_AMOUNT_FIELD,
-          scenario.shouldError,
-          { patchFile: patchBlankLineItemVatAmountIfEmpty }
-        );
-      });
+    const acceptedRowCount =
+      FV.LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS.length;
+
+    test(
+      `Given line VAT amount is provided across invoice types and transaction types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-038-OM)`,
+      async ({ page }) => {
+        test.setTimeout(20 * 60 * 1000);
+        await verifyIbr038OmAllowedBatch(page);
+      }
+    );
+
+    for (const invoiceTypes of FV.LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS) {
+      const errorRowCount =
+        FV.LINE_ITEM_VAT_AMOUNT_REQUIRED_NOT_ALLOWED_SCENARIOS.filter(
+          (scenario) =>
+            invoiceTypes.includes(
+              scenario.invoiceTypeCode ?? FV.INVOICE_TYPE_COMMERCIAL_INVOICE
+            )
+        ).length;
+      const typeList = invoiceTypes.join(" / ");
+
+      test(
+        `Given ${typeList} — When line VAT amount is left empty (${errorRowCount} rows) in one Excel — Then the error file should have ${errorRowCount} error rows. (IBR-038-OM)`,
+        async ({ page }) => {
+          test.setTimeout(10 * 60 * 1000);
+          await verifyIbr038OmNotAllowedBatch(page, invoiceTypes);
+        }
+      );
     }
   });
 
-  test.describe("Line VAT amount zero for Exempt, Not subject, and Zero rated (IBR-039/054/077-OM)", () => {
+  test.describe("Line VAT amount zero for Exempt (IBR-039-OM)", () => {
+    const acceptedRowCount =
+      FV.LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS.length;
+
+    test(
+      `Given Exempt line VAT amount is 0 across invoice types and transaction types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-039-OM)`,
+      async ({ page }) => {
+        test.setTimeout(20 * 60 * 1000);
+        await verifyIbr039OmAllowedBatch(page);
+      }
+    );
+
+    for (const invoiceTypes of FV.LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS) {
+      const errorRowCount =
+        FV.LINE_ITEM_VAT_AMOUNT_ZERO_E_NOT_ALLOWED_SCENARIOS.filter(
+          (scenario) =>
+            invoiceTypes.includes(
+              scenario.invoiceTypeCode ??
+                FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX
+            )
+        ).length;
+      const typeList = invoiceTypes.join(" / ");
+
+      test(
+        `Given ${typeList} Exempt — When line VAT amount is 50 (${errorRowCount} rows) in one Excel — Then the error file should have ${errorRowCount} error rows. (IBR-039-OM)`,
+        async ({ page }) => {
+          test.setTimeout(10 * 60 * 1000);
+          await verifyIbr039OmNotAllowedBatch(page, invoiceTypes);
+        }
+      );
+    }
+  });
+
+  test.describe("Line VAT amount zero for Not subject and Zero rated (IBR-054/077-OM)", () => {
     for (const scenario of FV.LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
         const rowData =
@@ -855,9 +938,17 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           rowData,
           FV.BUYER_ID_OR_VATIN_ERROR_FIELDS,
           scenario.shouldError,
-          scenario.invoiceTransactionTypeCode === FV.TXN_PROFIT_MARGIN_INVOICE
-            ? { patchFile: patchProfitMarginItemTypeFromRow }
-            : {}
+          {
+            patchFile: (filePath, prepared) => {
+              patchBlankBuyerIdOrVatinIfEmpty(filePath, prepared);
+              if (
+                scenario.invoiceTransactionTypeCode ===
+                FV.TXN_PROFIT_MARGIN_INVOICE
+              ) {
+                patchProfitMarginItemTypeFromRow(filePath, prepared);
+              }
+            },
+          }
         );
       });
     }
@@ -894,18 +985,34 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
   });
 
   test.describe("Buyer address required (IBR-019-OM)", () => {
-    for (const scenario of FV.BUYER_ADDRESS_REQUIRED_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildBuyerAddressRequiredScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.BUYER_ADDRESS_LINE_1_FIELD,
-          scenario.shouldError
+    const emptyRowCount = FV.BUYER_ADDRESS_REQUIRED_SCENARIOS.filter(
+      (scenario) =>
+        scenario.shouldError &&
+        scenario.expectedErrorField === FV.BUYER_ADDRESS_LINE_1_FIELD
+    ).length;
+    const acceptedRowCount = FV.BUYER_ADDRESS_REQUIRED_SCENARIOS.filter(
+      (scenario) => !scenario.shouldError
+    ).length;
+
+    test(
+      `Given Buyer address is complete across all IBR-019-OM transaction types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-019-OM)`,
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyIbr019OmAllowedBatch(page);
+      }
+    );
+
+    test.describe("empty field — error file", () => {
+      for (const field of FV.BUYER_ADDRESS_GROUP_FIELDS) {
+        test(
+          `Given ${field} is left empty across all IBR-019-OM transaction types (${emptyRowCount} rows) — When uploaded in one Excel — Then the error file should have ${emptyRowCount} error rows. (IBR-019-OM)`,
+          async ({ page }) => {
+            test.setTimeout(10 * 60 * 1000);
+            await verifyIbr019OmEmptyFieldBatch(page, field);
+          }
         );
-      });
-    }
+      }
+    });
   });
 
   test.describe("Deliver To address all-or-nothing (IBR-040-OM)", () => {

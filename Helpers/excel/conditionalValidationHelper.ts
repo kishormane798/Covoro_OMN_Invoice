@@ -6,6 +6,10 @@
 import * as FV from "../../testData/FieldValidations/ConditionalValidation";
 import { PRESERVE_EXEMPT_TAX_RATE_MARKER } from "../../utils/excel/invoiceExcel";
 import {
+  applySelfBilledPartyIdentitySwap,
+  isSelfBilledInvoiceType,
+} from "../../utils/envPartyIdentity";
+import {
   buyerSellerIdentifierCodeValidTestData,
   industrialClassificationIsicValidTestData,
   omanCountrySubdivisionValidTestData,
@@ -767,18 +771,19 @@ export function buildProfitMarginSelfInvoiceScenarioRow(
   });
 }
 
-/** Phase 4: Summary Invoice period (IBR-037-OM). */
+/** Phase 4: Summary Invoice period (IBR-037-OM / IBR-036-OM). */
 export function buildSummaryInvoicePeriodScenarioRow(
   scenario: FV.SummaryPeriodScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
+  const row = applyPartyIdentifiersByTxnType({
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
       scenario.invoiceTransactionTypeCode,
     [FV.INVOICING_PERIOD_START_DATE_FIELD]: scenario.periodStart,
     [FV.INVOICING_PERIOD_END_DATE_FIELD]: scenario.periodEnd,
   });
+  return applyTxnExclusionInvoiceType(row, scenario.invoiceTypeCode);
 }
 
 /** Phase 5: document allowance/charge VAT + exemption (IBR-062/064-OM). */
@@ -1167,12 +1172,57 @@ export function buildSelfBilledBuyerVatScenarioRow(
   scenario: FV.SelfBilledBuyerVatScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
+  const txn = scenario.invoiceTransactionTypeCode;
+  const row: Record<string, string | null> = {
     ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
-      scenario.invoiceTransactionTypeCode,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
     [FV.BUYER_VAT_IDENTIFIER_FIELD]: scenario.buyerVatIdentifier,
-  });
+    // IBR-020-OM: buyer country MUST be OM on all four IBR-017 txn types.
+    [FV.BUYER_COUNTRY_CODE_FIELD]: FV.OMAN_COUNTRY_CODE,
+  };
+  if (txn === FV.TXN_IMPORT_OF_GOODS) {
+    row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
+    row[FV.IMPORT_DATE_FIELD] = "2026-01-10";
+    row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
+    row[FV.INCOTERMS_FIELD] = "Free On Board";
+    row[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_GOODS;
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = FV.OMAN_HS_CODE_12;
+  }
+  if (txn === FV.TXN_IMPORT_OF_SERVICES_RCM) {
+    // IBR-160-OM: seller country must not be OM (RCM companion, not the VATIN probe).
+    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
+    row[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_SERVICES;
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+  }
+  if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
+    // IBR-086-OM: line tax category MUST be O. IBR-087-OM + CL-11-OM companions.
+    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    row[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
+      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
+    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  }
+  const next = applyPartyIdentifiersByTxnType(row);
+  if (scenario.buyerIdentifier !== undefined) {
+    next[FV.BUYER_IDENTIFIER_FIELD] = scenario.buyerIdentifier;
+  }
+  next[FV.BUYER_VAT_IDENTIFIER_FIELD] = scenario.buyerVatIdentifier;
+  return next;
+}
+
+function resolveIbr020InvoiceType(
+  scenario: FV.SelfBilledRcmBuyerCountryScenario
+): string {
+  if (scenario.invoiceTypeCode) {
+    return scenario.invoiceTypeCode;
+  }
+  if (scenario.invoiceTransactionTypeCode === FV.TXN_SELF_BILLED_INVOICE) {
+    return FV.INVOICE_TYPE_SELF_BILLED_INVOICE;
+  }
+  return FV.INVOICE_TYPE_COMMERCIAL_INVOICE;
 }
 
 /** IBR-020-OM: Self-billed / RCM → Buyer country must be OM. */
@@ -1180,12 +1230,56 @@ export function buildSelfBilledRcmBuyerCountryScenarioRow(
   scenario: FV.SelfBilledRcmBuyerCountryScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
+  const txn = scenario.invoiceTransactionTypeCode;
+  const invoiceTypeCode = resolveIbr020InvoiceType(scenario);
+  let row: Record<string, string | null> = {
     ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
-      scenario.invoiceTransactionTypeCode,
-    [FV.BUYER_COUNTRY_CODE_FIELD]: scenario.buyerCountryCode,
-  });
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
+    [FV.INVOICE_TYPE_CODE_FIELD]: invoiceTypeCode,
+  };
+  if (txn === FV.TXN_IMPORT_OF_GOODS) {
+    row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
+    row[FV.IMPORT_DATE_FIELD] = "2026-01-10";
+    row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
+    row[FV.INCOTERMS_FIELD] = "Free On Board";
+    row[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_GOODS;
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = FV.OMAN_HS_CODE_12;
+    row[FV.SERVICE_TYPE_CODE_FIELD] = "";
+  }
+  if (txn === FV.TXN_IMPORT_OF_SERVICES_RCM) {
+    // IBR-160-OM: seller country must not be OM (RCM companion, not the country probe).
+    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
+    row[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_SERVICES;
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+    row[FV.SERVICE_TYPE_CODE_FIELD] = FV.SERVICE_TYPE_CODE_SAMPLE;
+  }
+  if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
+    // IBR-086-OM: line tax category MUST be O. IBR-087-OM + CL-11-OM companions.
+    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
+    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    row[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
+      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
+    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  }
+  if (
+    invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_INVOICE ||
+    invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE
+  ) {
+    row = applySelfBilledDocumentInvoiceType(row, invoiceTypeCode);
+  }
+  row = applyPartyIdentifiersByTxnType(row);
+  if (isSelfBilledInvoiceType(invoiceTypeCode)) {
+    const stringRow: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      stringRow[key] = value == null ? "" : String(value);
+    }
+    row = applySelfBilledPartyIdentitySwap(stringRow);
+  }
+  row[FV.BUYER_COUNTRY_CODE_FIELD] = scenario.buyerCountryCode;
+  return row;
 }
 
 /** IBR-177-OM: self-billed document types constrain allowed transaction types. */
@@ -1669,21 +1763,34 @@ export function buildLineItemVatAmountRequiredScenarioRow(
   scenario: FV.LineItemVatAmountRequiredScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  const row: Record<string, string | null> = applyPartyIdentifiersByTxnType({
+  const txn = scenario.invoiceTransactionTypeCode;
+  let row: Record<string, string | null> = {
     ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
-      scenario.invoiceTransactionTypeCode,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
     [FV.TAX_CATEGORY_FIELD]: scenario.taxCategory,
     [FV.INVOICED_ITEM_TAX_RATE_FIELD]: resolveTaxRate(scenario.taxRate),
     [FV.TAX_EXEMPTION_REASON_CODE_FIELD]:
       scenario.taxExemptionReasonCode ?? "",
     [FV.LINE_ITEM_VAT_AMOUNT_FIELD]: scenario.lineItemVatAmount,
-  });
+  };
   // Commercial invoice cannot contain only E/O lines — keep Exempt on out-of-scope type.
   if (scenario.taxCategory === FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE) {
     row[FV.INVOICE_TYPE_CODE_FIELD] =
       FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
   }
+  row = applyTxnExclusionCompanions(row, [txn]);
+  if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
+    row[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] = "1000";
+  }
+  row = applyPartyIdentifiersByTxnType(row);
+  if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
+    row[FV.ITEM_TYPE_FIELD] = "";
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+    row[FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD] = "";
+  }
+  row = applyTxnExclusionInvoiceType(row, scenario.invoiceTypeCode);
+  // Re-apply BTOM-016 after companions (PM Self would otherwise force 0).
+  row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = scenario.lineItemVatAmount;
   return row;
 }
 
@@ -1691,14 +1798,34 @@ export function buildLineItemVatAmountZeroScenarioRow(
   scenario: FV.LineItemVatAmountZeroScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return {
+  const txn = scenario.invoiceTransactionTypeCode;
+  let row: Record<string, string | null> = {
     ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
     [FV.TAX_CATEGORY_FIELD]: scenario.taxCategory,
     [FV.INVOICED_ITEM_TAX_RATE_FIELD]: resolveTaxRate(scenario.taxRate),
     [FV.TAX_EXEMPTION_REASON_CODE_FIELD]:
       scenario.taxExemptionReasonCode ?? "",
     [FV.LINE_ITEM_VAT_AMOUNT_FIELD]: scenario.lineItemVatAmount,
   };
+  // Commercial invoice cannot contain only E/O lines — keep Exempt on out-of-scope type.
+  if (scenario.taxCategory === FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE) {
+    row[FV.INVOICE_TYPE_CODE_FIELD] =
+      FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX;
+  }
+  row = applyTxnExclusionCompanions(row, [txn]);
+  if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
+    row[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] = "1000";
+  }
+  row = applyPartyIdentifiersByTxnType(row);
+  if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
+    row[FV.ITEM_TYPE_FIELD] = "";
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+    row[FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD] = "";
+  }
+  row = applyTxnExclusionInvoiceType(row, scenario.invoiceTypeCode);
+  row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = scenario.lineItemVatAmount;
+  return row;
 }
 
 export function buildVatCategoryTaxAmountE09ScenarioRow(
@@ -2098,6 +2225,10 @@ export function buildBuyerIdOrVatinScenarioRow(
     row = applyOmanDeliveryOverlay(row, "export");
   }
 
+  if (txn === FV.TXN_ECOMMERCE_TRANSACTION) {
+    row = applyOmanDeliveryOverlay(row, "domestic");
+  }
+
   if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
     row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
     row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
@@ -2153,83 +2284,143 @@ export function buildThirdPartyRequiredScenarioRow(
   });
 }
 
+/** IBR-019-OM: txn companions matching submit / dropdown sweeps. */
+function applyIbr019TxnDependents(
+  row: Record<string, string | null>,
+  txn: string
+): Record<string, string | null> {
+  let next: Record<string, string | null> = { ...row };
+
+  if (txn === FV.TXN_THIRD_PARTY_INVOICE) {
+    next[FV.THIRD_PARTY_NAME_FIELD] = "Oman Third Party LLC";
+    next[FV.THIRD_PARTY_VATIN_FIELD] = FV.IBR_003_VALID_THIRD_PARTY_VATIN;
+    next[FV.THIRD_PARTY_ADDRESS_LINE_1_FIELD] = "TP Building 1";
+    next[FV.THIRD_PARTY_ADDRESS_LINE_2_FIELD] = "TP Street";
+    next[FV.THIRD_PARTY_ADDRESS_LINE_3_FIELD] = "TP Area";
+    next[FV.THIRD_PARTY_CITY_FIELD] = "Muscat";
+    next[FV.THIRD_PARTY_POSTAL_CODE_FIELD] = "100";
+    next[FV.THIRD_PARTY_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  }
+
+  if (txn === FV.TXN_SUMMARY_INVOICE) {
+    next[FV.INVOICING_PERIOD_START_DATE_FIELD] = "2026-01-01";
+    next[FV.INVOICING_PERIOD_END_DATE_FIELD] = "2026-01-31";
+  }
+
+  if (txn === FV.TXN_EXPORT_INVOICE) {
+    const exportExemption =
+      FV.ZERO_RATED_EXEMPTION_REASON_LABELS.find((label) =>
+        label.includes("Direct Export of Goods")
+      ) ?? FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    next[FV.TAX_CATEGORY_FIELD] = FV.ZERO_RATED_TAX_CATEGORY_CODE;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = exportExemption;
+    next[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = exportExemption;
+    next[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    next[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_GOODS;
+    next[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = FV.OMAN_HS_CODE_12;
+    next[FV.SERVICE_TYPE_CODE_FIELD] = "";
+    next = applyOmanDeliveryOverlay(next, "export");
+  }
+
+  if (txn === FV.TXN_IMPORT_OF_GOODS) {
+    next[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
+    next[FV.IMPORT_DATE_FIELD] = "2026-01-10";
+    next[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
+    next[FV.INCOTERMS_FIELD] = "Free On Board";
+    next[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_GOODS;
+    next[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = FV.OMAN_HS_CODE_12;
+    next[FV.SERVICE_TYPE_CODE_FIELD] = "";
+  }
+
+  if (txn === FV.TXN_IMPORT_OF_SERVICES_RCM) {
+    next[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
+    next[FV.BUYER_VAT_IDENTIFIER_FIELD] = FV.IBR_003_VALID_BUYER_VATIN;
+    next[FV.BUYER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+    next[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_SERVICES;
+    next[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+    next[FV.SERVICE_TYPE_CODE_FIELD] = FV.SERVICE_TYPE_CODE_SAMPLE;
+  }
+
+  if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
+    next[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    next[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    next[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    next[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
+      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
+    next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "PREV-OMN-001";
+    next[FV.PRECEDING_INVOICE_UUID_FIELD] = FV.PRECEDING_INVOICE_UUID_SAMPLE;
+    next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "2026-06-01";
+    next[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] = "1050";
+  }
+
+  if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
+    next[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    next[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
+    next[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    next[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
+      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
+    next[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  }
+
+  if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    next = applySpecialZoneCountrySubdivisions(next);
+  }
+
+  return next;
+}
+
+function resolveIbr019InvoiceType(
+  scenario: FV.BuyerAddressRequiredScenario
+): string {
+  if (scenario.invoiceTypeCode) {
+    return scenario.invoiceTypeCode;
+  }
+  if (scenario.invoiceTransactionTypeCode === FV.TXN_SELF_BILLED_INVOICE) {
+    return FV.INVOICE_TYPE_SELF_BILLED_INVOICE;
+  }
+  return FV.INVOICE_TYPE_COMMERCIAL_INVOICE;
+}
+
 /** IBR-019-OM: write the Buyer postal address group (complete or one field omitted). */
 export function buildBuyerAddressRequiredScenarioRow(
   scenario: FV.BuyerAddressRequiredScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
   const txn = scenario.invoiceTransactionTypeCode;
+  const invoiceTypeCode = resolveIbr019InvoiceType(scenario);
   let row: Record<string, string | null> = {
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
-    [FV.BUYER_ADDRESS_LINE_1_FIELD]: scenario.addressLine1,
-    [FV.BUYER_ADDRESS_LINE_2_FIELD]: scenario.addressLine2,
-    [FV.BUYER_ADDRESS_LINE_3_FIELD]: scenario.addressLine3,
-    [FV.BUYER_CITY_FIELD]: scenario.city,
-    [FV.BUYER_POST_CODE_FIELD]: scenario.postCode,
+    [FV.INVOICE_TYPE_CODE_FIELD]: invoiceTypeCode,
   };
 
-  if (txn === FV.TXN_THIRD_PARTY_INVOICE) {
-    row[FV.THIRD_PARTY_NAME_FIELD] = "Oman Third Party LLC";
-    row[FV.THIRD_PARTY_VATIN_FIELD] = FV.IBR_003_VALID_THIRD_PARTY_VATIN;
-    row[FV.THIRD_PARTY_ADDRESS_LINE_1_FIELD] = "TP Building 1";
-    row[FV.THIRD_PARTY_ADDRESS_LINE_2_FIELD] = "TP Street";
-    row[FV.THIRD_PARTY_ADDRESS_LINE_3_FIELD] = "TP Area";
-    row[FV.THIRD_PARTY_CITY_FIELD] = "Muscat";
-    row[FV.THIRD_PARTY_POSTAL_CODE_FIELD] = "100";
-    row[FV.THIRD_PARTY_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  row = applyIbr019TxnDependents(row, txn);
+  if (
+    invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_INVOICE ||
+    invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE
+  ) {
+    row = applySelfBilledDocumentInvoiceType(row, invoiceTypeCode);
   }
-
-  if (txn === FV.TXN_SUMMARY_INVOICE) {
-    row[FV.INVOICING_PERIOD_START_DATE_FIELD] = "2026-01-01";
-    row[FV.INVOICING_PERIOD_END_DATE_FIELD] = "2026-01-31";
-  }
-
-  if (txn === FV.TXN_EXPORT_INVOICE) {
-    row = applyOmanDeliveryOverlay(row, "export");
-  }
-
-  if (txn === FV.TXN_IMPORT_OF_GOODS) {
-    row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
-    row[FV.IMPORT_DATE_FIELD] = "2026-01-10";
-    row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
-    row[FV.INCOTERMS_FIELD] = "Free On Board";
-  }
-
-  if (txn === FV.TXN_IMPORT_OF_SERVICES_RCM) {
-    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
-    row[FV.BUYER_VAT_IDENTIFIER_FIELD] = FV.IBR_003_VALID_BUYER_VATIN;
-    row[FV.BUYER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
-  }
-
-  if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
-    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
-    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
-    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
-    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
-    row[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
-      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
-    row[FV.PRECEDING_INVOICE_REFERENCE_FIELD] = "PREV-OMN-001";
-    row[FV.PRECEDING_INVOICE_UUID_FIELD] = FV.PRECEDING_INVOICE_UUID_SAMPLE;
-    row[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] = "2026-06-01";
-    row[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] = "1050";
-  }
-
-  if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
-    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
-    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
-    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
-    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
-    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
-    row[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] =
-      FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
-    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
-  }
-
   row = applyPartyIdentifiersByTxnType(row);
-  if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
-    row = applySpecialZoneCountrySubdivisions(row);
+
+  if (isSelfBilledInvoiceType(invoiceTypeCode)) {
+    const stringRow: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      stringRow[key] = value == null ? "" : String(value);
+    }
+    row = applySelfBilledPartyIdentitySwap(stringRow);
   }
+
+  row[FV.BUYER_ADDRESS_LINE_1_FIELD] = scenario.addressLine1;
+  row[FV.BUYER_ADDRESS_LINE_2_FIELD] = scenario.addressLine2;
+  row[FV.BUYER_ADDRESS_LINE_3_FIELD] = scenario.addressLine3;
+  row[FV.BUYER_CITY_FIELD] = scenario.city;
+  row[FV.BUYER_POST_CODE_FIELD] = scenario.postCode;
   return row;
 }
 

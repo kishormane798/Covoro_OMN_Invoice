@@ -156,6 +156,14 @@ export const BUYER_ADDRESS_LINE_2_FIELD = "Buyer address line 2";
 export const BUYER_ADDRESS_LINE_3_FIELD = "Buyer address line 3";
 export const BUYER_CITY_FIELD = "Buyer city";
 export const BUYER_POST_CODE_FIELD = "Buyer post code";
+/** IBR-019-OM: Buyer postal address fields that MUST be present (dropdown-style empty sweep). */
+export const BUYER_ADDRESS_GROUP_FIELDS = [
+  BUYER_ADDRESS_LINE_1_FIELD,
+  BUYER_ADDRESS_LINE_2_FIELD,
+  BUYER_ADDRESS_LINE_3_FIELD,
+  BUYER_CITY_FIELD,
+  BUYER_POST_CODE_FIELD,
+] as const;
 export const THIRD_PARTY_NAME_FIELD = "Third Party Name";
 export const THIRD_PARTY_VATIN_FIELD = "Third Party VATIN";
 export const THIRD_PARTY_ADDRESS_LINE_1_FIELD = "Third Party Address Line 1";
@@ -459,6 +467,16 @@ export const OMAN_TXN_TYPES = invoiceTransactionTypeValidTestData.map(
 );
 export const OMAN_INVOICE_TYPES = invoiceTypeCodeValidTestData.map((x) => x.label);
 
+/** IBR-038/039 Not Allowed: one Excel per 3 Master invoice types (fewer tests; last group may be 2). */
+export const LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS: string[][] = (() => {
+  const size = 3;
+  const groups: string[][] = [];
+  for (let i = 0; i < OMAN_INVOICE_TYPES.length; i += size) {
+    groups.push(OMAN_INVOICE_TYPES.slice(i, i + size));
+  }
+  return groups;
+})();
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -500,6 +518,8 @@ export type VatBreakdownCategoryPresenceScenario = OmanConditionalScenario & {
 /** IBR-038-OM: Line item VAT amount required except Simplified. */
 export type LineItemVatAmountRequiredScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
+  /** Master Invoice Type Code (IBT-003). Default Commercial invoice in the builder. */
+  invoiceTypeCode?: string;
   taxCategory: string;
   taxRate: string | null;
   lineItemVatAmount: string;
@@ -508,6 +528,9 @@ export type LineItemVatAmountRequiredScenario = OmanConditionalScenario & {
 
 /** IBR-039/054/077-OM: Line VAT amount must be zero for E / O / Z. */
 export type LineItemVatAmountZeroScenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  /** Master Invoice Type Code (IBT-003). Default out-of-scope for Exempt in the builder. */
+  invoiceTypeCode?: string;
   taxCategory: string;
   taxRate: string | null;
   taxExemptionReasonCode?: string;
@@ -627,6 +650,8 @@ export type ThirdPartyRequiredScenario = OmanConditionalScenario & {
 /** IBR-019-OM: Buyer address block mandatory for listed txn types. */
 export type BuyerAddressRequiredScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
+  /** IBT-003 — set for Self-billed Invoice (389) / Self billed credit note (261). */
+  invoiceTypeCode?: string;
   addressLine1: string;
   addressLine2: string;
   addressLine3: string;
@@ -780,6 +805,8 @@ export type SpecialZoneSellerScenario = OmanConditionalScenario & {
 export type SelfBilledBuyerVatScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   buyerVatIdentifier: string;
+  /** When set, written after txn companions (identifier-only Not Allowed). */
+  buyerIdentifier?: string;
 };
 
 /** IBR-003-OM: Seller / Buyer / Third Party VATIN = OM + exactly 10 digits. */
@@ -830,6 +857,8 @@ export type ProfitMarginTaxCategoryScenario = OmanConditionalScenario & {
 
 export type SummaryPeriodScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
+  /** Master Invoice Type Code (IBR-036-OM / IBR-037-OM expanded across OMAN_INVOICE_TYPES). */
+  invoiceTypeCode?: string;
   periodStart: string;
   periodEnd: string;
 };
@@ -940,6 +969,8 @@ export type ExportSupportingDocumentScenario = OmanConditionalScenario & {
 /** IBR-020-OM: Self-billed / RCM → Buyer country must be OM. */
 export type SelfBilledRcmBuyerCountryScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
+  /** IBT-003 — set for Self-billed invoice (389) / Self billed credit note (261). */
+  invoiceTypeCode?: string;
   buyerCountryCode: string;
 };
 
@@ -1560,7 +1591,6 @@ export const MULTI_VALUE_PACK_EXPAND: Readonly<
     dimension: "txnType",
     values: [
       TXN_FULL_TAX_INVOICE,
-      TXN_SELF_BILLED_INVOICE,
       TXN_THIRD_PARTY_INVOICE,
       TXN_SUMMARY_INVOICE,
       TXN_EXPORT_INVOICE,
@@ -1595,7 +1625,7 @@ export function expandAcrossCnDnSelfBilledTypes<
  * Title must contain `{type}` (replaced with the invoice type label).
  */
 export function expandAcrossSelfBilledDocumentTypes<
-  T extends { title: string; invoiceTypeCode: string },
+  T extends { title: string; invoiceTypeCode?: string },
 >(template: Omit<T, "invoiceTypeCode"> & { invoiceTypeCode?: string }): T[] {
   return SELF_BILLED_DOCUMENT_INVOICE_TYPES.map(
     (invoiceTypeCode) =>
@@ -1955,9 +1985,10 @@ export function expandAcrossIbr016BuyerIdOrVatinTxnTypes<
 
 /**
  * Expand one polarity across IBR-019-OM buyer-address txn types
- * (Full Tax / Self-billed / Third-party / Summary / Export / RCM /
+ * (Full Tax / Third-party / Summary / Export / RCM /
  * Profit Margin Self-Invoice / Profit Margin / Import of Goods /
- * Special Zone Supplies). Title must contain `{txn}`.
+ * Special Zone Supplies). Self-billed Invoice/credit note (261 / 389)
+ * uses `expandAcrossSelfBilledDocumentTypes`. Title must contain `{txn}`.
  */
 export function expandAcrossIbr019BuyerAddressTxnTypes<
   T extends { title: string; invoiceTransactionTypeCode: string },
@@ -2019,6 +2050,49 @@ export function expandAcrossE09OmNonSimplifiedTxnTypes<
     invoiceTransactionTypeCode,
     title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
   })) as T[];
+}
+
+/**
+ * Cross every Master invoice type (`OMAN_INVOICE_TYPES`) with the given txn
+ * labels. Title must contain `{txn}` and `{type}`. Skips Self-billed document
+ * × txn pairs that IBR-177-OM would reject first.
+ */
+export function expandAcrossOmnInvoiceAndTxnTypes<
+  T extends {
+    title: string;
+    invoiceTransactionTypeCode: string;
+    invoiceTypeCode?: string;
+  },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode" | "invoiceTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+    invoiceTypeCode?: string;
+  },
+  options: { txnTypes?: readonly string[] } = {}
+): T[] {
+  const txnTypes = options.txnTypes ?? E09_OM_NON_SIMPLIFIED_TXN_TYPES;
+  const out: T[] = [];
+  for (const invoiceTypeCode of OMAN_INVOICE_TYPES) {
+    for (const invoiceTransactionTypeCode of txnTypes) {
+      if (
+        !isIbr177CompatibleInvoiceTxnPair(
+          invoiceTypeCode,
+          invoiceTransactionTypeCode
+        )
+      ) {
+        continue;
+      }
+      out.push({
+        ...template,
+        invoiceTypeCode,
+        invoiceTransactionTypeCode,
+        title: template.title
+          .replace(/\{txn\}/g, invoiceTransactionTypeCode)
+          .replace(/\{type\}/g, invoiceTypeCode),
+      } as T);
+    }
+  }
+  return out;
 }
 
 /**
@@ -2491,7 +2565,9 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
  * ALIGNED-IBRP-028-OM: preceding reference (IBG-03) when CN/DN/self-billed CN.
  * IBR-032-OM: preceding reference + issue date + UUID (BTOM-031) for those types.
  * Accepted 028 cases also satisfy 032 so polarity is honest against the portal.
- * Live Playwright: one invoice type per test (CN / DN / Self billed).
+ * Live Playwright: one invoice type per test (CN / DN / Self billed) plus
+ * IBR-032 Commercial invoice trigger-not-met (empty trio accepted).
+ * IBR-032 Not Allowed isolates each AND field (empty ref / empty date / empty UUID).
  * Static packs: one polarity workbook with all three types (see pack helper).
  * Excel TC whitespace/omit negatives collapse to empty preceding ref (same cell).
  */
@@ -2552,6 +2628,40 @@ export const PRECEDING_INVOICE_SCENARIOS: PrecedingInvoiceScenario[] = [
     shouldError: true,
     expectedErrorField: PRECEDING_INVOICE_UUID_FIELD,
   }),
+  ...expandAcrossCnDnSelfBilledTypes<PrecedingInvoiceScenario>({
+    ruleId: "IBR-032-OM",
+    title:
+      "Given {type} — When preceding date and UUID are provided but reference is left empty — Then the invoice should be rejected with an error. (IBR-032-OM)",
+    precedingInvoiceReference: "",
+    precedingInvoiceIssueDate: "2026-01-15",
+    precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+    creditDebitNoteReasonCode: CREDIT_DEBIT_REASON_SAMPLE,
+    shouldError: true,
+    expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
+  }),
+  ...expandAcrossCnDnSelfBilledTypes<PrecedingInvoiceScenario>({
+    ruleId: "IBR-032-OM",
+    title:
+      "Given {type} — When preceding reference and UUID are provided but issue date is left empty — Then the invoice should be rejected with an error. (IBR-032-OM)",
+    precedingInvoiceReference: "INV-PREV-032",
+    precedingInvoiceIssueDate: "",
+    precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+    creditDebitNoteReasonCode: CREDIT_DEBIT_REASON_SAMPLE,
+    shouldError: true,
+    expectedErrorField: PRECEDING_INVOICE_ISSUE_DATE_FIELD,
+  }),
+  {
+    ruleId: "IBR-032-OM",
+    title:
+      "Given a Commercial invoice — When preceding reference, date, and UUID are left empty — Then the invoice should be accepted. (IBR-032-OM)",
+    invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
+    precedingInvoiceReference: "",
+    precedingInvoiceIssueDate: "",
+    precedingInvoiceUuid: "",
+    creditDebitNoteReasonCode: "",
+    shouldError: false,
+    expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
+  },
 ];
 
 /**
@@ -3085,35 +3195,44 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
 // ---------------------------------------------------------------------------
 // summaryInvoicePeriod
 // ---------------------------------------------------------------------------
-/** IBR-037-OM: Summary OR Continuous Supply requires invoicing period. */
-export const SUMMARY_INVOICE_PERIOD_SCENARIOS: SummaryPeriodScenario[] = [
-  ...expandAcrossSummaryOrContinuousTxnTypes<SummaryPeriodScenario>({
-    ruleId: "IBR-037-OM",
-    title:
-      "Given {txn} — When invoicing period dates are provided — Then the invoice should be accepted. (IBR-037-OM)",
-    periodStart: "2026-01-01",
-    periodEnd: "2026-01-31",
-    shouldError: false,
-    expectedErrorField: INVOICING_PERIOD_START_DATE_FIELD,
-  }),
-  ...expandAcrossSummaryOrContinuousTxnTypes<SummaryPeriodScenario>({
-    ruleId: "IBR-037-OM",
-    title:
-      "Given {txn} — When invoicing period is left empty — Then the invoice should be rejected with an error. (IBR-037-OM)",
-    periodStart: "",
-    periodEnd: "",
-    shouldError: true,
-    expectedErrorField: INVOICING_PERIOD_START_DATE_FIELD,
-  }),
-];
+/** IBR-037-OM: Summary OR Continuous Supply requires invoicing period.
+ * Expanded across both named txn types and every Master invoice type
+ * (IBR-177 skips Self-billed document × Summary/Continuous). Live Playwright
+ * is dropdown-style: one workbook per txn type × polarity (30 invoice-type
+ * rows each).
+ */
+export const SUMMARY_INVOICE_PERIOD_SCENARIOS: SummaryPeriodScenario[] =
+  expandTxnExclusionAcrossAllInvoiceTypes([
+    ...expandAcrossSummaryOrContinuousTxnTypes<SummaryPeriodScenario>({
+      ruleId: "IBR-037-OM",
+      title:
+        "Given {txn} — When invoicing period dates are provided — Then the invoice should be accepted. (IBR-037-OM)",
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+      shouldError: false,
+      expectedErrorField: INVOICING_PERIOD_START_DATE_FIELD,
+    }),
+    ...expandAcrossSummaryOrContinuousTxnTypes<SummaryPeriodScenario>({
+      ruleId: "IBR-037-OM",
+      title:
+        "Given {txn} — When invoicing period is left empty — Then the invoice should be rejected with an error. (IBR-037-OM)",
+      periodStart: "",
+      periodEnd: "",
+      shouldError: true,
+      expectedErrorField: INVOICING_PERIOD_START_DATE_FIELD,
+    }),
+  ]);
 
 /**
  * IBR-036-OM: Summary invoice (XXXX1XXXXXXXXXXXXXXX) → IBT-073 and IBT-074
  * must belong to the same calendar month when both are provided.
  * End still >= start so IBR-029 does not fire on the different-month row.
+ * Expanded across every Master invoice type (IBR-177 skips Self-billed
+ * document × Summary cells). Live Playwright is dropdown-style: two
+ * workbooks (Allowed / Not Allowed), one row per invoice type.
  */
 export const SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS: SummaryPeriodScenario[] =
-  [
+  expandTxnExclusionAcrossAllInvoiceTypes([
     {
       ruleId: "IBR-036-OM",
       title:
@@ -3134,7 +3253,7 @@ export const SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS: SummaryPeriodScenario
       shouldError: true,
       expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
     },
-  ];
+  ]);
 
 
 // ---------------------------------------------------------------------------
@@ -3300,7 +3419,12 @@ export const DOCUMENT_CHARGE_REASON_SCENARIOS: DocumentChargeReasonScenario[] =
 // ---------------------------------------------------------------------------
 // creditDebitReason
 // ---------------------------------------------------------------------------
-/** IBR-023-OM: CN/DN/self-billed CN require reason code. */
+/**
+ * IBR-023-OM: CN/DN/self-billed CN require reason code.
+ * Live Playwright: one invoice type per test (CN / DN / Self billed) plus
+ * Commercial invoice trigger-not-met (empty BTOM-032 accepted).
+ * Static packs: one polarity workbook with all three types (see pack helper).
+ */
 export const CREDIT_DEBIT_REASON_SCENARIOS: CreditDebitReasonScenario[] = [
   ...expandAcrossCnDnSelfBilledTypes<CreditDebitReasonScenario>({
     ruleId: "IBR-023-OM",
@@ -3320,6 +3444,16 @@ export const CREDIT_DEBIT_REASON_SCENARIOS: CreditDebitReasonScenario[] = [
     shouldError: true,
     expectedErrorField: CREDIT_DEBIT_NOTE_REASON_CODE_FIELD,
   }),
+  {
+    ruleId: "IBR-023-OM",
+    title:
+      "Given a Commercial invoice — When reason code is left empty — Then the invoice should be accepted. (IBR-023-OM)",
+    invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
+    creditDebitNoteReasonCode: "",
+    precedingInvoiceReference: "",
+    shouldError: false,
+    expectedErrorField: CREDIT_DEBIT_NOTE_REASON_CODE_FIELD,
+  },
 ];
 
 
@@ -3781,6 +3915,15 @@ export const SELF_BILLED_BUYER_VAT_SCENARIOS: SelfBilledBuyerVatScenario[] = [
     shouldError: true,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
   }),
+  ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledBuyerVatScenario>({
+    ruleId: "IBR-017-OM",
+    title:
+      "Given {txn} — When only Buyer identifier is provided and Buyer VATIN is left empty — Then the invoice should be rejected with an error. (IBR-017-OM)",
+    buyerIdentifier: "OM-BUYER-001",
+    buyerVatIdentifier: "",
+    shouldError: true,
+    expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
+  }),
 ];
 
 
@@ -4041,10 +4184,39 @@ export const EXPORT_SUPPORTING_DOCUMENT_SCENARIOS: ExportSupportingDocumentScena
 // ---------------------------------------------------------------------------
 // selfBilledRcmBuyerCountry (IBR-020-OM)
 // ---------------------------------------------------------------------------
+/**
+ * IBR-020-OM: named BTOM-001 types (RCM / PM-Self / Import of Goods) plus
+ * Self-billed Invoice/credit note as IBT-003 389 and 261 (not Commercial +
+ * Self-billed txn — that pairing does not enter the rule as invoice type).
+ */
+function expandIbr020AcrossTxnAndInvoiceTypes(
+  template: Omit<
+    SelfBilledRcmBuyerCountryScenario,
+    "invoiceTransactionTypeCode" | "invoiceTypeCode"
+  > & { invoiceTransactionTypeCode?: string }
+): SelfBilledRcmBuyerCountryScenario[] {
+  return [
+    ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledRcmBuyerCountryScenario>(
+      template
+    ).filter(
+      (scenario) =>
+        scenario.invoiceTransactionTypeCode !== TXN_SELF_BILLED_INVOICE
+    ),
+    ...expandAcrossSelfBilledDocumentTypes<SelfBilledRcmBuyerCountryScenario>({
+      ...template,
+      title: template.title.replace(
+        "Given {txn} —",
+        "Given Self-billed Invoice / {type} —"
+      ),
+      invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
+    }),
+  ];
+}
+
 /** IBR-020-OM: Self-billed / Import of Services RCM → Buyer country must be OM. */
 export const SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS: SelfBilledRcmBuyerCountryScenario[] =
   [
-    ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledRcmBuyerCountryScenario>({
+    ...expandIbr020AcrossTxnAndInvoiceTypes({
       ruleId: "IBR-020-OM",
       title:
         "Given {txn} — When buyer country is Oman — Then the invoice should be accepted. (IBR-020-OM)",
@@ -4052,7 +4224,7 @@ export const SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS: SelfBilledRcmBuyerCountryS
       shouldError: false,
       expectedErrorField: BUYER_COUNTRY_CODE_FIELD,
     }),
-    ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledRcmBuyerCountryScenario>({
+    ...expandIbr020AcrossTxnAndInvoiceTypes({
       ruleId: "IBR-020-OM",
       title:
         "Given {txn} — When buyer country is UAE — Then the invoice should be rejected with an error. (IBR-020-OM)",
@@ -4060,7 +4232,7 @@ export const SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS: SelfBilledRcmBuyerCountryS
       shouldError: true,
       expectedErrorField: BUYER_COUNTRY_CODE_FIELD,
     }),
-    ...expandAcrossSelfBilledOrRcmTxnTypes<SelfBilledRcmBuyerCountryScenario>({
+    ...expandIbr020AcrossTxnAndInvoiceTypes({
       ruleId: "IBR-020-OM",
       title:
         "Given {txn} — When buyer country is left empty — Then the invoice should be rejected with an error. (IBR-020-OM)",
@@ -4647,26 +4819,67 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
 // ---------------------------------------------------------------------------
 // lineItemVatAmount (IBR-038 / 039 / 054 / 077-OM)
 // ---------------------------------------------------------------------------
-export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredScenario[] =
+/** Allowed: one Excel (one row per Master invoice type × compatible txn). */
+export const LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS: LineItemVatAmountRequiredScenario[] =
   [
-    {
+    ...expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountRequiredScenario>({
       ruleId: "IBR-038-OM",
       title:
-        "Given a Full Tax invoice — When line VAT amount is provided — Then the invoice should be accepted. (IBR-038-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+        "Given a {txn} {type} — When line VAT amount is provided — Then the invoice should be accepted. (IBR-038-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
       lineItemVatAmount: "50",
       shouldError: false,
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
-    },
+    }),
+    ...expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountRequiredScenario>(
+      {
+        ruleId: "IBR-038-OM",
+        title:
+          "Given a {txn} {type} — When line VAT amount is left empty — Then the invoice should be accepted. (IBR-038-OM)",
+        taxCategory: STANDARD_TAX_CATEGORY_CODE,
+        taxRate: TAX_RATE_STANDARD_OMAN,
+        lineItemVatAmount: "",
+        shouldError: false,
+        expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
+      },
+      { txnTypes: [TXN_SIMPLIFIED_TAX_INVOICE] }
+    ),
     {
       ruleId: "IBR-038-OM",
       title:
-        "Given a Full Tax invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+        "Given a Profit Margin Self-Invoice — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-038-OM)",
+      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
+      invoiceTypeCode: INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: null,
+      lineItemVatAmount: "0",
+      shouldError: false,
+      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
+    },
+  ];
+
+/** Not Allowed: one Excel (one row per Master invoice type × compatible txn). */
+export const LINE_ITEM_VAT_AMOUNT_REQUIRED_NOT_ALLOWED_SCENARIOS: LineItemVatAmountRequiredScenario[] =
+  [
+    ...expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountRequiredScenario>({
+      ruleId: "IBR-038-OM",
+      title:
+        "Given a {txn} {type} — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
       taxCategory: STANDARD_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_STANDARD_OMAN,
+      lineItemVatAmount: "",
+      shouldError: true,
+      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
+    }),
+    {
+      ruleId: "IBR-038-OM",
+      title:
+        "Given a Profit Margin Self-Invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
+      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
+      invoiceTypeCode: INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      taxRate: null,
       lineItemVatAmount: "",
       shouldError: true,
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
@@ -4674,19 +4887,9 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     {
       ruleId: "IBR-038-OM",
       title:
-        "Given a Simplified invoice — When line VAT amount is left empty — Then the invoice should be accepted. (IBR-038-OM)",
-      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
-      taxCategory: STANDARD_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_STANDARD_OMAN,
-      lineItemVatAmount: "",
-      shouldError: false,
-      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
-    },
-    {
-      ruleId: "IBR-038-OM",
-      title:
         "Given a Full Tax Exempt invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      invoiceTypeCode: INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
@@ -4699,6 +4902,7 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
       title:
         "Given a Full Tax Zero rated invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -4708,12 +4912,19 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     },
   ];
 
-export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[] =
+export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredScenario[] =
   [
+    ...LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS,
+    ...LINE_ITEM_VAT_AMOUNT_REQUIRED_NOT_ALLOWED_SCENARIOS,
+  ];
+
+/** Allowed: one Excel (Exempt + VAT 0, all Master invoice types × compatible txns). */
+export const LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS: LineItemVatAmountZeroScenario[] =
+  expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountZeroScenario>(
     {
       ruleId: "IBR-039-OM",
       title:
-        "Given Exempt VAT — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-039-OM)",
+        "Given a {txn} Exempt {type} — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-039-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
@@ -4722,9 +4933,20 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
     },
     {
+      txnTypes: [
+        ...E09_OM_NON_SIMPLIFIED_TXN_TYPES,
+        TXN_SIMPLIFIED_TAX_INVOICE,
+      ],
+    }
+  );
+
+/** Not Allowed: one Excel (Exempt + VAT 50); writer would force 0 — patch 50 after generate. */
+export const LINE_ITEM_VAT_AMOUNT_ZERO_E_NOT_ALLOWED_SCENARIOS: LineItemVatAmountZeroScenario[] =
+  expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountZeroScenario>(
+    {
       ruleId: "IBR-039-OM",
       title:
-        "Given Exempt VAT — When line VAT amount is 50 — Then the invoice should be rejected with an error. (IBR-039-OM)",
+        "Given a {txn} Exempt {type} — When line VAT amount is 50 — Then the invoice should be rejected with an error. (IBR-039-OM)",
       taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
       taxRate: null,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
@@ -4733,9 +4955,21 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
     },
     {
+      txnTypes: [
+        ...E09_OM_NON_SIMPLIFIED_TXN_TYPES,
+        TXN_SIMPLIFIED_TAX_INVOICE,
+      ],
+    }
+  );
+
+/** IBR-054/077-OM only — IBR-039-OM uses the E allowed/not-allowed batches. */
+export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[] =
+  [
+    {
       ruleId: "IBR-054-OM",
       title:
         "Given Not subject to VAT — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-054-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       lineItemVatAmount: "0",
@@ -4746,6 +4980,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
       ruleId: "IBR-054-OM",
       title:
         "Given Not subject to VAT — When line VAT amount is 50 — Then the invoice should be rejected with an error. (IBR-054-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
       taxRate: null,
       lineItemVatAmount: "50",
@@ -4756,6 +4991,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
       ruleId: "IBR-077-OM",
       title:
         "Given Zero rated VAT — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-077-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -4767,6 +5003,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_SCENARIOS: LineItemVatAmountZeroScenario[
       ruleId: "IBR-077-OM",
       title:
         "Given Zero rated VAT — When line VAT amount is 50 — Then the invoice should be rejected with an error. (IBR-077-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxRate: TAX_RATE_ZERO,
       taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
@@ -5068,16 +5305,15 @@ export const BUYER_ID_OR_VATIN_SCENARIOS: BuyerIdOrVatinScenario[] = [
     shouldError: false,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
   }),
-  {
+  ...expandAcrossIbr016BuyerIdOrVatinTxnTypes<BuyerIdOrVatinScenario>({
     ruleId: "IBR-016-OM",
     title:
-      "Given a Full Tax Invoice — When only Buyer identifier is provided — Then the invoice should be accepted. (IBR-016-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      "Given {txn} — When only Buyer identifier is provided — Then the invoice should be accepted. (IBR-016-OM)",
     buyerIdentifier: "OM-BUYER-001",
     buyerVatIdentifier: "",
     shouldError: false,
     expectedErrorField: BUYER_IDENTIFIER_FIELD,
-  },
+  }),
   ...expandAcrossIbr016BuyerIdOrVatinTxnTypes<BuyerIdOrVatinScenario>({
     ruleId: "IBR-016-OM",
     title:
@@ -5269,10 +5505,10 @@ export const THIRD_PARTY_REQUIRED_SCENARIOS: ThirdPartyRequiredScenario[] = [
   {
     ruleId: "IBR-015-OM",
     title:
-      "Given a Full Tax invoice — When a third party block is provided — Then the invoice should be rejected with an error. (IBR-015-OM)",
+      "Given a Full Tax invoice — When a third party block is provided — Then the invoice should be accepted. (IBR-015-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
     ...THIRD_PARTY_COMPLETE,
-    shouldError: true,
+    shouldError: false,
     expectedErrorField: THIRD_PARTY_NAME_FIELD,
   },
 ];
@@ -5288,6 +5524,38 @@ const BUYER_ADDRESS_COMPLETE = {
   postCode: "112",
 } as const;
 
+/** One empty probe per IBR-019-OM buyer-address field (dropdown-style outer loop). */
+const BUYER_ADDRESS_EMPTY_FIELD_KEYS = [
+  { field: BUYER_ADDRESS_LINE_1_FIELD, key: "addressLine1" as const },
+  { field: BUYER_ADDRESS_LINE_2_FIELD, key: "addressLine2" as const },
+  { field: BUYER_ADDRESS_LINE_3_FIELD, key: "addressLine3" as const },
+  { field: BUYER_CITY_FIELD, key: "city" as const },
+  { field: BUYER_POST_CODE_FIELD, key: "postCode" as const },
+] as const;
+
+/** Empty each buyer-address field across IBR-019-OM txn types + Self-billed 261/389. */
+function expandIbr019EmptyBuyerAddressAcrossTxnTypes(): BuyerAddressRequiredScenario[] {
+  return BUYER_ADDRESS_EMPTY_FIELD_KEYS.flatMap(({ field, key }) => [
+    ...expandAcrossIbr019BuyerAddressTxnTypes<BuyerAddressRequiredScenario>({
+      ruleId: "IBR-019-OM",
+      title: `Given {txn} — When ${field} is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)`,
+      ...BUYER_ADDRESS_COMPLETE,
+      [key]: "",
+      shouldError: true,
+      expectedErrorField: field,
+    }),
+    ...expandAcrossSelfBilledDocumentTypes<BuyerAddressRequiredScenario>({
+      ruleId: "IBR-019-OM",
+      title: `Given Self-billed Invoice / {type} — When ${field} is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)`,
+      invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
+      ...BUYER_ADDRESS_COMPLETE,
+      [key]: "",
+      shouldError: true,
+      expectedErrorField: field,
+    }),
+  ]);
+}
+
 /** IBR-019-OM: listed txn types require the buyer postal address block. */
 export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = [
   ...expandAcrossIbr019BuyerAddressTxnTypes<BuyerAddressRequiredScenario>({
@@ -5298,55 +5566,16 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
     shouldError: false,
     expectedErrorField: BUYER_ADDRESS_LINE_1_FIELD,
   }),
-  ...expandAcrossIbr019BuyerAddressTxnTypes<BuyerAddressRequiredScenario>({
+  ...expandAcrossSelfBilledDocumentTypes<BuyerAddressRequiredScenario>({
     ruleId: "IBR-019-OM",
     title:
-      "Given {txn} — When Buyer address line 1 is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
+      "Given Self-billed Invoice / {type} — When Buyer address is complete — Then the invoice should be accepted. (IBR-019-OM)",
+    invoiceTransactionTypeCode: TXN_SELF_BILLED_INVOICE,
     ...BUYER_ADDRESS_COMPLETE,
-    addressLine1: "",
-    shouldError: true,
+    shouldError: false,
     expectedErrorField: BUYER_ADDRESS_LINE_1_FIELD,
   }),
-  {
-    ruleId: "IBR-019-OM",
-    title:
-      "Given a Full Tax Invoice — When Buyer address line 2 is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    ...BUYER_ADDRESS_COMPLETE,
-    addressLine2: "",
-    shouldError: true,
-    expectedErrorField: BUYER_ADDRESS_LINE_2_FIELD,
-  },
-  {
-    ruleId: "IBR-019-OM",
-    title:
-      "Given a Full Tax Invoice — When Buyer address line 3 is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    ...BUYER_ADDRESS_COMPLETE,
-    addressLine3: "",
-    shouldError: true,
-    expectedErrorField: BUYER_ADDRESS_LINE_3_FIELD,
-  },
-  {
-    ruleId: "IBR-019-OM",
-    title:
-      "Given a Full Tax Invoice — When Buyer city is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    ...BUYER_ADDRESS_COMPLETE,
-    city: "",
-    shouldError: true,
-    expectedErrorField: BUYER_CITY_FIELD,
-  },
-  {
-    ruleId: "IBR-019-OM",
-    title:
-      "Given a Full Tax Invoice — When Buyer post code is left empty — Then the invoice should be rejected with an error. (IBR-019-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    ...BUYER_ADDRESS_COMPLETE,
-    postCode: "",
-    shouldError: true,
-    expectedErrorField: BUYER_POST_CODE_FIELD,
-  },
+  ...expandIbr019EmptyBuyerAddressAcrossTxnTypes(),
 ];
 
 // ---------------------------------------------------------------------------

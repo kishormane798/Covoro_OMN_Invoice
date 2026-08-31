@@ -30,6 +30,37 @@ class ValuesMatchTests(unittest.TestCase):
     def test_numbers_match_ignoring_trailing_zeros(self):
         self.assertTrue(values_match("100", "100.00", "Item Gross Price"))
 
+    def test_large_float_keeps_full_decimal_not_scientific(self):
+        self.assertEqual(
+            cell_to_text(55555555605.55, "Line Item VAT Amount"),
+            "55555555605.55",
+        )
+        self.assertEqual(
+            cell_to_text(1166666667716.55, "Invoice Total Amount With Tax"),
+            "1166666667716.55",
+        )
+
+    def test_large_uploaded_float_matches_downloaded_decimal_string(self):
+        self.assertTrue(
+            values_match(
+                cell_to_text(55555555605.55, "Line Item VAT Amount"),
+                "55555555605.55",
+                "Line Item VAT Amount",
+            )
+        )
+        self.assertTrue(
+            values_match(
+                cell_to_text(1166666667716.55, "Amount Due For Payment"),
+                "1166666667716.55",
+                "Amount Due For Payment",
+            )
+        )
+
+    def test_scientific_notation_matches_full_decimal(self):
+        self.assertTrue(
+            values_match("1.5e+2", "150.00", "Item Gross Price")
+        )
+
     def test_text_is_case_sensitive(self):
         self.assertFalse(values_match("ACME", "acme", "Buyer Name"))
 
