@@ -278,6 +278,7 @@ export const SUPPORTING_DOCUMENT_UUID_SAMPLE =
   "b2c3d4e5-f6a7-8901-bcde-f12345678901";
 
 export const INVOICE_TYPE_COMMERCIAL_INVOICE = "Commercial invoice";
+export const INVOICE_TYPE_TAX_INVOICE = "Tax invoice";
 export const INVOICE_TYPE_CREDIT_NOTE = "Credit note";
 export const INVOICE_TYPE_DEBIT_NOTE = "Debit note";
 export const INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE = "Self billed credit note";
@@ -467,15 +468,20 @@ export const OMAN_TXN_TYPES = invoiceTransactionTypeValidTestData.map(
 );
 export const OMAN_INVOICE_TYPES = invoiceTypeCodeValidTestData.map((x) => x.label);
 
-/** IBR-038/039 Not Allowed: one Excel per 3 Master invoice types (fewer tests; last group may be 2). */
-export const LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS: string[][] = (() => {
-  const size = 3;
-  const groups: string[][] = [];
-  for (let i = 0; i < OMAN_INVOICE_TYPES.length; i += size) {
-    groups.push(OMAN_INVOICE_TYPES.slice(i, i + size));
-  }
-  return groups;
-})();
+/**
+ * IBR-038 Allowed + IBR-039: Credit note (381), Tax invoice (388), Commercial invoice (380).
+ * Txn cartesian is all Master labels except Simplified (and PM Self on Exempt / Standard).
+ */
+export const LINE_ITEM_VAT_AMOUNT_CORE_INVOICE_TYPES = [
+  INVOICE_TYPE_CREDIT_NOTE,
+  INVOICE_TYPE_TAX_INVOICE,
+  INVOICE_TYPE_COMMERCIAL_INVOICE,
+] as const;
+
+/** IBR-038/039 Not Allowed: one Excel for the three core invoice types. */
+export const LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS: string[][] = [
+  [...LINE_ITEM_VAT_AMOUNT_CORE_INVOICE_TYPES],
+];
 
 
 // ---------------------------------------------------------------------------
@@ -2053,9 +2059,10 @@ export function expandAcrossE09OmNonSimplifiedTxnTypes<
 }
 
 /**
- * Cross every Master invoice type (`OMAN_INVOICE_TYPES`) with the given txn
- * labels. Title must contain `{txn}` and `{type}`. Skips Self-billed document
- * × txn pairs that IBR-177-OM would reject first.
+ * Cross invoice types (`options.invoiceTypes` or all Master types) with txn
+ * labels (`options.txnTypes` or E09 non-Simplified). Title must contain `{txn}`
+ * and `{type}`. Skips Self-billed document × txn pairs that IBR-177-OM would
+ * reject first.
  */
 export function expandAcrossOmnInvoiceAndTxnTypes<
   T extends {
@@ -2068,11 +2075,15 @@ export function expandAcrossOmnInvoiceAndTxnTypes<
     invoiceTransactionTypeCode?: string;
     invoiceTypeCode?: string;
   },
-  options: { txnTypes?: readonly string[] } = {}
+  options: {
+    txnTypes?: readonly string[];
+    invoiceTypes?: readonly string[];
+  } = {}
 ): T[] {
   const txnTypes = options.txnTypes ?? E09_OM_NON_SIMPLIFIED_TXN_TYPES;
+  const invoiceTypes = options.invoiceTypes ?? OMAN_INVOICE_TYPES;
   const out: T[] = [];
-  for (const invoiceTypeCode of OMAN_INVOICE_TYPES) {
+  for (const invoiceTypeCode of invoiceTypes) {
     for (const invoiceTransactionTypeCode of txnTypes) {
       if (
         !isIbr177CompatibleInvoiceTxnPair(
@@ -4819,10 +4830,10 @@ export const VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS: VatBreakdownCategoryPres
 // ---------------------------------------------------------------------------
 // lineItemVatAmount (IBR-038 / 039 / 054 / 077-OM)
 // ---------------------------------------------------------------------------
-/** Allowed: one Excel (one row per Master invoice type × compatible txn). */
+/** Allowed: one Excel (Credit note / Tax invoice / Commercial × non-Simplified txns). */
 export const LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS: LineItemVatAmountRequiredScenario[] =
-  [
-    ...expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountRequiredScenario>({
+  expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountRequiredScenario>(
+    {
       ruleId: "IBR-038-OM",
       title:
         "Given a {txn} {type} — When line VAT amount is provided — Then the invoice should be accepted. (IBR-038-OM)",
@@ -4831,72 +4842,26 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS: LineItemVatAmountR
       lineItemVatAmount: "50",
       shouldError: false,
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
-    }),
+    },
+    { invoiceTypes: LINE_ITEM_VAT_AMOUNT_CORE_INVOICE_TYPES }
+  );
+
+/** Not Allowed: one Excel (same types × txns; empty line VAT). */
+export const LINE_ITEM_VAT_AMOUNT_REQUIRED_NOT_ALLOWED_SCENARIOS: LineItemVatAmountRequiredScenario[] =
+  [
     ...expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountRequiredScenario>(
       {
         ruleId: "IBR-038-OM",
         title:
-          "Given a {txn} {type} — When line VAT amount is left empty — Then the invoice should be accepted. (IBR-038-OM)",
+          "Given a {txn} {type} — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
         taxCategory: STANDARD_TAX_CATEGORY_CODE,
         taxRate: TAX_RATE_STANDARD_OMAN,
         lineItemVatAmount: "",
-        shouldError: false,
+        shouldError: true,
         expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
       },
-      { txnTypes: [TXN_SIMPLIFIED_TAX_INVOICE] }
+      { invoiceTypes: LINE_ITEM_VAT_AMOUNT_CORE_INVOICE_TYPES }
     ),
-    {
-      ruleId: "IBR-038-OM",
-      title:
-        "Given a Profit Margin Self-Invoice — When line VAT amount is 0 — Then the invoice should be accepted. (IBR-038-OM)",
-      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
-      invoiceTypeCode: INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
-      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: null,
-      lineItemVatAmount: "0",
-      shouldError: false,
-      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
-    },
-  ];
-
-/** Not Allowed: one Excel (one row per Master invoice type × compatible txn). */
-export const LINE_ITEM_VAT_AMOUNT_REQUIRED_NOT_ALLOWED_SCENARIOS: LineItemVatAmountRequiredScenario[] =
-  [
-    ...expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountRequiredScenario>({
-      ruleId: "IBR-038-OM",
-      title:
-        "Given a {txn} {type} — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
-      taxCategory: STANDARD_TAX_CATEGORY_CODE,
-      taxRate: TAX_RATE_STANDARD_OMAN,
-      lineItemVatAmount: "",
-      shouldError: true,
-      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
-    }),
-    {
-      ruleId: "IBR-038-OM",
-      title:
-        "Given a Profit Margin Self-Invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
-      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
-      invoiceTypeCode: INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
-      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-      taxRate: null,
-      lineItemVatAmount: "",
-      shouldError: true,
-      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
-    },
-    {
-      ruleId: "IBR-038-OM",
-      title:
-        "Given a Full Tax Exempt invoice — When line VAT amount is left empty — Then the invoice should be rejected with an error. (IBR-038-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      invoiceTypeCode: INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
-      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
-      taxRate: null,
-      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
-      lineItemVatAmount: "",
-      shouldError: true,
-      expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
-    },
     {
       ruleId: "IBR-038-OM",
       title:
@@ -4918,7 +4883,7 @@ export const LINE_ITEM_VAT_AMOUNT_REQUIRED_SCENARIOS: LineItemVatAmountRequiredS
     ...LINE_ITEM_VAT_AMOUNT_REQUIRED_NOT_ALLOWED_SCENARIOS,
   ];
 
-/** Allowed: one Excel (Exempt + VAT 0, all Master invoice types × compatible txns). */
+/** Allowed: one Excel (Exempt + VAT 0, Credit note / Tax invoice / Commercial × non-Simplified). */
 export const LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS: LineItemVatAmountZeroScenario[] =
   expandAcrossOmnInvoiceAndTxnTypes<LineItemVatAmountZeroScenario>(
     {
@@ -4932,12 +4897,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS: LineItemVatAmountZer
       shouldError: false,
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
     },
-    {
-      txnTypes: [
-        ...E09_OM_NON_SIMPLIFIED_TXN_TYPES,
-        TXN_SIMPLIFIED_TAX_INVOICE,
-      ],
-    }
+    { invoiceTypes: LINE_ITEM_VAT_AMOUNT_CORE_INVOICE_TYPES }
   );
 
 /** Not Allowed: one Excel (Exempt + VAT 50); writer would force 0 — patch 50 after generate. */
@@ -4954,12 +4914,7 @@ export const LINE_ITEM_VAT_AMOUNT_ZERO_E_NOT_ALLOWED_SCENARIOS: LineItemVatAmoun
       shouldError: true,
       expectedErrorField: LINE_ITEM_VAT_AMOUNT_FIELD,
     },
-    {
-      txnTypes: [
-        ...E09_OM_NON_SIMPLIFIED_TXN_TYPES,
-        TXN_SIMPLIFIED_TAX_INVOICE,
-      ],
-    }
+    { invoiceTypes: LINE_ITEM_VAT_AMOUNT_CORE_INVOICE_TYPES }
   );
 
 /** IBR-054/077-OM only — IBR-039-OM uses the E allowed/not-allowed batches. */
