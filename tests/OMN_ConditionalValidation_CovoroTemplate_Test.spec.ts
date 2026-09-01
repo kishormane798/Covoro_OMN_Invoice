@@ -1,6 +1,7 @@
 import { test } from "../Src/baseTest";
 import {
   patchBlankBuyerIdOrVatinIfEmpty,
+  patchBlankTaxAmountInAccountingCurrencyIfEmpty,
   patchProfitMarginItemTypeFromRow,
   patchSellerVatFromRow,
   patchTaxRateFromRow,
@@ -10,6 +11,7 @@ import {
   verifyAlignedIbrpO09OmNotAllowedBatch,
   verifyAlignedIbrpZ09OmAllowedBatch,
   verifyAlignedIbrpZ09OmNotAllowedBatch,
+  patchIbr137OmNegativeAmountAfterGenerate,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
   verifyIbr019OmAllowedBatch,
@@ -22,6 +24,9 @@ import {
   verifyIbr036OmNotAllowedBatch,
   verifyIbr037OmAllowedBatch,
   verifyIbr037OmNotAllowedBatch,
+  verifyIbr081OmAllowedBatch,
+  verifyIbr081OmExceptionBatch,
+  verifyIbr081OmNotAllowedBatch,
 } from "../Helpers/excel/conditionalValidationSpecHelpers";
 import * as ConditionalRows from "../Helpers/excel/conditionalValidationHelper";
 import * as FV from "../testData/FieldValidations";
@@ -166,7 +171,8 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.EXCHANGE_RATE_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchBlankTaxAmountInAccountingCurrencyIfEmpty }
         );
       });
     }
@@ -182,6 +188,21 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           rowData,
           scenario.expectedErrorField ?? "Item Gross Price",
           scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("VAT rate numeric format (IBR-046-OM)", () => {
+    for (const scenario of FV.VAT_RATE_FORMAT_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData = ConditionalRows.buildVatRateFormatScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.INVOICED_ITEM_TAX_RATE_FIELD,
+          scenario.shouldError,
+          { patchFile: patchTaxRateFromRow }
         );
       });
     }
@@ -1093,20 +1114,36 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
   });
 
   test.describe("Industrial Classification Code (IBR-081-OM)", () => {
-    for (const scenario of FV.INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildIndustrialClassificationRequiredScenarioRow(
-            scenario
-          );
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
+    const acceptedRowCount =
+      FV.INDUSTRIAL_CLASSIFICATION_REQUIRED_ALLOWED_SCENARIOS.length;
+    const errorRowCount =
+      FV.INDUSTRIAL_CLASSIFICATION_REQUIRED_NOT_ALLOWED_SCENARIOS.length;
+    const exceptionRowCount =
+      FV.INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS.length;
+
+    test(
+      `Given industrial classification is provided across required transaction types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-081-OM)`,
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyIbr081OmAllowedBatch(page);
+      }
+    );
+
+    test(
+      `Given industrial classification is left empty across required transaction types (${errorRowCount} rows) — When uploaded in one Excel — Then the error file should have ${errorRowCount} error rows. (IBR-081-OM)`,
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyIbr081OmNotAllowedBatch(page);
+      }
+    );
+
+    test(
+      `Given industrial classification is left empty across exception transaction types (${exceptionRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-081-OM)`,
+      async ({ page }) => {
+        test.setTimeout(10 * 60 * 1000);
+        await verifyIbr081OmExceptionBatch(page);
+      }
+    );
   });
 
   test.describe("Document allowance exemption reason codelist (IBR-CL-05-OM / IBR-CL-10-OM)", () => {
@@ -1239,10 +1276,16 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
         await verifyConditionalScenarioAnyOf(
           page,
           rowData,
-          scenario.shouldError
-            ? FV.AMOUNT_QUANTITY_NEGATIVE_ERROR_FIELDS
-            : [scenario.expectedErrorField ?? FV.INVOICED_QUANTITY_FIELD],
-          scenario.shouldError
+          FV.ibr137OmErrorFields(scenario),
+          scenario.shouldError,
+          {
+            patchFile: (filePath, prepared) =>
+              patchIbr137OmNegativeAmountAfterGenerate(
+                filePath,
+                prepared,
+                scenario
+              ),
+          }
         );
       });
     }

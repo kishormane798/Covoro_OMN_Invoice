@@ -26,6 +26,8 @@ import {
   DROPDOWN_ACCEPT_CASINGS,
   DROPDOWN_TIMEOUT_MS,
   UNIT_OF_MEASUREMENT_TIMEOUT_MS,
+  HS_CODE_DROPDOWN_BATCH_SIZE,
+  HS_CODE_DROPDOWN_TIMEOUT_MS,
   conditionalLengthConfigs,
   dropdownInvalidOnCovoro,
   dropdownMasterOnCovoro,
@@ -455,6 +457,24 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
               await uploadAndVerify(page, filePath);
             }
           });
+        }
+      });
+    }
+  });
+
+  test.describe("Dropdown — valid HS codes", () => {
+    for (const config of FV.hsCodeDropdownPartMasterConfig) {
+      test(`Item classification identifier (${config.part}) with exact master values should be accepted. (Item classification identifier)`, async ({
+        page,
+      }) => {
+        test.setTimeout(HS_CODE_DROPDOWN_TIMEOUT_MS);
+        const files = await generateOmanDropdownMasterExcel(
+          config.field,
+          config.master,
+          { writeCasing: "exact", batchSize: HS_CODE_DROPDOWN_BATCH_SIZE }
+        );
+        for (const { filePath } of files) {
+          await uploadAndVerify(page, filePath);
         }
       });
     }

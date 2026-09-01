@@ -15,6 +15,10 @@ import {
   serviceTypeCodeValidTestData,
   profitMarginItemTypeValidTestData,
 } from "../Master/Master.omnCore";
+import {
+  omanHsCodePart1ValidTestData,
+  omanHsCodePart2ValidTestData,
+} from "../Master/Master.hs";
 import { INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME } from "./invoiceCurrencyIsoToDisplayName";
 
 /** ISO currency codes for Invoice Currency Code dropdown / batch field-validation. */
@@ -84,7 +88,7 @@ export const DELIVER_TO_ADDRESS_LINE_3_FIELD = "Deliver to address line 3";
 export const DELIVER_TO_CITY_FIELD = "Deliver to city";
 export const DELIVER_TO_COUNTRY_SUBDIVISION_FIELD =
   "Deliver to country sub-division";
-/** IBR-040-OM: if any Deliver To address cell is filled, all of these must be filled. */
+/** IBR-040-OM: Deliver To group used for error-file any-of asserts. */
 export const DELIVER_TO_ADDRESS_GROUP_FIELDS = [
   DELIVER_TO_ADDRESS_LINE_1_FIELD,
   DELIVER_TO_ADDRESS_LINE_2_FIELD,
@@ -454,6 +458,36 @@ export const CREDIT_DEBIT_REASON_SAMPLE =
 
 /** Valid 12-digit Oman HS code from template Masters (heading 8471.30 — portable ADP machines). */
 export const OMAN_HS_CODE_12 = "847130000002";
+
+/** IBR-091-OM: IBT-158 MUST NOT start with these prefixes on Profit Margin Invoice. */
+export const IBR_091_OM_BANNED_HS_PREFIXES = [
+  "7101",
+  "7102",
+  "7103",
+  "7104",
+  "01",
+  "06",
+] as const;
+
+export type Ibr091OmBannedHsPrefix =
+  (typeof IBR_091_OM_BANNED_HS_PREFIXES)[number];
+
+/** IBR-091-OM Not Allowed: one Masters HS code per Playwright test; ignore the rest. */
+export const IBR_091_OM_SINGLE_RUN_LIMIT = 10;
+
+/** Every template Masters HS code (Part 1 then Part 2) that starts with `prefix`. */
+export function masterHsCodesStartingWith(prefix: string): string[] {
+  const codes = [
+    ...omanHsCodePart1ValidTestData,
+    ...omanHsCodePart2ValidTestData,
+  ]
+    .map((row) => row.label)
+    .filter((code) => code.startsWith(prefix));
+  if (!codes.length) {
+    throw new Error(`No template Masters HS code starts with '${prefix}'`);
+  }
+  return codes;
+}
 /** 12-digit value that is not on the ROP Customs HS master list (IBR-174-OM). */
 export const OMAN_HS_CODE_NOT_ON_ROP_LIST = "999999999999";
 export const OMAN_CURRENCY_OMR = "OMR";
@@ -483,6 +517,17 @@ export const LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS: string[][] = [
   [...LINE_ITEM_VAT_AMOUNT_CORE_INVOICE_TYPES],
 ];
 
+/**
+ * IBR-040-OM: Commercial (380) / Tax invoice (388) / Credit note (381) / Debit note (383).
+ * Self-billed 261/389 skipped (IBR-177 cannot pair with E-commerce Transaction).
+ */
+export const IBR_040_OM_INVOICE_TYPES = [
+  INVOICE_TYPE_COMMERCIAL_INVOICE,
+  INVOICE_TYPE_TAX_INVOICE,
+  INVOICE_TYPE_CREDIT_NOTE,
+  INVOICE_TYPE_DEBIT_NOTE,
+] as const;
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -498,6 +543,17 @@ export type OmanConditionalScenario = {
 export type VatCategoryTaxRateScenario = OmanConditionalScenario & {
   taxCategory: string;
   taxRate: string | null;
+};
+
+/**
+ * IBR-046-OM: VAT rate (IBT-152 / IBT-119 via Covoro `Tax Rate`) if present
+ * must be numeric 0.00–100.00, max two decimals, no `%`.
+ * IBT-096 / IBT-103 have no Excel columns; IBT-193 is backend.
+ */
+export type VatRateFormatScenario = OmanConditionalScenario & {
+  taxRate: string;
+  invoiceTypeCode: string;
+  invoiceTransactionTypeCode: string;
 };
 
 /**
@@ -665,9 +721,10 @@ export type BuyerAddressRequiredScenario = OmanConditionalScenario & {
   postCode: string;
 };
 
-/** IBR-040-OM: Deliver To address group is all-or-nothing when any cell is entered. */
+/** IBR-040-OM: Deliver To address MUST be present when txn is E-commerce Transaction. */
 export type DeliverToAddressRequiredScenario = OmanConditionalScenario & {
-  invoiceTransactionTypeCode?: string;
+  invoiceTransactionTypeCode: string;
+  invoiceTypeCode?: string;
   addressLine1: string;
   addressLine2: string;
   addressLine3: string;
@@ -748,6 +805,8 @@ export type ProfitMarginPrecedingScenario = OmanConditionalScenario & {
 /** IBR-091-OM: Profit Margin Invoice → IBT-158 MUST NOT start with banned prefixes. */
 export type ProfitMarginHsPrefixScenario = OmanConditionalScenario & {
   itemClassificationIdentifier: string;
+  /** Set on Not Allowed rows (which banned prefix this Masters code hits). */
+  bannedPrefix?: Ibr091OmBannedHsPrefix;
 };
 
 /** CL-11-OM: Profit Margin Invoice / Self-Invoice → BTOM-025 present + CL-11 code. */
@@ -992,6 +1051,28 @@ export const SELF_BILLED_DOCUMENT_INVOICE_TYPES = [
   INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE,
   INVOICE_TYPE_SELF_BILLED_INVOICE,
 ] as const;
+
+/**
+ * IBR-046-OM: two type/txn contexts only — Commercial + Full Tax (default),
+ * plus Simplified via `IBR_046_OM_EXTRA_TXN_TYPES`.
+ */
+export const IBR_046_OM_INVOICE_TYPES = [
+  INVOICE_TYPE_COMMERCIAL_INVOICE,
+] as const;
+
+/** IBR-046-OM extra txn coverage on Commercial invoice (Full Tax is the invoice-type default). */
+export const IBR_046_OM_EXTRA_TXN_TYPES = [TXN_SIMPLIFIED_TAX_INVOICE] as const;
+
+export function ibr046DefaultTxnForInvoiceType(invoiceTypeCode: string): string {
+  if (
+    (SELF_BILLED_DOCUMENT_INVOICE_TYPES as readonly string[]).includes(
+      invoiceTypeCode
+    )
+  ) {
+    return TXN_SELF_BILLED_INVOICE;
+  }
+  return TXN_FULL_TAX_INVOICE;
+}
 
 /**
  * Transaction types that trigger IBR-017 / IBR-020 (Self-billed OR Import of
@@ -1643,6 +1724,65 @@ export function expandAcrossSelfBilledDocumentTypes<
   );
 }
 
+/**
+ * Expand one IBR-046-OM polarity across the two type/txn invoice-type slots.
+ * Title must contain `{type}` and `{txn}`.
+ */
+export function expandAcrossIbr046InvoiceTypes<
+  T extends {
+    title: string;
+    invoiceTypeCode: string;
+    invoiceTransactionTypeCode: string;
+  },
+>(
+  template: Omit<T, "invoiceTypeCode" | "invoiceTransactionTypeCode"> & {
+    invoiceTypeCode?: string;
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return IBR_046_OM_INVOICE_TYPES.map((invoiceTypeCode) => {
+    const invoiceTransactionTypeCode =
+      template.invoiceTransactionTypeCode ??
+      ibr046DefaultTxnForInvoiceType(invoiceTypeCode);
+    return {
+      ...template,
+      invoiceTypeCode,
+      invoiceTransactionTypeCode,
+      title: template.title
+        .replace(/\{type\}/g, invoiceTypeCode)
+        .replace(/\{txn\}/g, invoiceTransactionTypeCode),
+    } as T;
+  });
+}
+
+/**
+ * Expand one IBR-046-OM polarity across extra txn types on Commercial invoice.
+ * Title must contain `{type}` and `{txn}`. Skips Full Tax (invoice-type expand).
+ */
+export function expandAcrossIbr046TxnTypes<
+  T extends {
+    title: string;
+    invoiceTypeCode: string;
+    invoiceTransactionTypeCode: string;
+  },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTypeCode?: string;
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  const invoiceTypeCode =
+    template.invoiceTypeCode ?? INVOICE_TYPE_COMMERCIAL_INVOICE;
+  return IBR_046_OM_EXTRA_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
+    ...template,
+    invoiceTypeCode,
+    invoiceTransactionTypeCode,
+    title: template.title
+      .replace(/\{type\}/g, invoiceTypeCode)
+      .replace(/\{txn\}/g, invoiceTransactionTypeCode),
+  })) as T[];
+}
+
 /** Split a BTOM-001 Excel cell into Master description labels. */
 export function splitOmanTxnMasterLabels(cell: string): string[] {
   return String(cell ?? "")
@@ -2052,6 +2192,69 @@ export function expandAcrossE09OmNonSimplifiedTxnTypes<
   }
 ): T[] {
   return E09_OM_NON_SIMPLIFIED_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
+    ...template,
+    invoiceTransactionTypeCode,
+    title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+  })) as T[];
+}
+
+/** IBR-081-OM: ISIC not required on these BTOM-001 labels. */
+export const IBR_081_OM_EXCEPTION_TXN_TYPES = [
+  TXN_SIMPLIFIED_TAX_INVOICE,
+  TXN_IMPORT_OF_GOODS,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+] as const;
+
+/** IBR-081-OM: ISIC required — every Master txn except the four named exceptions. */
+export const IBR_081_OM_REQUIRED_TXN_TYPES = OMAN_TXN_TYPES.filter(
+  (t) => !(IBR_081_OM_EXCEPTION_TXN_TYPES as readonly string[]).includes(t)
+);
+
+/** Expand one IBR-081-OM polarity across required txn types. Title must contain `{txn}`. */
+export function expandAcrossIbr081RequiredTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return IBR_081_OM_REQUIRED_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
+    ...template,
+    invoiceTransactionTypeCode,
+    title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+  })) as T[];
+}
+
+/** Expand one IBR-081-OM exception polarity. Title must contain `{txn}`. */
+export function expandAcrossIbr081ExceptionTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return IBR_081_OM_EXCEPTION_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
+    ...template,
+    invoiceTransactionTypeCode,
+    title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
+  })) as T[];
+}
+
+/** IBR-084-OM: origin not required — every Master txn dropdown except Import of Goods. */
+export const IBR_084_OM_OTHER_TXN_TYPES = OMAN_TXN_TYPES.filter(
+  (t) => t !== TXN_IMPORT_OF_GOODS
+);
+
+/** Expand one IBR-084-OM other-txn polarity. Title must contain `{txn}`. */
+export function expandAcrossIbr084OtherTxnTypes<
+  T extends { title: string; invoiceTransactionTypeCode?: string },
+>(
+  template: Omit<T, "invoiceTransactionTypeCode"> & {
+    invoiceTransactionTypeCode?: string;
+  }
+): T[] {
+  return IBR_084_OM_OTHER_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
     ...template,
     invoiceTransactionTypeCode,
     title: template.title.replace(/\{txn\}/g, invoiceTransactionTypeCode),
@@ -2727,6 +2930,7 @@ export const UUID_VERSION5_SCENARIOS: PrecedingInvoiceScenario[] = [
  * IBR-172-OM: exchange rate MUST NOT be present when currency is OMR.
  * IBR-034-OM: VAT accounting currency (IBT-006) required when ≠ OMR — Covoro has
  * no IBT-006 column; USD cases set Source currency + tax-in-accounting amount.
+ * IBR-065-OM: IBT-111 MUST be provided when currency ≠ OMR (Full Tax omit).
  * IBR-005-OM / IBR-DEC-03-OM: FX max 7 decimal places when currency ≠ OMR.
  */
 export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
@@ -2805,6 +3009,17 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
     expectedErrorField: TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
   },
   {
+    ruleId: "IBR-065-OM",
+    title:
+      "Given a Full Tax invoice with currency USD — When tax amount in accounting currency is left empty — Then the invoice should be rejected with an error. (IBR-065-OM)",
+    invoiceCurrencyCode: OMAN_CURRENCY_USD,
+    sourceCurrencyCode: OMAN_CURRENCY_USD,
+    exchangeRate: "0.385",
+    taxAmountInAccountingCurrency: "",
+    shouldError: true,
+    expectedErrorField: TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+  },
+  {
     ruleId: "IBR-005-OM",
     title:
       "Given currency USD — When exchange rate has 7 decimal places — Then the invoice should be accepted. (IBR-005-OM)",
@@ -2857,14 +3072,240 @@ export const AMOUNT_DECIMAL_PRECISION_SCENARIOS: AmountDecimalPrecisionScenario[
   ];
 
 /**
+ * IBR-046-OM: VAT rates if present must be numeric 0.00–100.00, ≤2 decimals, no `%`.
+ * Excel writable source is line `Tax Rate` (IBT-152 / IBT-119 proxy).
+ * Two contexts: Commercial invoice + Full Tax, and Commercial invoice + Simplified.
+ */
+const IBR_046_OM_RATE_POLARITIES: ReadonlyArray<{
+  taxRate: string;
+  shouldError: boolean;
+  condition: string;
+}> = [
+  {
+    taxRate: TAX_RATE_STANDARD_OMAN,
+    shouldError: false,
+    condition: "tax rate is 5",
+  },
+  {
+    taxRate: "5.00",
+    shouldError: false,
+    condition: "tax rate is 5.00",
+  },
+  {
+    taxRate: "abc",
+    shouldError: true,
+    condition: "tax rate is alphanumeric",
+  },
+  {
+    taxRate: "5%",
+    shouldError: true,
+    condition: "tax rate includes a percent symbol",
+  },
+  {
+    taxRate: "100.01",
+    shouldError: true,
+    condition: "tax rate is above 100",
+  },
+  {
+    taxRate: "5.555",
+    shouldError: true,
+    condition: "tax rate has more than two decimals",
+  },
+];
+
+export const VAT_RATE_FORMAT_SCENARIOS: VatRateFormatScenario[] =
+  IBR_046_OM_RATE_POLARITIES.flatMap((polarity) => {
+    const outcome = polarity.shouldError
+      ? "rejected with an error"
+      : "accepted";
+    const title = `Given {type} with {txn} — When ${polarity.condition} — Then the invoice should be ${outcome}. (IBR-046-OM)`;
+    const base = {
+      ruleId: "IBR-046-OM",
+      taxRate: polarity.taxRate,
+      shouldError: polarity.shouldError,
+      expectedErrorField: INVOICED_ITEM_TAX_RATE_FIELD,
+    };
+    return [
+      ...expandAcrossIbr046InvoiceTypes<VatRateFormatScenario>({
+        ...base,
+        title,
+      }),
+      ...expandAcrossIbr046TxnTypes<VatRateFormatScenario>({
+        ...base,
+        title,
+        invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
+      }),
+    ];
+  });
+
+/**
  * IBR-137-OM: all invoice amounts and quantities shall be zero or positive,
  * except rounding amount (IBT-114). Wrong-target Y = Invoiced Quantity
- * (Not Allowed reuses that row).
+ * (Not Allowed reuses that row). Seed / row-4 keys (collapse is case-insensitive).
  */
+export const ITEM_GROSS_PRICE_FIELD = "Item gross price";
+export const ITEM_PRICE_DISCOUNT_FIELD = "Item price discount";
+export const ITEM_NET_PRICE_FIELD = "Item net price";
+export const INVOICE_LINE_CHARGE_AMOUNT_FIELD = "Invoice line charge amount";
+export const INVOICE_LINE_ALLOWANCE_AMOUNT_FIELD =
+  "Invoice line allowance amount";
+export const TOTAL_AMOUNT_INCLUDING_VAT_FIELD = "Total amount including VAT";
+export const SUM_OF_INVOICE_LINE_NET_AMOUNT_FIELD =
+  "Sum of Invoice line net amount";
+export const INVOICE_TOTAL_AMOUNT_WITHOUT_TAX_FIELD =
+  "Invoice total amount without tax";
+export const INVOICE_TOTAL_AMOUNT_WITH_TAX_FIELD =
+  "Invoice total amount with tax";
+export const PAID_AMOUNT_FIELD = "Paid amount";
+export const AMOUNT_DUE_FOR_PAYMENT_FIELD = "Amount due for payment";
+export const INVOICED_QUANTITY_SEED_FIELD = "Invoiced quantity";
+export const ROUNDING_AMOUNT_SEED_FIELD = "Rounding amount";
+
+/** Zero is Allowed on each named amount/qty column. */
+export const IBR_137_OM_ZERO_AMOUNT_FIELDS = [
+  ITEM_GROSS_PRICE_FIELD,
+  ITEM_PRICE_DISCOUNT_FIELD,
+  ITEM_NET_PRICE_FIELD,
+  INVOICED_QUANTITY_SEED_FIELD,
+  INVOICE_LINE_CHARGE_AMOUNT_FIELD,
+  INVOICE_LINE_ALLOWANCE_AMOUNT_FIELD,
+  INVOICE_LINE_NET_AMOUNT_FIELD,
+  LINE_ITEM_VAT_AMOUNT_FIELD,
+  TOTAL_AMOUNT_INCLUDING_VAT_FIELD,
+  CHARGES_ON_DOCUMENT_LEVEL_FIELD,
+  ALLOWANCES_ON_DOCUMENT_LEVEL_FIELD,
+  SUM_OF_INVOICE_LINE_NET_AMOUNT_FIELD,
+  INVOICE_TOTAL_AMOUNT_WITHOUT_TAX_FIELD,
+  INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+  INVOICE_TOTAL_AMOUNT_WITH_TAX_FIELD,
+  TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+  PAID_AMOUNT_FIELD,
+  ROUNDING_AMOUNT_SEED_FIELD,
+  AMOUNT_DUE_FOR_PAYMENT_FIELD,
+  TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
+] as const;
+
+/**
+ * Isolated 0 on these columns is a Σ mismatch. Collapse the line so the
+ * submit writer recalculates a coherent zero invoice (IBR-137, not formula).
+ */
+export const IBR_137_OM_FORMULA_ZERO_FIELDS = [
+  ITEM_GROSS_PRICE_FIELD,
+  ITEM_NET_PRICE_FIELD,
+  INVOICE_LINE_NET_AMOUNT_FIELD,
+  LINE_ITEM_VAT_AMOUNT_FIELD,
+  TOTAL_AMOUNT_INCLUDING_VAT_FIELD,
+  SUM_OF_INVOICE_LINE_NET_AMOUNT_FIELD,
+  INVOICE_TOTAL_AMOUNT_WITHOUT_TAX_FIELD,
+  INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+  INVOICE_TOTAL_AMOUNT_WITH_TAX_FIELD,
+  AMOUNT_DUE_FOR_PAYMENT_FIELD,
+  TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+  TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
+] as const;
+
+/**
+ * Writer overwrites these totals. Negative IBR-137 cases re-apply after generate.
+ * Item gross price is an input (not patched).
+ */
+export const IBR_137_OM_PATCH_AFTER_GENERATE_FIELDS = [
+  ITEM_NET_PRICE_FIELD,
+  INVOICE_LINE_NET_AMOUNT_FIELD,
+  LINE_ITEM_VAT_AMOUNT_FIELD,
+  TOTAL_AMOUNT_INCLUDING_VAT_FIELD,
+  SUM_OF_INVOICE_LINE_NET_AMOUNT_FIELD,
+  INVOICE_TOTAL_AMOUNT_WITHOUT_TAX_FIELD,
+  INVOICE_TOTAL_TAX_AMOUNT_FIELD,
+  INVOICE_TOTAL_AMOUNT_WITH_TAX_FIELD,
+  AMOUNT_DUE_FOR_PAYMENT_FIELD,
+  TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+  TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
+] as const;
+
+/** Negative is Not Allowed on every named amount/qty except rounding (IBT-114). */
+export const IBR_137_OM_NEGATIVE_AMOUNT_FIELDS =
+  IBR_137_OM_ZERO_AMOUNT_FIELDS.filter(
+    (field) => field !== ROUNDING_AMOUNT_SEED_FIELD
+  );
+
 export type AmountQuantitySignScenario = OmanConditionalScenario & {
   invoicedQuantity: string;
   roundingAmount: string;
+  amountField?: string;
+  amountValue?: string;
 };
+
+/** Zero on these drivers makes Amount due = 0 → payable-cannot-be-zero error. */
+export function ibr137OmZeroMakesPayableZero(field: string): boolean {
+  return (
+    field === INVOICED_QUANTITY_SEED_FIELD ||
+    (IBR_137_OM_FORMULA_ZERO_FIELDS as readonly string[]).includes(field)
+  );
+}
+
+function ibr137OmZeroScenarios(): AmountQuantitySignScenario[] {
+  return IBR_137_OM_ZERO_AMOUNT_FIELDS.map((amountField) => {
+    const payableZero = ibr137OmZeroMakesPayableZero(amountField);
+    return {
+      ruleId: "IBR-137-OM",
+      title: payableZero
+        ? `Given ${amountField} — When the value is 0 — Then the invoice should be rejected with an error. (IBR-137-OM)`
+        : `Given ${amountField} — When the value is 0 — Then the invoice should be accepted. (IBR-137-OM)`,
+      invoicedQuantity:
+        amountField === INVOICED_QUANTITY_SEED_FIELD ? "0" : "1",
+      roundingAmount: "0",
+      amountField,
+      amountValue: "0",
+      shouldError: payableZero,
+      expectedErrorField: payableZero
+        ? AMOUNT_DUE_FOR_PAYMENT_FIELD
+        : amountField,
+    };
+  });
+}
+
+function ibr137OmNegativeScenarios(): AmountQuantitySignScenario[] {
+  return IBR_137_OM_NEGATIVE_AMOUNT_FIELDS.filter(
+    (amountField) => amountField !== INVOICED_QUANTITY_SEED_FIELD
+  ).map((amountField) => ({
+    ruleId: "IBR-137-OM",
+    title: `Given ${amountField} — When the value is negative — Then the invoice should be rejected with an error. (IBR-137-OM)`,
+    invoicedQuantity: "1",
+    roundingAmount: "0",
+    amountField,
+    amountValue: "-1",
+    shouldError: true,
+    expectedErrorField: amountField,
+  }));
+}
+
+/** Error-file columns for IBR-137-OM (qty/net may be cited when a negative recalculates). */
+export function ibr137OmErrorFields(
+  scenario: AmountQuantitySignScenario
+): string[] {
+  if (!scenario.shouldError) {
+    return [scenario.expectedErrorField ?? INVOICED_QUANTITY_FIELD];
+  }
+  // Zero line / totals → Amount due is 0. Only that column is allowed;
+  // any other error field fails the case.
+  if (
+    scenario.amountValue === "0" &&
+    scenario.expectedErrorField === AMOUNT_DUE_FOR_PAYMENT_FIELD
+  ) {
+    return [AMOUNT_DUE_FOR_PAYMENT_FIELD];
+  }
+  const field = scenario.amountField ?? INVOICED_QUANTITY_FIELD;
+  return [
+    ...new Set([
+      field,
+      INVOICED_QUANTITY_FIELD,
+      INVOICED_QUANTITY_SEED_FIELD,
+      INVOICE_LINE_NET_AMOUNT_FIELD,
+      ITEM_GROSS_PRICE_FIELD,
+      ITEM_NET_PRICE_FIELD,
+    ]),
+  ];
+}
 
 export const AMOUNT_QUANTITY_SIGN_SCENARIOS: AmountQuantitySignScenario[] = [
   {
@@ -2894,6 +3335,8 @@ export const AMOUNT_QUANTITY_SIGN_SCENARIOS: AmountQuantitySignScenario[] = [
     shouldError: true,
     expectedErrorField: INVOICED_QUANTITY_FIELD,
   },
+  ...ibr137OmZeroScenarios(),
+  ...ibr137OmNegativeScenarios(),
 ];
 
 
@@ -3022,12 +3465,17 @@ export const HS_CODE_FROM_ROP_LIST_SCENARIOS: GoodsClassificationScenario[] = [
 // ---------------------------------------------------------------------------
 // importOfGoods
 // ---------------------------------------------------------------------------
-/** IBR-084-OM / IBR-085-OM: Import of Goods requires origin + import details. */
+/** IBR-084-OM / IBR-085-OM: Import of Goods requires origin + import details.
+ * Other-txn control is dropdown-style: one workbook per Master BTOM-001
+ * label except Import of Goods (IBR-084 origin empty → accepted; IBR-085
+ * IBG-33-OM empty → accepted). Full Tax + Import date pairing is separate.
+ */
 export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
   {
     ruleId: "IBR-084-OM",
     title:
       "Given Import of Goods — When country of origin is provided — Then the invoice should be accepted. (IBR-084-OM)",
+    invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
     itemCountryOfOrigin: "India",
     importDate: "2026-01-10",
     customsDeclarationNumber: "CD-12345",
@@ -3039,6 +3487,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     ruleId: "IBR-084-OM",
     title:
       "Given Import of Goods — When country of origin is left empty — Then the invoice should be rejected with an error. (IBR-084-OM)",
+    invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
     itemCountryOfOrigin: "",
     importDate: "2026-01-10",
     customsDeclarationNumber: "CD-12345",
@@ -3046,22 +3495,22 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     shouldError: true,
     expectedErrorField: ITEM_COUNTRY_OF_ORIGIN_FIELD,
   },
-  {
+  ...expandAcrossIbr084OtherTxnTypes<ImportOfGoodsScenario>({
     ruleId: "IBR-084-OM",
     title:
-      "Given Full Tax Invoice — When country of origin is left empty — Then the invoice should be accepted. (IBR-084-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      "Given {txn} — When country of origin is left empty — Then the invoice should be accepted. (IBR-084-OM)",
     itemCountryOfOrigin: "",
     importDate: "",
     customsDeclarationNumber: "",
     incoterms: "",
     shouldError: false,
     expectedErrorField: ITEM_COUNTRY_OF_ORIGIN_FIELD,
-  },
+  }),
   {
     ruleId: "IBR-085-OM",
     title:
       "Given Import of Goods — When customs declaration number is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
+    invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
     itemCountryOfOrigin: "India",
     importDate: "2026-01-10",
     customsDeclarationNumber: "",
@@ -3073,6 +3522,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     ruleId: "IBR-085-OM",
     title:
       "Given Import of Goods — When Import date is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
+    invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
     itemCountryOfOrigin: "India",
     importDate: "",
     customsDeclarationNumber: "CD-12345",
@@ -3084,6 +3534,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     ruleId: "IBR-085-OM",
     title:
       "Given Import of Goods — When Incoterms is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
+    invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
     itemCountryOfOrigin: "India",
     importDate: "2026-01-10",
     customsDeclarationNumber: "CD-12345",
@@ -3091,6 +3542,17 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     shouldError: true,
     expectedErrorField: INCOTERMS_FIELD,
   },
+  ...expandAcrossIbr084OtherTxnTypes<ImportOfGoodsScenario>({
+    ruleId: "IBR-085-OM",
+    title:
+      "Given {txn} — When import date, customs declaration number, and Incoterms are left empty — Then the invoice should be accepted. (IBR-085-OM)",
+    itemCountryOfOrigin: "India",
+    importDate: "",
+    customsDeclarationNumber: "",
+    incoterms: "",
+    shouldError: false,
+    expectedErrorField: IMPORT_DATE_FIELD,
+  }),
   {
     ruleId: "IBR-085-OM",
     title:
@@ -3109,7 +3571,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
 // ---------------------------------------------------------------------------
 // profitMarginSelfInvoice
 // ---------------------------------------------------------------------------
-/** IBR-086-OM / IBR-087-OM: Profit Margin Self-Invoice → tax cat O + seller OM. */
+/** IBR-086-OM / IBR-087-OM: Profit Margin Self-Invoice → tax cat O only (S/E/Z error) + seller OM. */
 export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenario[] =
   [
     {
@@ -3131,6 +3593,33 @@ export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenar
       expectedErrorField: TAX_CATEGORY_FIELD,
     },
     {
+      ruleId: "IBR-086-OM",
+      title:
+        "Given Profit Margin Self-Invoice — When VAT is Exempt from tax — Then the invoice should be rejected with an error. (IBR-086-OM)",
+      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      sellerCountryCode: OMAN_COUNTRY_CODE,
+      shouldError: true,
+      expectedErrorField: TAX_CATEGORY_FIELD,
+    },
+    {
+      ruleId: "IBR-086-OM",
+      title:
+        "Given Profit Margin Self-Invoice — When VAT is Zero rated — Then the invoice should be rejected with an error. (IBR-086-OM)",
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      sellerCountryCode: OMAN_COUNTRY_CODE,
+      shouldError: true,
+      expectedErrorField: TAX_CATEGORY_FIELD,
+    },
+    {
+      ruleId: "IBR-087-OM",
+      title:
+        "Given Profit Margin Self-Invoice — When the seller country is Oman — Then the invoice should be accepted. (IBR-087-OM)",
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      sellerCountryCode: OMAN_COUNTRY_CODE,
+      shouldError: false,
+      expectedErrorField: SELLER_COUNTRY_CODE_FIELD,
+    },
+    {
       ruleId: "IBR-087-OM",
       title:
         "Given Profit Margin Self-Invoice — When the seller country is not Oman — Then the invoice should be rejected with an error. (IBR-087-OM)",
@@ -3139,10 +3628,19 @@ export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenar
       shouldError: true,
       expectedErrorField: SELLER_COUNTRY_CODE_FIELD,
     },
+    {
+      ruleId: "IBR-087-OM",
+      title:
+        "Given Profit Margin Self-Invoice — When the seller country is left empty — Then the invoice should be rejected with an error. (IBR-087-OM)",
+      taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+      sellerCountryCode: "",
+      shouldError: true,
+      expectedErrorField: SELLER_COUNTRY_CODE_FIELD,
+    },
   ];
 
-/** IBR-091-OM: Profit Margin Invoice → IBT-158 MUST NOT start with 7101/7102/7103/7104/01/06. */
-export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
+/** IBR-091-OM Allowed: Profit Margin Invoice + HS that does not start with a banned prefix. */
+export const PROFIT_MARGIN_HS_PREFIX_ALLOWED_SCENARIOS: ProfitMarginHsPrefixScenario[] =
   [
     {
       ruleId: "IBR-091-OM",
@@ -3152,54 +3650,49 @@ export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
       shouldError: false,
       expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
     },
-    {
-      ruleId: "IBR-091-OM",
-      title:
-        "Given Profit Margin Invoice — When HS code starts with 7101 — Then the invoice should be rejected with an error. (IBR-091-OM)",
-      itemClassificationIdentifier: "710100000000",
-      shouldError: true,
-      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-    },
-    {
-      ruleId: "IBR-091-OM",
-      title:
-        "Given Profit Margin Invoice — When HS code starts with 7102 — Then the invoice should be rejected with an error. (IBR-091-OM)",
-      itemClassificationIdentifier: "710200000000",
-      shouldError: true,
-      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-    },
-    {
-      ruleId: "IBR-091-OM",
-      title:
-        "Given Profit Margin Invoice — When HS code starts with 7103 — Then the invoice should be rejected with an error. (IBR-091-OM)",
-      itemClassificationIdentifier: "710300000000",
-      shouldError: true,
-      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-    },
-    {
-      ruleId: "IBR-091-OM",
-      title:
-        "Given Profit Margin Invoice — When HS code starts with 7104 — Then the invoice should be rejected with an error. (IBR-091-OM)",
-      itemClassificationIdentifier: "710400000000",
-      shouldError: true,
-      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-    },
-    {
-      ruleId: "IBR-091-OM",
-      title:
-        "Given Profit Margin Invoice — When HS code starts with 01 — Then the invoice should be rejected with an error. (IBR-091-OM)",
-      itemClassificationIdentifier: "010000000000",
-      shouldError: true,
-      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-    },
-    {
-      ruleId: "IBR-091-OM",
-      title:
-        "Given Profit Margin Invoice — When HS code starts with 06 — Then the invoice should be rejected with an error. (IBR-091-OM)",
-      itemClassificationIdentifier: "060000000000",
-      shouldError: true,
-      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-    },
+  ];
+
+/**
+ * IBR-091-OM Not Allowed: first Masters HS code per banned prefix, then fill
+ * to `IBR_091_OM_SINGLE_RUN_LIMIT` (10). Remaining master codes are ignored.
+ * Each scenario is one Playwright upload (not a dropdown pack).
+ */
+export const PROFIT_MARGIN_HS_PREFIX_NOT_ALLOWED_SCENARIOS: ProfitMarginHsPrefixScenario[] =
+  (() => {
+    const byPrefix = IBR_091_OM_BANNED_HS_PREFIXES.map((bannedPrefix) =>
+      masterHsCodesStartingWith(bannedPrefix).map(
+        (itemClassificationIdentifier) => ({
+          ruleId: "IBR-091-OM",
+          title: `Given Profit Margin Invoice — When HS code ${itemClassificationIdentifier} starts with ${bannedPrefix} — Then the invoice should be rejected with an error. (IBR-091-OM)`,
+          itemClassificationIdentifier,
+          bannedPrefix,
+          shouldError: true,
+          expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+        })
+      )
+    );
+    const sample: ProfitMarginHsPrefixScenario[] = [];
+    for (const group of byPrefix) {
+      const first = group[0];
+      if (first) {
+        sample.push(first);
+      }
+    }
+    for (const group of byPrefix) {
+      for (const scenario of group.slice(1)) {
+        if (sample.length >= IBR_091_OM_SINGLE_RUN_LIMIT) {
+          return sample;
+        }
+        sample.push(scenario);
+      }
+    }
+    return sample;
+  })();
+
+export const PROFIT_MARGIN_HS_PREFIX_SCENARIOS: ProfitMarginHsPrefixScenario[] =
+  [
+    ...PROFIT_MARGIN_HS_PREFIX_ALLOWED_SCENARIOS,
+    ...PROFIT_MARGIN_HS_PREFIX_NOT_ALLOWED_SCENARIOS,
   ];
 
 
@@ -5546,29 +6039,85 @@ const DELIVER_TO_ADDRESS_COMPLETE = {
   countryCode: OMAN_COUNTRY_CODE,
 } as const;
 
+const DELIVER_TO_ADDRESS_EMPTY = {
+  addressLine1: "",
+  addressLine2: "",
+  addressLine3: "",
+  city: "",
+  postCode: "",
+  countrySubDivision: "",
+  countryCode: "",
+} as const;
+
+/** Peppol IBR-040-OM THEN fields (IBT-075 / 076 / 165 / 077 / 078 / 080). */
+const IBR_040_NAMED_FIELD_OMITS: ReadonlyArray<{
+  field: string;
+  key: keyof typeof DELIVER_TO_ADDRESS_COMPLETE;
+}> = [
+  { field: DELIVER_TO_ADDRESS_LINE_1_FIELD, key: "addressLine1" },
+  { field: DELIVER_TO_ADDRESS_LINE_2_FIELD, key: "addressLine2" },
+  { field: DELIVER_TO_ADDRESS_LINE_3_FIELD, key: "addressLine3" },
+  { field: DELIVER_TO_CITY_FIELD, key: "city" },
+  { field: DELIVER_TO_POST_CODE_FIELD, key: "postCode" },
+  { field: DELIVER_TO_COUNTRY_CODE_FIELD, key: "countryCode" },
+];
+
+function expandIbr040NamedFieldOmitOnEcommerce(): DeliverToAddressRequiredScenario[] {
+  return IBR_040_NAMED_FIELD_OMITS.map(({ field, key }) => ({
+    ruleId: "IBR-040-OM",
+    title: `Given E-commerce Transaction Commercial invoice — When ${field} is left empty — Then the invoice should be rejected with an error. (IBR-040-OM)`,
+    invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
+    invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
+    ...DELIVER_TO_ADDRESS_COMPLETE,
+    [key]: "",
+    shouldError: true,
+    expectedErrorField: field,
+  }));
+}
+
 /**
- * IBR-040-OM: if any Deliver To address field is entered, all group columns are required.
- * E-commerce: delivery section is REQUIRED (all empty → error).
- * Non-ecommerce: delivery section is OPTIONAL (all empty → accepted, all filled → accepted).
- * Both: partial fill → error (group rule).
+ * IBR-040-OM: Deliver To address (IBT-075/076/165/077/078/080) MUST be present
+ * when Invoice transaction type is E-commerce Transaction.
+ * Allowed + empty expanded across Commercial / Tax invoice / Credit note / Debit note.
+ * Per-field omit on E-commerce + Commercial. Full Tax empty is the non-trigger control.
  */
 export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScenario[] =
   [
-    // --- E-commerce: delivery required; group rule applies ---
+    ...expandAcrossOmnInvoiceAndTxnTypes<DeliverToAddressRequiredScenario>(
+      {
+        ruleId: "IBR-040-OM",
+        title:
+          "Given {txn} {type} — When all Deliver To address fields are provided — Then the invoice should be accepted. (IBR-040-OM)",
+        ...DELIVER_TO_ADDRESS_COMPLETE,
+        shouldError: false,
+        expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
+      },
+      {
+        txnTypes: [TXN_ECOMMERCE_TRANSACTION],
+        invoiceTypes: IBR_040_OM_INVOICE_TYPES,
+      }
+    ),
+    ...expandAcrossOmnInvoiceAndTxnTypes<DeliverToAddressRequiredScenario>(
+      {
+        ruleId: "IBR-040-OM",
+        title:
+          "Given {txn} {type} — When the Deliver To address group is left empty — Then the invoice should be rejected with an error. (IBR-040-OM)",
+        ...DELIVER_TO_ADDRESS_EMPTY,
+        shouldError: true,
+        expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
+      },
+      {
+        txnTypes: [TXN_ECOMMERCE_TRANSACTION],
+        invoiceTypes: IBR_040_OM_INVOICE_TYPES,
+      }
+    ),
+    ...expandIbr040NamedFieldOmitOnEcommerce(),
     {
       ruleId: "IBR-040-OM",
       title:
-        "Given e-commerce — When all Deliver To address fields are provided — Then the invoice should be accepted. (IBR-040-OM)",
+        "Given E-commerce Transaction Commercial invoice — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
-      ...DELIVER_TO_ADDRESS_COMPLETE,
-      shouldError: false,
-      expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
-    },
-    {
-      ruleId: "IBR-040-OM",
-      title:
-        "Given e-commerce — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
-      invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
+      invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
       addressLine1: DELIVER_TO_ADDRESS_COMPLETE.addressLine1,
       addressLine2: "",
       addressLine3: "",
@@ -5582,24 +6131,9 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Given e-commerce — When the Deliver To address group is left empty — Then the invoice should be rejected with an error. (IBR-040-OM)",
-      invoiceTransactionTypeCode: TXN_ECOMMERCE_TRANSACTION,
-      addressLine1: "",
-      addressLine2: "",
-      addressLine3: "",
-      city: "",
-      postCode: "",
-      countrySubDivision: "",
-      countryCode: "",
-      shouldError: true,
-      expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
-    },
-    // --- Non-ecommerce: delivery optional; group rule applies if any field present ---
-    {
-      ruleId: "IBR-040-OM",
-      title:
-        "Given a non-ecommerce invoice — When all Deliver To address fields are provided — Then the invoice should be accepted. (IBR-040-OM)",
+        "Given Full Tax Invoice Commercial invoice — When all Deliver To address fields are provided — Then the invoice should be accepted. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
       ...DELIVER_TO_ADDRESS_COMPLETE,
       shouldError: false,
       expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
@@ -5607,8 +6141,9 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Given a non-ecommerce invoice — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
+        "Given Full Tax Invoice Commercial invoice — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
       addressLine1: DELIVER_TO_ADDRESS_COMPLETE.addressLine1,
       addressLine2: "",
       addressLine3: "",
@@ -5622,15 +6157,10 @@ export const DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS: DeliverToAddressRequiredScen
     {
       ruleId: "IBR-040-OM",
       title:
-        "Given a non-ecommerce invoice — When the Deliver To address group is left empty — Then the invoice should be accepted. (IBR-040-OM)",
+        "Given Full Tax Invoice Commercial invoice — When the Deliver To address group is left empty — Then the invoice should be accepted. (IBR-040-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      addressLine1: "",
-      addressLine2: "",
-      addressLine3: "",
-      city: "",
-      postCode: "",
-      countrySubDivision: "",
-      countryCode: "",
+      invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
+      ...DELIVER_TO_ADDRESS_EMPTY,
       shouldError: false,
       expectedErrorField: DELIVER_TO_ADDRESS_LINE_1_FIELD,
     },
@@ -5775,17 +6305,27 @@ export const PREPAYMENT_PAID_AMOUNT_SCENARIOS: PrepaymentPaidAmountScenario[] = 
     shouldError: true,
     expectedErrorField: "Prepayment invoice UUID",
   },
-  {
-    ruleId: "IBR-058-OM",
-    title:
-      "Given paid amount 0 — When prepayment number is left empty — Then the invoice should be rejected with an error. (IBR-058-OM)",
-    paidAmount: "0",
-    prepaymentInvoiceNumber: "",
-    prepaymentInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
-    shouldError: true,
-    expectedErrorField: "Prepayment invoice number",
-  },
-];
+    {
+      ruleId: "IBR-058-OM",
+      title:
+        "Given paid amount 0 — When prepayment number is left empty — Then the invoice should be rejected with an error. (IBR-058-OM)",
+      paidAmount: "0",
+      prepaymentInvoiceNumber: "",
+      prepaymentInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+      shouldError: true,
+      expectedErrorField: "Prepayment invoice number",
+    },
+    {
+      ruleId: "IBR-058-OM",
+      title:
+        "Given no paid amount — When prepayment number and UUID are left empty — Then the invoice should be accepted. (IBR-058-OM)",
+      paidAmount: "",
+      prepaymentInvoiceNumber: "",
+      prepaymentInvoiceUuid: "",
+      shouldError: false,
+      expectedErrorField: "Prepayment invoice number",
+    },
+  ];
 
 // ---------------------------------------------------------------------------
 // hsCodeLength (IBR-080-OM)
@@ -5820,62 +6360,41 @@ export const HS_CODE_LENGTH_SCENARIOS: HsCodeLengthScenario[] = [
 // ---------------------------------------------------------------------------
 // industrialClassification (IBR-081-OM)
 // ---------------------------------------------------------------------------
+export const INDUSTRIAL_CLASSIFICATION_REQUIRED_ALLOWED_SCENARIOS: IndustrialClassificationRequiredScenario[] =
+  expandAcrossIbr081RequiredTxnTypes<IndustrialClassificationRequiredScenario>({
+    ruleId: "IBR-081-OM",
+    title:
+      "Given {txn} — When industrial classification is provided — Then the invoice should be accepted. (IBR-081-OM)",
+    industrialClassificationCode: "Extraction of crude petroleum",
+    shouldError: false,
+    expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+  });
+
+export const INDUSTRIAL_CLASSIFICATION_REQUIRED_NOT_ALLOWED_SCENARIOS: IndustrialClassificationRequiredScenario[] =
+  expandAcrossIbr081RequiredTxnTypes<IndustrialClassificationRequiredScenario>({
+    ruleId: "IBR-081-OM",
+    title:
+      "Given {txn} — When industrial classification is left empty — Then the invoice should be rejected with an error. (IBR-081-OM)",
+    industrialClassificationCode: "",
+    shouldError: true,
+    expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+  });
+
+export const INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS: IndustrialClassificationRequiredScenario[] =
+  expandAcrossIbr081ExceptionTxnTypes<IndustrialClassificationRequiredScenario>({
+    ruleId: "IBR-081-OM",
+    title:
+      "Given {txn} — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
+    industrialClassificationCode: "",
+    shouldError: false,
+    expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+  });
+
 export const INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS: IndustrialClassificationRequiredScenario[] =
   [
-    {
-      ruleId: "IBR-081-OM",
-      title:
-        "Given a Full Tax invoice — When industrial classification is provided — Then the invoice should be accepted. (IBR-081-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      industrialClassificationCode: "Extraction of crude petroleum",
-      shouldError: false,
-      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
-    },
-    {
-      ruleId: "IBR-081-OM",
-      title:
-        "Given a Full Tax invoice — When industrial classification is left empty — Then the invoice should be rejected with an error. (IBR-081-OM)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      industrialClassificationCode: "",
-      shouldError: true,
-      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
-    },
-    {
-      ruleId: "IBR-081-OM",
-      title:
-        "Given a Simplified invoice — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
-      invoiceTransactionTypeCode: TXN_SIMPLIFIED_TAX_INVOICE,
-      industrialClassificationCode: "",
-      shouldError: false,
-      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
-    },
-    {
-      ruleId: "IBR-081-OM",
-      title:
-        "Given Import of Goods — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
-      invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
-      industrialClassificationCode: "",
-      shouldError: false,
-      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
-    },
-    {
-      ruleId: "IBR-081-OM",
-      title:
-        "Given Import of Services (RCM) — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
-      invoiceTransactionTypeCode: TXN_IMPORT_OF_SERVICES_RCM,
-      industrialClassificationCode: "",
-      shouldError: false,
-      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
-    },
-    {
-      ruleId: "IBR-081-OM",
-      title:
-        "Given Profit Margin Self-Invoice — When industrial classification is left empty — Then the invoice should be accepted. (IBR-081-OM)",
-      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE,
-      industrialClassificationCode: "",
-      shouldError: false,
-      expectedErrorField: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
-    },
+    ...INDUSTRIAL_CLASSIFICATION_REQUIRED_ALLOWED_SCENARIOS,
+    ...INDUSTRIAL_CLASSIFICATION_REQUIRED_NOT_ALLOWED_SCENARIOS,
+    ...INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS,
   ];
 
 // ---------------------------------------------------------------------------

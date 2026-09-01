@@ -13,6 +13,10 @@ import {
   INVOICE_TOTAL_TAX_AMOUNT_FIELD,
   INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX,
   INVOICE_TYPE_COMMERCIAL_INVOICE,
+  INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+  INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS,
+  INDUSTRIAL_CLASSIFICATION_REQUIRED_ALLOWED_SCENARIOS,
+  INDUSTRIAL_CLASSIFICATION_REQUIRED_NOT_ALLOWED_SCENARIOS,
   INVOICED_ITEM_TAX_RATE_FIELD,
   INVOICING_PERIOD_END_DATE_FIELD,
   INVOICING_PERIOD_START_DATE_FIELD,
@@ -23,7 +27,9 @@ import {
   LINE_ITEM_VAT_AMOUNT_ZERO_E_NOT_ALLOWED_SCENARIOS,
   PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
   SELLER_VAT_IDENTIFIER_FIELD,
+  IBR_137_OM_PATCH_AFTER_GENERATE_FIELDS,
   SUMMARY_INVOICE_PERIOD_SCENARIOS,
+  TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
   SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS,
   VAT_CATEGORY_TAX_AMOUNT_E09_ALLOWED_SCENARIOS,
   VAT_CATEGORY_TAX_AMOUNT_E09_NOT_ALLOWED_SCENARIOS,
@@ -32,6 +38,8 @@ import {
   VAT_CATEGORY_TAX_AMOUNT_Z09_ALLOWED_SCENARIOS,
   VAT_CATEGORY_TAX_AMOUNT_Z09_NOT_ALLOWED_SCENARIOS,
   type BuyerAddressRequiredScenario,
+  type AmountQuantitySignScenario,
+  type IndustrialClassificationRequiredScenario,
   type LineItemVatAmountZeroScenario,
   type SummaryPeriodScenario,
   type VatCategoryTaxAmountE09Scenario,
@@ -40,6 +48,7 @@ import {
 } from "../../testData/FieldValidations/ConditionalValidation";
 import {
   buildBuyerAddressRequiredScenarioRow,
+  buildIndustrialClassificationRequiredScenarioRow,
   buildLineItemVatAmountRequiredScenarioRow,
   buildLineItemVatAmountZeroScenarioRow,
   buildSummaryInvoicePeriodScenarioRow,
@@ -121,6 +130,24 @@ export function patchBlankLineItemVatAmountIfEmpty(
     return;
   }
   patchInvoiceTextCellInFile(filePath, LINE_ITEM_VAT_AMOUNT_FIELD, "");
+}
+
+/**
+ * IBR-065-OM / IBR-034-OM omit: submit writer fills IBT-111 = FX × IBT-110
+ * when currency is not OMR. Re-blank after generate so the omit stays empty.
+ */
+export function patchBlankTaxAmountInAccountingCurrencyIfEmpty(
+  filePath: string,
+  rowData: Record<string, string | null>
+): void {
+  if (readRowFieldIgnoringCase(rowData, TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD).trim()) {
+    return;
+  }
+  patchInvoiceTextCellInFile(
+    filePath,
+    TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+    ""
+  );
 }
 
 /**
@@ -343,6 +370,30 @@ export function patchTaxRateFromRow(
   patchInvoiceTextCellsInFile(filePath, [
     { header: INVOICED_ITEM_TAX_RATE_FIELD, value: String(rate) },
   ]);
+}
+
+/**
+ * IBR-137-OM: submit writer recalculates formula totals. Re-apply a negative
+ * on those columns after generate so IBR-137 (not a lost patch) is asserted.
+ */
+export function patchIbr137OmNegativeAmountAfterGenerate(
+  filePath: string,
+  _rowData: Record<string, string | null>,
+  scenario: AmountQuantitySignScenario
+): void {
+  const field = scenario.amountField;
+  const amount = Number(scenario.amountValue ?? "");
+  if (!field || !Number.isFinite(amount) || amount >= 0) {
+    return;
+  }
+  if (
+    !(IBR_137_OM_PATCH_AFTER_GENERATE_FIELDS as readonly string[]).includes(
+      field
+    )
+  ) {
+    return;
+  }
+  patchInvoiceDataCellInFile(filePath, field, amount);
 }
 
 /**
@@ -888,4 +939,85 @@ export async function verifyIbr037OmNotAllowedBatch(
     expectedDataRowCount: scenarios.length,
     checkEdit: false,
   });
+}
+
+function ibr081Rows(
+  scenarios: readonly IndustrialClassificationRequiredScenario[]
+): Array<Record<string, string | null>> {
+  return scenarios.map((scenario) =>
+    collapseSubmitRowHeaderKeys(
+      buildIndustrialClassificationRequiredScenarioRow(scenario)
+    )
+  );
+}
+
+function patchIbr081IndustrialClassificationAfterGenerate(
+  filePath: string,
+  rows: Array<Record<string, string | null>>
+): void {
+  patchInvoiceTextCellsInFile(
+    filePath,
+    rows.map((row, i) => ({
+      header: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+      value: String(row[INDUSTRIAL_CLASSIFICATION_CODE_FIELD] ?? ""),
+      dataRow: INVOICE_TEMPLATE_DATA_ROW + i,
+    }))
+  );
+}
+
+/**
+ * IBR-081-OM Allowed: one workbook, one row per required Master txn
+ * (dropdown-style batch), industrial classification provided → completed.
+ */
+export async function verifyIbr081OmAllowedBatch(page: Page): Promise<void> {
+  const scenarios = INDUSTRIAL_CLASSIFICATION_REQUIRED_ALLOWED_SCENARIOS;
+  if (!scenarios.length) {
+    throw new Error("verifyIbr081OmAllowedBatch: no allowed scenarios");
+  }
+  const rows = ibr081Rows(scenarios);
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `IBR-081-OM-allowed-${Date.now()}.xlsx`,
+  });
+  await uploadAndVerify(page, filePath);
+}
+
+/**
+ * IBR-081-OM Not Allowed: one workbook, one row per required Master txn,
+ * industrial classification empty. Error file must have exactly N error rows.
+ */
+export async function verifyIbr081OmNotAllowedBatch(
+  page: Page
+): Promise<void> {
+  const scenarios = INDUSTRIAL_CLASSIFICATION_REQUIRED_NOT_ALLOWED_SCENARIOS;
+  if (!scenarios.length) {
+    throw new Error("verifyIbr081OmNotAllowedBatch: no not-allowed scenarios");
+  }
+  const rows = ibr081Rows(scenarios);
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `IBR-081-OM-not-allowed-${Date.now()}.xlsx`,
+  });
+  patchIbr081IndustrialClassificationAfterGenerate(filePath, rows);
+  await runErrorValidationForAllDataRows(page, {
+    filePath,
+    field: INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
+    expectedDataRowCount: scenarios.length,
+    checkEdit: false,
+  });
+}
+
+/**
+ * IBR-081-OM Exception: one workbook, one row per named exception txn,
+ * industrial classification empty → completed.
+ */
+export async function verifyIbr081OmExceptionBatch(page: Page): Promise<void> {
+  const scenarios = INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS;
+  if (!scenarios.length) {
+    throw new Error("verifyIbr081OmExceptionBatch: no exception scenarios");
+  }
+  const rows = ibr081Rows(scenarios);
+  const { filePath } = await generateDistinctSubmitInvoices(rows, {
+    fileName: `IBR-081-OM-exception-${Date.now()}.xlsx`,
+  });
+  patchIbr081IndustrialClassificationAfterGenerate(filePath, rows);
+  await uploadAndVerify(page, filePath);
 }

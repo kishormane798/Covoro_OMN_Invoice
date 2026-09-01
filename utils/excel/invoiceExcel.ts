@@ -1344,6 +1344,8 @@ export type GenerateDropdownMasterExcelOptions = {
    * invoice) instead of the blank Covoro template — use for dropdown packs.
    */
   seedWorkbookPath?: string;
+  /** Invoices per workbook. Defaults to `BATCH_SIZE` (1250). HS positive packs pass one-file-per-part size. */
+  batchSize?: number;
 };
 
 export type CurrencyExchangeBatchMode = "allowed" | "invalid_blank_non_aed";
@@ -1368,8 +1370,13 @@ export async function generateDropdownMasterExcel(
   // Pass values via a JSON file — base64 on argv exceeds Windows command-line limits for large batches / long labels.
   const outDir = getGeneratedInvoiceExcelDir();
   fs.mkdirSync(outDir, { recursive: true });
-  for (let i = 0; i < values.length; i += BATCH_SIZE) {
-    const batch = values.slice(i, i + BATCH_SIZE).map((item) => item?.label ?? item?.value ?? item);
+  const batchSize =
+    typeof options?.batchSize === "number" && options.batchSize > 0
+      ? options.batchSize
+      : BATCH_SIZE;
+  const pythonTimeoutMs = Math.max(1_200_000, batchSize * 500);
+  for (let i = 0; i < values.length; i += batchSize) {
+    const batch = values.slice(i, i + batchSize).map((item) => item?.label ?? item?.value ?? item);
     const fileName = `${fieldName.replace(/\s/g, "_")}_${Date.now()}_${i}.xlsx`;
     const valuesJsonPath = path.join(
       outDir,
@@ -1396,7 +1403,7 @@ export async function generateDropdownMasterExcel(
           clearItemTypeForRcmFlag,
           clearRcmForItemTypeFlag,
         ],
-        1_200_000
+        pythonTimeoutMs
       );
     } finally {
       try {
@@ -1791,6 +1798,7 @@ export async function generateFullRowDropdownFieldExcel(
       // Keep Item Type / RCM as on the Oman seed unless this batch is testing those fields.
       clearItemTypeWhenRcmField: false,
       clearRcmWhenItemTypeField: false,
+      batchSize: options?.batchSize,
     }
   );
 }

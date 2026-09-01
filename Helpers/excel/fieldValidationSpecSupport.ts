@@ -18,7 +18,8 @@ export const dropdownMasterOnCovoro = FV.mergeDropdownFieldConfigs(
 export const dropdownInvalidOnCovoro = FV.mergeDropdownFieldConfigs(
   FV.dropdownFieldInvalidConfig,
   FV.documentChargesAllowancesDropdownInvalidConfig,
-  FV.conditionalDropdownFieldInvalidConfig
+  FV.conditionalDropdownFieldInvalidConfig,
+  FV.hsCodeDropdownInvalidConfig
 );
 
 export const NON_OMR_INVOICE_CURRENCY_CODES = FV.INVOICE_CURRENCY_DROPDOWN_CODES.filter(
@@ -27,6 +28,11 @@ export const NON_OMR_INVOICE_CURRENCY_CODES = FV.INVOICE_CURRENCY_DROPDOWN_CODES
 
 export const DROPDOWN_TIMEOUT_MS = 6 * 60 * 1000;
 export const UNIT_OF_MEASUREMENT_TIMEOUT_MS = 10 * 60 * 1000;
+/** One workbook per HS part (at least as large as the longer list). */
+export const HS_CODE_DROPDOWN_BATCH_SIZE = Math.max(
+  ...FV.hsCodeDropdownPartMasterConfig.map((config) => config.master.length)
+);
+export const HS_CODE_DROPDOWN_TIMEOUT_MS = 40 * 60 * 1000;
 
 export const DROPDOWN_ACCEPT_CASINGS: Array<{
   writeCasing: DropdownWriteCasing;

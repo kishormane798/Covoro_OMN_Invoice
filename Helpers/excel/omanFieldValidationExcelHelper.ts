@@ -460,7 +460,11 @@ function applyDropdownWriteCasing(
 export async function generateOmanDropdownMasterExcel(
   field: string,
   masterData: unknown[] | unknown,
-  options?: { writeCasing?: DropdownWriteCasing; vatContext?: TaxExemptionVatContext }
+  options?: {
+    writeCasing?: DropdownWriteCasing;
+    vatContext?: TaxExemptionVatContext;
+    batchSize?: number;
+  }
 ): Promise<Array<{ filePath: string; invoiceNumber: string }>> {
   const values = Array.isArray(masterData) ? masterData : [masterData];
   const fieldForWrite = resolveDropdownTemplateField(field);
@@ -651,7 +655,8 @@ export async function generateOmanDropdownMasterExcel(
   return generateFullRowDropdownFieldExcel(
     fieldForWrite,
     labels.map((label) => ({ label })),
-    baseRow
+    baseRow,
+    { batchSize: options?.batchSize }
   );
 }
 

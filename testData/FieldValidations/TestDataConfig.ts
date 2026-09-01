@@ -23,6 +23,8 @@ import {
   paymentMeansTypeValidTestData,
   incotermsValidTestData,
   industrialClassificationIsicValidTestData,
+  omanHsCodePart1ValidTestData,
+  omanHsCodePart2ValidTestData,
   serviceTypeCodeValidTestData,
 } from "../Master";
 
@@ -185,3 +187,26 @@ export const dropdownFieldInvalidConfig: DropdownFieldConfig[] =
       field,
       master: InvalidTestData,
     }));
+
+export type HsCodeDropdownPartConfig = DropdownFieldConfig & {
+  part: "Part 1" | "Part 2";
+};
+
+/** Peppol OM HS Part 1 / Part 2 — not in `dropdownFieldMasterConfig` (same Excel field, two lists). */
+export const hsCodeDropdownPartMasterConfig: HsCodeDropdownPartConfig[] = [
+  {
+    field: "Item classification identifier",
+    master: omanHsCodePart1ValidTestData,
+    part: "Part 1",
+  },
+  {
+    field: "Item classification identifier",
+    master: omanHsCodePart2ValidTestData,
+    part: "Part 2",
+  },
+];
+
+/** One invalid HS dropdown (not split by part). */
+export const hsCodeDropdownInvalidConfig: DropdownFieldConfig[] = [
+  { field: "Item classification identifier", master: InvalidTestData },
+];

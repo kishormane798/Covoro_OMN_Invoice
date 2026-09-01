@@ -5,6 +5,10 @@
 
 export * from "./Master.omnCore";
 export { industrialClassificationIsicValidTestData } from "./Master.isic";
+export {
+  omanHsCodePart1ValidTestData,
+  omanHsCodePart2ValidTestData,
+} from "./Master.hs";
 
 export const InvalidTestData = [
   { label: "A123456" },          

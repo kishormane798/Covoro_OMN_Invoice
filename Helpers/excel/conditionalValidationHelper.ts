@@ -325,12 +325,13 @@ const IBR_007_SELLER_IDENTIFIER_TXN_TYPES = new Set<string>([
 /**
  * Fill or clear seller/buyer party identifiers from Invoice transaction type.
  * - Seller (IBR-007-OM): Import of Goods / Import of Services (RCM) /
- *   Profit Margin Self-Invoice / Special Zone Supplies — scenario builder
- *   requires both Seller identifier and scheme (textual alone is Not Allowed).
+ *   Profit Margin Self-Invoice / Special Zone Supplies — overlay fills
+ *   Seller identifier + ICD scheme (textual alone is Not Allowed).
  * - Buyer Import of Goods (IBR-153-OM): textual code `Importer Customs ID`
  *   (ICD scheme stays empty — XOR).
- * - Special Zone (IBR-151/152-OM): textual code `Special Zone License Number`
- *   (ICD scheme stays empty — XOR), same Covoro mapping as IBR-153-OM.
+ * - Buyer Special Zone (IBR-152-OM): textual code `Special Zone License Number`
+ *   (ICD scheme stays empty — XOR). Seller SZLN textual is IBR-151-OM
+ *   scenario builders only — they overwrite after this overlay.
  * Scenario builders may overwrite these afterward (including empty for error cases).
  */
 export function applyPartyIdentifiersByTxnType(
@@ -355,16 +356,12 @@ export function applyPartyIdentifiersByTxnType(
   );
 
   if (IBR_007_SELLER_IDENTIFIER_TXN_TYPES.has(txn)) {
-    if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
-      // XOR: Oman textual code only (never scheme + textual code together).
-      next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
-      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = specialZoneLicenseCode;
-      next[FV.SELLER_IDENTIFIER_FIELD] = "SZ-SELLER-001";
-    } else {
-      next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = defaultScheme;
-      next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
-      next[FV.SELLER_IDENTIFIER_FIELD] = "OM-SELLER-001";
-    }
+    // XOR: ICD scheme + identifier. Special Zone IBR-085/084 companions
+    // must not use textual-only (IBR-007-OM errors on empty scheme).
+    next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = defaultScheme;
+    next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+    next[FV.SELLER_IDENTIFIER_FIELD] =
+      txn === FV.TXN_SPECIAL_ZONE_SUPPLIES ? "SZ-SELLER-001" : "OM-SELLER-001";
   } else {
     next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
     next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
@@ -697,6 +694,45 @@ export function buildAmountDecimalPrecisionScenarioRow(
   };
 }
 
+/**
+ * IBR-046-OM: format/range of Covoro `Tax Rate` (IBT-152 / IBT-119).
+ * CN/DN/261 get preceding + reason companions; 261/389 use Self-billed txn + identity swap.
+ */
+export function buildVatRateFormatScenarioRow(
+  scenario: FV.VatRateFormatScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  const invoiceTypeCode = scenario.invoiceTypeCode;
+  const txn = scenario.invoiceTransactionTypeCode;
+  let row: Record<string, string | null> = {
+    ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
+    [FV.TAX_CATEGORY_FIELD]: FV.STANDARD_TAX_CATEGORY_CODE,
+    [FV.INVOICED_ITEM_TAX_RATE_FIELD]: scenario.taxRate,
+    [FV.TAX_EXEMPTION_REASON_CODE_FIELD]: "",
+  };
+  row = applyPartyIdentifiersByTxnType(row);
+  if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
+    row[FV.ITEM_TYPE_FIELD] = "";
+    row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
+    row[FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD] = "";
+  }
+  row = applyTxnExclusionInvoiceType(row, invoiceTypeCode);
+  if (invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE) {
+    row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] = FV.TXN_SELF_BILLED_INVOICE;
+    row = applyPartyIdentifiersByTxnType(row);
+  }
+  if (isSelfBilledInvoiceType(invoiceTypeCode)) {
+    const stringRow: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      stringRow[key] = value == null ? "" : String(value);
+    }
+    row = applySelfBilledPartyIdentitySwap(stringRow);
+  }
+  row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = scenario.taxRate;
+  return row;
+}
+
 /** Phase 4: Item Type required (IBR-078-OM). */
 export function buildItemTypeRequiredScenarioRow(
   scenario: FV.ItemTypeRequiredScenario
@@ -734,16 +770,28 @@ export function buildImportOfGoodsScenarioRow(
   const seed = getSeedInvoiceRow();
   const txn =
     scenario.invoiceTransactionTypeCode ?? FV.TXN_IMPORT_OF_GOODS;
-  return applyPartyIdentifiersByTxnType({
+  let row: Record<string, string | null> = {
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
     [FV.ITEM_TYPE_FIELD]: FV.ITEM_TYPE_GOODS,
     [FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD]: FV.OMAN_HS_CODE_12,
-    [FV.ITEM_COUNTRY_OF_ORIGIN_FIELD]: scenario.itemCountryOfOrigin,
-    [FV.IMPORT_DATE_FIELD]: scenario.importDate,
-    [FV.CUSTOMS_DECLARATION_NUMBER_FIELD]: scenario.customsDeclarationNumber,
-    [FV.INCOTERMS_FIELD]: scenario.incoterms,
-  });
+  };
+  // Companions keep other Master txn dropdown labels valid; origin/import
+  // stay scenario-driven so empty origin is not refilled.
+  row = applyIbr081TxnCompanions(row, txn);
+  row = applyPartyIdentifiersByTxnType(row);
+  if (isSelfBilledInvoiceType(String(row[FV.INVOICE_TYPE_CODE_FIELD] ?? ""))) {
+    const stringRow: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      stringRow[key] = value == null ? "" : String(value);
+    }
+    row = applySelfBilledPartyIdentitySwap(stringRow);
+  }
+  row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = scenario.itemCountryOfOrigin;
+  row[FV.IMPORT_DATE_FIELD] = scenario.importDate;
+  row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = scenario.customsDeclarationNumber;
+  row[FV.INCOTERMS_FIELD] = scenario.incoterms;
+  return row;
 }
 
 /** Phase 4: Profit Margin Self-Invoice (IBR-086/087-OM). */
@@ -768,6 +816,8 @@ export function buildProfitMarginSelfInvoiceScenarioRow(
             ? FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE
             : "",
     [FV.SELLER_COUNTRY_CODE_FIELD]: scenario.sellerCountryCode,
+    // CL-11-OM companion: BTOM-025 required on Profit Margin Self-Invoice.
+    [FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD]: FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
   });
 }
 
@@ -2424,11 +2474,14 @@ export function buildBuyerAddressRequiredScenarioRow(
   return row;
 }
 
-/** IBR-040-OM: write the full Deliver To address group (complete or partial). */
+/** IBR-040-OM: write Deliver To from the scenario; invoice type companions for CN/DN. */
 export function buildDeliverToAddressRequiredScenarioRow(
   scenario: FV.DeliverToAddressRequiredScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
+  const txn = scenario.invoiceTransactionTypeCode;
+  const invoiceTypeCode =
+    scenario.invoiceTypeCode ?? FV.INVOICE_TYPE_COMMERCIAL_INVOICE;
   const deliverValues = [
     scenario.addressLine1,
     scenario.addressLine2,
@@ -2441,22 +2494,24 @@ export function buildDeliverToAddressRequiredScenarioRow(
   const hasCompleteDeliverToAddress = deliverValues.every((value) =>
     String(value ?? "").trim()
   );
-  return applyPartyIdentifiersByTxnType({
+  // Do not call applyTxnExclusionCompanions: e-commerce overlay would refill omitted cells.
+  let row: Record<string, string | null> = applyPartyIdentifiersByTxnType({
     ...seed,
-    ...(scenario.invoiceTransactionTypeCode
-      ? { "Invoice Transaction Type Code": scenario.invoiceTransactionTypeCode }
-      : {}),
-    [FV.DELIVER_TO_ADDRESS_LINE_1_FIELD]: scenario.addressLine1,
-    [FV.DELIVER_TO_ADDRESS_LINE_2_FIELD]: scenario.addressLine2,
-    [FV.DELIVER_TO_ADDRESS_LINE_3_FIELD]: scenario.addressLine3,
-    [FV.DELIVER_TO_CITY_FIELD]: scenario.city,
-    [FV.DELIVER_TO_POST_CODE_FIELD]: scenario.postCode,
-    [FV.DELIVER_TO_COUNTRY_SUBDIVISION_FIELD]: scenario.countrySubDivision,
-    [FV.DELIVER_TO_COUNTRY_CODE_FIELD]: scenario.countryCode,
-    "Deliver to party name": hasCompleteDeliverToAddress
-      ? seed["Deliver to party name"] || "Oman Delivery Partner"
-      : "",
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
+    [FV.INVOICE_TYPE_CODE_FIELD]: invoiceTypeCode,
   });
+  row = applyTxnExclusionInvoiceType(row, invoiceTypeCode);
+  row[FV.DELIVER_TO_ADDRESS_LINE_1_FIELD] = scenario.addressLine1;
+  row[FV.DELIVER_TO_ADDRESS_LINE_2_FIELD] = scenario.addressLine2;
+  row[FV.DELIVER_TO_ADDRESS_LINE_3_FIELD] = scenario.addressLine3;
+  row[FV.DELIVER_TO_CITY_FIELD] = scenario.city;
+  row[FV.DELIVER_TO_POST_CODE_FIELD] = scenario.postCode;
+  row[FV.DELIVER_TO_COUNTRY_SUBDIVISION_FIELD] = scenario.countrySubDivision;
+  row[FV.DELIVER_TO_COUNTRY_CODE_FIELD] = scenario.countryCode;
+  row["Deliver to party name"] = hasCompleteDeliverToAddress
+    ? seed["Deliver to party name"] || "Oman Delivery Partner"
+    : "";
+  return row;
 }
 
 export function buildInvoicingPeriodConditionalScenarioRow(
@@ -2496,38 +2551,72 @@ export function buildHsCodeLengthScenarioRow(
   };
 }
 
+/** IBR-081-OM: txn companions so sibling rules do not mask the ISIC assert. */
+function applyIbr081TxnCompanions(
+  row: Record<string, string | null>,
+  txn: string
+): Record<string, string | null> {
+  let next = applyTxnExclusionCompanions(
+    row,
+    FV.splitOmanTxnMasterLabels(txn)
+  );
+
+  if (txn === FV.TXN_PREPAYMENT_INVOICE) {
+    next["Prepayment invoice number"] = "PRE-OMN-001";
+    next["Prepayment invoice UUID"] = "prepay-uuid-oman-001";
+  }
+
+  if (txn === FV.TXN_SELF_BILLED_INVOICE) {
+    next = applySelfBilledDocumentInvoiceType(
+      next,
+      FV.INVOICE_TYPE_SELF_BILLED_INVOICE
+    );
+    next[FV.BUYER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
+  }
+
+  if (txn === FV.TXN_EXPORT_INVOICE) {
+    const exportExemption =
+      FV.ZERO_RATED_EXEMPTION_REASON_LABELS.find((label) =>
+        label.includes("Direct Export of Goods")
+      ) ?? FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    next[FV.TAX_CATEGORY_FIELD] = FV.ZERO_RATED_TAX_CATEGORY_CODE;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = exportExemption;
+    next[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = exportExemption;
+    next[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    next[FV.ITEM_TYPE_FIELD] = FV.ITEM_TYPE_GOODS;
+    next[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = FV.OMAN_HS_CODE_12;
+    next[FV.SERVICE_TYPE_CODE_FIELD] = "";
+  }
+
+  if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
+    next[FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD] = "1000";
+  }
+
+  return next;
+}
+
 export function buildIndustrialClassificationRequiredScenarioRow(
   scenario: FV.IndustrialClassificationRequiredScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
   const txn = scenario.invoiceTransactionTypeCode;
-  const row: Record<string, string | null> = {
+  let row: Record<string, string | null> = {
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
-    [FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD]:
-      scenario.industrialClassificationCode,
   };
-  if (txn === FV.TXN_IMPORT_OF_GOODS) {
-    row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
-    row[FV.IMPORT_DATE_FIELD] = "2026-01-10";
-    row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
-    row[FV.INCOTERMS_FIELD] = "Free On Board";
+  row = applyIbr081TxnCompanions(row, txn);
+  row = applyPartyIdentifiersByTxnType(row);
+  if (isSelfBilledInvoiceType(String(row[FV.INVOICE_TYPE_CODE_FIELD] ?? ""))) {
+    const stringRow: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      stringRow[key] = value == null ? "" : String(value);
+    }
+    row = applySelfBilledPartyIdentitySwap(stringRow);
   }
-  if (txn === FV.TXN_IMPORT_OF_SERVICES_RCM) {
-    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.UAE_COUNTRY_CODE;
-    row[FV.BUYER_VAT_IDENTIFIER_FIELD] = FV.IBR_003_VALID_BUYER_VATIN;
-    row[FV.BUYER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
-  }
-  if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {
-    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
-    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = null;
-    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
-    row[FV.TAX_EXEMPTION_REASON_TEXT_FIELD] = "";
-    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
-    row[FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD] = FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE;
-    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
-  }
-  return applyPartyIdentifiersByTxnType(row);
+  row[FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD] =
+    scenario.industrialClassificationCode;
+  return row;
 }
 
 export function buildIbrCl05DocAllowanceScenarioRow(
@@ -2720,14 +2809,81 @@ export function buildBuyerIdentifierSchemeScenarioRow(
   return row;
 }
 
+/**
+ * Isolated 0 on formula-output columns is a Σ mismatch. Collapse line
+ * inputs so the submit writer recalculates a coherent zero invoice.
+ */
+function applyIbr137OmAmountValue(
+  row: Record<string, string | null>,
+  field: string,
+  value: string
+): Record<string, string | null> {
+  let next: Record<string, string | null> = { ...row, [field]: value };
+  const numeric = Number(value);
+  if (
+    (FV.IBR_137_OM_FORMULA_ZERO_FIELDS as readonly string[]).includes(field) &&
+    numeric === 0
+  ) {
+    next[FV.ITEM_GROSS_PRICE_FIELD] = "0";
+    next[FV.ITEM_PRICE_DISCOUNT_FIELD] = "0";
+    next[FV.ITEM_NET_PRICE_FIELD] = "0";
+    next[FV.INVOICE_LINE_NET_AMOUNT_FIELD] = "0";
+    next[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    next[FV.TOTAL_AMOUNT_INCLUDING_VAT_FIELD] = "0";
+    next[FV.SUM_OF_INVOICE_LINE_NET_AMOUNT_FIELD] = "0";
+    next[FV.INVOICE_TOTAL_AMOUNT_WITHOUT_TAX_FIELD] = "0";
+    next[FV.INVOICE_TOTAL_TAX_AMOUNT_FIELD] = "0";
+    next[FV.INVOICE_TOTAL_AMOUNT_WITH_TAX_FIELD] = "0";
+    next[FV.AMOUNT_DUE_FOR_PAYMENT_FIELD] = "0";
+    next[field] = value;
+  }
+  if (field === FV.CHARGES_ON_DOCUMENT_LEVEL_FIELD) {
+    next[FV.VAT_CATEGORY_CHARGES_FIELD] = FV.STANDARD_TAX_CATEGORY_CODE;
+  }
+  if (field === FV.ALLOWANCES_ON_DOCUMENT_LEVEL_FIELD) {
+    next[FV.VAT_CATEGORY_ALLOWANCES_FIELD] = FV.STANDARD_TAX_CATEGORY_CODE;
+  }
+  if (field === FV.PAID_AMOUNT_FIELD) {
+    // IBR-058-OM: paid amount 0 is present → prepayment number + UUID required.
+    next["Prepayment invoice number"] = "PREPAY-001";
+    next["Prepayment invoice UUID"] = FV.PRECEDING_INVOICE_UUID_SAMPLE;
+  }
+  if (field === FV.TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD) {
+    // IBR-034/065: IBT-111 is only in play when invoice currency is not OMR.
+    next[FV.INVOICE_CURRENCY_CODE_FIELD] = FV.OMAN_CURRENCY_USD;
+    next[FV.SOURCE_CURRENCY_CODE_FIELD] = FV.OMAN_CURRENCY_USD;
+    next[FV.EXCHANGE_RATE_FIELD] = "0.385";
+    next[field] = value;
+  }
+  if (field === FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD) {
+    next[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] = FV.TXN_PROFIT_MARGIN_INVOICE;
+    next = applyTxnExclusionCompanions(next, [FV.TXN_PROFIT_MARGIN_INVOICE]);
+    next = applyPartyIdentifiersByTxnType(next);
+    next[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+    next[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
+    next[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
+    next[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+    next[field] = value;
+  }
+  return next;
+}
+
 /** IBR-137-OM: amounts/quantities ≥ 0 except Rounding Amount (IBT-114). */
 export function buildAmountQuantitySignScenarioRow(
   scenario: FV.AmountQuantitySignScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return {
+  let row: Record<string, string | null> = {
     ...seed,
-    [FV.INVOICED_QUANTITY_FIELD]: scenario.invoicedQuantity,
-    [FV.ROUNDING_AMOUNT_FIELD]: scenario.roundingAmount,
+    [FV.INVOICED_QUANTITY_SEED_FIELD]: scenario.invoicedQuantity,
+    [FV.ROUNDING_AMOUNT_SEED_FIELD]: scenario.roundingAmount,
   };
+  if (scenario.amountField) {
+    row = applyIbr137OmAmountValue(
+      row,
+      scenario.amountField,
+      scenario.amountValue ?? "0"
+    );
+  }
+  return row;
 }

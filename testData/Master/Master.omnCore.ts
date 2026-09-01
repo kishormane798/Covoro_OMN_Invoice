@@ -1,6 +1,6 @@
 /**
  * Oman (OMN) dropdown master lists — transaction/type codes, tax, Incoterms, etc.
- * Large shared lists (country, UoM, schemes) remain in Master.ts / Master.isic.ts.
+ * Large shared lists (country, UoM, schemes) remain in Master.ts / Master.isic.ts / Master.hs.ts.
  */
 
 export type MasterLabel = { label: string };
