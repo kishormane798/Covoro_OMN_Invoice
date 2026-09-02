@@ -1,6 +1,5 @@
 import { test as base, type Request, type Page } from '@playwright/test';
 import { parallelWorkerTinSlot } from '../Helpers/worker/parallelWorkerSubmitIdentity';
-import { resolveBaseUrl } from '../utils/appConfig';
 import {
   deleteGeneratedExcelFiles,
   errorValidationLogLines,
@@ -62,25 +61,6 @@ function loadAuthState(): LoadedAuthState {
   }
 }
 
-async function injectSessionStorage(
-  page: Page,
-  storage: SessionStorageMap
-): Promise<void> {
-  if (Object.keys(storage).length === 0) return;
-  await page.evaluate((items) => {
-    try {
-      for (const key in items) {
-        sessionStorage.setItem(key, items[key]);
-      }
-    } catch {
-      /* about:blank / opaque origin */
-    }
-  }, storage);
-}
-
-function resolveDashboardUrl(baseURL: string | undefined): string {
-  return `${resolveBaseUrl(baseURL)}/business-dashboard`;
-}
 
 const XLSX_MEDIA_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -331,37 +311,10 @@ export const test = base.extend<UaeTestFixtures, UaeWorkerFixtures>({
     page.on("console", onConsole);
     ctx.on("response", onResponse);
 
-    const sessionForInit = loadAuthState().sessionStorage;
-
-    // Headed/debug: first screen is usable without each spec calling goto immediately.
-    const current = page.url();
-    if (!current || current === "about:blank") {
-      const target = resolveDashboardUrl(baseURL);
-      try {
-        await page.goto(target, { waitUntil: "domcontentloaded", timeout: 90_000 });
-        const hasRoot = await page
-          .evaluate(() => {
-            try {
-              return sessionStorage.getItem('persist:root') != null;
-            } catch {
-              return false;
-            }
-          })
-          .catch(() => false);
-        if (!hasRoot && sessionForInit['persist:root']) {
-          await injectSessionStorage(page, sessionForInit);
-          await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
-        }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (isUnreachableNetworkError(msg)) {
-          writeSiteUnavailableMarker(appOrigin, `[navigation] ${msg}`, {
-            parallelIndex: uaeParallelWorkerSlot,
-          });
-        }
-      }
-    }
-
+    // Do not warmup-goto /business-dashboard here. Specs already call
+    // openDashboard / uploadHelper; a fixture goto was ~1 min of Before Hooks
+    // and was discarded by dashboard blank-recovery anyway. Session is injected
+    // via context addInitScript on the first real navigation.
     try {
       await use(page);
     } finally {

@@ -11,6 +11,7 @@ import {
   applyPartyIdentifiersByTxnType,
   applyOmanDeliveryOverlay,
   applyServiceTypeDropdownValidationContext,
+  applySpecialZonePositiveCompanions,
   buildValidOmanFullTaxInvoiceRow,
 } from "./conditionalValidationHelper";
 import * as FV from "../../testData/FieldValidations";
@@ -395,7 +396,8 @@ export function caseOutputDir(
 /** Oman seller/buyer identity (EAS 0248 / Oman VATIN scheme; buyer electronic is Peppol receiver ID). */
 export const OMAN_SELLER_VAT = "OM1108202600";
 export const OMAN_BUYER_VAT = "OM1000091919";
-export const OMAN_SELLER_ELECTRONIC = "OM1108202600";
+/** Peppol seller electronic address — lowercase worker VATIN (slot 0). */
+export const OMAN_SELLER_ELECTRONIC = "om1108202600";
 export const OMAN_BUYER_ELECTRONIC = "om-receiver-dev";
 export const OMAN_ELECTRONIC_SCHEME =
   "Oman Value Added Tax Identification Number (VATIN)";
@@ -894,6 +896,13 @@ export function applyDependentOverlay(
   }
   if (fieldNorm.includes("profit margin")) {
     fillProfitMargin();
+  }
+
+  if (!isSellerPartyIdentifierField) {
+    const withSz = applySpecialZonePositiveCompanions(row);
+    for (const [key, value] of Object.entries(withSz)) {
+      row[key] = value == null ? "" : String(value);
+    }
   }
 
   return row;

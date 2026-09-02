@@ -23,6 +23,7 @@ import {
   buildValidOmanFullTaxInvoiceRow,
   applyOmanDeliveryOverlay,
   applyPartyIdentifiersByTxnType,
+  applySpecialZonePositiveCompanions,
 } from "../../Helpers/excel/conditionalValidationHelper";
 import {
   applySelfBilledPartyIdentitySwap,
@@ -188,7 +189,9 @@ function applySubmitTxnExtras(
       next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
   }
 
-  return applyPartyIdentifiersByTxnType(next);
+  return applySpecialZonePositiveCompanions(
+    applyPartyIdentifiersByTxnType(next)
+  );
 }
 
 /** Shared Oman document seed for submit matrices (OMR + type/txn extras). */

@@ -121,7 +121,9 @@ const BUYER_VAT_FIELD = "Buyer VAT identifier";
 export function applySelfBilledPartyIdentitySwap<
   T extends Record<string, string>,
 >(row: T): T {
-  const sellerEl = String(row[SELLER_ELECTRONIC_FIELD] ?? DEFAULT_OMAN_SELLER_VATIN);
+  const sellerEl = String(
+    row[SELLER_ELECTRONIC_FIELD] ?? DEFAULT_OMAN_SELLER_VATIN.toLowerCase()
+  );
   const sellerVat = String(row[SELLER_VAT_FIELD] ?? DEFAULT_OMAN_SELLER_VATIN);
   const buyerEl = String(
     row[BUYER_ELECTRONIC_FIELD] ?? getCounterpartyElectronicAddress()

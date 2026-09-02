@@ -275,7 +275,7 @@ function profitMarginItemTypeLabel(): string {
  * Fill companion columns required by each Invoice Transaction Type Code so a
  * dropdown master sweep is a valid Oman invoice for that type (not a Full Tax clone).
  */
-function applyInvoiceTransactionTypeDropdownColumns(
+export function applyInvoiceTransactionTypeDropdownColumns(
   seed: Record<string, string>,
   txn: string
 ): Record<string, string> {

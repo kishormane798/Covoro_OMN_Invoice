@@ -891,7 +891,7 @@ export function writeFormulaPackReadme(
     "",
     "- Seller / Buyer electronic address Scheme: `Oman Value Added Tax Identification Number (VATIN)`",
     "- Seller VAT Identifier (TRN / TIN): `OM1108202600`",
-    "- Seller electronic address: `OM1108202600`",
+    "- Seller electronic address: `om1108202600`",
     "- Buyer VAT identifier: `OM1000091919`",
     "- Buyer electronic address: `om-receiver-dev`",
     "",

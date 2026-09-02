@@ -53,11 +53,6 @@ DOCUMENT_ALLOWANCES_SAMPLE_AMOUNT = "50"
 EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES = "Exemption- Qualifying Financial Services"
 EXEMPTION_REASON_ZERO_RATED_QUALIFYING_FOOD = "Zero-rated - Qualifying Food Items"
 EXEMPTION_REASON_TEXT_EXEMPT_OMAN = "Exempt supply under Oman VAT"
-# Legacy UAE labels still recognised if a leftover seed writes them.
-EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES = "Certain financial services"
-EXEMPTION_REASON_SUPPLY_RESIDENTIAL = "Supply of residential units (lease or sale)"
-EXEMPTION_REASON_BARE_LAND = "Bare land"
-EXEMPTION_REASON_LOCAL_PASSENGER_TRANSPORT = "Local passenger transport"
 FIELD_INVOICE_TYPE_CODE = "Invoice Type Code"
 FIELD_PAYMENT_MEANS_TYPE_CODE = "Payment means type code"
 FIELD_TAX_CATEGORY = "Tax Category"
@@ -84,24 +79,9 @@ _PROFIT_MARGIN_TRANSACTION_TYPE_LABELS = frozenset(
 )
 FIELD_SELLER_NAME = "Seller name"
 FIELD_CREDIT_NOTE_REASON_CODE = "Credit note reason code"
-FIELD_SELLER_PASSPORT_ISSUING_COUNTRY_CODE = "Seller - Passport issuing Country code"
-FIELD_BUYER_PASSPORT_ISSUING_COUNTRY_CODE = "Buyer - Passport issuing Country code"
-FIELD_SELLER_LEGAL_REGISTRATION_IDENTIFIER_TYPE = "Seller legal registration identifier type"
-FIELD_BUYER_LEGAL_REGISTRATION_IDENTIFIER_TYPE = "Buyer legal registration identifier type"
-FIELD_SCHEME_IDENTIFIER = "Scheme identifier"
-FIELD_BUYER_LEGAL_REGISTRATION_IDENTIFIER = "Buyer legal registration identifier"
-FIELD_BUYER_ELECTRONIC_ADDRESS = "Buyer electronic address"
-FIELD_BUYER_ELECTRONIC_ADDRESS_SCHEME = "Buyer electronic address Scheme"
-UAE_TIN_SCHEME_IDENTIFIER = "UAE Tax Identification Number (TIN)"
-BUYER_LEGAL_REG_IDENTIFIER_FOR_DROPDOWN_BATCH = "100123456700003"
-# Field-validation dropdown batch for Buyer legal registration identifier type only.
-BUYER_ELECTRONIC_ADDRESS_FOR_LEGAL_REG_TYPE_DROPDOWN = "8900000099"
-LEGAL_REGISTRATION_IDENTIFIER_TYPE_PASSPORT = "Passport"
 FIELD_PRECEDING_INVOICE_REFERENCE = "Preceding Invoice reference"
 FIELD_PRECEDING_INVOICE_ISSUE_DATE = "Preceding Invoice issue date"
-# Exact sheet value (matches `REVERSE_CHARGE_TYPE_GOODS_SCENARIOS` / Playwright FV).
-VAT_REVERSE_CHARGE_TAX_CATEGORY = "VAT Reverse Charge"
-# Kept on sheet for RCM batch rows; `effective_tax_rate` ignores % unless category is Standard rate.
+# Oman Standard rate VAT (5%). `effective_tax_rate` ignores % unless category is Standard rate.
 TAX_RATE_SHEET_DISPLAY_VALUE = "5"
 CREDIT_NOTE_REASON_CODE_VOLUME_DISCOUNT = "Volume Discount."
 INVOICE_TYPE_CODE_CREDIT_NOTE = "Credit note"
@@ -110,7 +90,8 @@ INVOICE_TYPE_CODE_CREDIT_NOTE_RELATED = "Credit note related to goods or service
 INVOICE_TYPE_CODE_OUT_OF_SCOPE_OF_TAX = "Invoice out of scope of tax"
 PAYMENT_MEANS_TYPE_CODE_INSTRUMENT_NOT_DEFINED = "Instrument not defined"
 
-# Cleared when Tax Category is VAT Reverse Charge (keep in sync with `invoiceExcel.ts`).
+# Document-level charge/allowance columns (keep in sync with `invoiceExcel.ts`).
+# Cleared on credit-note dropdown batches so leftover template values do not fail.
 DOCUMENT_LEVEL_CLEARED_FOR_VAT_REVERSE_CHARGE = (
     "Charges on document level",
     "Vat category - charges",
@@ -622,6 +603,233 @@ def cmd_apply_calculations(args: list[str]) -> None:
     print(json.dumps({"ok": True, "filePath": os.path.abspath(file_path), "dataRow": data_row, "rowCount": row_count}))
 
 
+# Document-level amounts stay on line 1 only (same as generateInvoiceFromSubmitRows).
+_EXPAND_DOC_LEVEL_ONCE_HEADERS = (
+    "Charges on document level",
+    "Vat category - charges",
+    "Tax exemption reason - charges",
+    "Allowances on document level",
+    "Vat category - allowances",
+    "Tax exemption reason - allowances",
+    "Paid amount",
+    "Rounding amount",
+)
+_EXCEL_MAX_ROW = 1_048_576
+
+
+def _strip_line_hash_suffix(text: str) -> str:
+    raw = str(text or "").strip()
+    if " #" not in raw:
+        return raw
+    head, tail = raw.rsplit(" #", 1)
+    if tail.isdigit():
+        return head
+    return raw
+
+
+def cmd_expand_invoice_lines(args: list[str]) -> None:
+    """
+    Clone data row 1 into N line-item rows of the same invoice.
+
+    Unique: Invoice line identifier / Item name / Item description.
+    Invoice-level totals are scaled across all N lines (doc charges once on line 1).
+    Does not call apply_calculations (capped at 500 rows and would undo invoice totals).
+    """
+    if len(args) < 5:
+        fail(
+            "Usage: expand_invoice_lines <filePath> <sheetName> <headerRow> "
+            "<dataRow> <lineCount>"
+        )
+    file_path, sheet_name, header_row_s, data_row_s, line_count_s = args[:5]
+    header_row = int(header_row_s)
+    data_row = int(data_row_s)
+    line_count = int(line_count_s)
+    if line_count < 1:
+        fail(f"lineCount must be >= 1, got {line_count}")
+    last_row = data_row + line_count - 1
+    if last_row > _EXCEL_MAX_ROW:
+        fail(
+            f"{line_count} lines from row {data_row} exceeds Excel max row "
+            f"{_EXCEL_MAX_ROW}"
+        )
+    if not os.path.exists(file_path):
+        fail(f"File not found: {file_path}")
+
+    wb = load_workbook(file_path)
+    if sheet_name not in wb.sheetnames:
+        fail(f"Sheet '{sheet_name}' not found")
+    ws = wb[sheet_name]
+    header_map = get_header_map(ws, header_row)
+
+    line_net = read_number(ws, data_row, header_map, "Invoice line net amount")
+    line_vat = read_number(
+        ws, data_row, header_map, FIELD_LINE_ITEM_VAT_AMOUNT, "Line item VAT amount"
+    )
+    doc_charges = read_number(ws, data_row, header_map, "Charges on document level")
+    doc_allowances = read_number(
+        ws, data_row, header_map, "Allowances on document level"
+    )
+    paid_amount = read_number(ws, data_row, header_map, "Paid amount")
+    rounding_amount = read_number(ws, data_row, header_map, "Rounding amount")
+    tax_cat = cell_value(ws, data_row, header_map, "Tax Category")
+    raw_tax = read_number(
+        ws, data_row, header_map, "Tax Rate", "Standard Tax Rate", default=0.0
+    )
+    tax_rate = effective_tax_rate(tax_cat, raw_tax)
+    charge_cat = cell_value(ws, data_row, header_map, FIELD_VAT_CATEGORY_CHARGES)
+    allowance_cat = cell_value(ws, data_row, header_map, FIELD_VAT_CATEGORY_ALLOWANCES)
+    doc_charge_rate = doc_level_effective_tax_rate(
+        charge_cat, line_effective_rate=tax_rate, raw_sheet_rate=raw_tax
+    )
+    doc_allowance_rate = doc_level_effective_tax_rate(
+        allowance_cat, line_effective_rate=tax_rate, raw_sheet_rate=raw_tax
+    )
+    doc_charge_tax = fix6(doc_charges * (doc_charge_rate / 100.0))
+    doc_allowance_tax = fix6(doc_allowances * (doc_allowance_rate / 100.0))
+    raw_sum_net = fix6(line_net * line_count)
+    raw_sum_vat = fix6(line_vat * line_count)
+    raw_without = fix6(raw_sum_net + doc_charges - doc_allowances)
+    raw_tax_total = fix6(raw_sum_vat + doc_charge_tax - doc_allowance_tax)
+    raw_with = fix6(raw_without + raw_tax_total)
+    invoice_totals = {
+        "Sum of Invoice line net amount": ceil2(raw_sum_net),
+        "Invoice total amount without tax": ceil2(raw_without),
+        "Invoice total tax amount": ceil2(raw_tax_total),
+        "Invoice total amount with tax": ceil2(raw_with),
+        "Amount due for payment": ceil2(fix6(raw_with - paid_amount + rounding_amount)),
+    }
+
+    base_name = _strip_line_hash_suffix(
+        str(cell_value(ws, data_row, header_map, "Item name") or "Item")
+    )
+    desc_raw = cell_value(ws, data_row, header_map, "Item description")
+    base_desc = (
+        _strip_line_hash_suffix(str(desc_raw))
+        if desc_raw is not None and str(desc_raw).strip() != ""
+        else ""
+    )
+
+    for i in range(line_count):
+        row_number = data_row + i
+        if i > 0:
+            _clone_data_row_used_columns(ws, header_row, data_row, row_number)
+            for header in _EXPAND_DOC_LEVEL_ONCE_HEADERS:
+                clear_cell_optional(ws, row_number, header_map, header)
+        line_no = i + 1
+        set_cell_optional(
+            ws, row_number, header_map, "Invoice line identifier", f"LINE-{line_no:05d}"
+        )
+        set_cell_optional(
+            ws, row_number, header_map, "Item name", f"{base_name} #{line_no}"
+        )
+        if base_desc:
+            set_cell_optional(
+                ws,
+                row_number,
+                header_map,
+                "Item description",
+                f"{base_desc} #{line_no}",
+            )
+        for header, value in invoice_totals.items():
+            set_cell_optional(ws, row_number, header_map, header, value)
+        if (i + 1) % 2_000 == 0 or (i + 1) == line_count:
+            print(
+                f"  expand_invoice_lines: {i + 1}/{line_count}...",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    print(f"  expand_invoice_lines: saving {file_path}...", file=sys.stderr, flush=True)
+    wb.save(file_path)
+    wb.close()
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "filePath": os.path.abspath(file_path),
+                "lineCount": line_count,
+                "sumOfInvoiceLineNetAmount": invoice_totals[
+                    "Sum of Invoice line net amount"
+                ],
+                "invoiceTotalAmountWithTax": invoice_totals[
+                    "Invoice total amount with tax"
+                ],
+            }
+        )
+    )
+
+
+def cmd_expand_single_item_invoices(args: list[str]) -> None:
+    """
+    Clone data row 1 into N distinct single-item invoices (unique Invoice Number).
+    Line data and 1-line totals stay as on the seed row. No apply_calculations.
+    """
+    if len(args) < 5:
+        fail(
+            "Usage: expand_single_item_invoices <filePath> <sheetName> <headerRow> "
+            "<dataRow> <invoiceCount>"
+        )
+    file_path, sheet_name, header_row_s, data_row_s, invoice_count_s = args[:5]
+    header_row = int(header_row_s)
+    data_row = int(data_row_s)
+    invoice_count = int(invoice_count_s)
+    if invoice_count < 1:
+        fail(f"invoiceCount must be >= 1, got {invoice_count}")
+    last_row = data_row + invoice_count - 1
+    if last_row > _EXCEL_MAX_ROW:
+        fail(
+            f"{invoice_count} invoices from row {data_row} exceeds Excel max row "
+            f"{_EXCEL_MAX_ROW}"
+        )
+    if not os.path.exists(file_path):
+        fail(f"File not found: {file_path}")
+
+    wb = load_workbook(file_path)
+    if sheet_name not in wb.sheetnames:
+        fail(f"Sheet '{sheet_name}' not found")
+    ws = wb[sheet_name]
+    header_map = get_header_map(ws, header_row)
+    prefix = str(
+        cell_value(ws, data_row, header_map, "Invoice Number") or "INV"
+    ).strip() or "INV"
+    first_invoice = f"{prefix}-1"
+    last_invoice = f"{prefix}-{invoice_count}"
+
+    for i in range(invoice_count):
+        row_number = data_row + i
+        if i > 0:
+            _clone_data_row_used_columns(ws, header_row, data_row, row_number)
+        set_cell_optional(
+            ws, row_number, header_map, "Invoice Number", f"{prefix}-{i + 1}"
+        )
+        if (i + 1) % 2_000 == 0 or (i + 1) == invoice_count:
+            print(
+                f"  expand_single_item_invoices: {i + 1}/{invoice_count}...",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    print(
+        f"  expand_single_item_invoices: saving {file_path}...",
+        file=sys.stderr,
+        flush=True,
+    )
+    wb.save(file_path)
+    wb.close()
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "filePath": os.path.abspath(file_path),
+                "invoiceCount": invoice_count,
+                "firstInvoiceNumber": first_invoice,
+                "lastInvoiceNumber": last_invoice,
+                "batchPrefix": prefix,
+            }
+        )
+    )
+
+
 def save_result(wb, output_dir: str, file_name: str, invoice_number: str) -> None:
     os.makedirs(output_dir, exist_ok=True)
     file_path = os.path.abspath(os.path.join(output_dir, file_name))
@@ -1059,9 +1267,6 @@ def cmd_write_row_json(args: list[str]) -> None:
             fail(f"Column not found: {key}")
 
     tax_after_write = cell_value(ws, data_row, header_map, FIELD_TAX_CATEGORY)
-    if normalize_category(tax_after_write) == normalize_category(VAT_REVERSE_CHARGE_TAX_CATEGORY):
-        for hdr in DOCUMENT_LEVEL_CLEARED_FOR_VAT_REVERSE_CHARGE:
-            _set_by_header_name(ws, header_row, data_row, hdr, "")
     if is_exempt_from_tax_tax_category(tax_after_write):
         _apply_exempt_from_tax_blank_tax_fields(
             ws,
@@ -1162,9 +1367,6 @@ def cmd_write_rows_json(args: list[str]) -> None:
                 fail(f"Column not found: {key}")
 
         tax_after_write = cell_value(ws, row_number, header_map, FIELD_TAX_CATEGORY)
-        if normalize_category(tax_after_write) == normalize_category(VAT_REVERSE_CHARGE_TAX_CATEGORY):
-            for hdr in DOCUMENT_LEVEL_CLEARED_FOR_VAT_REVERSE_CHARGE:
-                _set_by_header_name(ws, header_row, row_number, hdr, "")
         if is_exempt_from_tax_tax_category(tax_after_write):
             _apply_exempt_from_tax_blank_tax_fields(
                 ws,
@@ -1263,19 +1465,8 @@ def _parse_optional_bool_cli_arg(raw: str | None, *, default: bool) -> bool:
 
 def _line_exemption_text_for_code(code: str) -> str:
     c = str(code or "").strip()
-    n = normalize(c)
-    if n.startswith("zero-rated"):
+    if normalize(c).startswith("zero-rated"):
         return c
-    if n.startswith("exemption-") or n == normalize(EXEMPTION_REASON_QUALIFYING_FINANCIAL_SERVICES):
-        return EXEMPTION_REASON_TEXT_EXEMPT_OMAN
-    if normalize(c) == normalize(EXEMPTION_REASON_BARE_LAND):
-        return "Bare land exemption narrative."
-    if normalize(c) == normalize(EXEMPTION_REASON_SUPPLY_RESIDENTIAL):
-        return "Residential supply exemption narrative."
-    if normalize(c) == normalize(EXEMPTION_REASON_LOCAL_PASSENGER_TRANSPORT):
-        return "Local passenger transport exemption narrative."
-    if normalize(c) == normalize(EXEMPTION_REASON_CERTAIN_FINANCIAL_SERVICES):
-        return EXEMPTION_REASON_TEXT_EXEMPT_OMAN
     return EXEMPTION_REASON_TEXT_EXEMPT_OMAN
 
 
@@ -1455,76 +1646,11 @@ def _apply_document_charges_allowances_dropdown_row(
         _apply_exempt_document_charges_row(ws, header_row, row_number, reason)
 
 
-def _apply_buyer_legal_reg_identifier_type_dropdown_context(
-    ws, header_row: int, row_number: int, field_name: str
-) -> None:
-    """
-    IBR-149-AE / IBR-183-AE preview for Buyer legal registration identifier type dropdown batches:
-    Buyer electronic address Scheme 0235 (UAE TIN), identifier provided, address 8900000099 (not 1/9).
-    Does not set buyer Scheme identifier or Deemed Supply.
-    """
-    if str(field_name).strip() != FIELD_BUYER_LEGAL_REGISTRATION_IDENTIFIER_TYPE:
-        return
-    _set_by_header_name(
-        ws,
-        header_row,
-        row_number,
-        FIELD_BUYER_LEGAL_REGISTRATION_IDENTIFIER,
-        BUYER_LEGAL_REG_IDENTIFIER_FOR_DROPDOWN_BATCH,
-    )
-    _set_by_header_name(
-        ws,
-        header_row,
-        row_number,
-        FIELD_BUYER_ELECTRONIC_ADDRESS_SCHEME,
-        UAE_TIN_SCHEME_IDENTIFIER,
-    )
-    _set_by_header_name(
-        ws,
-        header_row,
-        row_number,
-        FIELD_BUYER_ELECTRONIC_ADDRESS,
-        BUYER_ELECTRONIC_ADDRESS_FOR_LEGAL_REG_TYPE_DROPDOWN,
-    )
-
-
 def _parallel_worker_skip_headers_for_dropdown_field(field_name: str) -> frozenset[str] | None:
     fn = str(field_name).strip()
-    if fn == FIELD_BUYER_LEGAL_REGISTRATION_IDENTIFIER_TYPE:
-        return frozenset(
-            {
-                fn,
-                FIELD_BUYER_LEGAL_REGISTRATION_IDENTIFIER,
-                FIELD_BUYER_ELECTRONIC_ADDRESS,
-                FIELD_BUYER_ELECTRONIC_ADDRESS_SCHEME,
-            }
-        )
     if fn in _PARALLEL_IDENTITY_FIELD_NAMES:
         return frozenset([fn])
     return None
-
-
-def _apply_passport_issuing_country_dropdown_context(
-    ws, header_row: int, row_number: int, field_name: str
-) -> None:
-    """Passport country dropdown validation applies only when legal registration type is Passport."""
-    fn = str(field_name).strip()
-    if fn == FIELD_SELLER_PASSPORT_ISSUING_COUNTRY_CODE:
-        _set_by_header_name(
-            ws,
-            header_row,
-            row_number,
-            FIELD_SELLER_LEGAL_REGISTRATION_IDENTIFIER_TYPE,
-            LEGAL_REGISTRATION_IDENTIFIER_TYPE_PASSPORT,
-        )
-    elif fn == FIELD_BUYER_PASSPORT_ISSUING_COUNTRY_CODE:
-        _set_by_header_name(
-            ws,
-            header_row,
-            row_number,
-            FIELD_BUYER_LEGAL_REGISTRATION_IDENTIFIER_TYPE,
-            LEGAL_REGISTRATION_IDENTIFIER_TYPE_PASSPORT,
-        )
 
 
 def _run_write_dropdown_batch(
@@ -1607,12 +1733,6 @@ def _run_write_dropdown_batch(
             cur = _read_data_row_text(ws, row_number, header_map, "Invoice Currency Code")
             if not cur:
                 _set_by_header_name(ws, header_row, row_number, "Invoice Currency Code", "OMR")
-        _apply_passport_issuing_country_dropdown_context(
-            ws, header_row, row_number, field_name
-        )
-        _apply_buyer_legal_reg_identifier_type_dropdown_context(
-            ws, header_row, row_number, field_name
-        )
         if str(field_name).strip() in (
             FIELD_VAT_CATEGORY_CHARGES,
             FIELD_VAT_CATEGORY_ALLOWANCES,
@@ -1661,16 +1781,6 @@ def _run_write_dropdown_batch(
                 set_text_value(ws, row_number, preceding_invoice_ref_col, "")
                 set_text_value(ws, row_number, preceding_invoice_issue_date_col, "")
 
-    # RCM dropdown values apply under reverse-charge tax category on the line.
-    if str(field_name).strip() == FIELD_TYPE_OF_GOODS_OR_SERVICES_SUBJECT_TO_RCM:
-        tax_cat_col = resolve_header_column(ws, header_row, FIELD_TAX_CATEGORY)
-        tax_rate_col = resolve_header_column(ws, header_row, FIELD_TAX_RATE)
-        for i in range(len(values)):
-            set_text_value(ws, data_row + i, tax_cat_col, VAT_REVERSE_CHARGE_TAX_CATEGORY)
-            set_text_value(ws, data_row + i, tax_rate_col, TAX_RATE_SHEET_DISPLAY_VALUE)
-            for hdr in DOCUMENT_LEVEL_CLEARED_FOR_VAT_REVERSE_CHARGE:
-                _set_by_header_name(ws, header_row, data_row + i, hdr, "")
-
     for i in range(len(values)):
         apply_invoice_calculations_to_data_row(ws, header_row, data_row + i)
 
@@ -1680,9 +1790,6 @@ def _run_write_dropdown_batch(
         for i in range(len(values)):
             _apply_parallel_worker_identity_to_row(
                 ws, header_row, data_row + i, wi, skip_headers=skip
-            )
-            _apply_buyer_legal_reg_identifier_type_dropdown_context(
-                ws, header_row, data_row + i, field_name
             )
 
     # Cross-clear optional fields (unset via clear_cell_optional, never '') so template leftovers
@@ -1788,8 +1895,16 @@ def _electronic_tin_for_worker_index(worker_index: int) -> str:
 
 
 def _worker_vat_for_electronic(worker_el: str) -> str:
-    """Oman VATIN equals electronic address (no UAE `{tin}00003` suffix)."""
+    """Oman VATIN equals the worker slot (no UAE `{tin}00003` suffix)."""
     return worker_el
+
+
+def _oman_electronic_address_from_worker_vat(worker_vat: str) -> str:
+    """Peppol electronic address is lowercase Oman VATIN (`om1108202600`)."""
+    s = str(worker_vat).strip()
+    if len(s) == 12 and s[:2].upper() == "OM" and s[2:].isdigit():
+        return s.lower()
+    return s
 
 
 def _counterparty_electronic_address() -> str:
@@ -1836,8 +1951,10 @@ def _apply_parallel_worker_identity_to_row(
     inv_type = _read_data_row_text(ws, data_row, header_map, "Invoice Type Code")
     txn_type = _read_data_row_text(ws, data_row, header_map, "Invoice Transaction Type Code")
 
-    worker_el = _electronic_tin_for_worker_index(worker_index)
-    worker_vat = _worker_vat_for_electronic(worker_el)
+    worker_vat = _worker_vat_for_electronic(
+        _electronic_tin_for_worker_index(worker_index)
+    )
+    worker_el = _oman_electronic_address_from_worker_vat(worker_vat)
     t_inv = " ".join(inv_type.split()).strip().lower()
     t_txn = " ".join(txn_type.split()).strip().lower()
     self_billed = "self-billed" in t_inv or "self billed credit" in t_inv
@@ -2176,11 +2293,6 @@ def _run_write_regression_batch(
                 _set_by_header_name(ws, header_row, row_number, str(key), value)
 
             tax_after_write = cell_value(ws, row_number, header_map, FIELD_TAX_CATEGORY)
-            if normalize_category(tax_after_write) == normalize_category(
-                VAT_REVERSE_CHARGE_TAX_CATEGORY
-            ):
-                for hdr in DOCUMENT_LEVEL_CLEARED_FOR_VAT_REVERSE_CHARGE:
-                    _set_by_header_name(ws, header_row, row_number, hdr, "")
             if is_exempt_from_tax_tax_category(tax_after_write):
                 _apply_exempt_from_tax_blank_tax_fields(
                     ws,
@@ -2322,6 +2434,12 @@ def main() -> None:
         return
     if command == "apply_calculations":
         cmd_apply_calculations(args)
+        return
+    if command == "expand_invoice_lines":
+        cmd_expand_invoice_lines(args)
+        return
+    if command == "expand_single_item_invoices":
+        cmd_expand_single_item_invoices(args)
         return
     if command == "read_e_invoice_headers":
         cmd_read_e_invoice_headers(args)

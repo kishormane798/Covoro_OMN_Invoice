@@ -7,7 +7,13 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { buildValidOmanFullTaxInvoiceRow, expandRowByMultiValueSpec, applyOmanDeliveryOverlay } from "./conditionalValidationHelper";
+import {
+  applyOmanDeliveryOverlay,
+  applyPartyIdentifiersByTxnType,
+  applySpecialZonePositiveCompanions,
+  buildValidOmanFullTaxInvoiceRow,
+  expandRowByMultiValueSpec,
+} from "./conditionalValidationHelper";
 import {
   applyDependentOverlay,
   applyOmanSellerBuyerIdentity,
@@ -1288,6 +1294,9 @@ export function applyConditionalTriggerOverlay(
     row["Tax Category"] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
     row["Tax Rate"] = "";
   }
+  if (blob.includes("special zone")) {
+    row["Invoice Transaction Type Code"] = FV.TXN_SPECIAL_ZONE_SUPPLIES;
+  }
   // Export + Export of Services (IBR-012 / IBR-013 / IBR-155) trigger overlay.
   if (
     (tc.ruleId || "").trim().toUpperCase() === "IBR-012-OM" ||
@@ -1371,7 +1380,14 @@ export function applyConditionalTriggerOverlay(
   }
   normalizeTaxCategoryFieldsInRow(row);
 
-  return applyOmanSellerBuyerIdentity(row);
+  const withTxnCompanions = applySpecialZonePositiveCompanions(
+    applyPartyIdentifiersByTxnType(row)
+  );
+  const asString: Record<string, string> = {};
+  for (const [key, value] of Object.entries(withTxnCompanions)) {
+    asString[key] = value == null ? "" : String(value);
+  }
+  return applyOmanSellerBuyerIdentity(asString);
 }
 
 async function resolvePatchHeader(

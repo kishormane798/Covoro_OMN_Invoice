@@ -19,7 +19,10 @@ import {
   mergeDropdownFieldConfigs,
 } from "../testData/FieldValidations/TestDataConfig";
 import { InvalidTestData } from "../testData/Master";
-import { generateFullRowDropdownFieldExcel } from "../utils/excel/invoiceExcel";
+import {
+  generateDistinctSubmitInvoices,
+  generateFullRowDropdownFieldExcel,
+} from "../utils/excel/invoiceExcel";
 import {
   PACK_ROOT,
   sectionFolderName,
@@ -27,6 +30,8 @@ import {
   dropdownFieldSection,
   resolveDropdownTemplateField,
 } from "../Helpers/excel/fieldValidationExcelPackHelper";
+import { applyInvoiceTransactionTypeDropdownColumns } from "../Helpers/excel/omanFieldValidationExcelHelper";
+import { invoiceTransactionTypeValidTestData } from "../testData/Master/Master.omnCore";
 
 function casingVariants(label: string): string[] {
   const s = String(label ?? "").trim();
@@ -61,6 +66,21 @@ function templateFieldName(matrixOrConfigField: string): string {
   return resolveDropdownTemplateField(matrixOrConfigField);
 }
 
+function isInvoiceTransactionTypeCodeField(field: string): boolean {
+  return (
+    field.replace(/\s+/g, " ").trim().toLowerCase() ===
+    "invoice transaction type code"
+  );
+}
+
+function resolveTxnMasterLabel(value: string): string {
+  const n = value.replace(/\s+/g, " ").trim().toLowerCase();
+  const hit = invoiceTransactionTypeValidTestData.find(
+    (item) => item.label.replace(/\s+/g, " ").trim().toLowerCase() === n
+  );
+  return hit?.label ?? value;
+}
+
 async function writePackWorkbook(opts: {
   section: string;
   fieldForWrite: string;
@@ -75,12 +95,32 @@ async function writePackWorkbook(opts: {
   fs.mkdirSync(dir, { recursive: true });
 
   const baseRow = buildOmanDropdownBaseRow(fieldForWrite);
-  const files = await generateFullRowDropdownFieldExcel(
-    fieldForWrite,
-    values.map((label) => ({ label })),
-    baseRow,
-    { fileNamePrefix: `${safeFilePart(fieldForWrite)}_${bucket}_${Date.now()}` }
-  );
+  const files =
+    isInvoiceTransactionTypeCodeField(fieldForWrite) &&
+    bucket === "dropdown_positive"
+      ? [
+          await generateDistinctSubmitInvoices(
+            values.map((value) => {
+              const row = applyInvoiceTransactionTypeDropdownColumns(
+                { ...baseRow },
+                resolveTxnMasterLabel(value)
+              );
+              row[fieldForWrite] = value;
+              return row;
+            }),
+            {
+              fileName: `${safeFilePart(fieldForWrite)}_${bucket}_${Date.now()}.xlsx`,
+            }
+          ),
+        ]
+      : await generateFullRowDropdownFieldExcel(
+          fieldForWrite,
+          values.map((label) => ({ label })),
+          baseRow,
+          {
+            fileNamePrefix: `${safeFilePart(fieldForWrite)}_${bucket}_${Date.now()}`,
+          }
+        );
 
   let written = 0;
   for (let i = 0; i < files.length; i++) {

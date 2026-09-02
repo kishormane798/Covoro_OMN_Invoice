@@ -16,6 +16,7 @@ import { defaultInvoiceData } from "../../testData/FieldValidations/Min_max_fiel
 import * as FV from "../../testData/FieldValidations/ConditionalValidation";
 import {
   applyPartyIdentifiersByTxnType,
+  applySpecialZonePositiveCompanions,
   buildVatCategoryTaxAmountE09ScenarioRow,
   buildVatCategoryTaxAmountO09ScenarioRow,
   buildVatCategoryTaxAmountZ09ScenarioRow,
@@ -756,7 +757,9 @@ export function buildFormulaSubmitRow(
 
   const seed = buildOmanFullTaxSubmitSeedRow();
   const merged = overlayHeaderValues(seed, overlay);
-  const withTxn = asStringRow(applyPartyIdentifiersByTxnType(merged));
+  const withTxn = asStringRow(
+    applySpecialZonePositiveCompanions(applyPartyIdentifiersByTxnType(merged))
+  );
   const applyWorkerIdentity = options?.applyWorkerIdentity !== false;
   const identified = applyWorkerIdentity
     ? applyParallelWorkerIdentityToSubmitRow(withTxn)

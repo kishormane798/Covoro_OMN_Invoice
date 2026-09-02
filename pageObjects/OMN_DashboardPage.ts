@@ -882,11 +882,9 @@ export class DashboardPage {
     await this.expectCreateInvoiceEditorLoaded();
     const document = this.page.locator('section.invoice-content-section[data-id="1"]');
     await expect(document.locator("#invNum")).toBeVisible({ timeout: 30_000 });
+    const footer = document.locator(".form-action-footer, .form-footer");
     await expect(
-      document
-        .locator(".form-footer")
-        .getByRole("button", { name: "Save" })
-        .or(document.locator(".form-footer").getByRole("button", { name: "Update" }))
+      footer.getByRole("button", { name: "Save" }).or(footer.getByRole("button", { name: "Update" }))
     ).toBeVisible();
   }
 

@@ -3,8 +3,8 @@
  * in `invoice_excel_writer.py` (`_apply_parallel_worker_identity_to_row`).
  *
  * Default slots: `OM1108202600` … `OM1108202604`. Optional `UAE_EINVOICE_SELLER_TIN_SLOTS`
- * (comma-separated) overrides that list. Electronic address and TRN/TIN are the same VATIN
- * (no UAE numeric TIN or `00003` suffix).
+ * (comma-separated) overrides that list. TRN/TIN stays the OM-prefixed VATIN; Peppol
+ * electronic address is the same value in lowercase (`om1108202600`).
  */
 
 import {
@@ -82,7 +82,7 @@ export function isParallelWorkerIdentityEnabled(): boolean {
 }
 
 /**
- * Worker electronic address (Oman VATIN) for a Playwright worker index or slot (0–4).
+ * Worker dashboard / VATIN for a Playwright worker index or slot (0–4).
  * Uses `UAE_EINVOICE_SELLER_TIN_SLOTS` when set; else `OM1108202600` … `OM1108202604`.
  * `getParallelWorkerIndex()` already returns a slot; passing it here is correct.
  */
@@ -90,6 +90,12 @@ export function electronicTinForParallelIndex(parallelIndex: number): string {
   const slot = parallelWorkerTinSlot(parallelIndex);
   const slots = sellerTinSlots();
   return slots[slot % slots.length];
+}
+
+/** Peppol electronic address for an Oman worker VATIN (`OM1108202600` → `om1108202600`). */
+export function omanElectronicAddressFromWorkerTin(vat: string): string {
+  const s = vat.trim();
+  return /^OM\d{10}$/i.test(s) ? s.toLowerCase() : s;
 }
 
 /**
@@ -121,8 +127,8 @@ export function parallelWorkerDashboardOpenOpts(options?: {
 }
 
 /**
- * Worker TRN/TIN for Excel/UI rows. Oman VATIN equals electronic address
- * (`OM1108202604`, not a numeric TIN + `00003`).
+ * Worker TRN/TIN for Excel/UI rows. Oman VATIN stays `OM1108202604` (dashboard card);
+ * Peppol electronic address is the lowercase form (`om1108202604`).
  */
 export function workerVatIdentifierForParallelIndex(parallelIndex?: number): string {
   return electronicTinForParallelIndex(parallelIndex ?? getParallelWorkerIndex());
@@ -148,8 +154,8 @@ export function applyParallelWorkerIdentityToSubmitRow(
   }
 
   const workerIndex = getParallelWorkerIndex();
-  const workerEl = electronicTinForParallelIndex(workerIndex);
   const workerVat = workerVatIdentifierForParallelIndex(workerIndex);
+  const workerEl = omanElectronicAddressFromWorkerTin(workerVat);
   const counterpartyEl = getCounterpartyElectronicAddress();
 
   const invType = normalizeSubmitInvoiceType(data["Invoice Type Code"]);

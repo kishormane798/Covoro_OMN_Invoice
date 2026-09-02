@@ -43,8 +43,8 @@ function masterLabelIncluding(
  * Standard-rate / Goods conditional rules (clears CN/import/exemption/charge fields).
  */
 export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
-  // Oman portal: EAS 0248 / Oman VATIN scheme; seller electronic + VATIN OM-prefixed;
-  // buyer electronic is Peppol receiver ID.
+  // Oman portal: EAS 0248 / Oman VATIN scheme; seller VATIN OM-prefixed;
+  // seller electronic is lowercase Peppol ID; buyer electronic is Peppol receiver ID.
   const electronicScheme =
     "Oman Value Added Tax Identification Number (VATIN)";
   const uom = masterLabelIncluding(
@@ -61,8 +61,8 @@ export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
     "Extraction of crude petroleum"
   );
 
-  // Electronic address + VATIN: OM-prefixed values (12 chars; fieldValidationMandatory / conditional).
-  const sellerElectronic = "OM1108202600";
+  // Electronic address: lowercase Peppol ID; VATIN stays OM-prefixed (12 chars).
+  const sellerElectronic = "om1108202600";
   const buyerElectronic = "om-receiver-dev";
   const sellerVat = "OM1108202600";
   const buyerVat = "OM1000091919";
@@ -299,7 +299,7 @@ function getSeedInvoiceRow(): Record<string, string> {
  * IBR-150-OM: Special Zone Supplies requires seller + buyer country subdivision (CL-13-OM).
  * Uses a free-zone label (not Mainland) so IBR-151/152 Special Zone License rules still apply.
  */
-function applySpecialZoneCountrySubdivisions(
+export function applySpecialZoneCountrySubdivisions(
   row: Record<string, string | null>
 ): Record<string, string | null> {
   const subdivision = masterLabelIncluding(
@@ -312,6 +312,21 @@ function applySpecialZoneCountrySubdivisions(
     "Seller country subdivision code": subdivision,
     "Buyer country subdivision code": subdivision,
   };
+}
+
+/**
+ * Positive Special Zone Supplies companions: CL-13 subdivisions (IBR-150-OM)
+ * plus Seller identifier + ICD scheme (IBR-007-OM). Textual code stays empty
+ * (XOR). Call after Invoice Transaction Type Code is Special Zone Supplies.
+ */
+export function applySpecialZonePositiveCompanions(
+  row: Record<string, string | null>
+): Record<string, string | null> {
+  const txn = String(row[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] ?? "").trim();
+  if (txn !== FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    return row;
+  }
+  return applyPartyIdentifiersByTxnType(applySpecialZoneCountrySubdivisions(row));
 }
 
 /** IBR-007-OM seller scheme/identifier txn types. */
@@ -1197,15 +1212,13 @@ export function buildSpecialZoneCountrySubdivisionScenarioRow(
   scenario: FV.SpecialZoneCountrySubdivisionScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  const row = applyPartyIdentifiersByTxnType({
+  const row = applySpecialZonePositiveCompanions({
     ...seed,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
       scenario.invoiceTransactionTypeCode,
   });
-  // IBR-151/152 companions so subdivision polarities are the only IBR-150 probe.
-  row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
-  row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
-  row[FV.SELLER_IDENTIFIER_FIELD] = "SZ-LIC-001";
+  // IBR-152 buyer companion so subdivision polarities are the only IBR-150 probe.
+  // Seller keeps IBR-007 ICD scheme + identifier (textual SZLN fails IBR-007).
   row[FV.BUYER_IDENTIFIER_SCHEME_FIELD] = "";
   row[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] = FV.SPECIAL_ZONE_LICENSE_SCHEME;
   row[FV.BUYER_IDENTIFIER_FIELD] = "SZ-BUYER-001";

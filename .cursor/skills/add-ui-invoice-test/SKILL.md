@@ -1,92 +1,72 @@
 ---
 name: add-ui-invoice-test
-description: Add Create Invoice UI tests (manual form, not Excel upload). Use when adding UI field validation, min/max, dropdowns, formula, conditional, or master buyer/item scenarios.
+description: Add Create Invoice UI tests (manual form, not Excel upload). Use when adding UI field validation, min/max, formula, or conditional on Create / Edit / Copy.
 ---
 
 # Add UI Invoice Test
 
 ## When to use
 
-- Testing the Create Invoice UI (manual entry), not Excel upload flows
-- Field validation, min/max, dropdowns, formulas, conditional rules on the SPA form
+- Testing the Create / Edit / Copy Invoice UI (manual entry), not Excel upload flows
+- Field validation, min/max, formulas, or conditional rules on the SPA form
 
 ## Project and entry specs
 
 - UI specs run on Playwright project **`chromium-ui`** (see `playwright.config.ts`).
-- Main specs:
-  - `tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts`
-  - `tests/KISHOR_UI/OMN_UIMaster_BuyerAndItem_Test.spec.ts`
-  - `tests/KISHOR_UI/OMN_UISubmitInvoice_Test.spec.ts`, `OMN_UISubmitInvoice_MultiItem_Test.spec.ts`
+- Specs:
+  - Field min/max (no dropdowns) + formula: `OMN_UIInvoice_{Create,Edit,Copy}_Test.spec.ts`
+  - Conditional (including dropdown-style; all Excel rows, one test each): `OMN_UIInvoice_Conditional_{Create,Edit,Copy}_Test.spec.ts`
 
 ```bash
 npm run test:ui
-npm run test:ui:submit
 ```
 
 ## Layer map
 
 | Concern | Location |
 |---------|----------|
-| Locators & UI actions | `pageObjects/OMN_UIInvoiceCreationManualPage.ts`, `UIMasterBuyerAndItemPage.ts` |
-| Flow orchestration | `Helpers/ui*Helper.ts` (e.g. `uiMinMaxHelper`, `uiDropdownHelper`, `uiInvoiceCreationConditionalHelper`) |
-| Scenarios & rules | `testData/ui/uiInvoiceCreation*.ts`, `uiMaster*.ts` |
-| MUI autocomplete | `Helpers/uiMuiAutocompleteHelper.ts` |
-| Submit from UI | `Helpers/uiSubmitInvoiceHelper.ts` |
+| Locators & UI actions | `pageObjects/OMN_UIInvoiceManualPage.ts` |
+| Flow orchestration | `Helpers/ui/omnUiInvoiceHelper.ts`, `omnUiInvoiceEntryHelper.ts` |
+| Binders | `Helpers/ui/omnUiInvoiceSpec.ts` |
+| Min/max + mapped conditionals | `testData/ui/omnUiInvoiceValidation.ts` |
+| Conditional rules source | `testData/FieldValidations/ConditionalValidation.ts` |
+
+Section persist uses the same **Save** / **Update** `.form-footer` pattern as UAE (Create → Save, Edit/Copy → Update).
 
 ## Workflow
 
 ### 1. Add scenario data first
 
-Put configs in the appropriate `testData/ui/ui*` file:
-
-- Min/max: `uiInvoiceCreationConfig.ts`, `uiMasterFieldMinMax.ts`
-- Conditional: `uiInvoiceCreationConditionalValidation.ts`
-- Formula: `uiInvoiceCreationFormulaValidation.ts`
-- Dropdowns: `uiInvoiceCreationDropdowns.ts`
+- Min/max: `omnUiInvoiceValidation.ts` (Excel length rows). Mark dropdown fields with `dropdown: true` so they are skipped.
+- Conditional: map from `ConditionalValidation.ts` into `OMN_UI_CONDITIONAL_SCENARIOS` (dropdown-style rows included; every row is a test in the same Conditional spec).
+- Formula: `invoiceFormulaTestData` filtered in `omnUiInvoiceValidation.ts`
 
 ### 2. Add or reuse helper function
 
-Specs should call one helper, e.g.:
+Specs call `bindOmnUiInvoiceSuite(entry)` / `bindOmnUiConditionalSuite(entry)`.
 
-- `runUiInvoiceCreationMinMaxCase`
-- `runUiInvoiceCreationConditionalScenario`
-- `runUiInvoiceCreationFormulaScenario`
-- `runUiInvoiceCreationBuyerDropdownsSaveCase`
-
-New UI interaction logic goes in **Page Object**, not spec.
+New UI interaction logic goes in the **page object**, not the spec.
 
 ### 3. Spec pattern
 
 ```ts
-import { test } from "../Src/baseTest";
-import { UIInvoiceCreationManualPage } from "../pageObjects/OMN_UIInvoiceCreationManualPage";
+import { bindOmnUiConditionalSuite } from "../../Helpers/ui/omnUiInvoiceSpec";
 
-test.describe("Create Invoice UI — ...", () => {
-  test.describe.configure({
-    mode: "parallel",
-    timeout: UI_INVOICE_CREATION_TEST_TIMEOUT_MS,
-  });
-
-  test("Create Invoice UI | Section | condition → outcome", async ({ page }) => {
-    await runUiInvoiceCreationMinMaxCase(page, rule, variant);
-  });
-});
+bindOmnUiConditionalSuite("create");
 ```
 
 ### 4. Test title format
 
 ```
-Create Invoice UI | {Section/Area} | {field or rule} | {condition} → {outcome}
+Create Invoice UI | {Section} | {field or rule} | {condition} → {outcome}
 ```
-
-### 5. Large page object
-
-`UIInvoiceCreationManualPage.ts` is large — add methods there for new locators; keep specs and helpers thin.
 
 ## Checklist
 
-- [ ] Scenario data in `testData/FieldValidations/`
+- [ ] Conditional cases come from `ConditionalValidation.ts` (do not invent opposite polarities)
+- [ ] Empty/blank UI cases clear the field if it already has a value (Edit/Copy prefill)
+- [ ] Whitespace uses real space characters, never Excel `="        "` formulas
+- [ ] Dropdown-style Excel rows each get their own test in the same Conditional spec
 - [ ] New selectors only in `pageObjects/`
-- [ ] Describe uses `UI_INVOICE_CREATION_TEST_TIMEOUT_MS` where needed
-- [ ] MUI fields use existing autocomplete helpers
-- [ ] Run `npm run test:ui` or grep single test
+- [ ] Section commit uses Save (create) or Update (edit/copy)
+- [ ] Do not modify `Helpers/excel/**` or `utils/excel/**` for UI work

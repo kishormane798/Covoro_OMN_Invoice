@@ -3,10 +3,11 @@
 #   Morning 05:45 IST starts the full field suite.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
 #   starts the next suite: field → conditional → formula, then stops.
-#   Submit is never part of that wave — not after formula, and not when chain is on.
+#   Submit and UI are never part of that wave — not after formula, and not when chain is on.
 #   Submit is Run workflow only: pick covoro_submit_single or covoro_submit_multi.
-#   Leave "chain" off for one-off field/formula/conditional/submit runs.
-#   Chain on continues field→conditional→formula only; it never starts submit.
+#   UI is Run workflow only: pick covoro_ui_create, covoro_ui_conditional_create, covoro_ui_edit, or covoro_ui_copy.
+#   Leave "chain" off for one-off field/formula/conditional/submit/UI runs.
+#   Chain on continues field→conditional→formula only; it never starts submit or UI.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
@@ -27,8 +28,12 @@ on:
           - covoro_conditional
           - covoro_submit_single
           - covoro_submit_multi
+          - covoro_ui_create
+          - covoro_ui_conditional_create
+          - covoro_ui_edit
+          - covoro_ui_copy
       chain:
-        description: "Leave off for one-off runs. On = continue field→conditional→formula only. Never starts submit."
+        description: "Leave off for one-off runs. On = continue field→conditional→formula only. Never starts submit or UI."
         required: false
         type: boolean
         default: false
@@ -38,6 +43,10 @@ run-name: >-
       || github.event.inputs.suite == 'covoro_formula' && 'Formula validation'
       || github.event.inputs.suite == 'covoro_submit_single' && 'Submit single'
       || github.event.inputs.suite == 'covoro_submit_multi' && 'Submit multi-item'
+      || github.event.inputs.suite == 'covoro_ui_create' && 'UI create'
+      || github.event.inputs.suite == 'covoro_ui_conditional_create' && 'UI conditional create'
+      || github.event.inputs.suite == 'covoro_ui_edit' && 'UI edit'
+      || github.event.inputs.suite == 'covoro_ui_copy' && 'UI copy'
       || github.event.inputs.suite == 'covoro_conditional' && 'Conditional validation'
       || 'Field validation' }}
 
@@ -98,6 +107,7 @@ jobs:
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
       spec: ${{ steps.plan.outputs.spec }}
+      project: ${{ steps.plan.outputs.project }}
       shard_total: ${{ steps.plan.outputs.shard_total }}
       shard_indices: ${{ steps.plan.outputs.shard_indices }}
       shard_size: ${{ steps.plan.outputs.shard_size }}
@@ -216,15 +226,16 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
 
-      - name: Run Playwright — Covoro field / formula / conditional / submit
+      - name: Run Playwright — Covoro field / formula / conditional / submit / UI
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-full.json
           PW_WORKERS: "5"
         run: |
           SPEC="${{ needs.resolve.outputs.spec }}"
+          PROJECT="${{ needs.resolve.outputs.project }}"
           set -e
-          echo "Running full suite (no shard) on ${SPEC}"
-          npx playwright test "$SPEC" --project=chromium
+          echo "Running full suite (no shard) on ${SPEC} --project=${PROJECT}"
+          npx playwright test "$SPEC" --project="$PROJECT"
 
       - name: Report name (matches run name)
         id: report
@@ -237,6 +248,10 @@ jobs:
             covoro_formula) LABEL="Formula validation" ;;
             covoro_submit_single) LABEL="Submit single" ;;
             covoro_submit_multi) LABEL="Submit multi-item" ;;
+            covoro_ui_create) LABEL="UI create" ;;
+            covoro_ui_conditional_create) LABEL="UI conditional create" ;;
+            covoro_ui_edit) LABEL="UI edit" ;;
+            covoro_ui_copy) LABEL="UI copy" ;;
             covoro_conditional) LABEL="Conditional validation" ;;
             *) LABEL="Playwright ${MODE}" ;;
           esac
@@ -261,6 +276,15 @@ jobs:
         with:
           name: ${{ steps.report.outputs.label }}
           path: ${{ steps.report.outputs.label }}.html
+          retention-days: 2
+          if-no-files-found: ignore
+
+      - name: Upload UI videos (failures only)
+        if: always() && startsWith(needs.resolve.outputs.mode, 'covoro_ui_')
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.report.outputs.label }} videos
+          path: test-results/**/*.webm
           retention-days: 2
           if-no-files-found: ignore
 
@@ -438,9 +462,9 @@ jobs:
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             SUITE="$INPUT_SUITE"
 
-            # Submit is manual-only and never joins the field→conditional→formula wave.
-            if [ "$SUITE" = "covoro_submit_single" ] || [ "$SUITE" = "covoro_submit_multi" ]; then
-              echo "Submit suite $SUITE finished (full spec). Not chaining."
+            # Submit and UI are manual-only and never join the field→conditional→formula wave.
+            if [ "$SUITE" = "covoro_submit_single" ] || [ "$SUITE" = "covoro_submit_multi" ] || [[ "$SUITE" == covoro_ui_* ]]; then
+              echo "Manual-only suite $SUITE finished (full spec). Not chaining."
               exit 0
             fi
 
@@ -462,7 +486,7 @@ jobs:
               NEXT_SUITE="covoro_formula"
               ;;
             covoro_formula)
-              echo "Formula suite finished — wave complete. Submit is not started (manual Run workflow only, even if chain is on)."
+              echo "Formula suite finished — wave complete. Submit and UI are not started (manual Run workflow only, even if chain is on)."
               exit 0
               ;;
             *)
@@ -471,9 +495,9 @@ jobs:
               ;;
           esac
 
-          # Hard stop: field/conditional/formula wave never queues submit.
-          if [ "$NEXT_SUITE" = "covoro_submit_single" ] || [ "$NEXT_SUITE" = "covoro_submit_multi" ]; then
-            echo "Submit is manual-only — refusing to queue $NEXT_SUITE after $SUITE (chain does not start submit)."
+          # Hard stop: field/conditional/formula wave never queues submit or UI.
+          if [ "$NEXT_SUITE" = "covoro_submit_single" ] || [ "$NEXT_SUITE" = "covoro_submit_multi" ] || [[ "$NEXT_SUITE" == covoro_ui_* ]]; then
+            echo "Submit/UI are manual-only — refusing to queue $NEXT_SUITE after $SUITE (chain does not start them)."
             exit 0
           fi
 
