@@ -200,6 +200,8 @@ function fromExcel(
     altInputIds?: readonly string[];
     dropdown?: boolean;
     excelPartyIdentity?: boolean;
+    /** When the UI gate that enables this field also makes it required. */
+    requiredOnForm?: boolean;
   }
 ): OmnUiFieldRule {
   const row = rows.find((r) => r.field === excelField);
@@ -217,7 +219,7 @@ function fromExcel(
     belowMin: row.belowMin,
     aboveMax: row.aboveMax,
     excelPresence,
-    requiredOnForm: excelPresence === "mandatory",
+    requiredOnForm: options?.requiredOnForm ?? excelPresence === "mandatory",
     kind: options?.kind ?? "text",
     dropdown: options?.dropdown,
     excelPartyIdentity: options?.excelPartyIdentity,
@@ -339,13 +341,17 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
     "Preceding Invoice reference",
     "document",
     "proceedingDtls[0].invoiceReference",
-    fieldValidationConditional
+    fieldValidationConditional,
+    // ALIGNED-IBRP-028-OM / IBR-032-OM: enabled and required on Credit note.
+    { requiredOnForm: true }
   ),
   fromExcel(
     "Unique Identifier Number",
     "document",
     "proceedingDtls[0].uniqueIdentifierNumber",
-    fieldValidationConditional
+    fieldValidationConditional,
+    // IBR-032-OM: enabled and required on Credit note with the preceding trio.
+    { requiredOnForm: true }
   ),
 
   fromExcel("Seller name", "seller", "name", fieldValidationMandatory, {

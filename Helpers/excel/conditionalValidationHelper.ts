@@ -1184,9 +1184,9 @@ export function buildSpecialZoneSellerScenarioRow(
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
       scenario.invoiceTransactionTypeCode,
   });
-  // Scenario values win (including empty seller identifier for error cases).
-  // XOR: Special Zone License Number is Oman textual code, not ICD scheme.
-  row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = "";
+  // Scenario values win (including empty fields for omit-one Not Allowed).
+  // non-MO: scheme + textual SZLN + identifier. MO: scheme + identifier only.
+  row[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = scenario.sellerIdentifierScheme;
   row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
     scenario.sellerIdentifierTextualCode;
   row[FV.SELLER_IDENTIFIER_FIELD] = scenario.sellerIdentifier;
@@ -2813,13 +2813,19 @@ export function buildBuyerIdentifierSchemeScenarioRow(
   }
   // Free-zone subdivisions for Special Zone and wrong-target Full Tax + SZLN
   // (clone Allowed; only txn differs). Import of Goods leaves seed blank.
+  // Mainland exception overrides buyer subdivision after the Sohar default.
+  let next = row;
   if (
     scenario.invoiceTransactionTypeCode === FV.TXN_SPECIAL_ZONE_SUPPLIES ||
     scenario.buyerIdentifierScheme === FV.SPECIAL_ZONE_LICENSE_SCHEME
   ) {
-    return applySpecialZoneCountrySubdivisions(row);
+    next = applySpecialZoneCountrySubdivisions(row);
   }
-  return row;
+  if (scenario.buyerCountrySubdivisionCode !== undefined) {
+    next[FV.BUYER_COUNTRY_SUBDIVISION_CODE_FIELD] =
+      scenario.buyerCountrySubdivisionCode;
+  }
+  return next;
 }
 
 /**

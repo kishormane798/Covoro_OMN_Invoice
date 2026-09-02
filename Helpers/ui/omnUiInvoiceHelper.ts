@@ -1,6 +1,5 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "../../Src/baseTest";
-import { terminalLog } from "../diagnosticLog";
 import { OMN_UIInvoiceManualPage } from "../../pageObjects/OMN_UIInvoiceManualPage";
 import {
   getCounterpartyElectronicAddress,
@@ -25,6 +24,7 @@ import {
   OMN_UI_HS_CODE,
   OMN_UI_INVOICE_FORMULA_KEYS,
   OMN_UI_INVOICE_TYPE_COMMERCIAL,
+  OMN_UI_INVOICE_TYPE_CREDIT_NOTE,
   OMN_UI_INVOICE_TYPE_SELF_BILLED,
   OMN_UI_ITEM_FORMULA_KEYS,
   OMN_UI_ITEM_TYPE_GOODS,
@@ -46,6 +46,10 @@ import {
   type OmnUiMinMaxVariant,
   type OmnUiSection,
 } from "../../testData/ui/omnUiInvoiceValidation";
+import {
+  CREDIT_DEBIT_REASON_SAMPLE,
+  PRECEDING_INVOICE_UUID_SAMPLE,
+} from "../../testData/FieldValidations/ConditionalValidation";
 import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -179,7 +183,6 @@ async function selectOmanPeppolScheme(
 ): Promise<void> {
   await invoice.selectAutocomplete(section, "peppolSchemeIdentifier", OMAN_PEPPOL_VATIN_SCHEME_LABEL);
   const actual = await invoice.readInputValue(section, "peppolSchemeIdentifier");
-  terminalLog(`[OmnUiIdentity] peppol scheme ${section} actual=${actual || "(empty)"}`);
   expect(actual, `${section} electronic address scheme should be Oman VATIN`).toMatch(
     OMAN_PEPPOL_VATIN_SCHEME
   );
@@ -201,9 +204,6 @@ async function writePartyIdentity(
     await invoice.dismissOpenDropdown();
   }
   const actual = await invoice.readInputValue(section, inputId, altInputIds);
-  terminalLog(
-    `[OmnUiIdentity] typed ${section}.${inputId} intended=${value} actual=${actual || "(empty)"}`
-  );
   expect(actual, `${section}.${inputId} should be entered`).toBe(value);
 }
 
@@ -260,13 +260,6 @@ async function ensurePartyBaseline(
   const vat = section === "seller" ? identity.sellerVat : identity.buyerVat;
   const electronic =
     section === "seller" ? identity.sellerElectronic : identity.buyerElectronic;
-  terminalLog(
-    `[OmnUiIdentity] ${section} worker=${workerVat()} workerEl=${workerElectronic()} ` +
-      `types=${knownTypes?.invoiceTypeCode ?? "(read-form)"}/${knownTypes?.invoiceTransactionTypeCode ?? "(read-form)"} ` +
-      `seller=${identity.sellerVat}/${identity.sellerElectronic} ` +
-      `buyer=${identity.buyerVat}/${identity.buyerElectronic} ` +
-      `willTypeVat=${vat} willTypeEl=${electronic}`
-  );
   const partyName = section === "seller" ? "Seller Co" : "Buyer Co";
   const vatAlts = section === "seller" ? ["sellerVatIdentifier"] : [];
   const electronicAlts =
@@ -564,6 +557,35 @@ async function commitSection(
   await invoice.clickSectionCommit(section, entry);
 }
 
+function isPrecedingInvoiceLengthField(rule: OmnUiFieldRule): boolean {
+  return rule.inputId === OMN_UI_PRECEDING_REF_ID || rule.inputId === OMN_UI_PRECEDING_UUID_ID;
+}
+
+/**
+ * ALIGNED-IBRP-028-OM / IBR-032-OM: Credit note enables preceding ref, date, and UUID.
+ * Fill the other required trio fields so length tests are not blocked by presence rules.
+ */
+async function enablePrecedingInvoiceMinMaxFields(
+  invoice: OMN_UIInvoiceManualPage,
+  rule: OmnUiFieldRule
+): Promise<void> {
+  if (!isPrecedingInvoiceLengthField(rule)) return;
+
+  await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_CREDIT_NOTE);
+  await invoice.expectInputDisabled("document", OMN_UI_PRECEDING_REF_ID, false);
+  await invoice.expectInputDisabled("document", OMN_UI_PRECEDING_DATE_ID, false);
+  await invoice.expectInputDisabled("document", OMN_UI_PRECEDING_UUID_ID, false);
+  await invoice.selectAutocomplete("document", "creditNoteRsn", CREDIT_DEBIT_REASON_SAMPLE);
+
+  if (rule.inputId !== OMN_UI_PRECEDING_REF_ID) {
+    await invoice.replaceInput("document", OMN_UI_PRECEDING_REF_ID, "INV-PREV-MM");
+  }
+  await invoice.fillDate("document", OMN_UI_PRECEDING_DATE_ID, "2026-01-15");
+  if (rule.inputId !== OMN_UI_PRECEDING_UUID_ID) {
+    await invoice.replaceInput("document", OMN_UI_PRECEDING_UUID_ID, PRECEDING_INVOICE_UUID_SAMPLE);
+  }
+}
+
 export async function runOmnUiMinMaxCase(
   page: Page,
   entry: OmnUiEntry,
@@ -574,6 +596,7 @@ export async function runOmnUiMinMaxCase(
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   // Fill every field in the section first, then overwrite the field under test.
   await ensureSectionBaseline(invoice, rule.section, entry, new Set(), uniqueKey);
+  await enablePrecedingInvoiceMinMaxFields(invoice, rule);
 
   if (await invoice.isInputDisabled(rule.section, rule.inputId, rule.altInputIds)) {
     test.skip(true, `${rule.field} is disabled on ${entry}`);
