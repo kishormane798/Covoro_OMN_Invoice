@@ -531,6 +531,20 @@ export const IBR_040_OM_INVOICE_TYPES = [
   INVOICE_TYPE_DEBIT_NOTE,
 ] as const;
 
+/**
+ * IBR-174-OM: two invoice types (Commercial 380 / Credit note 381) and two
+ * txn types (Full Tax / Simplified). Simplified has no IBR-174 exception.
+ */
+export const IBR_174_OM_INVOICE_TYPES = [
+  INVOICE_TYPE_COMMERCIAL_INVOICE,
+  INVOICE_TYPE_CREDIT_NOTE,
+] as const;
+
+export const IBR_174_OM_TXN_TYPES = [
+  TXN_FULL_TAX_INVOICE,
+  TXN_SIMPLIFIED_TAX_INVOICE,
+] as const;
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -916,6 +930,8 @@ export type ItemTypeRequiredScenario = OmanConditionalScenario & {
 
 export type GoodsClassificationScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
+  /** Master Invoice Type Code (IBT-003). Default Commercial in the builder. */
+  invoiceTypeCode?: string;
   itemType: string;
   itemClassificationIdentifier: string;
 };
@@ -3441,35 +3457,66 @@ export const GOODS_CLASSIFICATION_SCENARIOS: GoodsClassificationScenario[] = [
   },
 ];
 
-/** IBR-174-OM: Goods (BTOM-019 = G) → IBT-158 must be from the ROP Customs HS list. */
+/**
+ * IBR-174-OM: Goods (BTOM-019 = G) → IBT-158 must be from the ROP Customs HS list.
+ * Allowed + not-on-list: Commercial invoice / Credit note × Full Tax / Simplified.
+ * Empty HS stays on Full Tax only so IBR-079-OM Simplified empty-accepted is not contradicted.
+ * Services + not-on-list HS still errors (list check applies when IBT-158 is present).
+ */
 export const HS_CODE_FROM_ROP_LIST_SCENARIOS: GoodsClassificationScenario[] = [
+  ...expandAcrossOmnInvoiceAndTxnTypes<GoodsClassificationScenario>(
+    {
+      ruleId: "IBR-174-OM",
+      title:
+        "Given {txn} {type} Goods — When the HS code is on the ROP list — Then the invoice should be accepted. (IBR-174-OM)",
+      itemType: ITEM_TYPE_GOODS,
+      itemClassificationIdentifier: OMAN_HS_CODE_12,
+      shouldError: false,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      invoiceTypes: IBR_174_OM_INVOICE_TYPES,
+      txnTypes: IBR_174_OM_TXN_TYPES,
+    }
+  ),
+  ...expandAcrossOmnInvoiceAndTxnTypes<GoodsClassificationScenario>(
+    {
+      ruleId: "IBR-174-OM",
+      title:
+        "Given {txn} {type} Goods — When the HS code is not on the ROP list — Then the invoice should be rejected with an error. (IBR-174-OM)",
+      itemType: ITEM_TYPE_GOODS,
+      itemClassificationIdentifier: OMAN_HS_CODE_NOT_ON_ROP_LIST,
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      invoiceTypes: IBR_174_OM_INVOICE_TYPES,
+      txnTypes: IBR_174_OM_TXN_TYPES,
+    }
+  ),
+  ...expandAcrossOmnInvoiceAndTxnTypes<GoodsClassificationScenario>(
+    {
+      ruleId: "IBR-174-OM",
+      title:
+        "Given {txn} {type} Goods — When HS classification is left empty — Then the invoice should be rejected with an error. (IBR-174-OM)",
+      itemType: ITEM_TYPE_GOODS,
+      itemClassificationIdentifier: "",
+      shouldError: true,
+      expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
+    },
+    {
+      invoiceTypes: IBR_174_OM_INVOICE_TYPES,
+      txnTypes: [TXN_FULL_TAX_INVOICE],
+    }
+  ),
   {
     ruleId: "IBR-174-OM",
     title:
-      "Given Goods — When the HS code is on the ROP list — Then the invoice should be accepted. (IBR-174-OM)",
+      "Given Services — When the HS code is not on the ROP list — Then the invoice should be rejected with an error. (IBR-174-OM)",
     invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    itemType: ITEM_TYPE_GOODS,
-    itemClassificationIdentifier: OMAN_HS_CODE_12,
-    shouldError: false,
-    expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-  },
-  {
-    ruleId: "IBR-174-OM",
-    title:
-      "Given Goods — When the HS code is not on the ROP list — Then the invoice should be rejected with an error. (IBR-174-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    itemType: ITEM_TYPE_GOODS,
+    invoiceTypeCode: INVOICE_TYPE_COMMERCIAL_INVOICE,
+    itemType: ITEM_TYPE_SERVICES,
     itemClassificationIdentifier: OMAN_HS_CODE_NOT_ON_ROP_LIST,
-    shouldError: true,
-    expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
-  },
-  {
-    ruleId: "IBR-174-OM",
-    title:
-      "Given Goods — When HS classification is left empty — Then the invoice should be rejected with an error. (IBR-174-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    itemType: ITEM_TYPE_GOODS,
-    itemClassificationIdentifier: "",
     shouldError: true,
     expectedErrorField: ITEM_CLASSIFICATION_IDENTIFIER_FIELD,
   },

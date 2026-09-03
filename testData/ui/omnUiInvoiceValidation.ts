@@ -92,6 +92,9 @@ export const OMN_UI_TXN_SELF_BILLED = TXN_SELF_BILLED_INVOICE;
 export const OMN_UI_CURRENCY_OMR = "Rial Omani";
 export const OMN_UI_ITEM_TYPE_GOODS = ITEM_TYPE_GOODS;
 export const OMN_UI_HS_CODE = OMAN_HS_CODE_12;
+/** ISIC label on `#industrialClassification` (autocomplete). Not the HS identifier. */
+export const OMN_UI_INDUSTRIAL_CLASSIFICATION =
+  INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS[0].industrialClassificationCode;
 export const OMN_UI_TAX_CATEGORY_STANDARD = STANDARD_TAX_CATEGORY_CODE;
 export const OMN_UI_UNIT_OF_MEASURE = "each";
 

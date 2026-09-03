@@ -763,19 +763,40 @@ export function buildItemTypeRequiredScenarioRow(
   });
 }
 
-/** Phase 4: Goods → classification (IBR-079-OM). */
+/** Phase 4: Goods → classification (IBR-079-OM / IBR-174-OM). */
 export function buildGoodsClassificationScenarioRow(
   scenario: FV.GoodsClassificationScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
+  const txn = scenario.invoiceTransactionTypeCode;
+  const invoiceTypeCode =
+    scenario.invoiceTypeCode ?? FV.INVOICE_TYPE_COMMERCIAL_INVOICE;
+  let row: Record<string, string | null> = {
     ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
-      scenario.invoiceTransactionTypeCode,
-    [FV.ITEM_TYPE_FIELD]: scenario.itemType,
-    [FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD]:
-      scenario.itemClassificationIdentifier,
-  });
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
+    [FV.INVOICE_TYPE_CODE_FIELD]: invoiceTypeCode,
+  };
+  row = applyIbr081TxnCompanions(row, txn);
+  row = applyPartyIdentifiersByTxnType(row);
+  row = applyTxnExclusionInvoiceType(row, invoiceTypeCode);
+  if (
+    invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_INVOICE ||
+    invoiceTypeCode === FV.INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE
+  ) {
+    row = applySelfBilledDocumentInvoiceType(row, invoiceTypeCode);
+  }
+  if (isSelfBilledInvoiceType(String(row[FV.INVOICE_TYPE_CODE_FIELD] ?? ""))) {
+    const stringRow: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row)) {
+      stringRow[key] = value == null ? "" : String(value);
+    }
+    row = applySelfBilledPartyIdentitySwap(stringRow);
+  }
+  // Probe fields last so txn companions (e.g. Export HS refill) cannot mask IBR-174-OM.
+  row[FV.ITEM_TYPE_FIELD] = scenario.itemType;
+  row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] =
+    scenario.itemClassificationIdentifier;
+  return row;
 }
 
 /** Phase 4: Import of Goods (IBR-084/085-OM). */
