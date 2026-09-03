@@ -69,11 +69,9 @@ export class OMN_UIInvoiceManualPage {
     return null;
   }
 
-  private fieldRoot(section: OmnUiSection, input: Locator): Locator {
-    return this.scope(section)
-      .locator(".MuiFormControl-root")
-      .filter({ has: input })
-      .first();
+  /** Walk up from the input so ids with `[]` (e.g. proceedingDtls[0].invoiceIssueDate) still resolve. */
+  private fieldRoot(_section: OmnUiSection, input: Locator): Locator {
+    return input.locator('xpath=ancestor::*[contains(@class,"MuiFormControl-root")][1]');
   }
 
   private autocompleteRoot(section: OmnUiSection, input: Locator): Locator {
@@ -106,6 +104,11 @@ export class OMN_UIInvoiceManualPage {
     }
     const type = ((await input.getAttribute("type")) ?? "").toLowerCase();
     if (type === "date" || type === "datetime-local" || type === "month") {
+      return "date";
+    }
+    const className = (await input.getAttribute("class")) ?? "";
+    // MUI DatePicker hidden input: class MuiPickersInputBase-input, not type="date".
+    if (className.includes("MuiPickersInputBase-input")) {
       return "date";
     }
     const root = this.fieldRoot(section, input);
@@ -387,30 +390,49 @@ export class OMN_UIInvoiceManualPage {
     await this.expectLiveControlKind(section, inputId, "autocomplete", altInputIds);
     const input = await this.resolveInput(section, inputId, altInputIds);
     await expect(input).toBeVisible({ timeout: 15_000 });
-    const disabled = await input.isDisabled().catch(() => false);
-    if (disabled) {
-      const openBtn = this.autocompleteRoot(section, input).locator("button").last();
-      await openBtn.click({ force: true });
-    } else {
-      await input.click();
-      if (typeof option === "string") {
-        await input.fill("");
-        await input.fill(option);
-      }
+    const current = (await input.inputValue().catch(() => "")).trim();
+    if (typeof option === "string" ? current === option : option.test(current)) {
+      return;
+    }
+    // Buyer Peppol stays disabled until country schemes load. The disabled popup
+    // icon has pointer-events:none and is overlay-intercepted — clicking it hangs
+    // until the test timeout.
+    await expect(
+      input,
+      `${section} #${inputId} should be enabled before selecting`
+    ).toBeEnabled({ timeout: 15_000 });
+    await input.click();
+    if (typeof option === "string") {
+      await input.fill("");
+      await input.fill(option);
     }
     const listbox = this.page.locator('[role="listbox"]').last();
     await expect(listbox).toBeVisible({ timeout: 15_000 });
-    if (disabled && typeof option === "string") {
-      await this.page.keyboard.type(option, { delay: 20 });
+    // exact: "Credit note" must not match "Factored credit note". Fall back to
+    // substring for ICD-prefixed Peppol labels ("0248: Oman … (VATIN)").
+    let choice =
+      typeof option === "string"
+        ? listbox.getByRole("option", { name: option, exact: true })
+        : listbox.getByRole("option", { name: option });
+    if (typeof option === "string" && (await choice.count()) === 0) {
+      choice = listbox.getByRole("option", { name: option });
     }
-    const choice = listbox.getByRole("option", { name: option }).first();
-    await expect(choice).toBeVisible({ timeout: 15_000 });
+    await expect(choice.first()).toBeVisible({ timeout: 15_000 });
     try {
-      await choice.click({ timeout: 5_000 });
+      await choice.first().click({ timeout: 5_000 });
     } catch {
-      await choice.click({ force: true, timeout: 5_000 });
+      await choice.first().click({ force: true, timeout: 5_000 });
     }
     await this.dismissOpenDropdown();
+    const selected = (await input.inputValue().catch(() => "")).trim();
+    if (typeof option === "string") {
+      expect(
+        selected === option || selected.includes(option),
+        `${section} #${inputId} should contain ${option}`
+      ).toBe(true);
+    } else {
+      expect(selected, `${section} #${inputId} should match ${option}`).toMatch(option);
+    }
   }
 
   async selectAutocompleteById(inputId: string, option: string | RegExp): Promise<void> {
@@ -505,8 +527,9 @@ export class OMN_UIInvoiceManualPage {
         }
       }
     }
-    const add = section.getByRole("button", { name: /add item details/i });
+    const add = section.getByRole("button", { name: "Add Item", exact: true });
     await expect(add).toBeVisible({ timeout: 15_000 });
+    await add.scrollIntoViewIfNeeded();
     await add.click();
     await expect(this.itemModal()).toBeVisible({ timeout: 15_000 });
   }
