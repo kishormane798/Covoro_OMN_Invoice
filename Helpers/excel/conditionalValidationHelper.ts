@@ -2791,25 +2791,27 @@ export function buildBuyerIdentifierSchemeScenarioRow(
     buyerSellerIdentifierCodeValidTestData.some(
       (item) => item.label === scenario.buyerIdentifierScheme
     );
-  if (
-    scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS ||
+  const companion: "scheme" | "code" =
+    scenario.buyerCompanion ??
+    (scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS ||
     usesOmanBuyerSellerTextualCode
-  ) {
+      ? "code"
+      : "scheme");
+  if (companion === "code") {
     // Oman Buyer/Seller Identifier list (Importer Customs ID, Special Zone
-    // License Number, …) is textual code, not ICD scheme. Wrong-target
-    // (Full Tax + same T) must keep this mapping — clone Allowed, change txn only.
+    // License Number, …) is textual code, not ICD scheme.
     row["Scheme identifier"] = "";
     row["Buyer Identifier (textual code)"] = scenario.buyerIdentifierScheme;
-    if (scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS) {
-      row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
-      row[FV.IMPORT_DATE_FIELD] = "2026-01-10";
-      row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
-      row[FV.INCOTERMS_FIELD] = "Free On Board";
-    }
   } else {
-    // XOR: scheme only — textual code stays empty.
+    // XOR: ICD scheme only — textual code stays empty.
     row["Scheme identifier"] = scenario.buyerIdentifierScheme;
     row["Buyer Identifier (textual code)"] = "";
+  }
+  if (scenario.invoiceTransactionTypeCode === FV.TXN_IMPORT_OF_GOODS) {
+    row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = FV.UAE_COUNTRY_CODE;
+    row[FV.IMPORT_DATE_FIELD] = "2026-01-10";
+    row[FV.CUSTOMS_DECLARATION_NUMBER_FIELD] = "CD-COND-001";
+    row[FV.INCOTERMS_FIELD] = "Free On Board";
   }
   // Free-zone subdivisions for Special Zone and wrong-target Full Tax + SZLN
   // (clone Allowed; only txn differs). Import of Goods leaves seed blank.

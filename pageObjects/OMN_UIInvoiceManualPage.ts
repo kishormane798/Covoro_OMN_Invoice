@@ -83,6 +83,63 @@ export class OMN_UIInvoiceManualPage {
       .first();
   }
 
+  /** Live widget: text vs dropdown vs date. Catalog mismatches fail the test. */
+  private controlKindLabel(kind: "text" | "date" | "autocomplete"): string {
+    switch (kind) {
+      case "autocomplete":
+        return "dropdown";
+      case "date":
+        return "date field";
+      default:
+        return "text field";
+    }
+  }
+
+  async readLiveControlKind(
+    section: OmnUiSection,
+    inputId: string,
+    altInputIds: readonly string[] = []
+  ): Promise<"text" | "date" | "autocomplete"> {
+    const input = await this.resolveInput(section, inputId, altInputIds);
+    if ((await this.autocompleteRoot(section, input).count()) > 0) {
+      return "autocomplete";
+    }
+    const type = ((await input.getAttribute("type")) ?? "").toLowerCase();
+    if (type === "date" || type === "datetime-local" || type === "month") {
+      return "date";
+    }
+    const root = this.fieldRoot(section, input);
+    const calendar = root.getByRole("button", {
+      name: /choose date|calendar|open calendar|pick date/i,
+    });
+    if ((await calendar.count()) > 0) {
+      return "date";
+    }
+    const hasPopup = ((await input.getAttribute("aria-haspopup")) ?? "").toLowerCase();
+    if (hasPopup === "dialog") {
+      return "date";
+    }
+    const role = ((await input.getAttribute("role")) ?? "").toLowerCase();
+    const ariaAuto = ((await input.getAttribute("aria-autocomplete")) ?? "").toLowerCase();
+    if (role === "combobox" || (ariaAuto !== "" && ariaAuto !== "none")) {
+      return "autocomplete";
+    }
+    return "text";
+  }
+
+  async expectLiveControlKind(
+    section: OmnUiSection,
+    inputId: string,
+    expected: "text" | "date" | "autocomplete",
+    altInputIds: readonly string[] = []
+  ): Promise<void> {
+    const actual = await this.readLiveControlKind(section, inputId, altInputIds);
+    expect(
+      actual,
+      `${section} #${inputId} is a ${this.controlKindLabel(actual)}, expected a ${this.controlKindLabel(expected)}`
+    ).toBe(expected);
+  }
+
   private sectionFooter(section: OmnUiSection): Locator {
     return this.section(section).locator(".form-action-footer, .form-footer");
   }
@@ -165,6 +222,7 @@ export class OMN_UIInvoiceManualPage {
     value: string,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "text", altInputIds);
     const literal = excelFormulaToUiValue(value) ?? "";
     if (isUiEmptyValue(literal)) {
       await this.clearInput(section, inputId, altInputIds);
@@ -189,6 +247,7 @@ export class OMN_UIInvoiceManualPage {
     value: string,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "text", altInputIds);
     const literal = excelFormulaToUiValue(value) ?? "";
     const input = await this.resolveInput(section, inputId, altInputIds);
     await expect(input).toBeVisible({ timeout: 15_000 });
@@ -281,6 +340,7 @@ export class OMN_UIInvoiceManualPage {
     isoDate: string,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "date", altInputIds);
     const hidden = await this.resolveInput(section, inputId, altInputIds);
     await hidden.evaluate((el, value) => {
       const input = el as HTMLInputElement;
@@ -303,6 +363,7 @@ export class OMN_UIInvoiceManualPage {
     inputId: string,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "date", altInputIds);
     const input = await this.resolveInput(section, inputId, altInputIds);
     const root = this.fieldRoot(section, input);
     const clear = root.getByRole("button", { name: /clear/i }).or(root.locator('button[title="Clear"]'));
@@ -323,6 +384,7 @@ export class OMN_UIInvoiceManualPage {
     option: string | RegExp,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "autocomplete", altInputIds);
     const input = await this.resolveInput(section, inputId, altInputIds);
     await expect(input).toBeVisible({ timeout: 15_000 });
     const disabled = await input.isDisabled().catch(() => false);
@@ -360,6 +422,7 @@ export class OMN_UIInvoiceManualPage {
     inputId: string,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "autocomplete", altInputIds);
     const input = await this.resolveInput(section, inputId, altInputIds);
     await expect(input).toBeVisible({ timeout: 15_000 });
     await input.click();
@@ -376,6 +439,7 @@ export class OMN_UIInvoiceManualPage {
     inputId: string,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "autocomplete", altInputIds);
     await this.clearInput(section, inputId, altInputIds);
     await this.dismissOpenDropdown();
   }
@@ -386,6 +450,7 @@ export class OMN_UIInvoiceManualPage {
     spaces: string,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    await this.expectLiveControlKind(section, inputId, "autocomplete", altInputIds);
     const literal = excelFormulaToUiValue(spaces) ?? spaces;
     await this.clearInput(section, inputId, altInputIds);
     const input = await this.resolveInput(section, inputId, altInputIds);
@@ -399,6 +464,7 @@ export class OMN_UIInvoiceManualPage {
   }
 
   async selectFirstNonOmrCurrency(): Promise<void> {
+    await this.expectLiveControlKind("document", "invCurrCode", "autocomplete");
     const input = await this.resolveInput("document", "invCurrCode");
     await expect(input).toBeVisible({ timeout: 15_000 });
     await input.click();

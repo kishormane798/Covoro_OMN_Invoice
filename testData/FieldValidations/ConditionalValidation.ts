@@ -823,6 +823,12 @@ export type BuyerIdentifierSchemeScenario = OmanConditionalScenario & {
   invoiceTransactionTypeCode: string;
   buyerIdentifierScheme: string;
   buyerIdentifier: string;
+  /**
+   * XOR companion. `scheme` → ICD `Scheme identifier`; `code` →
+   * `Buyer Identifier (textual code)`. Omit to keep the builder heuristic
+   * (Oman textual list / Import of Goods → code, else ICD scheme).
+   */
+  buyerCompanion?: "scheme" | "code";
   /** BTOM-026. Omit for Sohar Free Zone default; set Mainland for IBR-152-OM MO exception. */
   buyerCountrySubdivisionCode?: string;
 };
@@ -6768,26 +6774,84 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       buyerIdentifierScheme: "Importer Customs ID",
       buyerIdentifier: "IMP-CUST-001",
+      buyerCompanion: "code",
       shouldError: false,
       expectedErrorField: "Buyer identifier",
     },
     {
       ruleId: "IBR-153-OM",
       title:
-        "Given Import of Goods — When buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-153-OM)",
+        "Given Import of Goods — When buyer uses Importer Customs ID and buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-153-OM)",
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       buyerIdentifierScheme: "Importer Customs ID",
       buyerIdentifier: "",
+      buyerCompanion: "code",
       shouldError: true,
       expectedErrorField: "Buyer identifier",
     },
     {
       ruleId: "IBR-153-OM",
       title:
-        "Given a Full Tax invoice — When buyer uses Importer Customs ID — Then the invoice should be rejected with an error. (IBR-153-OM)",
+        "Given Import of Goods — When buyer identifier code is Commercial Registration — Then the invoice should be accepted. (IBR-153-OM)",
+      invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
+      buyerIdentifierScheme: "Commercial Registration",
+      buyerIdentifier: "CR-BUYER-001",
+      buyerCompanion: "code",
+      shouldError: false,
+      expectedErrorField: "Buyer identifier",
+    },
+    {
+      ruleId: "IBR-153-OM",
+      title:
+        "Given Import of Goods — When buyer identifier code is Commercial Registration and buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-153-OM)",
+      invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
+      buyerIdentifierScheme: "Commercial Registration",
+      buyerIdentifier: "",
+      buyerCompanion: "code",
+      shouldError: true,
+      expectedErrorField: "Buyer identifier",
+    },
+    {
+      ruleId: "IBR-153-OM",
+      title:
+        "Given Import of Goods — When buyer Scheme identifier is provided — Then the invoice should be accepted. (IBR-153-OM)",
+      invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
+      buyerIdentifierScheme: SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN,
+      buyerIdentifier: "OM-BUYER-001",
+      buyerCompanion: "scheme",
+      shouldError: false,
+      expectedErrorField: "Buyer identifier",
+    },
+    {
+      ruleId: "IBR-153-OM",
+      title:
+        "Given Import of Goods — When buyer Scheme identifier is provided and buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-153-OM)",
+      invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
+      buyerIdentifierScheme: SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN,
+      buyerIdentifier: "",
+      buyerCompanion: "scheme",
+      shouldError: true,
+      expectedErrorField: "Buyer identifier",
+    },
+    {
+      ruleId: "IBR-153-OM",
+      title:
+        "Given a Full Tax invoice — When buyer uses Importer Customs ID — Then the invoice should be accepted. (IBR-153-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       buyerIdentifierScheme: "Importer Customs ID",
       buyerIdentifier: "IMP-CUST-001",
+      buyerCompanion: "code",
+      shouldError: false,
+      expectedErrorField: "Buyer identifier",
+    },
+    {
+      ruleId: "IBR-153-OM",
+      title:
+        "Given a Full Tax invoice — When buyer uses Importer Customs ID and buyer identifier is left empty — Then the invoice should be rejected with an error. (IBR-153-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      buyerIdentifierScheme: "Importer Customs ID",
+      buyerIdentifier: "",
+      buyerCompanion: "code",
       shouldError: true,
       expectedErrorField: "Buyer identifier",
     },
