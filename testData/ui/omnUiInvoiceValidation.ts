@@ -21,6 +21,9 @@ import {
   EXCHANGE_RATE_FIELD,
   SOURCE_CURRENCY_CODE_FIELD,
   EXCHANGE_RATE_SCENARIOS,
+  EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+  INVOICED_ITEM_TAX_RATE_FIELD,
+  NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
   IMPORT_DATE_FIELD,
   IMPORT_OF_GOODS_SCENARIOS,
   INCOTERMS_FIELD,
@@ -51,6 +54,21 @@ import {
   SELLER_VAT_IDENTIFIER_FIELD,
   SELLER_VAT_MANDATORY_SCENARIOS,
   STANDARD_TAX_CATEGORY_CODE,
+  STANDARD_TAX_RATE_SCENARIOS,
+  TAX_CATEGORY_FIELD,
+  TAX_EXEMPTION_REASON_CODE_FIELD,
+  TAX_EXEMPTION_REASON_SAMPLE,
+  TAX_EXEMPTION_REASON_TEXT_FIELD,
+  TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+  TAX_RATE_STANDARD_OMAN,
+  TAX_RATE_ZERO,
+  VAT_ACCOUNTING_CURRENCY_STANDARD_RATE_SCENARIOS,
+  VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS,
+  VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS,
+  VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS,
+  WHITESPACE_ONLY_FIELD_VALUE,
+  ZERO_RATED_TAX_CATEGORY_CODE,
+  ZERO_RATED_TAX_RATE_SCENARIOS,
   THIRD_PARTY_ADDRESS_LINE_1_FIELD,
   THIRD_PARTY_ADDRESS_LINE_2_FIELD,
   THIRD_PARTY_ADDRESS_LINE_3_FIELD,
@@ -527,15 +545,19 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   fromExcel("Tax Rate", "item", "taxRateDtls[0].taxRate", fieldValidationConditional, {
     kind: "digits",
   }),
-  dropdownRule("Tax exemption reason code", "item", "taxRateDtls[0].exemptionReasonCode", {
-    altInputIds: ["taxExemptionReasonCode", "exemptionReasonType"],
+  dropdownRule("Tax exemption reason code", "item", "taxExemptionRsnType", {
+    altInputIds: [
+      "taxRateDtls[0].exemptionReasonCode",
+      "taxExemptionReasonCode",
+      "exemptionReasonType",
+    ],
   }),
   fromExcel(
     "Tax exemption reason text",
     "item",
-    "taxRateDtls[0].exemptionReason",
+    "taxExemptionRsn",
     fieldValidationOptional,
-    { altInputIds: ["taxExemptionReason"] }
+    { altInputIds: ["taxRateDtls[0].exemptionReason", "taxExemptionReason"] }
   ),
   fromExcel("Item Custom 1", "item", "custom1", fieldValidationOptional),
   fromExcel("Item Custom 2", "item", "custom2", fieldValidationOptional),
@@ -543,8 +565,12 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   dropdownRule("Vat category - charges", "invoice", "docLevelCharges[0].vatCategory", {
     altInputIds: ["vatCategoryCharges"],
   }),
-  dropdownRule("Tax exemption reason - charges", "invoice", "docLevelCharges[0].exemptionReasonCode", {
-    altInputIds: ["taxExemptionReasonCharges", "docLevelCharges[0].exemptionReasonType"],
+  dropdownRule("Tax exemption reason - charges", "invoice", "docLevelCharges[0].exemptionRsn", {
+    altInputIds: [
+      "docLevelCharges[0].exemptionReasonCode",
+      "taxExemptionReasonCharges",
+      "docLevelCharges[0].exemptionReasonType",
+    ],
   }),
   dropdownRule("Vat category - allowances", "invoice", "docLevelAllowances[0].vatCategory", {
     altInputIds: ["vatCategoryAllowances"],
@@ -552,9 +578,13 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   dropdownRule(
     "Tax exemption reason - allowances",
     "invoice",
-    "docLevelAllowances[0].exemptionReasonCode",
+    "docLevelAllowances[0].exemptionRsn",
     {
-      altInputIds: ["taxExemptionReasonAllowances", "docLevelAllowances[0].exemptionReasonType"],
+      altInputIds: [
+        "docLevelAllowances[0].exemptionReasonCode",
+        "taxExemptionReasonAllowances",
+        "docLevelAllowances[0].exemptionReasonType",
+      ],
     }
   ),
 
@@ -713,6 +743,8 @@ export type OmnUiConditionalKind =
   | "buyerAddress"
   | "deliverToAddress"
   | "industrialClassification"
+  | "exemptionReason"
+  | "vatCategoryRate"
   | "prepaymentPaidAmount"
   | "copyInvoiceNumberEmpty";
 
@@ -754,6 +786,10 @@ export type OmnUiConditionalScenario = {
   buyerIdentifier?: string;
   buyerVatIdentifier?: string;
   industrialClassificationCode?: string;
+  taxCategory?: string;
+  taxRate?: string | null;
+  taxExemptionReasonCode?: string | null;
+  taxExemptionReasonText?: string | null;
   paidAmount?: string;
   prepaymentInvoiceNumber?: string;
   prepaymentInvoiceUuid?: string;
@@ -884,6 +920,22 @@ const CV_FIELD_LOC: Record<string, CvFieldLoc> = {
     section: "item",
     inputId: "industrialClassification",
   },
+  [TAX_CATEGORY_FIELD]: { section: "item", inputId: "taxRateDtls[0].taxCategory" },
+  [INVOICED_ITEM_TAX_RATE_FIELD]: { section: "item", inputId: "taxRateDtls[0].taxRate" },
+  [TAX_EXEMPTION_REASON_CODE_FIELD]: {
+    section: "item",
+    inputId: "taxExemptionRsnType",
+    altInputIds: [
+      "taxRateDtls[0].exemptionReasonCode",
+      "taxExemptionReasonCode",
+      "exemptionReasonType",
+    ],
+  },
+  [TAX_EXEMPTION_REASON_TEXT_FIELD]: {
+    section: "item",
+    inputId: "taxExemptionRsn",
+    altInputIds: ["taxRateDtls[0].exemptionReason", "taxExemptionReason"],
+  },
   ["Prepayment invoice number"]: {
     section: "payment",
     inputId: "prepaymentInvoiceNum",
@@ -934,15 +986,18 @@ export const OMN_UI_DROPDOWN_ASSERT_IDS = new Set([
   "serviceAccountingCode",
   "itemSchemeIdentifier",
   "taxRateDtls[0].taxCategory",
+  "taxExemptionRsnType",
   "taxRateDtls[0].exemptionReasonCode",
   "taxExemptionReasonCode",
   "exemptionReasonType",
   "docLevelCharges[0].vatCategory",
   "vatCategoryCharges",
+  "docLevelCharges[0].exemptionRsn",
   "docLevelCharges[0].exemptionReasonCode",
   "taxExemptionReasonCharges",
   "docLevelAllowances[0].vatCategory",
   "vatCategoryAllowances",
+  "docLevelAllowances[0].exemptionRsn",
   "docLevelAllowances[0].exemptionReasonCode",
   "taxExemptionReasonAllowances",
 ]);
@@ -953,6 +1008,7 @@ const DROPDOWN_STYLE_KINDS = new Set<OmnUiConditionalKind>([
   "buyerAddress",
   "deliverToAddress",
   "industrialClassification",
+  "exemptionReason",
 ]);
 
 function isDropdownAssert(
@@ -984,6 +1040,72 @@ function locFor(field: string | undefined, fallback: CvFieldLoc): CvFieldLoc {
 
 function isUiInvoicingPeriodSupported(title: string): boolean {
   return !/end is before period start|End Date Earlier Than Start Date/i.test(title);
+}
+
+/**
+ * Tax Rate (`#taxRateDtls[0].taxRate`) is disabled and autopopulated.
+ * Keep only polarities the form can produce without typing the rate.
+ */
+function isUiVatCategoryRateDriveable(s: {
+  taxCategory: string;
+  taxRate: string | null;
+}): boolean {
+  const rate = s.taxRate;
+  if (rate === WHITESPACE_ONLY_FIELD_VALUE || (rate != null && /^\s+$/.test(rate))) {
+    return false;
+  }
+  const omit = rate == null || rate === "";
+  const categoryOmitsRate =
+    s.taxCategory === EXEMPT_FROM_TAX_TAX_CATEGORY_CODE ||
+    s.taxCategory === NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
+  if (omit) return categoryOmitsRate;
+  if (s.taxCategory === STANDARD_TAX_CATEGORY_CODE && rate === TAX_RATE_STANDARD_OMAN) {
+    return true;
+  }
+  if (s.taxCategory === ZERO_RATED_TAX_CATEGORY_CODE && rate === TAX_RATE_ZERO) {
+    return true;
+  }
+  return false;
+}
+
+function vatCategoryExemptionCompanion(taxCategory: string): string {
+  if (taxCategory === EXEMPT_FROM_TAX_TAX_CATEGORY_CODE) {
+    return TAX_EXEMPTION_REASON_SAMPLE;
+  }
+  if (taxCategory === ZERO_RATED_TAX_CATEGORY_CODE) {
+    return TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+  }
+  return "";
+}
+
+function mapUiVatCategoryRate(
+  list: readonly {
+    ruleId: string;
+    title: string;
+    shouldError: boolean;
+    expectedErrorField?: string;
+    taxCategory: string;
+    taxRate: string | null;
+  }[],
+  extra?: { invoiceCurrencyCode?: string; exchangeRate?: string }
+): OmnUiConditionalScenario[] {
+  return list.filter(isUiVatCategoryRateDriveable).map((s) => {
+    const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[INVOICED_ITEM_TAX_RATE_FIELD]);
+    return {
+      title: s.title,
+      ruleId: s.ruleId,
+      kind: "vatCategoryRate" as const,
+      section: loc.section,
+      shouldError: s.shouldError,
+      assertInputId: loc.inputId,
+      altInputIds: loc.altInputIds,
+      taxCategory: s.taxCategory,
+      taxRate: s.taxRate,
+      taxExemptionReasonCode: vatCategoryExemptionCompanion(s.taxCategory),
+      invoiceCurrencyCode: extra?.invoiceCurrencyCode,
+      exchangeRate: extra?.exchangeRate,
+    };
+  });
 }
 
 const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
@@ -1033,7 +1155,9 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       precedingInvoiceUuid: s.precedingInvoiceUuid,
     };
   }),
-  ...PROFIT_MARGIN_PRECEDING_SCENARIOS.map((s) => {
+  ...PROFIT_MARGIN_PRECEDING_SCENARIOS.filter(
+    (s) => s.invoiceTypeCode === INVOICE_TYPE_COMMERCIAL_INVOICE
+  ).map((s) => {
     const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[PRECEDING_INVOICE_REFERENCE_FIELD]);
     return {
       title: s.title,
@@ -1043,7 +1167,8 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       shouldError: s.shouldError,
       assertInputId: loc.inputId,
       entries: OMN_UI_CREATE_ONLY,
-      invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_INVOICE,
+      invoiceTypeCode: s.invoiceTypeCode,
+      invoiceTransactionTypeCode: s.invoiceTransactionTypeCode,
       precedingInvoiceReference: s.precedingInvoiceReference,
       precedingInvoiceIssueDate: s.precedingInvoiceReference ? "2026-01-15" : "",
       precedingInvoiceUuid: s.precedingInvoiceUuid,
@@ -1204,6 +1329,30 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       industrialClassificationCode: s.industrialClassificationCode,
     };
   }),
+  ...VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS.map((s) => {
+    const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[TAX_EXEMPTION_REASON_CODE_FIELD]);
+    return {
+      title: s.title,
+      ruleId: s.ruleId,
+      kind: "exemptionReason" as const,
+      section: loc.section,
+      shouldError: s.shouldError,
+      assertInputId: loc.inputId,
+      altInputIds: loc.altInputIds,
+      dropdownStyle: s.expectedErrorField !== TAX_EXEMPTION_REASON_TEXT_FIELD,
+      taxCategory: s.taxCategory,
+      taxExemptionReasonCode: s.taxExemptionReasonCode,
+      taxExemptionReasonText: s.taxExemptionReasonText,
+    };
+  }),
+  ...mapUiVatCategoryRate(VAT_CATEGORY_RATE_FORBIDDEN_SCENARIOS),
+  ...mapUiVatCategoryRate(STANDARD_TAX_RATE_SCENARIOS),
+  ...mapUiVatCategoryRate(ZERO_RATED_TAX_RATE_SCENARIOS),
+  ...mapUiVatCategoryRate(VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS),
+  ...mapUiVatCategoryRate(VAT_ACCOUNTING_CURRENCY_STANDARD_RATE_SCENARIOS, {
+    invoiceCurrencyCode: OMAN_CURRENCY_USD,
+    exchangeRate: "0.385",
+  }),
   ...PREPAYMENT_PAID_AMOUNT_SCENARIOS.map((s) => {
     const loc = locFor(s.expectedErrorField, CV_FIELD_LOC["Prepayment invoice number"]);
     return {
@@ -1228,8 +1377,6 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
     entries: ["copy"],
   },
 ];
-
-void OMAN_CURRENCY_USD;
 
 /** All mapped conditionals, including dropdown-style rows. Each row is one test in the Conditional spec. */
 export const OMN_UI_CONDITIONAL_SCENARIOS = OMN_UI_CONDITIONAL_SCENARIOS_ALL;

@@ -68,9 +68,19 @@ async function globalSetup(config: FullConfig) {
     );
   }
 
-  const browser = await chromium.launch();
+  // Bundled Playwright Chromium often never reaches DOMContentLoaded on
+  // https://devom.covoro.ai (30s skip). Installed Chrome matches manual login.
+  let browser;
   try {
-    const page = await browser.newPage();
+    browser = await chromium.launch({
+      channel: "chrome",
+      headless: true,
+    });
+  } catch {
+    browser = await chromium.launch();
+  }
+  try {
+    const page = await browser.newPage({ ignoreHTTPSErrors: true });
     const loginPage = new LoginPage(page);
     try {
       await loginPage.loginAtBaseUrl(baseUrl, email, password);

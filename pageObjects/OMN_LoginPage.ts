@@ -126,7 +126,11 @@ export class LoginPage {
             throw new Error('Login credentials missing. Set TEST_USER_EMAIL and TEST_USER_PASSWORD in .env');
         }
         const root = baseUrl.trim().replace(/\/+$/, '');
-        await this.page.goto(`${root}/login`, { timeout: 30_000 });
+        // Match goto(): do not wait for window `load` (analytics/fonts can hang and skip the suite).
+        await this.page.goto(`${root}/login`, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30_000,
+        });
         await this.submitCredentialsAndReachDashboard(email, password, 60_000, 30_000);
     }
 

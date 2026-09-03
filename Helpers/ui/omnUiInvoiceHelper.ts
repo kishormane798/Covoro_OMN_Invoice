@@ -20,8 +20,9 @@ import {
   excelFormulaToUiValue,
   isUiEmptyValue,
   isUiWhitespaceValue,
+  OMN_UI_DROPDOWN_ASSERT_IDS,
   OMN_UI_FORMULA_INPUT_CANDIDATES,
-  OMN_UI_HS_CODE,
+  OMN_UI_INDUSTRIAL_CLASSIFICATION,
   OMN_UI_INVOICE_FORMULA_KEYS,
   OMN_UI_INVOICE_TYPE_COMMERCIAL,
   OMN_UI_INVOICE_TYPE_CREDIT_NOTE,
@@ -251,6 +252,10 @@ async function ensureDocumentBaseline(
   }
 }
 
+function isDropdownInput(inputId: string, altInputIds: readonly string[] = []): boolean {
+  return [inputId, ...altInputIds].some((id) => OMN_UI_DROPDOWN_ASSERT_IDS.has(id));
+}
+
 async function fillIfEmpty(
   invoice: OMN_UIInvoiceManualPage,
   section: OmnUiSection,
@@ -261,6 +266,8 @@ async function fillIfEmpty(
   if (await invoice.isInputDisabled(section, inputId, altInputIds)) return;
   const current = await invoice.readInputValue(section, inputId, altInputIds);
   if (current) return;
+  // Empty dropdown column: leave it. Do not click the autocomplete.
+  if (isDropdownInput(inputId, altInputIds) || isUiEmptyValue(value)) return;
   await invoice.replaceInput(section, inputId, value, altInputIds);
   if (section === "buyer" || section === "item") {
     // Type the value; do not pick Search Buyer / Search Item master hits.
@@ -356,7 +363,14 @@ async function ensureItemBaseline(
     await fillIfEmpty(invoice, "item", "itemDescription", "Goods description");
   }
   if (!excludeInputIds.has("industrialClassification")) {
-    await fillIfEmpty(invoice, "item", "industrialClassification", OMN_UI_HS_CODE);
+    const current = await invoice.readInputValue("item", "industrialClassification");
+    if (!current) {
+      await invoice.selectAutocomplete(
+        "item",
+        "industrialClassification",
+        OMN_UI_INDUSTRIAL_CLASSIFICATION
+      );
+    }
   }
   if (!excludeInputIds.has("itemType")) {
     const current = await invoice.readInputValue("item", "itemType");
@@ -663,9 +677,20 @@ export async function runOmnUiMinMaxCase(
   }
 
   const value = omnUiTestValue(lengthForVariant(rule, variant), rule.kind);
-  await invoice.replaceInput(rule.section, rule.inputId, value, rule.altInputIds);
-  if (rule.section === "buyer" || rule.section === "item") {
-    await invoice.dismissOpenDropdown();
+  if (isUiEmptyValue(value)) {
+    await leaveOrClearEmpty(
+      invoice,
+      entry,
+      rule.section,
+      rule.inputId,
+      rule.altInputIds ?? [],
+      rule.kind === "date" ? "date" : "text"
+    );
+  } else {
+    await invoice.replaceInput(rule.section, rule.inputId, value, rule.altInputIds);
+    if (rule.section === "buyer" || rule.section === "item") {
+      await invoice.dismissOpenDropdown();
+    }
   }
   await commitSection(invoice, rule.section, entry);
 
@@ -823,6 +848,7 @@ function excludeIdsForConditional(
   if (section === "document") {
     if (scenario.invoiceTypeCode !== undefined) ids.add("invType");
     if (scenario.invoiceTransactionTypeCode !== undefined) ids.add("invTxnType");
+    if (scenario.invoiceCurrencyCode !== undefined) ids.add("invCurrCode");
     if (scenario.exchangeRate !== undefined) ids.add("currExchangeRate");
     if (scenario.creditNoteReasonCode !== undefined) ids.add("creditNoteRsn");
     if (scenario.precedingInvoiceReference !== undefined) {
@@ -848,6 +874,20 @@ function excludeIdsForConditional(
     }
     if (scenario.industrialClassificationCode !== undefined) {
       ids.add("industrialClassification");
+    }
+    if (scenario.taxCategory !== undefined) {
+      ids.add("taxRateDtls[0].taxCategory");
+    }
+    if (scenario.taxExemptionReasonCode !== undefined) {
+      ids.add("taxExemptionRsnType");
+      ids.add("taxRateDtls[0].exemptionReasonCode");
+      ids.add("exemptionReasonType");
+      ids.add("taxExemptionReasonCode");
+    }
+    if (scenario.taxExemptionReasonText !== undefined) {
+      ids.add("taxExemptionRsn");
+      ids.add("taxRateDtls[0].exemptionReason");
+      ids.add("taxExemptionReason");
     }
   }
   if (section === "seller") {
@@ -943,8 +983,32 @@ async function ensureThisSectionBaseline(
   }
 }
 
+/** Create: leave empty fields alone. Edit/Copy: clear only when a value is already there. */
+async function leaveOrClearEmpty(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  section: OmnUiSection,
+  inputId: string,
+  altInputIds: readonly string[],
+  kind: "text" | "autocomplete" | "date"
+): Promise<void> {
+  if (entry === "create") return;
+  const current = await invoice.readInputValue(section, inputId, altInputIds);
+  if (!current) return;
+  if (kind === "autocomplete") {
+    await invoice.clearAutocomplete(section, inputId, altInputIds);
+    return;
+  }
+  if (kind === "date") {
+    await invoice.clearDate(section, inputId, altInputIds);
+    return;
+  }
+  await invoice.clearInput(section, inputId, altInputIds);
+}
+
 async function writeText(
   invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
   section: OmnUiSection,
   inputId: string,
   value: string | undefined,
@@ -954,7 +1018,7 @@ async function writeText(
   if (await invoice.isInputDisabled(section, inputId, altInputIds)) return;
   const literal = excelFormulaToUiValue(value) ?? "";
   if (isUiEmptyValue(literal)) {
-    await invoice.clearInput(section, inputId, altInputIds);
+    await leaveOrClearEmpty(invoice, entry, section, inputId, altInputIds, "text");
     return;
   }
   await invoice.replaceInput(section, inputId, literal, altInputIds);
@@ -962,6 +1026,7 @@ async function writeText(
 
 async function writeAutocomplete(
   invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
   section: OmnUiSection,
   inputId: string,
   value: string | undefined | null,
@@ -971,7 +1036,7 @@ async function writeAutocomplete(
   if (await invoice.isInputDisabled(section, inputId, altInputIds)) return;
   const literal = excelFormulaToUiValue(value) ?? "";
   if (isUiEmptyValue(literal)) {
-    await invoice.clearAutocomplete(section, inputId, altInputIds);
+    await leaveOrClearEmpty(invoice, entry, section, inputId, altInputIds, "autocomplete");
     return;
   }
   if (isUiWhitespaceValue(literal)) {
@@ -983,6 +1048,7 @@ async function writeAutocomplete(
 
 async function writeDate(
   invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
   section: OmnUiSection,
   inputId: string,
   value: string | undefined
@@ -991,7 +1057,7 @@ async function writeDate(
   if (await invoice.isInputDisabled(section, inputId)) return;
   const literal = excelFormulaToUiValue(value) ?? "";
   if (isUiEmptyValue(literal) || isUiWhitespaceValue(literal)) {
-    await invoice.clearDate(section, inputId);
+    await leaveOrClearEmpty(invoice, entry, section, inputId, [], "date");
     return;
   }
   await invoice.fillDate(section, inputId, literal);
@@ -999,18 +1065,19 @@ async function writeDate(
 
 async function fillAddressBlock(
   invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
   section: OmnUiSection,
   scenario: OmnUiConditionalScenario
 ): Promise<void> {
-  await writeText(invoice, section, "address1", scenario.addressLine1, ["address"]);
-  await writeText(invoice, section, "address2", scenario.addressLine2);
-  await writeText(invoice, section, "address3", scenario.addressLine3);
-  await writeText(invoice, section, "city", scenario.city);
-  await writeText(invoice, section, "postCode", scenario.postCode, ["postalCode"]);
-  await writeText(invoice, section, "countrySubdivision", scenario.countrySubdivision, [
+  await writeText(invoice, entry, section, "address1", scenario.addressLine1, ["address"]);
+  await writeText(invoice, entry, section, "address2", scenario.addressLine2);
+  await writeText(invoice, entry, section, "address3", scenario.addressLine3);
+  await writeText(invoice, entry, section, "city", scenario.city);
+  await writeText(invoice, entry, section, "postCode", scenario.postCode, ["postalCode"]);
+  await writeText(invoice, entry, section, "countrySubdivision", scenario.countrySubdivision, [
     "deliverToCountrySubdivision",
   ]);
-  await writeAutocomplete(invoice, section, "country", scenario.countryCode, ["countryCode"]);
+  await writeAutocomplete(invoice, entry, section, "country", scenario.countryCode, ["countryCode"]);
 }
 
 async function expectPrecedingInvoiceEnablement(
@@ -1038,6 +1105,7 @@ async function expectPrecedingInvoiceEnablement(
 
 async function applyConditionalSectionFields(
   invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
   scenario: OmnUiConditionalScenario,
   section: OmnUiSection
 ): Promise<void> {
@@ -1067,42 +1135,54 @@ async function applyConditionalSectionFields(
         await invoice.selectFirstNonOmrCurrency();
         await invoice.expectInputDisabled("document", "currExchangeRate", false);
       }
-      await writeText(invoice, "document", "currExchangeRate", scenario.exchangeRate);
+      await writeText(invoice, entry, "document", "currExchangeRate", scenario.exchangeRate);
+    } else if (
+      scenario.kind === "vatCategoryRate" &&
+      !isOmrCurrency(scenario.invoiceCurrencyCode)
+    ) {
+      await invoice.selectFirstNonOmrCurrency();
+      await invoice.expectInputDisabled("document", "currExchangeRate", false);
+      await writeText(invoice, entry, "document", "currExchangeRate", scenario.exchangeRate);
     }
-    await writeAutocomplete(invoice, "document", "creditNoteRsn", scenario.creditNoteReasonCode);
+    await writeAutocomplete(invoice, entry, "document", "creditNoteRsn", scenario.creditNoteReasonCode);
     await writeText(
       invoice,
+      entry,
       "document",
       OMN_UI_PRECEDING_REF_ID,
       scenario.precedingInvoiceReference
     );
     await writeDate(
       invoice,
+      entry,
       "document",
       OMN_UI_PRECEDING_DATE_ID,
       scenario.precedingInvoiceIssueDate
     );
     await writeText(
       invoice,
+      entry,
       "document",
       OMN_UI_PRECEDING_UUID_ID,
       scenario.precedingInvoiceUuid
     );
-    await writeDate(invoice, "document", "invStartDate", scenario.periodStart);
-    await writeDate(invoice, "document", "invEndDate", scenario.periodEnd);
-    await writeDate(invoice, "document", "importDate", scenario.importDate);
+    await writeDate(invoice, entry, "document", "invStartDate", scenario.periodStart);
+    await writeDate(invoice, entry, "document", "invEndDate", scenario.periodEnd);
+    await writeDate(invoice, entry, "document", "importDate", scenario.importDate);
     await writeText(
       invoice,
+      entry,
       "document",
       "customsDeclarationNumber",
       scenario.customsDeclarationNumber
     );
-    await writeAutocomplete(invoice, "document", "incoterms", scenario.incoterms);
+    await writeAutocomplete(invoice, entry, "document", "incoterms", scenario.incoterms);
     return;
   }
   if (section === "item") {
     await writeAutocomplete(
       invoice,
+      entry,
       "item",
       "originCountry",
       scenario.itemCountryOfOrigin,
@@ -1110,49 +1190,73 @@ async function applyConditionalSectionFields(
     );
     await writeAutocomplete(
       invoice,
+      entry,
       "item",
       "industrialClassification",
       scenario.industrialClassificationCode
     );
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "item",
+      "taxRateDtls[0].taxCategory",
+      scenario.taxCategory
+    );
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "item",
+      "taxExemptionRsnType",
+      scenario.taxExemptionReasonCode,
+      ["taxRateDtls[0].exemptionReasonCode", "exemptionReasonType", "taxExemptionReasonCode"]
+    );
+    await writeText(
+      invoice,
+      entry,
+      "item",
+      "taxExemptionRsn",
+      scenario.taxExemptionReasonText ?? undefined,
+      ["taxRateDtls[0].exemptionReason", "taxExemptionReason"]
+    );
     return;
   }
   if (section === "seller") {
-    await writeText(invoice, "seller", "vatIdentifier", scenario.sellerVatIdentifier, [
+    await writeText(invoice, entry, "seller", "vatIdentifier", scenario.sellerVatIdentifier, [
       "sellerVatIdentifier",
     ]);
     if (scenario.kind === "sellerAddress") {
-      await fillAddressBlock(invoice, "seller", scenario);
+      await fillAddressBlock(invoice, entry, "seller", scenario);
     }
     return;
   }
   if (section === "thirdParty") {
-    await writeText(invoice, "thirdParty", "name", scenario.thirdPartyName);
-    await writeText(invoice, "thirdParty", "vatIdentifier", scenario.thirdPartyVatin);
-    await fillAddressBlock(invoice, "thirdParty", scenario);
+    await writeText(invoice, entry, "thirdParty", "name", scenario.thirdPartyName);
+    await writeText(invoice, entry, "thirdParty", "vatIdentifier", scenario.thirdPartyVatin);
+    await fillAddressBlock(invoice, entry, "thirdParty", scenario);
     return;
   }
   if (section === "buyer") {
-    await writeText(invoice, "buyer", "buyerIdentifier", scenario.buyerIdentifier, ["identifier"]);
-    await writeText(invoice, "buyer", "vatIdentifier", scenario.buyerVatIdentifier);
+    await writeText(invoice, entry, "buyer", "buyerIdentifier", scenario.buyerIdentifier, ["identifier"]);
+    await writeText(invoice, entry, "buyer", "vatIdentifier", scenario.buyerVatIdentifier);
     if (scenario.kind === "buyerAddress") {
-      await fillAddressBlock(invoice, "buyer", scenario);
+      await fillAddressBlock(invoice, entry, "buyer", scenario);
     }
     return;
   }
   if (section === "shipping") {
-    await fillAddressBlock(invoice, "shipping", scenario);
+    await fillAddressBlock(invoice, entry, "shipping", scenario);
     return;
   }
   if (section === "invoice") {
-    await writeText(invoice, "invoice", "paidAmt", scenario.paidAmount, ["paidAmount"]);
+    await writeText(invoice, entry, "invoice", "paidAmt", scenario.paidAmount, ["paidAmount"]);
     return;
   }
   if (section === "payment") {
-    await writeText(invoice, "payment", "prepaymentInvoiceNum", scenario.prepaymentInvoiceNumber, [
+    await writeText(invoice, entry, "payment", "prepaymentInvoiceNum", scenario.prepaymentInvoiceNumber, [
       "prepaymentInvNum",
       "prepaymentInvoiceNumber",
     ]);
-    await writeText(invoice, "payment", "prepaymentInvoiceUuid", scenario.prepaymentInvoiceUuid, [
+    await writeText(invoice, entry, "payment", "prepaymentInvoiceUuid", scenario.prepaymentInvoiceUuid, [
       "prepaymentUuid",
       "prepaymentInvoiceUUID",
     ]);
@@ -1187,7 +1291,7 @@ export async function runOmnUiConditionalScenario(
         invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
       }
     );
-    await applyConditionalSectionFields(invoice, scenario, section);
+    await applyConditionalSectionFields(invoice, entry, scenario, section);
     if (section !== scenario.section) {
       await commitSection(invoice, section, entry);
     }
@@ -1216,6 +1320,7 @@ async function fillFormulaCandidate(
   const ids = OMN_UI_FORMULA_INPUT_CANDIDATES[key];
   if (!ids?.length) return;
   const value = String(raw);
+  if (isUiEmptyValue(value)) return;
   await invoice.replaceInput(section, ids[0], value, ids.slice(1));
 }
 
@@ -1234,7 +1339,14 @@ export async function runOmnUiFormulaScenario(
   await ensureDocumentBaseline(invoice, entry, new Set(), uniqueKey);
   await invoice.openItemEditor(isOmnUiPrefilledLineItemEntry(entry));
   await fillIfEmpty(invoice, "item", "itemName", "Formula item");
-  await fillIfEmpty(invoice, "item", "industrialClassification", OMN_UI_HS_CODE);
+  const industrial = await invoice.readInputValue("item", "industrialClassification");
+  if (!industrial) {
+    await invoice.selectAutocomplete(
+      "item",
+      "industrialClassification",
+      OMN_UI_INDUSTRIAL_CLASSIFICATION
+    );
+  }
   const itemType = await invoice.readInputValue("item", "itemType");
   if (!itemType) {
     await invoice.selectAutocomplete("item", "itemType", OMN_UI_ITEM_TYPE_GOODS);

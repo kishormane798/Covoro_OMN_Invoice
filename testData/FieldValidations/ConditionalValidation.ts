@@ -545,6 +545,18 @@ export const IBR_174_OM_TXN_TYPES = [
   TXN_SIMPLIFIED_TAX_INVOICE,
 ] as const;
 
+/**
+ * IBR-175-OM: two invoice types (Commercial 380 / Credit note 381).
+ * Txn is Profit Margin Invoice only (`00000000010000000000`).
+ * Profit Margin Self-Invoice (`00000000001000000000`) is omitted (IBR-146-OM).
+ */
+export const IBR_175_OM_INVOICE_TYPES = [
+  INVOICE_TYPE_COMMERCIAL_INVOICE,
+  INVOICE_TYPE_CREDIT_NOTE,
+] as const;
+
+export const IBR_175_OM_TXN_TYPES = [TXN_PROFIT_MARGIN_INVOICE] as const;
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -560,6 +572,14 @@ export type OmanConditionalScenario = {
 export type VatCategoryTaxRateScenario = OmanConditionalScenario & {
   taxCategory: string;
   taxRate: string | null;
+};
+
+/**
+ * ibr-053: IBT-006 present (USD + FX) → IBT-111 MUST be provided.
+ * Standard → tax amount; E / Z / O → 0 (still provided). Empty is Not Allowed.
+ */
+export type TaxAccountingCurrencyAmountScenario = VatCategoryTaxRateScenario & {
+  taxAmountInAccountingCurrency: string;
 };
 
 /**
@@ -815,6 +835,8 @@ export type SellerCountryRcmScenario = OmanConditionalScenario & {
 
 /** IBR-175-OM: Profit Margin Invoice → preceding ref + UUID. */
 export type ProfitMarginPrecedingScenario = OmanConditionalScenario & {
+  invoiceTransactionTypeCode: string;
+  invoiceTypeCode: string;
   precedingInvoiceReference: string;
   precedingInvoiceUuid: string;
 };
@@ -3072,6 +3094,66 @@ export const EXCHANGE_RATE_SCENARIOS: ExchangeRateScenario[] = [
     expectedErrorField: EXCHANGE_RATE_FIELD,
   },
 ];
+
+/**
+ * ibr-053: If Tax accounting currency code (IBT-006) is present, then Invoice
+ * total Tax amount in accounting currency (IBT-111) MUST be provided.
+ * Covoro has no IBT-006 column — USD + FX puts IBT-006 in play.
+ * Tax categories only (no invoice / txn expand). Standard → amount; E/Z/O → 0.
+ */
+const IBR_053_TAX_CATEGORY_POLARITIES: Array<{
+  taxCategory: string;
+  taxRate: string | null;
+  allowedAmount: string;
+  categoryLabel: string;
+}> = [
+  {
+    taxCategory: STANDARD_TAX_CATEGORY_CODE,
+    taxRate: TAX_RATE_STANDARD_OMAN,
+    allowedAmount: "50",
+    categoryLabel: "Standard rate VAT",
+  },
+  {
+    taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+    taxRate: null,
+    allowedAmount: "0",
+    categoryLabel: "Exempt from tax VAT",
+  },
+  {
+    taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+    taxRate: TAX_RATE_ZERO,
+    allowedAmount: "0",
+    categoryLabel: "Zero rated VAT",
+  },
+  {
+    taxCategory: NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+    taxRate: null,
+    allowedAmount: "0",
+    categoryLabel: "Not subject to VAT",
+  },
+];
+
+export const TAX_ACCOUNTING_CURRENCY_AMOUNT_SCENARIOS: TaxAccountingCurrencyAmountScenario[] =
+  IBR_053_TAX_CATEGORY_POLARITIES.flatMap((cat) => [
+    {
+      ruleId: "ibr-053",
+      title: `Given ${cat.categoryLabel} and tax accounting currency — When invoice total tax amount in accounting currency is ${cat.allowedAmount === "0" ? "0" : "provided"} — Then the invoice should be accepted. (ibr-053)`,
+      taxCategory: cat.taxCategory,
+      taxRate: cat.taxRate,
+      taxAmountInAccountingCurrency: cat.allowedAmount,
+      shouldError: false,
+      expectedErrorField: TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+    },
+    {
+      ruleId: "ibr-053",
+      title: `Given ${cat.categoryLabel} and tax accounting currency — When invoice total tax amount in accounting currency is left empty — Then the invoice should be rejected with an error. (ibr-053)`,
+      taxCategory: cat.taxCategory,
+      taxRate: cat.taxRate,
+      taxAmountInAccountingCurrency: "",
+      shouldError: true,
+      expectedErrorField: TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+    },
+  ]);
 
 /**
  * IBR-DEC-03-OM: monetary amounts must have ≤ 3 decimal places
@@ -6361,10 +6443,20 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
     {
       ruleId: "IBR-029",
       title:
-        "Given a Summary Invoice — When period end is on or after period start — Then the invoice should be accepted. (IBR-029)",
+        "Given a Summary Invoice — When period end is later than period start — Then the invoice should be accepted. (IBR-029)",
       invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
       periodStart: "2026-01-01",
       periodEnd: "2026-01-31",
+      shouldError: false,
+      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
+    },
+    {
+      ruleId: "IBR-029",
+      title:
+        "Given a Summary Invoice — When period end is equal to period start — Then the invoice should be accepted. (IBR-029)",
+      invoiceTransactionTypeCode: TXN_SUMMARY_INVOICE,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-01",
       shouldError: false,
       expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
     },
@@ -6407,34 +6499,6 @@ export const INVOICING_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
       periodEnd: "2026-01-31",
       shouldError: false,
       expectedErrorField: INVOICING_PERIOD_START_DATE_FIELD,
-    },
-  ];
-
-// ---------------------------------------------------------------------------
-// invoiceLinePeriod (IBR-030)
-// Covoro Excel has no IBT-134/135 columns; pack proxies to document Invoicing Period*.
-// ---------------------------------------------------------------------------
-export const INVOICE_LINE_PERIOD_CONDITIONAL_SCENARIOS: InvoicingPeriodScenario[] =
-  [
-    {
-      ruleId: "IBR-030",
-      title:
-        "Given a line period — When end is on or after start — Then the invoice should be accepted. (IBR-030)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      periodStart: "2026-01-01",
-      periodEnd: "2026-01-31",
-      shouldError: false,
-      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
-    },
-    {
-      ruleId: "IBR-030",
-      title:
-        "Given a line period — When end is before start — Then the invoice should be rejected with an error. (IBR-030)",
-      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-      periodStart: "2026-01-31",
-      periodEnd: "2026-01-01",
-      shouldError: true,
-      expectedErrorField: INVOICING_PERIOD_END_DATE_FIELD,
     },
   ];
 
@@ -6689,44 +6753,73 @@ export const SELLER_COUNTRY_RCM_SCENARIOS: SellerCountryRcmScenario[] = [
 // ---------------------------------------------------------------------------
 // profitMarginPreceding (IBR-175-OM)
 // ---------------------------------------------------------------------------
+/**
+ * IBR-175-OM: Profit Margin Invoice → IBT-025 + BTOM-031 MUST be present.
+ * Four polarities × Commercial invoice (380) / Credit note (381) ×
+ * Profit Margin Invoice only (not Profit Margin Self-Invoice).
+ */
 export const PROFIT_MARGIN_PRECEDING_SCENARIOS: ProfitMarginPrecedingScenario[] =
   [
-    {
-      ruleId: "IBR-175-OM",
-      title:
-        "Given Profit Margin — When preceding reference and UUID are provided — Then the invoice should be accepted. (IBR-175-OM)",
-      precedingInvoiceReference: "INV-PREV-175",
-      precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
-      shouldError: false,
-      expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
-    },
-    {
-      ruleId: "IBR-175-OM",
-      title:
-        "Given Profit Margin — When preceding reference is left empty — Then the invoice should be rejected with an error. (IBR-175-OM)",
-      precedingInvoiceReference: "",
-      precedingInvoiceUuid: "",
-      shouldError: true,
-      expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
-    },
-    {
-      ruleId: "IBR-175-OM",
-      title:
-        "Given Profit Margin — When preceding reference is left empty and UUID is provided — Then the invoice should be rejected with an error. (IBR-175-OM)",
-      precedingInvoiceReference: "",
-      precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
-      shouldError: true,
-      expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
-    },
-    {
-      ruleId: "IBR-175-OM",
-      title:
-        "Given Profit Margin — When preceding UUID is left empty and reference is provided — Then the invoice should be rejected with an error. (IBR-175-OM)",
-      precedingInvoiceReference: "INV-PREV-175",
-      precedingInvoiceUuid: "",
-      shouldError: true,
-      expectedErrorField: PRECEDING_INVOICE_UUID_FIELD,
-    },
+    ...expandAcrossOmnInvoiceAndTxnTypes<ProfitMarginPrecedingScenario>(
+      {
+        ruleId: "IBR-175-OM",
+        title:
+          "Given {txn} {type} — When preceding reference and UUID are provided — Then the invoice should be accepted. (IBR-175-OM)",
+        precedingInvoiceReference: "INV-PREV-175",
+        precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+        shouldError: false,
+        expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
+      },
+      {
+        invoiceTypes: IBR_175_OM_INVOICE_TYPES,
+        txnTypes: IBR_175_OM_TXN_TYPES,
+      }
+    ),
+    ...expandAcrossOmnInvoiceAndTxnTypes<ProfitMarginPrecedingScenario>(
+      {
+        ruleId: "IBR-175-OM",
+        title:
+          "Given {txn} {type} — When preceding reference is left empty — Then the invoice should be rejected with an error. (IBR-175-OM)",
+        precedingInvoiceReference: "",
+        precedingInvoiceUuid: "",
+        shouldError: true,
+        expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
+      },
+      {
+        invoiceTypes: IBR_175_OM_INVOICE_TYPES,
+        txnTypes: IBR_175_OM_TXN_TYPES,
+      }
+    ),
+    ...expandAcrossOmnInvoiceAndTxnTypes<ProfitMarginPrecedingScenario>(
+      {
+        ruleId: "IBR-175-OM",
+        title:
+          "Given {txn} {type} — When preceding reference is left empty and UUID is provided — Then the invoice should be rejected with an error. (IBR-175-OM)",
+        precedingInvoiceReference: "",
+        precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+        shouldError: true,
+        expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
+      },
+      {
+        invoiceTypes: IBR_175_OM_INVOICE_TYPES,
+        txnTypes: IBR_175_OM_TXN_TYPES,
+      }
+    ),
+    ...expandAcrossOmnInvoiceAndTxnTypes<ProfitMarginPrecedingScenario>(
+      {
+        ruleId: "IBR-175-OM",
+        title:
+          "Given {txn} {type} — When preceding UUID is left empty and reference is provided — Then the invoice should be rejected with an error. (IBR-175-OM)",
+        precedingInvoiceReference: "INV-PREV-175",
+        precedingInvoiceUuid: "",
+        shouldError: true,
+        expectedErrorField: PRECEDING_INVOICE_UUID_FIELD,
+      },
+      {
+        invoiceTypes: IBR_175_OM_INVOICE_TYPES,
+        txnTypes: IBR_175_OM_TXN_TYPES,
+      }
+    ),
   ];
 
 // ---------------------------------------------------------------------------

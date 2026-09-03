@@ -457,6 +457,27 @@ export function buildVatAccountingCurrencyTaxRateScenarioRow(
   };
 }
 
+/**
+ * ibr-053: USD + FX puts IBT-006 in play; IBT-111 comes from the scenario.
+ * E / Z / O set line VAT to 0 so IBR-039 / 054 / 077 do not fire first.
+ */
+export function buildTaxAccountingCurrencyAmountScenarioRow(
+  scenario: FV.TaxAccountingCurrencyAmountScenario
+): Record<string, string | null> {
+  const row: Record<string, string | null> = {
+    ...buildVatCategoryTaxRateScenarioRow(scenario),
+    [FV.INVOICE_CURRENCY_CODE_FIELD]: FV.OMAN_CURRENCY_USD,
+    [FV.SOURCE_CURRENCY_CODE_FIELD]: FV.OMAN_CURRENCY_USD,
+    [FV.EXCHANGE_RATE_FIELD]: "0.385",
+    [FV.TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD]:
+      scenario.taxAmountInAccountingCurrency,
+  };
+  if (scenario.taxCategory !== FV.STANDARD_TAX_CATEGORY_CODE) {
+    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
+  }
+  return row;
+}
+
 /** Phase 1: exemption reason vs VAT category (IBR-069/070, S-10). */
 export function buildVatExemptionReasonScenarioRow(
   scenario: FV.VatExemptionReasonScenario
@@ -1438,35 +1459,21 @@ export function buildSelfBilledTxnConstraintScenarioRow(
 
 /**
  * IBR-176-OM: Prepayment ⊕ Summary/Deemed/PM-Self conflict (Peppol bit OR) or
- * Prepayment-alone control. Companions avoid IBR-037 / IBR-086 masking the rule.
+ * Prepayment-alone control. Companions avoid IBR-037 / IBR-086 / CL-11-OM
+ * masking the rule (PM Self needs BTOM-025 + tax category O).
  */
 export function buildPrepaymentTxnExclusionScenarioRow(
   scenario: FV.PrepaymentTxnExclusionScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  const row: Record<string, string | null> = {
+  const actualTxn = scenario.invoiceTransactionTypeCode;
+  const excelTxn = toInvoiceTxnExcelDescription(actualTxn);
+  const labels = collectTxnMasterLabels(excelTxn, scenario.conflictingTxnType);
+  let row: Record<string, string | null> = {
     ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
-      scenario.invoiceTransactionTypeCode,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: actualTxn,
   };
-  const partner = scenario.conflictingTxnType;
-  if (
-    partner === FV.TXN_SUMMARY_INVOICE ||
-    String(scenario.invoiceTransactionTypeCode).charAt(4) === "1"
-  ) {
-    row[FV.INVOICING_PERIOD_START_DATE_FIELD] = "2026-01-01";
-    row[FV.INVOICING_PERIOD_END_DATE_FIELD] = "2026-01-31";
-  }
-  if (
-    partner === FV.TXN_PROFIT_MARGIN_SELF_INVOICE ||
-    String(scenario.invoiceTransactionTypeCode).charAt(10) === "1"
-  ) {
-    row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
-    row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
-    row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
-    row[FV.LINE_ITEM_VAT_AMOUNT_FIELD] = "0";
-    row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
-  }
+  row = applyTxnExclusionCompanions(row, labels);
   return applyPartyIdentifiersByTxnType(row);
 }
 
@@ -2582,13 +2589,6 @@ export function buildInvoicingPeriodConditionalScenarioRow(
   return buildSummaryInvoicePeriodScenarioRow(scenario);
 }
 
-/** IBR-030: line period end >= start (Excel proxies IBT-134/135 → document Invoicing Period*). */
-export function buildInvoiceLinePeriodConditionalScenarioRow(
-  scenario: FV.InvoicingPeriodScenario
-): Record<string, string | null> {
-  return buildSummaryInvoicePeriodScenarioRow(scenario);
-}
-
 export function buildPrepaymentPaidAmountScenarioRow(
   scenario: FV.PrepaymentPaidAmountScenario
 ): Record<string, string | null> {
@@ -2714,17 +2714,30 @@ export function buildProfitMarginPrecedingScenarioRow(
   scenario: FV.ProfitMarginPrecedingScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
-  return applyPartyIdentifiersByTxnType({
+  const invoiceTypeCode =
+    scenario.invoiceTypeCode || FV.INVOICE_TYPE_COMMERCIAL_INVOICE;
+  const txn =
+    scenario.invoiceTransactionTypeCode || FV.TXN_PROFIT_MARGIN_INVOICE;
+  const typeLower = invoiceTypeCode.trim().toLowerCase();
+  const isCnDn =
+    typeLower.includes("credit note") || typeLower.includes("debit note");
+  const row: Record<string, string | null> = {
     ...seed,
-    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: FV.TXN_PROFIT_MARGIN_INVOICE,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
+    [FV.INVOICE_TYPE_CODE_FIELD]: invoiceTypeCode,
     [FV.TAX_CATEGORY_FIELD]: FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
     [FV.INVOICED_ITEM_TAX_RATE_FIELD]: null,
+    [FV.PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD]: FV.PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
     [FV.PRECEDING_INVOICE_REFERENCE_FIELD]: scenario.precedingInvoiceReference,
     [FV.PRECEDING_INVOICE_UUID_FIELD]: scenario.precedingInvoiceUuid,
     [FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD]: scenario.precedingInvoiceReference
       ? "2026-01-15"
       : "",
-  });
+    [FV.CREDIT_DEBIT_NOTE_REASON_CODE_FIELD]: isCnDn
+      ? FV.CREDIT_DEBIT_REASON_SAMPLE
+      : "",
+  };
+  return applyPartyIdentifiersByTxnType(row);
 }
 
 /** IBR-091-OM: Profit Margin Invoice → IBT-158 MUST NOT start with banned prefixes. */

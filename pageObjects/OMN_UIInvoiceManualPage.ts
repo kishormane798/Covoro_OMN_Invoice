@@ -510,6 +510,9 @@ export class OMN_UIInvoiceManualPage {
   }
 
   async openItemEditor(preferExistingRow: boolean): Promise<void> {
+    if (await this.itemModal().isVisible().catch(() => false)) {
+      return;
+    }
     const section = this.section("item");
     await expect(section).toBeVisible({ timeout: 15_000 });
     if (preferExistingRow) {

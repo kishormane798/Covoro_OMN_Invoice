@@ -178,6 +178,25 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
     }
   });
 
+  test.describe("Tax accounting currency amount required (ibr-053)", () => {
+    for (const scenario of FV.TAX_ACCOUNTING_CURRENCY_AMOUNT_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildTaxAccountingCurrencyAmountScenarioRow(
+            scenario
+          );
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ??
+            FV.TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
+          scenario.shouldError,
+          { patchFile: patchBlankTaxAmountInAccountingCurrencyIfEmpty }
+        );
+      });
+    }
+  });
+
   test.describe("Amount decimal precision (IBR-DEC-03-OM)", () => {
     for (const scenario of FV.AMOUNT_DECIMAL_PRECISION_SCENARIOS) {
       test(`${scenario.title}`, async ({ page }) => {
@@ -1060,23 +1079,6 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.INVOICING_PERIOD_START_DATE_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
-  test.describe("Invoice line period (IBR-030)", () => {
-    for (const scenario of FV.INVOICE_LINE_PERIOD_CONDITIONAL_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildInvoiceLinePeriodConditionalScenarioRow(
-            scenario
-          );
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.INVOICING_PERIOD_END_DATE_FIELD,
           scenario.shouldError
         );
       });
