@@ -4647,17 +4647,37 @@ export const EXPORT_SERVICE_TYPE_SCENARIOS: ExportServiceTypeScenario[] = [
     shouldError: true,
     expectedErrorField: SERVICE_TYPE_CODE_FIELD,
   },
-  {
-    ruleId: "IBR-155-OM",
-    title:
-      "Given a Full Tax invoice — When Service Type is left empty — Then the invoice should be accepted. (IBR-155-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
-    taxExemptionReasonCode: "",
-    serviceTypeCode: "",
-    shouldError: false,
-    expectedErrorField: SERVICE_TYPE_CODE_FIELD,
-  },
-];
+    {
+      ruleId: "IBR-155-OM",
+      title:
+        "Given a Full Tax invoice — When Service Type is left empty — Then the invoice should be accepted. (IBR-155-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxExemptionReasonCode: "",
+      serviceTypeCode: "",
+      shouldError: false,
+      expectedErrorField: SERVICE_TYPE_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-155-OM",
+      title:
+        "Given Full Tax with Export of Services — When Service Type is left empty — Then the invoice should be accepted. (IBR-155-OM)",
+      invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
+      serviceTypeCode: "",
+      shouldError: false,
+      expectedErrorField: SERVICE_TYPE_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-155-OM",
+      title:
+        "Given Export with another zero-rated reason — When Service Type is left empty — Then the invoice should be accepted. (IBR-155-OM)",
+      invoiceTransactionTypeCode: TXN_EXPORT_INVOICE,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      serviceTypeCode: "",
+      shouldError: false,
+      expectedErrorField: SERVICE_TYPE_CODE_FIELD,
+    },
+  ];
 
 
 // ---------------------------------------------------------------------------
@@ -6792,13 +6812,13 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-153-OM",
       title:
-        "Given Import of Goods — When buyer identifier code is Commercial Registration — Then the invoice should be accepted. (IBR-153-OM)",
+        "Given Import of Goods — When buyer identifier code is Commercial Registration — Then the invoice should be rejected with an error. (IBR-153-OM)",
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       buyerIdentifierScheme: "Commercial Registration",
       buyerIdentifier: "CR-BUYER-001",
       buyerCompanion: "code",
-      shouldError: false,
-      expectedErrorField: "Buyer identifier",
+      shouldError: true,
+      expectedErrorField: BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD,
     },
     {
       ruleId: "IBR-153-OM",
@@ -6814,13 +6834,13 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-153-OM",
       title:
-        "Given Import of Goods — When buyer Scheme identifier is provided — Then the invoice should be accepted. (IBR-153-OM)",
+        "Given Import of Goods — When buyer Scheme identifier is provided instead of Importer Customs ID — Then the invoice should be rejected with an error. (IBR-153-OM)",
       invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
       buyerIdentifierScheme: SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN,
       buyerIdentifier: "OM-BUYER-001",
       buyerCompanion: "scheme",
-      shouldError: false,
-      expectedErrorField: "Buyer identifier",
+      shouldError: true,
+      expectedErrorField: BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD,
     },
     {
       ruleId: "IBR-153-OM",

@@ -589,12 +589,12 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   fromExcel(
     "Prepayment invoice number",
     "payment",
-    "prepaymentInvNum",
+    "prepaymentInvoiceNum",
     fieldValidationConditional,
-    { altInputIds: ["prepaymentInvoiceNumber"] }
+    { altInputIds: ["prepaymentInvNum", "prepaymentInvoiceNumber"] }
   ),
-  fromExcel("Prepayment invoice UUID", "payment", "prepaymentUuid", fieldValidationConditional, {
-    altInputIds: ["prepaymentInvoiceUUID"],
+  fromExcel("Prepayment invoice UUID", "payment", "prepaymentInvoiceUuid", fieldValidationConditional, {
+    altInputIds: ["prepaymentUuid", "prepaymentInvoiceUUID"],
   }),
 
   fromExcel("Custom 1", "custom", "custom1", fieldValidationOptional),
@@ -883,13 +883,13 @@ const CV_FIELD_LOC: Record<string, CvFieldLoc> = {
   },
   ["Prepayment invoice number"]: {
     section: "payment",
-    inputId: "prepaymentInvNum",
-    altInputIds: ["prepaymentInvoiceNumber"],
+    inputId: "prepaymentInvoiceNum",
+    altInputIds: ["prepaymentInvNum", "prepaymentInvoiceNumber"],
   },
   ["Prepayment invoice UUID"]: {
     section: "payment",
-    inputId: "prepaymentUuid",
-    altInputIds: ["prepaymentInvoiceUUID"],
+    inputId: "prepaymentInvoiceUuid",
+    altInputIds: ["prepaymentUuid", "prepaymentInvoiceUUID"],
   },
 };
 

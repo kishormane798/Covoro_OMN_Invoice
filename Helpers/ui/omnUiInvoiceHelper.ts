@@ -49,6 +49,7 @@ import {
 import {
   CREDIT_DEBIT_REASON_SAMPLE,
   PRECEDING_INVOICE_UUID_SAMPLE,
+  TXN_PREPAYMENT_INVOICE,
 } from "../../testData/FieldValidations/ConditionalValidation";
 import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
 
@@ -490,13 +491,23 @@ async function ensurePaymentBaseline(
       "paymentCardPrimaryAccountNumber",
     ]);
   }
-  if (!excludeInputIds.has("prepaymentInvNum") && !excludeInputIds.has("prepaymentInvoiceNumber")) {
-    await fillIfEmpty(invoice, "payment", "prepaymentInvNum", "PRE-001", [
+  if (
+    !excludeInputIds.has("prepaymentInvoiceNum") &&
+    !excludeInputIds.has("prepaymentInvNum") &&
+    !excludeInputIds.has("prepaymentInvoiceNumber")
+  ) {
+    await fillIfEmpty(invoice, "payment", "prepaymentInvoiceNum", "PRE-001", [
+      "prepaymentInvNum",
       "prepaymentInvoiceNumber",
     ]);
   }
-  if (!excludeInputIds.has("prepaymentUuid") && !excludeInputIds.has("prepaymentInvoiceUUID")) {
-    await fillIfEmpty(invoice, "payment", "prepaymentUuid", "PRE-UUID-001", [
+  if (
+    !excludeInputIds.has("prepaymentInvoiceUuid") &&
+    !excludeInputIds.has("prepaymentUuid") &&
+    !excludeInputIds.has("prepaymentInvoiceUUID")
+  ) {
+    await fillIfEmpty(invoice, "payment", "prepaymentInvoiceUuid", "PRE-UUID-001", [
+      "prepaymentUuid",
       "prepaymentInvoiceUUID",
     ]);
   }
@@ -586,6 +597,37 @@ async function enablePrecedingInvoiceMinMaxFields(
   }
 }
 
+function isPrepaymentLengthField(rule: OmnUiFieldRule): boolean {
+  return (
+    rule.inputId === "prepaymentInvoiceNum" ||
+    rule.inputId === "prepaymentInvoiceUuid" ||
+    rule.inputId === "prepaymentInvNum" ||
+    rule.inputId === "prepaymentUuid" ||
+    (rule.altInputIds?.includes("prepaymentInvoiceNum") ?? false) ||
+    (rule.altInputIds?.includes("prepaymentInvoiceUuid") ?? false)
+  );
+}
+
+/**
+ * Prepayment number/UUID stay disabled until Document uses Prepayment Invoice
+ * plus a compatible invoice type (Commercial invoice).
+ */
+async function enablePrepaymentMinMaxFields(
+  invoice: OMN_UIInvoiceManualPage,
+  rule: OmnUiFieldRule,
+  entry: OmnUiEntry
+): Promise<void> {
+  if (!isPrepaymentLengthField(rule)) return;
+
+  await invoice.openSectionForEdit("document", entry);
+  await invoice.selectAutocomplete("document", "invTxnType", TXN_PREPAYMENT_INVOICE);
+  await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
+  await invoice.clickSectionCommit("document", entry);
+  await invoice.expectSectionSavedReadOnly("document");
+  await invoice.openSectionForEdit("payment", entry);
+  await invoice.expectInputDisabled(rule.section, rule.inputId, false, rule.altInputIds);
+}
+
 export async function runOmnUiMinMaxCase(
   page: Page,
   entry: OmnUiEntry,
@@ -597,6 +639,7 @@ export async function runOmnUiMinMaxCase(
   // Fill every field in the section first, then overwrite the field under test.
   await ensureSectionBaseline(invoice, rule.section, entry, new Set(), uniqueKey);
   await enablePrecedingInvoiceMinMaxFields(invoice, rule);
+  await enablePrepaymentMinMaxFields(invoice, rule, entry);
 
   if (await invoice.isInputDisabled(rule.section, rule.inputId, rule.altInputIds)) {
     test.skip(true, `${rule.field} is disabled on ${entry}`);
@@ -811,10 +854,12 @@ function excludeIdsForConditional(
   }
   if (section === "payment") {
     if (scenario.prepaymentInvoiceNumber !== undefined) {
+      ids.add("prepaymentInvoiceNum");
       ids.add("prepaymentInvNum");
       ids.add("prepaymentInvoiceNumber");
     }
     if (scenario.prepaymentInvoiceUuid !== undefined) {
+      ids.add("prepaymentInvoiceUuid");
       ids.add("prepaymentUuid");
       ids.add("prepaymentInvoiceUUID");
     }
@@ -1084,10 +1129,12 @@ async function applyConditionalSectionFields(
     return;
   }
   if (section === "payment") {
-    await writeText(invoice, "payment", "prepaymentInvNum", scenario.prepaymentInvoiceNumber, [
+    await writeText(invoice, "payment", "prepaymentInvoiceNum", scenario.prepaymentInvoiceNumber, [
+      "prepaymentInvNum",
       "prepaymentInvoiceNumber",
     ]);
-    await writeText(invoice, "payment", "prepaymentUuid", scenario.prepaymentInvoiceUuid, [
+    await writeText(invoice, "payment", "prepaymentInvoiceUuid", scenario.prepaymentInvoiceUuid, [
+      "prepaymentUuid",
       "prepaymentInvoiceUUID",
     ]);
   }

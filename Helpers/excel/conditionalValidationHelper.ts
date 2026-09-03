@@ -1060,6 +1060,34 @@ export function buildExportServiceTypeScenarioRow(
   scenario: FV.ExportServiceTypeScenario
 ): Record<string, string | null> {
   const seed = getSeedInvoiceRow();
+  const isExportOtherReason =
+    scenario.invoiceTransactionTypeCode === FV.TXN_EXPORT_INVOICE &&
+    Boolean(scenario.taxExemptionReasonCode) &&
+    scenario.taxExemptionReasonCode !==
+      FV.TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES;
+
+  // AND isolation: Export + other IBT-121 (not VATZR-OM-09) — IBR-155 must not
+  // fire. Use Goods overlay so empty Service Type is not required by item type.
+  if (isExportOtherReason) {
+    const needsReExportDocs =
+      scenario.taxExemptionReasonCode ===
+      FV.TAX_EXEMPTION_REASON_RE_EXPORT_OF_GOODS;
+    const row = applyExportReExportOfGoodsTrigger(seed, {
+      invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
+      taxExemptionReasonCode: scenario.taxExemptionReasonCode,
+      supportingDocumentReference: needsReExportDocs
+        ? FV.SUPPORTING_DOCUMENT_REFERENCE_SAMPLE
+        : "",
+      supportingDocumentUuid: needsReExportDocs
+        ? FV.SUPPORTING_DOCUMENT_UUID_SAMPLE
+        : "",
+    });
+    return {
+      ...row,
+      [FV.SERVICE_TYPE_CODE_FIELD]: scenario.serviceTypeCode,
+    };
+  }
+
   return applyExportOfServicesTrigger(seed, {
     invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
     taxExemptionReasonCode: scenario.taxExemptionReasonCode,

@@ -279,15 +279,6 @@ jobs:
           retention-days: 2
           if-no-files-found: ignore
 
-      - name: Upload UI videos (failures only)
-        if: always() && startsWith(needs.resolve.outputs.mode, 'covoro_ui_')
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ steps.report.outputs.label }} videos
-          path: test-results/**/*.webm
-          retention-days: 2
-          if-no-files-found: ignore
-
       - name: Summarize Playwright results (pass / fail / skip / flaky)
         id: summary
         if: always()
