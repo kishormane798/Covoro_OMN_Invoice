@@ -6,22 +6,22 @@
 
 ## Goal
 
-If **20 finished tests fail in a row** anywhere in a Playwright run, skip every remaining test so a broken environment does not burn the rest of the suite. A **pass anywhere resets** the streak, so mixed fail/pass runs keep going.
+If **50 finished tests fail in a row** anywhere in a Playwright run, skip every remaining test so a broken environment does not burn the rest of the suite. A **pass anywhere resets** the streak, so mixed fail/pass runs keep going.
 
 Examples (tests numbered 1–100):
 
 | Sequence | Result |
 |---|---|
-| Tests 20–40 fail (20+ in a row) | Skip tests that have not started yet |
-| Tests 20–38 fail, then 39 passes | Do **not** skip; streak is back to 0 |
+| Tests 20–70 fail (50+ in a row) | Skip tests that have not started yet |
+| Tests 20–68 fail, then 69 passes | Do **not** skip; streak is back to 0 |
 
-## Why not `maxFailures: 20`
+## Why not `maxFailures: 50`
 
-`playwright.config.ts` keeps `maxFailures: 0`. Playwright `maxFailures` counts **total** failures and does not reset on pass, so “20–38 fail, 39 passed” would still accumulate toward a stop. That is not this feature.
+`playwright.config.ts` keeps `maxFailures: 0`. Playwright `maxFailures` counts **total** failures and does not reset on pass, so “20–68 fail, 69 passed” would still accumulate toward a stop. That is not this feature.
 
 ## Skip rules
 
-Threshold: **20**. Scope: **the whole run** (all workers, all specs). Home: **`Src/baseTest.ts`** so every spec that imports `test` from there gets it.
+Threshold: **50**. Scope: **the whole run** (all workers, all specs). Home: **`Src/baseTest.ts`** so every spec that imports `test` from there gets it.
 
 | Outcome | Effect on streak |
 |---|---|
@@ -31,7 +31,7 @@ Threshold: **20**. Scope: **the whole run** (all workers, all specs). Home: **`S
 | Skipped (including site-unavailable skip, and this skip itself) | No change |
 | Interrupted | Count as a failure (same as today’s `isFailureLike`) |
 
-When the streak reaches 20, set a **latched** trip flag. Remaining tests skip with a reason that says 20 tests failed in a row. A later in-flight pass does **not** turn remaining tests back on. Global setup clears the marker at the start of the next run.
+When the streak reaches 50, set a **latched** trip flag. Remaining tests skip with a reason that says 50 tests failed in a row. A later in-flight pass does **not** turn remaining tests back on. Global setup clears the marker at the start of the next run.
 
 Site-unavailable skip stays as it is. Those tests are skipped, so they do not move this streak.
 
@@ -42,7 +42,7 @@ Same pattern as `utils/siteUnavailableMarker.ts`: a JSON file at the repo root t
 ```
 global-setup          → clear marker
 worker beforeEach     → if tripped, test.skip(...)
-worker afterEach      → pass → reset; final fail → increment; at 20 → trip
+worker afterEach      → pass → reset; final fail → increment; at 50 → trip
 ```
 
 Workers are separate processes. Updates use an exclusive lock file so two workers cannot increment at once. Missing or corrupt marker means streak 0 (not tripped).
@@ -64,8 +64,8 @@ No spec, helper, page-object, or `playwright.config.ts` changes.
 - `isConsecutiveFailSkipTripped(): boolean`
 - `recordConsecutiveFailSkipPass(): void`
 - `recordConsecutiveFailSkipFinalFailure(): boolean` — returns true when this call trips the latch
-- Constant threshold `CONSECUTIVE_FAIL_SKIP_THRESHOLD = 20`
-- Skip message: `Skipping because 20 tests failed in a row.`
+- Constant threshold `CONSECUTIVE_FAIL_SKIP_THRESHOLD = 50`
+- Skip message: `Skipping because 50 tests failed in a row.`
 
 `afterEach` records a final failure only when `testInfo.status` is failure-like **and** Playwright will not retry that test (`testInfo.retry` is already the last attempt, or status is not a retryable fail).
 
@@ -79,4 +79,4 @@ No spec, helper, page-object, or `playwright.config.ts` changes.
 
 ## Success
 
-A 100-test run that fails tests 20–40 then skips the rest. The same run with failures 20–38 and a pass on 39 continues. The next `npx playwright test` starts with streak 0. Marker files are not committed.
+A 100-test run that fails tests 20–70 then skips the rest. The same run with failures 20–68 and a pass on 69 continues. The next `npx playwright test` starts with streak 0. Marker files are not committed.

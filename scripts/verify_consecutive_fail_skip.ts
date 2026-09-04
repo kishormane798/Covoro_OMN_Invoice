@@ -20,14 +20,14 @@ describe("consecutiveFailSkip", () => {
     assert.equal(isConsecutiveFailSkipTripped(), false);
   });
 
-  it("does not trip after 19 final failures", () => {
+  it("does not trip after 49 final failures", () => {
     for (let i = 0; i < CONSECUTIVE_FAIL_SKIP_THRESHOLD - 1; i++) {
       assert.equal(recordConsecutiveFailSkipFinalFailure(), false);
     }
     assert.equal(isConsecutiveFailSkipTripped(), false);
   });
 
-  it("trips on the 20th final failure", () => {
+  it("trips on the 50th final failure", () => {
     for (let i = 0; i < CONSECUTIVE_FAIL_SKIP_THRESHOLD - 1; i++) {
       recordConsecutiveFailSkipFinalFailure();
     }

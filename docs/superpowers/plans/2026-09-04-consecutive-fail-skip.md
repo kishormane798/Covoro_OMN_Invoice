@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. REQUIRED BACKGROUND: `wait-for-explicit-run` — do not run Playwright / npm / `tsx --test` until the user says **run**. Do not commit unless the user explicitly asks.
 
-**Goal:** After 20 finished Playwright tests fail in a row anywhere in the run, skip remaining tests; a pass resets the streak unless the latch already tripped.
+**Goal:** After 50 finished Playwright tests fail in a row anywhere in the run, skip remaining tests; a pass resets the streak unless the latch already tripped.
 
 **Architecture:** A repo-root JSON marker (same idea as `site-unavailable.json`) with an exclusive lock so five workers cannot increment at once. `global-setup` clears it. `baseTest` `beforeEach` skips if tripped; `afterEach` records pass or final failure.
 
@@ -10,10 +10,10 @@
 
 ## Global Constraints
 
-- Threshold is exactly 20 finished failures in a row (whole run, any worker)
+- Threshold is exactly 50 finished failures in a row (whole run, any worker)
 - Pass resets streak to 0 only when **not** already tripped (latch stays on for that run)
 - Skips do not move the streak; failed attempts that Playwright will retry do not move the streak
-- Skip reason: `Skipping because 20 tests failed in a row.`
+- Skip reason: `Skipping because 50 tests failed in a row.`
 - `playwright.config.ts` `maxFailures` stays `0`
 - Do not commit unless the user explicitly asks
 - Do not run Playwright or the unit script until the user says **run**
@@ -46,8 +46,8 @@ GitNexus was not ready at plan time. Grep: every spec imports `test` from `Src/b
 - Produces:
   - `CONSECUTIVE_FAIL_SKIP_FILE = "consecutive-fail-skip.json"`
   - `CONSECUTIVE_FAIL_SKIP_LOCK = "consecutive-fail-skip.lock"`
-  - `CONSECUTIVE_FAIL_SKIP_THRESHOLD = 20`
-  - `CONSECUTIVE_FAIL_SKIP_MESSAGE = "Skipping because 20 tests failed in a row."`
+  - `CONSECUTIVE_FAIL_SKIP_THRESHOLD = 50`
+  - `CONSECUTIVE_FAIL_SKIP_MESSAGE = "Skipping because 50 tests failed in a row."`
   - `clearConsecutiveFailSkipMarker(): void`
   - `isConsecutiveFailSkipTripped(): boolean`
   - `recordConsecutiveFailSkipPass(): void`
@@ -80,14 +80,14 @@ describe("consecutiveFailSkip", () => {
     assert.equal(isConsecutiveFailSkipTripped(), false);
   });
 
-  it("does not trip after 19 final failures", () => {
+  it("does not trip after 49 final failures", () => {
     for (let i = 0; i < CONSECUTIVE_FAIL_SKIP_THRESHOLD - 1; i++) {
       assert.equal(recordConsecutiveFailSkipFinalFailure(), false);
     }
     assert.equal(isConsecutiveFailSkipTripped(), false);
   });
 
-  it("trips on the 20th final failure", () => {
+  it("trips on the 50th final failure", () => {
     for (let i = 0; i < CONSECUTIVE_FAIL_SKIP_THRESHOLD - 1; i++) {
       recordConsecutiveFailSkipFinalFailure();
     }
@@ -206,7 +206,7 @@ Import `TestInfo` from `@playwright/test` if not already in scope.
 
 | Spec rule | Task |
 |---|---|
-| Threshold 20, whole run | Task 1 |
+| Threshold 50, whole run | Task 1 |
 | Pass resets before trip | Task 1 |
 | Latch after trip | Task 1 |
 | Skip remaining via baseTest | Task 2 |
