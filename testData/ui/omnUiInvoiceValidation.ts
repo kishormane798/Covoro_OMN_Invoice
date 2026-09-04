@@ -664,28 +664,25 @@ export const OMN_UI_EXCEL_PARTY_IDENTITY_CASES: readonly OmnUiExcelPartyIdentity
   { invoiceType: "selfBilled", section: "buyer" },
 ];
 
-export function omnUiExcelPartyIdentityTitle(
-  heading: string,
-  identityCase: OmnUiExcelPartyIdentityCase
-): string {
-  const party = identityCase.section === "seller" ? "Seller" : "Buyer";
-  const condition =
-    identityCase.invoiceType === "selfBilled"
-      ? "self-billed Excel worker TIN"
-      : "Excel identity";
-  return `${heading} | ${party} | VAT Identifier and electronic address | ${condition} → accepted`;
+function charsPhrase(n: number): string {
+  return n === 1 ? "1-character" : `${n}-character`;
 }
 
-export function omnUiMinMaxCondition(variant: OmnUiMinMaxVariant, rule: OmnUiFieldRule): string {
+export function omnUiMinMaxWhatEntered(
+  variant: OmnUiMinMaxVariant,
+  rule: OmnUiFieldRule
+): string {
   switch (variant) {
     case "min":
-      return `minimum length (${rule.min} char${rule.min === 1 ? "" : "s"})`;
+      return `A ${charsPhrase(rule.min)} ${rule.field}`;
     case "max":
-      return `maximum length (${rule.max} chars)`;
+      return `${rule.field} at maximum length (${rule.max} characters)`;
     case "belowMin":
-      return rule.belowMin === 0 ? "empty (below minimum)" : `${rule.belowMin} chars (below minimum)`;
+      return rule.belowMin === 0
+        ? `An empty ${rule.field}`
+        : `A ${charsPhrase(rule.belowMin)} ${rule.field} (below minimum)`;
     case "aboveMax":
-      return `${rule.aboveMax} chars (above maximum)`;
+      return `A ${charsPhrase(rule.aboveMax)} ${rule.field} (above maximum)`;
   }
 }
 
@@ -1514,27 +1511,21 @@ export const OMN_UI_FORMULA_INPUT_CANDIDATES: Record<string, readonly string[]> 
   ],
 };
 
-export function headingForEntry(entry: OmnUiEntry): string {
-  switch (entry) {
-    case "create":
-      return "Create Invoice UI";
-    case "edit":
-      return "Edit Invoice UI";
-    case "copy":
-      return "Copy Invoice UI";
+const COPY_INVOICE_NUMBER_EMPTY_SOURCE = "Copied invoice number is empty until filled";
+
+export function omnUiConditionalDisplayTitle(entry: OmnUiEntry, sourceTitle: string): string {
+  if (sourceTitle === COPY_INVOICE_NUMBER_EMPTY_SOURCE) {
+    return "An empty invoice number on a copied invoice — Update should succeed. (Invoice Number)";
   }
-}
-
-export function omnUiTestTitle(
-  heading: string,
-  section: OmnUiSection,
-  condition: string,
-  expectsError: boolean
-): string {
-  const outcome = expectsError ? "field error" : "accepted";
-  return `${heading} | ${OMN_UI_SECTION_LABELS[section]} | ${condition} → ${outcome}`;
-}
-
-export function omnUiFormulaTestTitle(heading: string, scenarioName: string): string {
-  return `${heading} | Formula | ${scenarioName} → calculated totals`;
+  const when = entry === "create" ? "When the form is saved" : "When the form is updated";
+  const accepted =
+    entry === "create" ? "Then Save should succeed." : "Then Update should succeed.";
+  return sourceTitle
+    .replace(/^(?:(?:Create|Edit|Copy) Invoice UI \| )+/, "")
+    .replace("When the invoice is uploaded", when)
+    .replace("Then the invoice should be accepted.", accepted)
+    .replace(
+      "Then the invoice should be rejected with an error.",
+      "Then the form should show an error."
+    );
 }

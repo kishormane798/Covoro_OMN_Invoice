@@ -1,4 +1,4 @@
-import { test as base, type Request, type Page } from '@playwright/test';
+import { test as base, type Request, type Page, type TestInfo } from '@playwright/test';
 import { parallelWorkerTinSlot } from '../Helpers/worker/parallelWorkerSubmitIdentity';
 import {
   deleteGeneratedExcelFiles,
@@ -12,6 +12,12 @@ import {
   resolveAppOriginForMarker,
   writeSiteUnavailableMarker,
 } from '../utils/siteUnavailableMarker';
+import {
+  CONSECUTIVE_FAIL_SKIP_MESSAGE,
+  isConsecutiveFailSkipTripped,
+  recordConsecutiveFailSkipFinalFailure,
+  recordConsecutiveFailSkipPass,
+} from '../utils/consecutiveFailSkip';
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import path from 'path';
 
@@ -116,6 +122,16 @@ function sanitizeSingleLine(input: string): string {
   return input.replace(/\s+/g, ' ').trim();
 }
 
+/** i18next Locize promo — not useful on failure. */
+function isNoiseBrowserConsoleLine(line: string): boolean {
+  const lower = line.toLowerCase();
+  return lower.includes('i18next is made possible') && lower.includes('locize');
+}
+
+function usefulConsoleLines(lines: string[]): string[] {
+  return lines.filter((line) => !isNoiseBrowserConsoleLine(line));
+}
+
 function isApiLikeRequest(request: Request): boolean {
   const rt = request.resourceType();
   return rt === 'fetch' || rt === 'xhr';
@@ -179,7 +195,6 @@ function buildFailureContextBlock(
 ): string {
   const firstError = testInfo.errors?.[0];
   const errorMessage = firstError?.message?.trim() || 'N/A';
-  const errorStack = firstError?.stack?.trim() || 'N/A';
   const timing = testTimingByTest.get(testInfo);
   const testStartedAt = timing ? formatIndiaTime(timing.startMs) : 'N/A';
   const testEndedAt = formatIndiaTime(endedMs);
@@ -207,7 +222,6 @@ function buildFailureContextBlock(
     `testFailedAt: ${testFailedAt}`,
     `durationMs: ${durationMs}`,
     `errorMessage: ${errorMessage}`,
-    `errorStack: ${errorStack}`,
     '--- End Failure Context ---',
     '',
   ].join('\n');
@@ -416,6 +430,17 @@ export const test = base.extend<UaeTestFixtures, UaeWorkerFixtures>({
   },
 });
 
+function playwrightWillRetry(testInfo: TestInfo): boolean {
+  if (testInfo.status === "passed" || testInfo.status === "skipped") {
+    return false;
+  }
+  if (testInfo.status === "interrupted") {
+    return false;
+  }
+  const retries = testInfo.project?.retries ?? 0;
+  return testInfo.retry < retries;
+}
+
 test.beforeEach(async ({}, testInfo) => {
   testTimingByTest.set(testInfo, { startMs: Date.now() });
   // Remove stale xlsx from interrupted runs; skip suite if global login could not reach the app.
@@ -427,6 +452,9 @@ test.beforeEach(async ({}, testInfo) => {
       true,
       `Skipping because site/login is unavailable (${siteDown.baseUrl ?? 'BASE_URL'}). ${siteDown.reason ?? ''}`.trim()
     );
+  }
+  if (isConsecutiveFailSkipTripped()) {
+    test.skip(true, CONSECUTIVE_FAIL_SKIP_MESSAGE);
   }
 
   generatedFiles.length = 0;
@@ -452,23 +480,20 @@ test.afterEach(async ({}, testInfo) => {
       apiLines: [],
     };
     const failureContextBlock = buildFailureContextBlock(testInfo, testEndedMs);
-    const consoleBody =
-      diagnostics.consoleLines.length > 0
-        ? diagnostics.consoleLines.join('\n')
-        : 'No browser console messages were captured before failure.';
-    await testInfo.attach('console-log.txt', {
-      body: consoleBody,
-      contentType: 'text/plain; charset=utf-8',
-    });
+    const consoleLines = usefulConsoleLines(diagnostics.consoleLines);
+    if (consoleLines.length > 0) {
+      await testInfo.attach('console-log.txt', {
+        body: consoleLines.join('\n'),
+        contentType: 'text/plain; charset=utf-8',
+      });
+    }
 
-    const apiBody =
-      diagnostics.apiLines.length > 0
-        ? diagnostics.apiLines.join('\n')
-        : 'No fetch/xhr API traffic was captured before failure.';
-    await testInfo.attach('api-traffic.txt', {
-      body: apiBody,
-      contentType: 'text/plain; charset=utf-8',
-    });
+    if (diagnostics.apiLines.length > 0) {
+      await testInfo.attach('api-traffic.txt', {
+        body: diagnostics.apiLines.join('\n'),
+        contentType: 'text/plain; charset=utf-8',
+      });
+    }
 
     await testInfo.attach('failure-context.txt', {
       body: failureContextBlock,
@@ -490,14 +515,6 @@ test.afterEach(async ({}, testInfo) => {
       await testInfo.attach(name, {
         body,
         contentType: XLSX_MEDIA_TYPE,
-      });
-    }
-    if (excelPaths.length === 0) {
-      await testInfo.attach('excel-attachments.txt', {
-        body:
-          'No generated/uploaded Excel file path was available at failure time. ' +
-          'Failure may have happened before upload/file generation.\n',
-        contentType: 'text/plain; charset=utf-8',
       });
     }
   }
@@ -524,4 +541,10 @@ test.afterEach(async ({}, testInfo) => {
   errorValidationLogLines.length = 0;
   failureDiagnosticsByTest.delete(testInfo);
   testTimingByTest.delete(testInfo);
+
+  if (testInfo.status === "passed") {
+    recordConsecutiveFailSkipPass();
+  } else if (testInfo.status !== "skipped" && !playwrightWillRetry(testInfo)) {
+    recordConsecutiveFailSkipFinalFailure();
+  }
 });

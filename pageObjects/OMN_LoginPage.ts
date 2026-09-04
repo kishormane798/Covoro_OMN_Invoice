@@ -4,6 +4,7 @@
  */
 
 import { Page } from '@playwright/test';
+import { waitForLocatorWithPageRefresh } from '../Helpers/waitForWithPageRefresh';
 import { resolveBaseUrl } from '../utils/appConfig';
 
 const SELECTORS = {
@@ -75,6 +76,15 @@ export class LoginPage {
         await modal.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
     }
 
+    /** Blank first paint on /login: wait for email (or language modal), then refresh if still empty. */
+    private async waitForLoginFormReady(): Promise<void> {
+        await waitForLocatorWithPageRefresh(this.page, this.emailInput(), {
+            attemptTimeoutMs: 30_000,
+            maxRefreshes: 2,
+            orLocators: [this.languageModal()],
+        });
+    }
+
     private async clickSignIn(): Promise<void> {
         await this.dismissLanguageModalIfPresent();
         const signIn = this.signInButton();
@@ -98,6 +108,7 @@ export class LoginPage {
         passwordVisibleTimeoutMs: number,
     ): Promise<void> {
         await this.dismissLanguageModalIfPresent();
+        await this.emailInput().waitFor({ state: 'visible', timeout: 30_000 });
         await this.emailInput().fill(email);
         await this.clickSignIn();
         await this.passwordInput().waitFor({ state: 'visible', timeout: passwordVisibleTimeoutMs });
@@ -112,6 +123,7 @@ export class LoginPage {
     async goto() {
         const loginUrl = `${resolveBaseUrl()}/login`;
         await this.page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
+        await this.waitForLoginFormReady();
     }
 
     async login(email: string, password: string) {
@@ -131,6 +143,7 @@ export class LoginPage {
             waitUntil: 'domcontentloaded',
             timeout: 30_000,
         });
+        await this.waitForLoginFormReady();
         await this.submitCredentialsAndReachDashboard(email, password, 60_000, 30_000);
     }
 

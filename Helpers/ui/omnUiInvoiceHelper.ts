@@ -22,6 +22,7 @@ import {
   isUiWhitespaceValue,
   OMN_UI_DROPDOWN_ASSERT_IDS,
   OMN_UI_FORMULA_INPUT_CANDIDATES,
+  OMN_UI_HS_CODE,
   OMN_UI_INDUSTRIAL_CLASSIFICATION,
   OMN_UI_INVOICE_FORMULA_KEYS,
   OMN_UI_INVOICE_TYPE_COMMERCIAL,
@@ -50,6 +51,7 @@ import {
 import {
   CREDIT_DEBIT_REASON_SAMPLE,
   PRECEDING_INVOICE_UUID_SAMPLE,
+  TAX_EXEMPTION_REASON_TEXT_SAMPLE,
   TXN_PREPAYMENT_INVOICE,
 } from "../../testData/FieldValidations/ConditionalValidation";
 import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
@@ -376,6 +378,12 @@ async function ensureItemBaseline(
     const current = await invoice.readInputValue("item", "itemType");
     if (!current) {
       await invoice.selectAutocomplete("item", "itemType", OMN_UI_ITEM_TYPE_GOODS);
+    }
+  }
+  if (!excludeInputIds.has("classificationIdentifier")) {
+    const current = await invoice.readInputValue("item", "classificationIdentifier");
+    if (!current) {
+      await invoice.selectAutocomplete("item", "classificationIdentifier", OMN_UI_HS_CODE);
     }
   }
   if (!excludeInputIds.has("taxRateDtls[0].taxCategory")) {
@@ -1210,12 +1218,17 @@ async function applyConditionalSectionFields(
       scenario.taxExemptionReasonCode,
       ["taxRateDtls[0].exemptionReasonCode", "exemptionReasonType", "taxExemptionReasonCode"]
     );
+    const exemptionText =
+      scenario.taxExemptionReasonText ??
+      (scenario.taxExemptionReasonCode && !isUiEmptyValue(scenario.taxExemptionReasonCode)
+        ? TAX_EXEMPTION_REASON_TEXT_SAMPLE
+        : undefined);
     await writeText(
       invoice,
       entry,
       "item",
       "taxExemptionRsn",
-      scenario.taxExemptionReasonText ?? undefined,
+      exemptionText,
       ["taxRateDtls[0].exemptionReason", "taxExemptionReason"]
     );
     return;

@@ -14,6 +14,8 @@ allure-report/
 # Playwright / login outage markers (written at repo root during runs)
 site-unavailable.json
 site-unavailable-w*.json
+consecutive-fail-skip.json
+consecutive-fail-skip.lock
 screenshots/
 videos/
 traces/

@@ -27,7 +27,7 @@ npm run test:ui
 |---------|----------|
 | Locators & UI actions | `pageObjects/OMN_UIInvoiceManualPage.ts` |
 | Flow orchestration | `Helpers/ui/omnUiInvoiceHelper.ts`, `omnUiInvoiceEntryHelper.ts` |
-| Binders | `Helpers/ui/omnUiInvoiceSpec.ts` |
+| Specs (describe, loops, titles) | `tests/KISHOR_UI/OMN_UIInvoice_*_Test.spec.ts` |
 | Min/max + mapped conditionals | `testData/ui/omnUiInvoiceValidation.ts` |
 | Conditional rules source | `testData/FieldValidations/ConditionalValidation.ts` |
 
@@ -43,23 +43,43 @@ Section persist uses the same **Save** / **Update** `.form-footer` pattern as UA
 
 ### 2. Add or reuse helper function
 
-Specs call `bindOmnUiInvoiceSuite(entry)` / `bindOmnUiConditionalSuite(entry)`.
-
-New UI interaction logic goes in the **page object**, not the spec.
+New UI interaction logic goes in the **page object**, not the spec. Specs call `runOmnUiMinMaxCase` / `runOmnUiConditionalScenario` / `runOmnUiFormulaScenario`.
 
 ### 3. Spec pattern
 
-```ts
-import { bindOmnUiConditionalSuite } from "../../Helpers/ui/omnUiInvoiceSpec";
+Same shape as Covoro Excel specs: `test.describe` + data loop + `test(\`title\`, …)` in the spec file.
 
-bindOmnUiConditionalSuite("create");
+```ts
+import { test } from "../../Src/baseTest";
+import { runOmnUiConditionalScenario } from "../../Helpers/ui/omnUiInvoiceHelper";
+import {
+  OMN_UI_SECTION_ORDER,
+  omnUiConditionalDisplayTitle,
+  omnUiConditionalScenariosFor,
+} from "../../testData/ui/omnUiInvoiceValidation";
+
+const ENTRY = "create" as const;
+
+test.describe("Create Invoice UI — conditional", () => {
+  test.describe.configure({ mode: "parallel" });
+  for (const section of OMN_UI_SECTION_ORDER) {
+    test.describe(`Create Invoice UI — ${section} conditional`, () => {
+      for (const scenario of omnUiConditionalScenariosFor(ENTRY, section)) {
+        test(omnUiConditionalDisplayTitle(ENTRY, scenario.title), async ({ page }, testInfo) => {
+          await runOmnUiConditionalScenario(page, ENTRY, scenario, testInfo.testId);
+        });
+      }
+    });
+  }
+});
 ```
 
 ### 4. Test title format
 
-```
-Create Invoice UI | {Section} | {field or rule} | {condition} → {outcome}
-```
+REQUIRED SUB-SKILL: `improve-testcase-title`. Write the title as a template string **in the spec** (Covoro style). Do not prefix `Create Invoice UI |`. Do not add a `uiTestTitle` helper.
+
+Field: `{What we entered} — Save should succeed. ({Field})` (Edit/Copy: Update). Errors: `the form should show an error`.
+Conditional: keep Excel `title` in `ConditionalValidation.ts`; UI spec uses `omnUiConditionalDisplayTitle` so uploaded becomes form saved/updated.
 
 ## Checklist
 

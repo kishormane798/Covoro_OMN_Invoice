@@ -215,6 +215,21 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         });
         continue;
       }
+      // IBR-015-OM: empty Third Party Name is accepted on Full Tax (no overlay).
+      // Third-party Invoice overlay makes the name mandatory → error file (invalid-length suite).
+      if (config.field === "Third Party Name") {
+        test(`An empty Third Party Name on a Full Tax invoice should be accepted. (Third Party Name)`, async ({
+          page,
+        }) => {
+          const { filePath } = await generateOmanSeededFieldExcel(
+            config.field,
+            "",
+            { skipDependentOverlay: true }
+          );
+          await uploadAndVerifyFieldAccepted(page, filePath);
+        });
+        continue;
+      }
       // IBR-015-OM: Third-party Invoice overlay → empty third-party address fields are mandatory → error file.
       if (
         config.field === "Third Party Address Line 1" ||
@@ -311,6 +326,21 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
 
       if (config.field === "Supporting document reference") {
         test(`When Supporting document UUID is provided, an empty Supporting document reference should be rejected with an error. (Supporting document reference)`, async ({
+          page,
+        }) => {
+          const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
+            config.field,
+            config.belowMin
+          );
+          await runErrorValidation(page, {
+            filePath,
+            field: config.field,
+            invoiceNumber,
+            checkEdit: true,
+          });
+        });
+      } else if (config.field === "Third Party Name") {
+        test(`An empty Third Party Name on a Third-party invoice should be rejected with an error. (Third Party Name)`, async ({
           page,
         }) => {
           const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(

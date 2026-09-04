@@ -82,12 +82,12 @@ export default defineConfig({
     {
       name: 'chromium',
       testIgnore: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/, /previous-code/],
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     },
     {
       name: 'chromium-ui',
       testMatch: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/],
-      use: { ...devices['Desktop Chrome'], video: 'retain-on-failure' },
+      use: { ...devices['Desktop Chrome'], channel: 'chrome', video: 'retain-on-failure' },
     },
   ],
 });

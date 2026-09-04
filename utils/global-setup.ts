@@ -8,6 +8,7 @@ import {
   clearSiteUnavailableMarker,
   writeSiteUnavailableMarker,
 } from './siteUnavailableMarker';
+import { clearConsecutiveFailSkipMarker } from './consecutiveFailSkip';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -61,6 +62,7 @@ async function globalSetup(config: FullConfig) {
   const email = process.env.TEST_USER_EMAIL;
   const password = process.env.TEST_USER_PASSWORD;
   clearSiteUnavailableMarker();
+  clearConsecutiveFailSkipMarker();
 
   if (!email || !password) {
     throw new Error(
