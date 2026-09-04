@@ -195,17 +195,35 @@ jobs:
           restore-keys: |
             playwright-chromium-${{ hashFiles('package-lock.json') }}
 
-      # ubuntu-24.04 GitHub runners hang in `playwright install --with-deps`:
-      # apt retries dead azure.archive.ubuntu.com mirrors (Ign:) with no further log.
+      # ubuntu-24.04 GitHub runners: azure.archive.ubuntu.com hangs, and HTTP
+      # archive/security.ubuntu.com often fails on :80 (Connection failed).
+      # Prefer HTTPS (:443). If apt still cannot reach Ubuntu, skip --with-deps —
+      # the runner image already ships Chrome/Chromium system libraries.
       - name: Install Playwright Browsers
         timeout-minutes: 10
         run: |
           set -euo pipefail
           sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' -o -name 'sources.list' \) \
-            -exec sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g; s|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' {} +
-          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
+            -exec sed -i \
+              -e 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+              -e 's|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+              -e 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+              -e 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' \
+              {} +
+          printf '%s\n' \
+            'https://archive.ubuntu.com/ubuntu/' \
+            'https://security.ubuntu.com/ubuntu/' \
+            | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          printf '%s\n' \
+            'Acquire::Retries "2";' \
+            'Acquire::http::Timeout "20";' \
+            'Acquire::https::Timeout "20";' \
             | sudo tee /etc/apt/apt.conf.d/99-ci-apt-timeout >/dev/null
-          npx playwright install chromium --with-deps
+          if npx playwright install chromium --with-deps; then
+            exit 0
+          fi
+          echo "::warning::playwright install --with-deps failed (Ubuntu apt mirrors). Installing Chromium without system packages."
+          npx playwright install chromium
 
       - name: Create .env file
         run: |
