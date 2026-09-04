@@ -27,6 +27,7 @@ import {
 } from "./conditionalValidationHelper";
 import { randomAlphaNumeric } from "./fieldValidationHelper";
 import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
+import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
 import {
   buyerSellerIdentifierCodeValidTestData,
   omanCountrySubdivisionValidTestData,
@@ -85,6 +86,29 @@ function formatIssueDateValue(
 const BUYER_VAT_FIELD = "Buyer VAT identifier";
 const BUYER_EL_FIELD = "Buyer electronic address";
 
+function withRuntimeBuyerIdentity<T extends Record<string, string>>(row: T): T {
+  if (isSimplifiedTemplateEnv()) {
+    return row;
+  }
+  return {
+    ...row,
+    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
+    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
+  };
+}
+
+function patchRuntimeBuyerIdentity(filePath: string, field: string): void {
+  if (isSimplifiedTemplateEnv()) {
+    return;
+  }
+  if (field !== BUYER_VAT_FIELD) {
+    patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
+  }
+  if (field !== BUYER_EL_FIELD) {
+    patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+  }
+}
+
 const BUYER_SCHEME_FIELD = "Scheme identifier";
 const BUYER_CODE_FIELD = "Buyer Identifier (textual code)";
 const BUYER_IDENTIFIER_FIELD = "Buyer identifier";
@@ -109,14 +133,7 @@ function masterLabel(
 
 function buildOmanDropdownRuntimeBaseRow(field: string): Record<string, string> {
   const packBase = buildOmanDropdownBaseRow(field);
-  const identified = applyParallelWorkerIdentityToSubmitRow({
-    ...packBase,
-    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
-    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
-  });
-  identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
-  return identified;
+  return withRuntimeBuyerIdentity(applyParallelWorkerIdentityToSubmitRow(packBase));
 }
 
 function dropdownValueLabel(item: unknown): string {
@@ -686,13 +703,9 @@ export async function generateOmanSeededFieldExcel(
       ? seed
       : applyDependentOverlay("", field, seed);
   }
-  const identified = applyParallelWorkerIdentityToSubmitRow({
-    ...overlaid,
-    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
-    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
-  });
-  identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  const identified = withRuntimeBuyerIdentity(
+    applyParallelWorkerIdentityToSubmitRow(overlaid)
+  );
   identified[field] = value;
   const prepaidCompanions = applyPaidAmountPrepaymentCompanions(
     identified,
@@ -700,12 +713,7 @@ export async function generateOmanSeededFieldExcel(
     value
   );
   const generated = await generateInvoiceFromSubmitData(identified);
-  if (field !== BUYER_VAT_FIELD) {
-    patchInvoiceTextCellInFile(generated.filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
-  }
-  if (field !== BUYER_EL_FIELD) {
-    patchInvoiceTextCellInFile(generated.filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
-  }
+  patchRuntimeBuyerIdentity(generated.filePath, field);
   patchInvoiceTextCellInFile(generated.filePath, field, value);
   for (const companion of prepaidCompanions) {
     if (companion !== field) {
@@ -820,13 +828,9 @@ export async function generateOmanCl06IdentifierMasterExcel(opts: {
   }
 
   const seed = buildValidOmanFullTaxInvoiceRow();
-  const baseRow = applyParallelWorkerIdentityToSubmitRow({
-    ...seed,
-    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
-    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
-  });
-  baseRow[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  baseRow[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  const baseRow = withRuntimeBuyerIdentity(
+    applyParallelWorkerIdentityToSubmitRow(seed)
+  );
   baseRow[identifierField] = opts.identifier;
   baseRow[schemeField] = opts.companion === "scheme" ? labels[0] : "";
   baseRow[codeField] = opts.companion === "code" ? labels[0] : "";
@@ -1039,13 +1043,9 @@ function allFieldsBoundaryCases(
 function identifiedBoundarySeedRow(field: string): Record<string, string> {
   const seed = buildValidOmanFullTaxInvoiceRow();
   const overlaid = applyDependentOverlay("", field, seed);
-  const identified = applyParallelWorkerIdentityToSubmitRow({
-    ...overlaid,
-    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
-    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
-  });
-  identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  const identified = withRuntimeBuyerIdentity(
+    applyParallelWorkerIdentityToSubmitRow(overlaid)
+  );
   return identified;
 }
 
@@ -1076,15 +1076,17 @@ export async function generateOmanAllFieldsBoundaryPackExcel(
   const patches: Array<{ header: string; value: string; dataRow: number }> = [];
   for (let i = 0; i < cases.length; i++) {
     const dataRow = INVOICE_TEMPLATE_DATA_ROW + i;
-    if (cases[i].field !== BUYER_VAT_FIELD) {
-      patches.push({ header: BUYER_VAT_FIELD, value: OMAN_BUYER_VAT, dataRow });
-    }
-    if (cases[i].field !== BUYER_EL_FIELD) {
-      patches.push({
-        header: BUYER_EL_FIELD,
-        value: OMAN_BUYER_ELECTRONIC,
-        dataRow,
-      });
+    if (!isSimplifiedTemplateEnv()) {
+      if (cases[i].field !== BUYER_VAT_FIELD) {
+        patches.push({ header: BUYER_VAT_FIELD, value: OMAN_BUYER_VAT, dataRow });
+      }
+      if (cases[i].field !== BUYER_EL_FIELD) {
+        patches.push({
+          header: BUYER_EL_FIELD,
+          value: OMAN_BUYER_ELECTRONIC,
+          dataRow,
+        });
+      }
     }
     patches.push({ header: cases[i].field, value: cases[i].value, dataRow });
     const prepaidCompanions = applyPaidAmountPrepaymentCompanions(

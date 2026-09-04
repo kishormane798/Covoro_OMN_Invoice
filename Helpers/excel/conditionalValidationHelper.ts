@@ -2540,6 +2540,8 @@ export function buildBuyerAddressRequiredScenarioRow(
   row[FV.BUYER_ADDRESS_LINE_3_FIELD] = scenario.addressLine3;
   row[FV.BUYER_CITY_FIELD] = scenario.city;
   row[FV.BUYER_POST_CODE_FIELD] = scenario.postCode;
+  // IBR-019-OM does not probe country. Empty Buyer country is IBR-020-OM only.
+  row[FV.BUYER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
   return row;
 }
 

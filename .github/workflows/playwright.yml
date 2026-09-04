@@ -2,10 +2,10 @@
 #   One clock start. Every suite runs the full spec (no Playwright --shard split).
 #   Morning 05:45 IST starts the full field suite.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
-#   starts the next suite: field → conditional → formula, then stops.
-#   Submit and UI are never part of that wave — not after formula, and not when chain is on.
+#   starts the next suite: field → conditional → formula → UI create → UI conditional, then stops.
+#   Submit, UI edit, and UI copy stay Run workflow only — not after UI conditional, and not when chain is on.
 #   Submit is Run workflow only: pick covoro_submit_single or covoro_submit_multi.
-#   UI is Run workflow only: pick covoro_ui_create, covoro_ui_conditional_create, covoro_ui_edit, or covoro_ui_copy.
+#   UI edit / UI copy are Run workflow only. UI create and UI conditional join the morning schedule wave only.
 #   Leave "chain" off for one-off field/formula/conditional/submit/UI runs.
 #   Chain on continues field→conditional→formula only; it never starts submit or UI.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -34,6 +34,11 @@ on:
           - covoro_ui_copy
       chain:
         description: "Leave off for one-off runs. On = continue field→conditional→formula only. Never starts submit or UI."
+        required: false
+        type: boolean
+        default: false
+      scheduled_wave:
+        description: "Internal. Set by the morning schedule queue. On = continue formula → UI create → UI conditional. Leave off for manual runs."
         required: false
         type: boolean
         default: false
@@ -454,24 +459,33 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_SUITE: ${{ github.event.inputs.suite }}
           INPUT_CHAIN: ${{ github.event.inputs.chain }}
+          INPUT_SCHEDULED_WAVE: ${{ github.event.inputs.scheduled_wave }}
         shell: bash
         run: |
           set -euo pipefail
 
           SUITE=""
+          SCHEDULED_WAVE="${INPUT_SCHEDULED_WAVE:-false}"
 
           if [ "$EVENT_NAME" = "schedule" ]; then
             SUITE="covoro_field"
+            SCHEDULED_WAVE="true"
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             SUITE="$INPUT_SUITE"
 
-            # Submit and UI are manual-only and never join the field→conditional→formula wave.
-            if [ "$SUITE" = "covoro_submit_single" ] || [ "$SUITE" = "covoro_submit_multi" ] || [[ "$SUITE" == covoro_ui_* ]]; then
+            # Submit, UI edit, and UI copy never join any wave.
+            if [ "$SUITE" = "covoro_submit_single" ] || [ "$SUITE" = "covoro_submit_multi" ] || [ "$SUITE" = "covoro_ui_edit" ] || [ "$SUITE" = "covoro_ui_copy" ]; then
               echo "Manual-only suite $SUITE finished (full spec). Not chaining."
               exit 0
             fi
 
-            if [ "${INPUT_CHAIN:-false}" != "true" ]; then
+            # UI create / UI conditional chain only on the morning scheduled wave.
+            if [ "$SUITE" = "covoro_ui_create" ] || [ "$SUITE" = "covoro_ui_conditional_create" ]; then
+              if [ "$SCHEDULED_WAVE" != "true" ]; then
+                echo "Manual-only suite $SUITE finished (full spec). Not chaining."
+                exit 0
+              fi
+            elif [ "${INPUT_CHAIN:-false}" != "true" ]; then
               echo "Manual run without chain — not chaining."
               exit 0
             fi
@@ -489,7 +503,18 @@ jobs:
               NEXT_SUITE="covoro_formula"
               ;;
             covoro_formula)
-              echo "Formula suite finished — wave complete. Submit and UI are not started (manual Run workflow only, even if chain is on)."
+              if [ "$SCHEDULED_WAVE" = "true" ]; then
+                NEXT_SUITE="covoro_ui_create"
+              else
+                echo "Formula suite finished — wave complete. Submit and UI are not started (manual Run workflow only, even if chain is on)."
+                exit 0
+              fi
+              ;;
+            covoro_ui_create)
+              NEXT_SUITE="covoro_ui_conditional_create"
+              ;;
+            covoro_ui_conditional_create)
+              echo "UI conditional suite finished — scheduled wave complete."
               exit 0
               ;;
             *)
@@ -498,15 +523,23 @@ jobs:
               ;;
           esac
 
-          # Hard stop: field/conditional/formula wave never queues submit or UI.
-          if [ "$NEXT_SUITE" = "covoro_submit_single" ] || [ "$NEXT_SUITE" = "covoro_submit_multi" ] || [[ "$NEXT_SUITE" == covoro_ui_* ]]; then
-            echo "Submit/UI are manual-only — refusing to queue $NEXT_SUITE after $SUITE (chain does not start them)."
+          # Hard stop: never queue submit, UI edit, or UI copy.
+          # UI create / UI conditional are allowed only when this run is the scheduled wave.
+          if [ "$NEXT_SUITE" = "covoro_submit_single" ] || [ "$NEXT_SUITE" = "covoro_submit_multi" ] || [ "$NEXT_SUITE" = "covoro_ui_edit" ] || [ "$NEXT_SUITE" = "covoro_ui_copy" ]; then
+            echo "Submit/UI edit/copy are manual-only — refusing to queue $NEXT_SUITE after $SUITE."
+            exit 0
+          fi
+          if [[ "$NEXT_SUITE" == covoro_ui_* ]] && [ "$SCHEDULED_WAVE" != "true" ]; then
+            echo "UI is schedule-wave only — refusing to queue $NEXT_SUITE after $SUITE (manual chain does not start them)."
             exit 0
           fi
 
           echo "Queueing next: $NEXT_SUITE (full spec)"
+          DISPATCH_ARGS=( -f suite="$NEXT_SUITE" -f chain=true )
+          if [ "$SCHEDULED_WAVE" = "true" ]; then
+            DISPATCH_ARGS+=( -f scheduled_wave=true )
+          fi
           gh workflow run playwright.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref "$GITHUB_REF_NAME" \
-            -f suite="$NEXT_SUITE" \
-            -f chain=true
+            "${DISPATCH_ARGS[@]}"

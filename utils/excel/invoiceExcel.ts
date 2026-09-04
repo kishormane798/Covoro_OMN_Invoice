@@ -1534,7 +1534,15 @@ async function buildSubmitFlowRowValuesForWrite(
     rowValues["Payment card primary account number"] = "";
   }
 
+  // Covoro has both buyer `Scheme Identifier` and `Scheme Identifier - Payment`.
+  // Simplified has only the payment column — do not treat seed `Scheme identifier`
+  // as a buyer scheme write, or payment scheme is cleared.
+  const hasBuyerSchemeColumn = hasHeaderLabel(
+    templateHeaders,
+    "Scheme identifier"
+  );
   const hasBuyerSchemeValue =
+    hasBuyerSchemeColumn &&
     Object.prototype.hasOwnProperty.call(rowData, "Scheme identifier") &&
     allowedColumnsMatchKeys.has(invoiceHeaderMatchKey("Scheme identifier"));
   if (hasBuyerSchemeValue) {

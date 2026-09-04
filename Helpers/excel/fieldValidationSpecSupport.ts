@@ -4,11 +4,29 @@
  */
 import type { Page } from "@playwright/test";
 import * as FV from "../../testData/FieldValidations";
+import { SIMPLIFIED_TEMPLATE_HEADER_LABELS } from "../../testData/invoiceTemplateHeaders/invoiceColumnMapping";
+import { filterConfigsByHeaderLabels } from "../../utils/excel/invoiceExcel";
 import type { DropdownWriteCasing } from "./omanFieldValidationExcelHelper";
 import { uploadAndVerify } from "./uploadHelper";
 import { assertSingleLineUploadedExcelRoundTrip } from "./invoiceExcelRoundTripHelper";
 
 export const FIELD_VALIDATION_TEMPLATE = "Covoro";
+export const FIELD_VALIDATION_TEMPLATE_SIMPLIFIED = "Simplified";
+
+/** Seller/buyer party columns: fill identity only — no min/max, dropdown, or conditional cases. */
+export function isSimplifiedIgnoredPartyField(field: string): boolean {
+  const k = field.replace(/\s+/g, " ").trim().toLowerCase();
+  return k === "scheme identifier" || k.startsWith("seller ") || k.startsWith("buyer ");
+}
+
+export function simplifiedFieldConfigs<T extends { field: string }>(
+  configs: readonly T[] | T[]
+): T[] {
+  return filterConfigsByHeaderLabels(
+    [...configs],
+    SIMPLIFIED_TEMPLATE_HEADER_LABELS
+  ).filter((c) => !isSimplifiedIgnoredPartyField(c.field));
+}
 
 export const dropdownMasterOnCovoro = FV.mergeDropdownFieldConfigs(
   FV.dropdownFieldMasterConfig,
@@ -20,6 +38,22 @@ export const dropdownInvalidOnCovoro = FV.mergeDropdownFieldConfigs(
   FV.documentChargesAllowancesDropdownInvalidConfig,
   FV.conditionalDropdownFieldInvalidConfig,
   FV.hsCodeDropdownInvalidConfig
+);
+
+export const dropdownMasterOnSimplified = simplifiedFieldConfigs(
+  dropdownMasterOnCovoro
+);
+export const dropdownInvalidOnSimplified = simplifiedFieldConfigs(
+  dropdownInvalidOnCovoro
+);
+export const fieldInvoiceNumberOnSimplified = simplifiedFieldConfigs(
+  FV.fieldInvoice_number
+);
+export const mandatoryOnSimplified = simplifiedFieldConfigs(
+  FV.fieldValidationMandatory
+);
+export const optionalOnSimplified = simplifiedFieldConfigs(
+  FV.fieldValidationOptional
 );
 
 export const NON_OMR_INVOICE_CURRENCY_CODES = FV.INVOICE_CURRENCY_DROPDOWN_CODES.filter(
@@ -77,8 +111,34 @@ export const conditionalLengthConfigs = FV.fieldValidationConditional.filter(
   (c) => !CONDITIONAL_LENGTH_SKIP.has(c.field)
 );
 
+export const conditionalLengthOnSimplified = simplifiedFieldConfigs(
+  conditionalLengthConfigs
+);
+
 export const numericFieldConfigs = FV.fieldValidationNumeric.filter(
   (c) => !NUMERIC_CONTEXT_SKIP.has(c.field)
+);
+
+export const numericFieldConfigsOnSimplified = simplifiedFieldConfigs(
+  numericFieldConfigs
+);
+
+function headerMatchKey(name: string): string {
+  return name.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+const simplifiedHeaderKeys = new Set(
+  SIMPLIFIED_TEMPLATE_HEADER_LABELS.map((h) => headerMatchKey(h))
+);
+
+export const formatContextOnSimplified = FV.formatContextFieldValidationCases.filter(
+  (tc) =>
+    simplifiedHeaderKeys.has(headerMatchKey(tc.field)) &&
+    !isSimplifiedIgnoredPartyField(tc.field)
+);
+
+export const hsCodeDropdownOnSimplified = simplifiedFieldConfigs(
+  FV.hsCodeDropdownPartMasterConfig
 );
 
 /**

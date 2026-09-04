@@ -1907,6 +1907,27 @@ def _oman_electronic_address_from_worker_vat(worker_vat: str) -> str:
     return s
 
 
+def _is_simplified_template_env() -> bool:
+    raw = os.environ.get("INVOICE_TEMPLATE_PATH", "").replace("\\", "/").lower()
+    return "simplifiedtemplate.xlsx" in raw
+
+
+def _is_self_billed_invoice_type(value: object) -> bool:
+    n = " ".join(str(value or "").split()).strip().lower().replace("-", " ")
+    return "self billed credit note" in n or "self billed invoice" in n
+
+
+_SIMPLIFIED_SELLER_NAMES = (
+    "Kishor PVT LTD 1",
+    "Kishor PVT LTD 2",
+    "Kishor PVT LTD 3",
+    "Kishor PVT LTD 4",
+    "Kishor PVT LTD 5",
+)
+_SIMPLIFIED_BUYER_NAME = "Prashant"
+_OMAN_VATIN_ELECTRONIC_SCHEME = "Oman Value Added Tax Identification Number (VATIN)"
+
+
 def _counterparty_electronic_address() -> str:
     """Keep aligned with utils/envPartyIdentity.ts `getCounterpartyElectronicAddress`."""
     override = os.environ.get("UAE_EINVOICE_COUNTERPARTY_ELECTRONIC", "").strip()
@@ -1955,9 +1976,10 @@ def _apply_parallel_worker_identity_to_row(
         _electronic_tin_for_worker_index(worker_index)
     )
     worker_el = _oman_electronic_address_from_worker_vat(worker_vat)
-    t_inv = " ".join(inv_type.split()).strip().lower()
     t_txn = " ".join(txn_type.split()).strip().lower()
-    self_billed = "self-billed" in t_inv or "self billed credit" in t_inv
+    self_billed = _is_self_billed_invoice_type(inv_type) or _is_self_billed_invoice_type(
+        txn_type
+    )
     deemed = t_txn == "deemed supply"
 
     counterparty_el = _counterparty_electronic_address()
@@ -1978,6 +2000,18 @@ def _apply_parallel_worker_identity_to_row(
         put("Seller VAT Identifier (TRN / TIN)", worker_vat)
         put("Buyer electronic address", counterparty_el)
         put("Buyer VAT identifier", _counterparty_vat())
+
+    if _is_simplified_template_env():
+        slot = int(worker_index) % _PARALLEL_WORKER_TIN_SLOTS
+        seller_name = _SIMPLIFIED_SELLER_NAMES[slot]
+        if self_billed:
+            put("Seller Name", _SIMPLIFIED_BUYER_NAME)
+            put("Buyer Name", seller_name)
+        else:
+            put("Seller Name", seller_name)
+            put("Buyer Name", _SIMPLIFIED_BUYER_NAME)
+        put("Seller Electronic Address Scheme", _OMAN_VATIN_ELECTRONIC_SCHEME)
+        put("Buyer Electronic Address Scheme", _OMAN_VATIN_ELECTRONIC_SCHEME)
 
 
 _PARALLEL_IDENTITY_FIELD_NAMES = frozenset(

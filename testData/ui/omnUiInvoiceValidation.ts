@@ -31,6 +31,7 @@ import {
   INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS,
   INVOICE_TYPE_COMMERCIAL_INVOICE,
   INVOICE_TYPE_CREDIT_NOTE,
+  INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE,
   INVOICE_TYPE_SELF_BILLED_INVOICE,
   INVOICING_PERIOD_CONDITIONAL_SCENARIOS,
   INVOICING_PERIOD_END_DATE_FIELD,
@@ -43,6 +44,7 @@ import {
   PRECEDING_INVOICE_REFERENCE_FIELD,
   PRECEDING_INVOICE_SCENARIOS,
   PRECEDING_INVOICE_UUID_FIELD,
+  PRECEDING_INVOICE_UUID_SAMPLE,
   PROFIT_MARGIN_PRECEDING_SCENARIOS,
   PREPAYMENT_PAID_AMOUNT_SCENARIOS,
   SELLER_ADDRESS_LINE_1_FIELD,
@@ -80,9 +82,12 @@ import {
   THIRD_PARTY_VATIN_FIELD,
   TXN_FULL_TAX_INVOICE,
   TXN_IMPORT_OF_GOODS,
+  TXN_CONTINUOUS_SUPPLY,
   TXN_PROFIT_MARGIN_INVOICE,
   TXN_PROFIT_MARGIN_SELF_INVOICE,
   TXN_SELF_BILLED_INVOICE,
+  TXN_SUMMARY_INVOICE,
+  OMAN_COUNTRY_CODE,
   OMAN_CURRENCY_OMR,
   OMAN_CURRENCY_USD,
 } from "../FieldValidations/ConditionalValidation";
@@ -756,6 +761,8 @@ export type OmnUiConditionalScenario = {
   entries?: readonly OmnUiEntry[];
   /** Master txn/type expansion or a dropdown/autocomplete assert field. */
   dropdownStyle?: boolean;
+  /** UI gate: field must stay disabled (do not type a value). */
+  expectDisabled?: boolean;
   invoiceTypeCode?: string;
   invoiceTransactionTypeCode?: string;
   invoiceCurrencyCode?: string;
@@ -1031,6 +1038,32 @@ function isImportOfGoodsDropdownStyle(s: {
   return !isImportTxn && !isFullTaxPairing;
 }
 
+/** Excel applyTxnExclusionCompanions / applyIbr081TxnCompanions — document fields only. */
+function uiImportTxnDocumentCompanions(txn?: string): Pick<
+  OmnUiConditionalScenario,
+  | "periodStart"
+  | "periodEnd"
+  | "precedingInvoiceReference"
+  | "precedingInvoiceIssueDate"
+  | "precedingInvoiceUuid"
+  | "invoiceTypeCode"
+> {
+  if (txn === TXN_SUMMARY_INVOICE || txn === TXN_CONTINUOUS_SUPPLY) {
+    return { periodStart: "2026-01-01", periodEnd: "2026-01-31" };
+  }
+  if (txn === TXN_PROFIT_MARGIN_INVOICE) {
+    return {
+      precedingInvoiceReference: "PREV-OMN-001",
+      precedingInvoiceIssueDate: "2026-06-01",
+      precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
+    };
+  }
+  if (txn === TXN_SELF_BILLED_INVOICE) {
+    return { invoiceTypeCode: INVOICE_TYPE_SELF_BILLED_INVOICE };
+  }
+  return {};
+}
+
 function locFor(field: string | undefined, fallback: CvFieldLoc): CvFieldLoc {
   return (field && CV_FIELD_LOC[field]) || fallback;
 }
@@ -1109,20 +1142,25 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
   ...EXCHANGE_RATE_SCENARIOS.filter((s) => s.expectedErrorField === EXCHANGE_RATE_FIELD).map(
     (s) => {
       const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[EXCHANGE_RATE_FIELD]);
+      const omrRateDisabled = s.ruleId === "IBR-172-OM" && s.shouldError && Boolean(s.exchangeRate);
       return {
-        title: s.title,
+        title: omrRateDisabled
+          ? "Given currency OMR — When the exchange rate field is shown — Then it should be disabled. (IBR-172-OM)"
+          : s.title,
         ruleId: s.ruleId,
         kind: "exchangeRate" as const,
         section: loc.section,
-        shouldError: s.shouldError,
+        shouldError: omrRateDisabled ? false : s.shouldError,
+        expectDisabled: omrRateDisabled,
         assertInputId: loc.inputId,
         invoiceCurrencyCode: s.invoiceCurrencyCode,
-        exchangeRate: s.exchangeRate,
+        exchangeRate: omrRateDisabled ? undefined : s.exchangeRate,
       };
     }
   ),
   ...CREDIT_DEBIT_REASON_SCENARIOS.map((s) => {
     const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[CREDIT_DEBIT_NOTE_REASON_CODE_FIELD]);
+    const hasPreceding = Boolean(s.precedingInvoiceReference);
     return {
       title: s.title,
       ruleId: s.ruleId,
@@ -1131,8 +1169,14 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       shouldError: s.shouldError,
       assertInputId: loc.inputId,
       invoiceTypeCode: s.invoiceTypeCode,
+      invoiceTransactionTypeCode:
+        s.invoiceTypeCode === INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE
+          ? TXN_SELF_BILLED_INVOICE
+          : undefined,
       creditNoteReasonCode: s.creditDebitNoteReasonCode,
       precedingInvoiceReference: s.precedingInvoiceReference,
+      precedingInvoiceIssueDate: hasPreceding ? "2026-01-15" : "",
+      precedingInvoiceUuid: hasPreceding ? PRECEDING_INVOICE_UUID_SAMPLE : "",
     };
   }),
   ...PRECEDING_INVOICE_SCENARIOS.map((s) => {
@@ -1146,6 +1190,10 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       assertInputId: loc.inputId,
       entries: OMN_UI_CREATE_ONLY,
       invoiceTypeCode: s.invoiceTypeCode,
+      invoiceTransactionTypeCode:
+        s.invoiceTypeCode === INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE
+          ? TXN_SELF_BILLED_INVOICE
+          : undefined,
       creditNoteReasonCode: s.creditDebitNoteReasonCode,
       precedingInvoiceReference: s.precedingInvoiceReference,
       precedingInvoiceIssueDate: s.precedingInvoiceIssueDate,
@@ -1199,10 +1247,11 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       altInputIds: loc.altInputIds,
       dropdownStyle: isImportOfGoodsDropdownStyle(s),
       invoiceTransactionTypeCode: s.invoiceTransactionTypeCode,
+      itemCountryOfOrigin: s.itemCountryOfOrigin,
+      ...uiImportTxnDocumentCompanions(s.invoiceTransactionTypeCode),
       importDate: s.importDate,
       customsDeclarationNumber: s.customsDeclarationNumber,
       incoterms: s.incoterms,
-      itemCountryOfOrigin: s.itemCountryOfOrigin,
     };
   }),
   ...SELLER_VAT_MANDATORY_SCENARIOS.map((s) => {
@@ -1216,7 +1265,7 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       assertInputId: loc.inputId,
       altInputIds: loc.altInputIds,
       invoiceTransactionTypeCode: s.invoiceTransactionTypeCode,
-      sellerVatIdentifier: s.sellerVatIdentifier,
+      sellerVatIdentifier: s.sellerVatIdentifier ? undefined : s.sellerVatIdentifier,
     };
   }),
   ...SELLER_ADDRESS_REQUIRED_SCENARIOS.map((s) => {
@@ -1289,6 +1338,8 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       addressLine3: s.addressLine3,
       city: s.city,
       postCode: s.postCode,
+      // Excel seed / IBR-019 row keeps Buyer country as Oman. Empty country is IBR-020-OM only.
+      countryCode: OMAN_COUNTRY_CODE,
     };
   }),
   ...DELIVER_TO_ADDRESS_REQUIRED_SCENARIOS.map((s) => {

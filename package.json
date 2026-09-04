@@ -8,6 +8,7 @@
     "test:covoro:headed": "playwright test tests/**/*CovoroTemplate*.spec.ts --project=chromium --headed",
     "test:covoro:debug": "playwright test tests/**/*CovoroTemplate*.spec.ts --project=chromium --debug",
     "test:covoro:parallel": "playwright test tests/**/*CovoroTemplate*.spec.ts --project=chromium --workers=4",
+    "test:simplified": "playwright test tests/**/*SimplifiedTemplate*.spec.ts --project=chromium",
     "test:all": "playwright test tests --project=chromium",
     "test:sanity": "playwright test tests/OMN_SubmitInvoice_Sanity_Test.spec.ts --project=chromium --workers=5",
     "report": "playwright show-report",

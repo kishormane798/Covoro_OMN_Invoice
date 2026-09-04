@@ -263,7 +263,8 @@ export const SIMPLIFIED_TEMPLATE_HEADER_LABELS: readonly string[] =
 
 const SUBMIT_INVOICE_IDENTITY_HEADER_ALIASES: Record<string, string[]> =
   Object.fromEntries(
-    FULL_TEMPLATE_HEADERS.map((header) => header.trim())
+    [...FULL_TEMPLATE_HEADERS, ...SIMPLIFIED_TEMPLATE_HEADERS]
+      .map((header) => header.trim())
       .filter(Boolean)
       .map((header) => [header, [header]])
   );
@@ -305,6 +306,19 @@ export const SUBMIT_INVOICE_TEST_KEY_TO_EXCEL_HEADERS: Record<string, string[]> 
     ],
     /** Legacy test-data key; new template column is `Tax Rate`. */
     "Standard Tax Rate": ["Tax Rate", "Standard Tax Rate"],
+    /** Simplified identity (and Covoro) — seed rows use sentence case; row 4 is Title Case. */
+    "Seller name": ["Seller Name", "Seller name"],
+    "Buyer name": ["Buyer Name", "Buyer name"],
+    "Seller electronic address Scheme": [
+      "Seller Electronic Address Scheme",
+      "Seller electronic address Scheme",
+    ],
+    "Buyer electronic address Scheme": [
+      "Buyer Electronic Address Scheme",
+      "Buyer electronic address Scheme",
+    ],
+    /** Template spelling is `Third Party VATin`; test data uses `VATIN`. */
+    "Third Party VATIN": ["Third Party VATin", "Third Party VATIN"],
   };
 
 /**
@@ -331,8 +345,8 @@ export const INVOICE_EXCEL_FIELD_TO_HEADER: Record<string, string> = {
   "Payment Means Type Code": "Payment Means Type Code",
   "Document Charges": "Charges On Document Level",
   "Document Allowances": "Allowances On Document Level",
-  "Vat category - charges": "Vat category - charges",
-  "Vat category - allowances": "Vat category - allowances",
+  "Vat category - charges": "VAT Category - Charges",
+  "Vat category - allowances": "VAT Category - Allowances",
   "Paid Amount": "Paid Amount",
   "Rounding Amount": "Rounding Amount",
   /** Optional formula-suite text (multiline allowed); written when present on the payload. */

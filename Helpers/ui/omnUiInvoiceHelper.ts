@@ -52,7 +52,14 @@ import {
   CREDIT_DEBIT_REASON_SAMPLE,
   PRECEDING_INVOICE_UUID_SAMPLE,
   TAX_EXEMPTION_REASON_TEXT_SAMPLE,
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_IMPORT_OF_GOODS,
+  TXN_IMPORT_OF_SERVICES_RCM,
   TXN_PREPAYMENT_INVOICE,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_SELF_BILLED_INVOICE,
+  TXN_SUMMARY_INVOICE,
+  UAE_COUNTRY_CODE,
 } from "../../testData/FieldValidations/ConditionalValidation";
 import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
 
@@ -836,8 +843,10 @@ function extraSectionsForKind(kind: OmnUiConditionalScenario["kind"]): OmnUiSect
 }
 
 /**
- * Sections this conditional must fill. Always Document + Item; add 3rd/4th
- * sections when the rule also depends on seller, buyer, shipping, invoice, or payment.
+ * Sections this conditional must fill, in OMN_UI_SECTION_ORDER. Document is
+ * always first. Item and extra party/totals sections are included when needed,
+ * but runOmnUiConditionalScenario commits the section under test and then
+ * stops so later sections (e.g. Add Item) cannot take Document out of edit.
  */
 function sectionsForConditional(scenario: OmnUiConditionalScenario): OmnUiSection[] {
   const needed = new Set<OmnUiSection>(["document", "item"]);
@@ -873,6 +882,7 @@ function excludeIdsForConditional(
     if (scenario.importDate !== undefined) ids.add("importDate");
     if (scenario.customsDeclarationNumber !== undefined) ids.add("customsDeclarationNumber");
     if (scenario.incoterms !== undefined) ids.add("incoterms");
+    if (scenario.expectDisabled) ids.add(scenario.assertInputId);
   }
   if (section === "item") {
     if (scenario.itemCountryOfOrigin !== undefined) {
@@ -991,16 +1001,15 @@ async function ensureThisSectionBaseline(
   }
 }
 
-/** Create: leave empty fields alone. Edit/Copy: clear only when a value is already there. */
+/** Leave empty fields alone. Clear when the form already has a value (Create prefills included). */
 async function leaveOrClearEmpty(
   invoice: OMN_UIInvoiceManualPage,
-  entry: OmnUiEntry,
+  _entry: OmnUiEntry,
   section: OmnUiSection,
   inputId: string,
   altInputIds: readonly string[],
   kind: "text" | "autocomplete" | "date"
 ): Promise<void> {
-  if (entry === "create") return;
   const current = await invoice.readInputValue(section, inputId, altInputIds);
   if (!current) return;
   if (kind === "autocomplete") {
@@ -1111,6 +1120,43 @@ async function expectPrecedingInvoiceEnablement(
   }
 }
 
+/** Excel applyTxnExclusionCompanions — fill only fields the scenario did not set (including explicit empty). */
+async function applyTxnDocumentCompanions(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario
+): Promise<void> {
+  const txn = scenario.invoiceTransactionTypeCode;
+  if (!txn) return;
+
+  if (
+    (txn === TXN_SUMMARY_INVOICE || txn === TXN_CONTINUOUS_SUPPLY) &&
+    scenario.periodStart === undefined &&
+    scenario.periodEnd === undefined
+  ) {
+    await writeDate(invoice, entry, "document", "invStartDate", "2026-01-01");
+    await writeDate(invoice, entry, "document", "invEndDate", "2026-01-31");
+  }
+
+  if (txn === TXN_PROFIT_MARGIN_INVOICE && scenario.precedingInvoiceReference === undefined) {
+    await writeText(invoice, entry, "document", OMN_UI_PRECEDING_REF_ID, "PREV-OMN-001");
+    await writeDate(invoice, entry, "document", OMN_UI_PRECEDING_DATE_ID, "2026-06-01");
+    await writeText(invoice, entry, "document", OMN_UI_PRECEDING_UUID_ID, PRECEDING_INVOICE_UUID_SAMPLE);
+  }
+
+  if (txn === TXN_IMPORT_OF_GOODS) {
+    if (scenario.importDate === undefined) {
+      await writeDate(invoice, entry, "document", "importDate", "2026-01-10");
+    }
+    if (scenario.customsDeclarationNumber === undefined) {
+      await writeText(invoice, entry, "document", "customsDeclarationNumber", "CD-12345");
+    }
+    if (scenario.incoterms === undefined) {
+      await writeAutocomplete(invoice, entry, "document", "incoterms", "Free On Board");
+    }
+  }
+}
+
 async function applyConditionalSectionFields(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
@@ -1118,28 +1164,28 @@ async function applyConditionalSectionFields(
   section: OmnUiSection
 ): Promise<void> {
   if (section === "document") {
-    if (scenario.invoiceTransactionTypeCode) {
-      await invoice.selectAutocomplete(
-        "document",
-        "invTxnType",
-        scenario.invoiceTransactionTypeCode
-      );
+    const txn = scenario.invoiceTransactionTypeCode;
+    const invoiceType =
+      scenario.invoiceTypeCode ||
+      (txn === TXN_SELF_BILLED_INVOICE ? OMN_UI_INVOICE_TYPE_SELF_BILLED : undefined);
+    // Invoice type first so txn options match (Self billed credit note → Self-billed).
+    if (invoiceType) {
+      await invoice.selectAutocomplete("document", "invType", invoiceType);
     }
-    if (scenario.invoiceTypeCode) {
-      await invoice.selectAutocomplete("document", "invType", scenario.invoiceTypeCode);
+    if (txn) {
+      await invoice.selectAutocomplete("document", "invTxnType", txn);
     }
     await expectPrecedingInvoiceEnablement(invoice, scenario);
-    if (scenario.kind === "exchangeRate") {
-      if (isOmrCurrency(scenario.invoiceCurrencyCode)) {
-        if (scenario.exchangeRate) {
-          if (await invoice.isInputDisabled("document", "currExchangeRate")) {
-            test.skip(
-              true,
-              "exchange rate is disabled on OMR so the Excel provided-rate case cannot be typed"
-            );
-          }
-        }
-      } else {
+    await applyTxnDocumentCompanions(invoice, entry, scenario);
+    if (scenario.expectDisabled) {
+      await invoice.expectInputDisabled(
+        "document",
+        scenario.assertInputId,
+        true,
+        scenario.altInputIds
+      );
+    } else if (scenario.kind === "exchangeRate") {
+      if (!isOmrCurrency(scenario.invoiceCurrencyCode)) {
         await invoice.selectFirstNonOmrCurrency();
         await invoice.expectInputDisabled("document", "currExchangeRate", false);
       }
@@ -1234,6 +1280,9 @@ async function applyConditionalSectionFields(
     return;
   }
   if (section === "seller") {
+    if (scenario.invoiceTransactionTypeCode === TXN_IMPORT_OF_SERVICES_RCM) {
+      await writeAutocomplete(invoice, entry, "seller", "country", UAE_COUNTRY_CODE, ["countryCode"]);
+    }
     await writeText(invoice, entry, "seller", "vatIdentifier", scenario.sellerVatIdentifier, [
       "sellerVatIdentifier",
     ]);
@@ -1305,11 +1354,14 @@ export async function runOmnUiConditionalScenario(
       }
     );
     await applyConditionalSectionFields(invoice, entry, scenario, section);
-    if (section !== scenario.section) {
-      await commitSection(invoice, section, entry);
+    await commitSection(invoice, section, entry);
+    // Save the section under test before later sections. Add Item takes
+    // Document out of edit mode, so a Save after the item modal times out
+    // (footer Save is gone — only Edit remains).
+    if (section === scenario.section) {
+      break;
     }
   }
-  await commitSection(invoice, scenario.section, entry);
 
   const message = await invoice.readFieldError(
     scenario.section,

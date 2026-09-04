@@ -10,7 +10,14 @@
 import {
   getCounterpartyElectronicAddress,
   getCounterpartyVatIdentifier,
+  isSelfBilledInvoiceType,
 } from "../../utils/envPartyIdentity";
+import {
+  isSimplifiedTemplateEnv,
+  SIMPLIFIED_BUYER_NAME,
+  SIMPLIFIED_ELECTRONIC_SCHEME,
+  SIMPLIFIED_SELLER_NAMES,
+} from "../excel/simplifiedTemplateContext";
 
 /** Five dashboard TIN slots; indexes wrap when `PW_WORKERS` > 5. */
 export const PARALLEL_WORKER_TIN_SLOT_COUNT = 5;
@@ -158,10 +165,10 @@ export function applyParallelWorkerIdentityToSubmitRow(
   const workerEl = omanElectronicAddressFromWorkerTin(workerVat);
   const counterpartyEl = getCounterpartyElectronicAddress();
 
-  const invType = normalizeSubmitInvoiceType(data["Invoice Type Code"]);
   const txnType = normalizeSubmitInvoiceType(data["Invoice Transaction Type Code"]);
   const selfBilled =
-    invType.includes("self-billed") || invType.includes("self billed credit");
+    isSelfBilledInvoiceType(data["Invoice Type Code"]) ||
+    isSelfBilledInvoiceType(data["Invoice Transaction Type Code"]);
   const deemed = txnType === "deemed supply";
 
   const next: Record<string, string> = { ...data };
@@ -182,6 +189,28 @@ export function applyParallelWorkerIdentityToSubmitRow(
     next["Seller VAT Identifier (TRN / TIN)"] = workerVat;
     next["Buyer electronic address"] = counterpartyEl;
     next["Buyer VAT identifier"] = getCounterpartyVatIdentifier();
+  }
+
+  if (isSimplifiedTemplateEnv()) {
+    const sellerName =
+      SIMPLIFIED_SELLER_NAMES[workerIndex % SIMPLIFIED_SELLER_NAMES.length];
+    if (selfBilled) {
+      next["Seller Name"] = SIMPLIFIED_BUYER_NAME;
+      next["Seller name"] = SIMPLIFIED_BUYER_NAME;
+      next["Buyer Name"] = sellerName;
+      next["Buyer name"] = sellerName;
+    } else {
+      next["Seller Name"] = sellerName;
+      next["Seller name"] = sellerName;
+      next["Buyer Name"] = SIMPLIFIED_BUYER_NAME;
+      next["Buyer name"] = SIMPLIFIED_BUYER_NAME;
+    }
+    next["Seller Electronic Address Scheme"] = SIMPLIFIED_ELECTRONIC_SCHEME;
+    next["Seller electronic address Scheme"] = SIMPLIFIED_ELECTRONIC_SCHEME;
+    next["Buyer Electronic Address Scheme"] = SIMPLIFIED_ELECTRONIC_SCHEME;
+    next["Buyer electronic address Scheme"] = SIMPLIFIED_ELECTRONIC_SCHEME;
+    next["Seller Electronic Address"] = next["Seller electronic address"];
+    next["Buyer Electronic Address"] = next["Buyer electronic address"];
   }
 
   return next;
