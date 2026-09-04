@@ -61,6 +61,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   CI: true
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
   SUBMIT_INVOICE_COMBINATIONS: "all"
   PW_WORKERS: "5"
   PW_CI_FULL_SUITE_TIMEOUT_MINUTES: "240"
@@ -115,14 +116,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-          cache: npm
-
-      - name: Install Node dependencies (suite plan)
-        run: npm ci
-
       - name: Resolve suite (schedule · manual dropdown)
         id: mode
         shell: bash
@@ -173,7 +166,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install Node dependencies
-        run: npm ci
+        timeout-minutes: 10
+        run: npm ci --no-fund --no-audit
 
       - name: Verify pinned Node and Playwright
         run: |
