@@ -26,8 +26,8 @@ test.describe("Edit Invoice UI — conditional", () => {
       for (const scenario of omnUiConditionalScenariosFor(ENTRY, section)) {
         test(
           omnUiConditionalDisplayTitle(ENTRY, scenario.title),
-          async ({ page }, testInfo) => {
-            await runOmnUiConditionalScenario(page, ENTRY, scenario, testInfo.testId);
+          async ({ page }) => {
+            await runOmnUiConditionalScenario(page, ENTRY, scenario);
           }
         );
       }

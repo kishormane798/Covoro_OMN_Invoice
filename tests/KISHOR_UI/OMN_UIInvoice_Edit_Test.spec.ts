@@ -39,8 +39,8 @@ test.describe("Edit Invoice UI — field and formula", () => {
           : "from Excel identity";
       test(
         `${party} VAT Identifier and electronic address ${source} — Update should succeed. (VAT Identifier)`,
-        async ({ page }, testInfo) => {
-          await runOmnUiExcelPartyIdentityCase(page, ENTRY, identityCase, testInfo.testId);
+        async ({ page }) => {
+          await runOmnUiExcelPartyIdentityCase(page, ENTRY, identityCase);
         }
       );
     }
@@ -56,8 +56,8 @@ test.describe("Edit Invoice UI — field and formula", () => {
             : "Update should succeed";
           test(
             `${omnUiMinMaxWhatEntered(variant, rule)} — ${outcome}. (${rule.field})`,
-            async ({ page }, testInfo) => {
-              await runOmnUiMinMaxCase(page, ENTRY, rule, variant, testInfo.testId);
+            async ({ page }) => {
+              await runOmnUiMinMaxCase(page, ENTRY, rule, variant);
             }
           );
         }
@@ -70,8 +70,8 @@ test.describe("Edit Invoice UI — field and formula", () => {
     for (const scenario of OMN_UI_FORMULA_SCENARIOS) {
       test(
         `Calculated totals should match the formula. (${scenario.name})`,
-        async ({ page }, testInfo) => {
-          await runOmnUiFormulaScenario(page, ENTRY, scenario, testInfo.testId);
+        async ({ page }) => {
+          await runOmnUiFormulaScenario(page, ENTRY, scenario);
         }
       );
     }
