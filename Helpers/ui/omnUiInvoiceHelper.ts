@@ -15,8 +15,8 @@ import {
   openOmnUiInvoiceEditor,
   isOmnUiPrefilledLineItemEntry,
 } from "./omnUiInvoiceEntryHelper";
+import { buildUniqueSubmitInvoiceNumber } from "../../utils/excel/invoiceExcel";
 import {
-  buildOmnUiInvoiceNumber,
   excelFormulaToUiValue,
   isUiEmptyValue,
   isUiWhitespaceValue,
@@ -238,13 +238,12 @@ async function writePartyIdentity(
 async function ensureDocumentBaseline(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
-  excludeInputIds: Set<string>,
-  uniqueKey?: string
+  excludeInputIds: Set<string>
 ): Promise<void> {
   if (!excludeInputIds.has("invNum")) {
     const current = await invoice.readInputValue("document", "invNum");
     if (entry !== "edit" || !current) {
-      await invoice.replaceInput("document", "invNum", buildOmnUiInvoiceNumber(uniqueKey));
+      await invoice.replaceInput("document", "invNum", buildUniqueSubmitInvoiceNumber());
     }
   }
   if (!excludeInputIds.has("invTxnType")) {
@@ -563,14 +562,13 @@ async function ensureSectionBaseline(
   invoice: OMN_UIInvoiceManualPage,
   section: OmnUiSection,
   entry: OmnUiEntry,
-  excludeInputIds: Set<string>,
-  uniqueKey?: string
+  excludeInputIds: Set<string>
 ): Promise<void> {
   await invoice.openSectionForEdit("document", entry);
   let knownTypes: { invoiceTypeCode?: string; invoiceTransactionTypeCode?: string } | undefined;
   if (section !== "document") {
     if (await invoice.isSectionInEditMode("document", entry)) {
-      await ensureDocumentBaseline(invoice, entry, new Set(), uniqueKey);
+      await ensureDocumentBaseline(invoice, entry, new Set());
       knownTypes = {
         invoiceTypeCode: await invoice.readInputValue("document", "invType"),
         invoiceTransactionTypeCode: await invoice.readInputValue("document", "invTxnType"),
@@ -580,7 +578,7 @@ async function ensureSectionBaseline(
     }
     await invoice.openSectionForEdit(section, entry);
   } else {
-    await ensureDocumentBaseline(invoice, entry, excludeInputIds, uniqueKey);
+    await ensureDocumentBaseline(invoice, entry, excludeInputIds);
   }
   if (section === "seller" || section === "buyer") {
     await ensurePartyBaseline(invoice, section, excludeInputIds, knownTypes);
@@ -678,12 +676,11 @@ export async function runOmnUiMinMaxCase(
   page: Page,
   entry: OmnUiEntry,
   rule: OmnUiFieldRule,
-  variant: OmnUiMinMaxVariant,
-  uniqueKey?: string
+  variant: OmnUiMinMaxVariant
 ): Promise<void> {
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   // Fill every field in the section first, then overwrite the field under test.
-  await ensureSectionBaseline(invoice, rule.section, entry, new Set(), uniqueKey);
+  await ensureSectionBaseline(invoice, rule.section, entry, new Set());
   await enablePrecedingInvoiceMinMaxFields(invoice, rule);
   await enablePrepaymentMinMaxFields(invoice, rule, entry);
 
@@ -723,8 +720,7 @@ export async function runOmnUiMinMaxCase(
 export async function runOmnUiExcelPartyIdentityCase(
   page: Page,
   entry: OmnUiEntry,
-  identityCase: OmnUiExcelPartyIdentityCase,
-  uniqueKey?: string
+  identityCase: OmnUiExcelPartyIdentityCase
 ): Promise<void> {
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   const selfBilled = identityCase.invoiceType === "selfBilled";
@@ -742,8 +738,7 @@ export async function runOmnUiExcelPartyIdentityCase(
   await ensureDocumentBaseline(
     invoice,
     entry,
-    selfBilled ? new Set(["invType", "invTxnType"]) : new Set(),
-    uniqueKey
+    selfBilled ? new Set(["invType", "invTxnType"]) : new Set()
   );
   await invoice.clickSectionCommit("document", entry);
   await invoice.expectSectionSavedReadOnly("document");
@@ -970,11 +965,10 @@ async function ensureThisSectionBaseline(
   section: OmnUiSection,
   entry: OmnUiEntry,
   excludeInputIds: Set<string>,
-  uniqueKey?: string,
   knownTypes?: { invoiceTypeCode?: string; invoiceTransactionTypeCode?: string }
 ): Promise<void> {
   if (section === "document") {
-    await ensureDocumentBaseline(invoice, entry, excludeInputIds, uniqueKey);
+    await ensureDocumentBaseline(invoice, entry, excludeInputIds);
     return;
   }
   if (section === "seller" || section === "buyer") {
@@ -1328,8 +1322,7 @@ async function applyConditionalSectionFields(
 export async function runOmnUiConditionalScenario(
   page: Page,
   entry: OmnUiEntry,
-  scenario: OmnUiConditionalScenario,
-  uniqueKey?: string
+  scenario: OmnUiConditionalScenario
 ): Promise<void> {
   const invoice = await openOmnUiInvoiceEditor(page, entry);
 
@@ -1347,7 +1340,6 @@ export async function runOmnUiConditionalScenario(
       section,
       entry,
       excludeIdsForConditional(scenario, section),
-      uniqueKey,
       {
         invoiceTypeCode: scenario.invoiceTypeCode,
         invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
@@ -1397,11 +1389,10 @@ function parseAmount(raw: string): number | null {
 export async function runOmnUiFormulaScenario(
   page: Page,
   entry: OmnUiEntry,
-  scenario: InvoiceFormulaScenario,
-  uniqueKey?: string
+  scenario: InvoiceFormulaScenario
 ): Promise<void> {
   const invoice = await openOmnUiInvoiceEditor(page, entry);
-  await ensureDocumentBaseline(invoice, entry, new Set(), uniqueKey);
+  await ensureDocumentBaseline(invoice, entry, new Set());
   await invoice.openItemEditor(isOmnUiPrefilledLineItemEntry(entry));
   await fillIfEmpty(invoice, "item", "itemName", "Formula item");
   const industrial = await invoice.readInputValue("item", "industrialClassification");
