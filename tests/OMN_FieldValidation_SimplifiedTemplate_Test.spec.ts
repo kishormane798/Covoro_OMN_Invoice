@@ -9,6 +9,7 @@ import {
   runErrorValidationPassIfLengthAccepted,
 } from "../Helpers/excel/excelEditMessageCheck";
 import { buildInvoiceNumber, randomAlphaNumeric } from "../Helpers/excel/fieldValidationHelper";
+import { buildUniqueSubmitInvoiceNumber } from "../utils/excel/invoiceExcel";
 import { generateFormatContextFieldExcel } from "../Helpers/excel/formatContextFieldValidationHelper";
 import {
   generateOmanDropdownMasterExcel,
@@ -96,7 +97,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     for (const scenario of scenarios) {
       const condition = scenario.name.trim();
       test(`Invoice Issue Date in ${condition} should be ${scenario.shouldError ? "rejected with an error" : "accepted"}. (Invoice Issue Date)`, async ({ page }) => {
-        const invoiceNumber = FV.buildDynamicInvoiceNumber(scenario.invoicePrefix);
+        const invoiceNumber = buildUniqueSubmitInvoiceNumber();
         const { filePath } = await generateOmanIssueDateExcel(
           invoiceNumber,
           scenario.issueDateValue,
