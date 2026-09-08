@@ -191,6 +191,13 @@ export function omnUiCatalogRowsFor(
   );
 }
 
+export function omnUiCatalogDisplayTitle(entry: OmnUiEntry, row: OmnUiCatalogRow): string {
+  if (entry === "create") return row.title;
+  return row.title
+    .replaceAll("Then Save should succeed.", "Then Update should succeed.")
+    .replaceAll(" — Save should succeed.", " — Update should succeed.");
+}
+
 export const OMN_UI_FIELD_CATALOG_GROUPS = [
   "Invoice Issue Date",
   "Party identifier — companion length",
@@ -301,6 +308,111 @@ export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
     title: "Format/context fields pending UI entry. (format)",
     mode: "skip",
     skipReason: OMN_UI_SKIP.noControl("format context runner"),
+    kind: "pending",
+  },
+];
+
+export const OMN_UI_FORMULA_CATALOG_GROUPS = [
+  "Invalid inputs",
+  "Calculated field mismatch",
+  "Calculated field tolerance",
+  "Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM)",
+  "Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM)",
+  "Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM)",
+  "Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM)",
+  "Profit Margin Total Amount Due (IBR-082-OM)",
+  "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+  "Multi-line (2 lines) — same tax category",
+  "Multi-line (20 lines) — positive (OMR)",
+] as const;
+
+export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
+  {
+    group: "Invalid inputs",
+    title:
+      "Given Invalid inputs — When calculated totals match — Then Save should succeed. (Invalid inputs)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("negative formula runner"),
+    kind: "formulaNegative",
+  },
+  {
+    group: "Calculated field mismatch",
+    title:
+      "Given Calculated field mismatch — When calculated totals match — Then Save should succeed. (Calculated field mismatch)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Calculated field tolerance",
+    title:
+      "Given Calculated field tolerance — When calculated totals match — Then Save should succeed. (Calculated field tolerance)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM)",
+    title:
+      "Given Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM) — When calculated totals match — Then Save should succeed. (Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM)",
+    title:
+      "Given Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM) — When calculated totals match — Then Save should succeed. (Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM)",
+    title:
+      "Given Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM) — When calculated totals match — Then Save should succeed. (Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM)",
+    title:
+      "Given Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM) — When calculated totals match — Then Save should succeed. (Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Profit Margin Total Amount Due (IBR-082-OM)",
+    title:
+      "Given Profit Margin Total Amount Due (IBR-082-OM) — When calculated totals match — Then Save should succeed. (Profit Margin Total Amount Due (IBR-082-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("profit margin formula runner"),
+    kind: "formulaProfitMargin",
+  },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Item net price and line net formulas (IBR-075-OM / IBR-071-OM) — When calculated totals match — Then Save should succeed. (Item net price and line net formulas (IBR-075-OM / IBR-071-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("line net formula runner"),
+    kind: "formulaNegative",
+  },
+  {
+    group: "Multi-line (2 lines) — same tax category",
+    title:
+      "Given Multi-line (2 lines) — same tax category — When calculated totals match — Then Save should succeed. (Multi-line (2 lines) — same tax category)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("two-line Add Item runner"),
+    kind: "formulaTwoLine",
+  },
+  {
+    group: "Multi-line (20 lines) — positive (OMR)",
+    title:
+      "Given Multi-line (20 lines) — positive (OMR) — When calculated totals match — Then Save should succeed. (Multi-line (20 lines) — positive (OMR))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.twentyLine,
     kind: "pending",
   },
 ];

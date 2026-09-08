@@ -2,6 +2,7 @@ import { test } from "../../Src/baseTest";
 import {
   runOmnUiExcelPartyIdentityCase,
   runOmnUiFieldCatalogRow,
+  runOmnUiFormulaCatalogRow,
   runOmnUiFormulaScenario,
   runOmnUiMinMaxCase,
 } from "../../Helpers/ui/omnUiInvoiceHelper";
@@ -10,11 +11,14 @@ import {
   OMN_UI_EXCEL_PARTY_IDENTITY_CASES,
   OMN_UI_FIELD_CATALOG,
   OMN_UI_FIELD_CATALOG_GROUPS,
+  OMN_UI_FORMULA_CATALOG,
+  OMN_UI_FORMULA_CATALOG_GROUPS,
   OMN_UI_FORMULA_SCENARIOS,
   OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS,
   OMN_UI_INVOICE_FORMULA_TIMEOUT_MS,
   OMN_UI_MIN_MAX_VARIANTS,
   OMN_UI_SECTION_ORDER,
+  omnUiCatalogDisplayTitle,
   omnUiCatalogRowsFor,
   omnUiFieldRulesForSection,
   omnUiFormulaDisplayTitle,
@@ -80,11 +84,24 @@ test.describe("Copy Invoice UI — field and formula", () => {
   for (const group of OMN_UI_FIELD_CATALOG_GROUPS) {
     test.describe(`Copy Invoice UI — ${group}`, () => {
       for (const row of omnUiCatalogRowsFor(OMN_UI_FIELD_CATALOG, ENTRY, group)) {
-        test(row.title, async ({ page }) => {
+        test(omnUiCatalogDisplayTitle(ENTRY, row), async ({ page }) => {
           if (row.mode === "skip") {
             test.skip(true, row.skipReason ?? "missing skip reason");
           }
           await runOmnUiFieldCatalogRow(page, ENTRY, row);
+        });
+      }
+    });
+  }
+
+  for (const group of OMN_UI_FORMULA_CATALOG_GROUPS) {
+    test.describe(`Copy Invoice UI — ${group}`, () => {
+      for (const row of omnUiCatalogRowsFor(OMN_UI_FORMULA_CATALOG, ENTRY, group)) {
+        test(omnUiCatalogDisplayTitle(ENTRY, row), async ({ page }) => {
+          if (row.mode === "skip") {
+            test.skip(true, row.skipReason ?? "missing skip reason");
+          }
+          await runOmnUiFormulaCatalogRow(page, ENTRY, row);
         });
       }
     });

@@ -730,6 +730,17 @@ export async function runOmnUiFieldCatalogRow(
   throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);
 }
 
+export async function runOmnUiFormulaCatalogRow(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  if (row.mode === "skip") {
+    throw new Error(`runOmnUiFormulaCatalogRow called for skip row: ${row.group}`);
+  }
+  throw new Error(`No UI runner for formula catalog kind ${row.kind} (${row.group})`);
+}
+
 export async function runOmnUiExcelPartyIdentityCase(
   page: Page,
   entry: OmnUiEntry,
