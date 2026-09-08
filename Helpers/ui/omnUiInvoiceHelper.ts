@@ -794,17 +794,19 @@ export async function runOmnUiNumericCase(
     location.altInputIds
   );
 
+  await commitSection(invoice, location.section, entry);
+  const message = await invoice.readFieldError(
+    location.section,
+    location.inputId,
+    location.altInputIds
+  );
   if (expectsError) {
-    const message = await invoice.readFieldError(
-      location.section,
-      location.inputId,
-      location.altInputIds
-    );
     expect(message, `expected a field error for ${field}`).toBeTruthy();
+    await invoice.expectSectionNotSaved(location.section, entry);
     return;
   }
 
-  await commitSection(invoice, location.section, entry);
+  expect(message, `did not expect a field error for ${field}`).toBeFalsy();
   await invoice.expectSectionSavedReadOnly(location.section);
 }
 

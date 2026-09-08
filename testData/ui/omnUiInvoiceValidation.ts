@@ -239,49 +239,45 @@ export type OmnUiNumericFieldLocation = {
   altInputIds?: readonly string[];
 };
 
-const OMN_UI_NUMERIC_FIELD_LOCATIONS: Record<string, OmnUiNumericFieldLocation> = {
-  "Item price base quantity": { section: "item", inputId: "priceBaseQty" },
-  "Item gross price": { section: "item", inputId: "itemGrossPrice" },
-  "Item price discount": {
-    section: "item",
-    inputId: "itemPriceDiscount",
-    altInputIds: ["invLinePriceDiscount"],
-  },
-  "Invoiced quantity": {
-    section: "item",
-    inputId: "invoiceQty",
-    altInputIds: ["invoicedQty", "invQty"],
-  },
-  "Invoice line charge amount": {
-    section: "item",
-    inputId: "chargesDtls[0].amount",
-    altInputIds: ["invLineChargeAmount"],
-  },
-  "Invoice line allowance amount": {
-    section: "item",
-    inputId: "allowanceDtls[0].amount",
-    altInputIds: ["invLineAllowanceAmount"],
-  },
-  "Charges on document level": {
-    section: "invoice",
-    inputId: "docLevelCharges[0].amount",
-    altInputIds: ["docCharges"],
-  },
-  "Allowances on document level": {
-    section: "invoice",
-    inputId: "docLevelAllowances[0].amount",
-    altInputIds: ["docAllowances"],
-  },
-  "Paid amount": {
-    section: "invoice",
-    inputId: "paidAmt",
-    altInputIds: ["paidAmount"],
-  },
-  "Rounding amount": {
-    section: "invoice",
-    inputId: "roundingAmt",
-    altInputIds: ["roundingAmount"],
-  },
+export const OMN_UI_FORMULA_INPUT_CANDIDATES: Record<string, readonly string[]> = {
+  itemPriceBaseQty: ["priceBaseQty"],
+  itemGrossPrice: ["itemGrossPrice"],
+  itemPriceDiscount: ["itemPriceDiscount", "invLinePriceDiscount"],
+  invoicedQty: ["invoiceQty", "invoicedQty", "invQty"],
+  lineCharge: ["chargesDtls[0].amount", "invLineChargeAmount"],
+  lineAllowance: ["allowanceDtls[0].amount", "invLineAllowanceAmount"],
+  taxRate: ["taxRateDtls[0].taxRate"],
+  docCharges: ["docLevelCharges[0].amount", "docCharges"],
+  docAllowances: ["docLevelAllowances[0].amount", "docAllowances"],
+  paidAmount: ["paidAmt", "paidAmount"],
+  roundingAmount: ["roundingAmt", "roundingAmount"],
+  profitMarginTotalDue: [
+    "totalAmtDueProfitMargin",
+    "profitMarginDueAmt",
+    "totalAmountDueProfitMargin",
+  ],
+  taxInAccountingCurrencyAmount: [
+    "invoiceTotalTaxAccountingCurrency",
+    "taxAmtInAccCurr",
+    "taxAmountInAccountingCurrency",
+    "ibt111",
+  ],
+};
+
+const OMN_UI_ITEM_NUMERIC_FORMULA_KEYS: Record<string, string> = {
+  "Item price base quantity": "itemPriceBaseQty",
+  "Item gross price": "itemGrossPrice",
+  "Item price discount": "itemPriceDiscount",
+  "Invoiced quantity": "invoicedQty",
+  "Invoice line charge amount": "lineCharge",
+  "Invoice line allowance amount": "lineAllowance",
+};
+
+const OMN_UI_INVOICE_NUMERIC_FORMULA_KEYS: Record<string, string> = {
+  "Charges on document level": "docCharges",
+  "Allowances on document level": "docAllowances",
+  "Paid amount": "paidAmount",
+  "Rounding amount": "roundingAmount",
 };
 
 const OMN_UI_CALCULATED_NUMERIC_FIELDS = new Set<string>([
@@ -299,7 +295,17 @@ const OMN_UI_CALCULATED_NUMERIC_FIELDS = new Set<string>([
 export function omnUiNumericFieldLocation(
   field: string
 ): OmnUiNumericFieldLocation | undefined {
-  return OMN_UI_NUMERIC_FIELD_LOCATIONS[field];
+  const itemKey = OMN_UI_ITEM_NUMERIC_FORMULA_KEYS[field];
+  const invoiceKey = OMN_UI_INVOICE_NUMERIC_FORMULA_KEYS[field];
+  const formulaKey = itemKey ?? invoiceKey;
+  const [inputId, ...altInputIds] =
+    (formulaKey ? OMN_UI_FORMULA_INPUT_CANDIDATES[formulaKey] : undefined) ?? [];
+  if (!inputId) return undefined;
+  return {
+    section: itemKey ? "item" : "invoice",
+    inputId,
+    ...(altInputIds.length ? { altInputIds } : {}),
+  };
 }
 
 type NumericConfig = (typeof numericFieldConfigs)[number];
@@ -2144,31 +2150,6 @@ export const OMN_UI_INVOICE_FORMULA_KEYS = [
   "paidAmount",
   "roundingAmount",
 ] as const;
-
-export const OMN_UI_FORMULA_INPUT_CANDIDATES: Record<string, readonly string[]> = {
-  itemPriceBaseQty: ["priceBaseQty"],
-  itemGrossPrice: ["itemGrossPrice"],
-  itemPriceDiscount: ["itemPriceDiscount", "invLinePriceDiscount"],
-  invoicedQty: ["invoiceQty", "invoicedQty", "invQty"],
-  lineCharge: ["chargesDtls[0].amount", "invLineChargeAmount"],
-  lineAllowance: ["allowanceDtls[0].amount", "invLineAllowanceAmount"],
-  taxRate: ["taxRateDtls[0].taxRate"],
-  docCharges: ["docLevelCharges[0].amount", "docCharges"],
-  docAllowances: ["docLevelAllowances[0].amount", "docAllowances"],
-  paidAmount: ["paidAmt", "paidAmount"],
-  roundingAmount: ["roundingAmt", "roundingAmount"],
-  profitMarginTotalDue: [
-    "totalAmtDueProfitMargin",
-    "profitMarginDueAmt",
-    "totalAmountDueProfitMargin",
-  ],
-  taxInAccountingCurrencyAmount: [
-    "invoiceTotalTaxAccountingCurrency",
-    "taxAmtInAccCurr",
-    "taxAmountInAccountingCurrency",
-    "ibt111",
-  ],
-};
 
 const COPY_INVOICE_NUMBER_EMPTY_SOURCE = "Copied invoice number is empty until filled";
 
