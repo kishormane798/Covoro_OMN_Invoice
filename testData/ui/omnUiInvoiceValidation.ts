@@ -141,6 +141,56 @@ export type OmnUiFieldKind = "text" | "digits" | "date" | "autocomplete";
 /** Excel source of truth — never the UI asterisk. Conditional = optional until a PINT-OM row fires. */
 export type OmnUiExcelPresence = "mandatory" | "optional" | "conditional";
 
+export type OmnUiCatalogMode = "run" | "skip";
+
+export const OMN_UI_SKIP = {
+  noControl: (field: string) => `No Create Invoice control for ${field}.`,
+  masterList:
+    "UI does not replay the full Excel master list; one representative value is used on the form.",
+  calculated: "This amount is calculated; the form does not let you enter it.",
+  createOnly: "Create-only: Edit/Copy cannot set this the same way.",
+  partyIdentity: "Excel worker identity is covered by the party-identity UI cases.",
+  twentyLine:
+    "UI does not replay the 20-line Excel sweep; two lines cover multi-line entry.",
+} as const;
+
+export type OmnUiCatalogKind =
+  | "pending"
+  | "issueDate"
+  | "numeric"
+  | "partyIdentifierCompanion"
+  | "cl06"
+  | "dropdownInvalid"
+  | "exemptionCompanion"
+  | "formatContext"
+  | "formulaNegative"
+  | "formulaProfitMargin"
+  | "formulaNonOmr"
+  | "formulaTwoLine"
+  | "formulaMismatch";
+
+export type OmnUiCatalogRow = {
+  group: string;
+  title: string;
+  entries?: readonly OmnUiEntry[];
+  mode: OmnUiCatalogMode;
+  skipReason?: string;
+  kind: OmnUiCatalogKind;
+  field?: string;
+  excelTitle?: string;
+};
+
+export function omnUiCatalogRowsFor(
+  rows: readonly OmnUiCatalogRow[],
+  entry: OmnUiEntry,
+  group: string
+): OmnUiCatalogRow[] {
+  return rows.filter(
+    (row) =>
+      row.group === group && (!row.entries || row.entries.includes(entry))
+  );
+}
+
 export const OMN_UI_MIN_MAX_VARIANTS: readonly OmnUiMinMaxVariant[] = [
   "min",
   "max",
