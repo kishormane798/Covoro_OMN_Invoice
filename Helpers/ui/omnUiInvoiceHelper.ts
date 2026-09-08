@@ -906,6 +906,111 @@ export async function runOmnUiPartyIdentifierCompanionCase(
   await invoice.expectSectionSavedReadOnly(section);
 }
 
+export async function runOmnUiCl06Case(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  const {
+    cl06Party: section,
+    cl06Companion: companion,
+    cl06CompanionValue: companionValue,
+    cl06Identifier: identifier,
+  } = row;
+  if (!section || !companion || !companionValue || !identifier) {
+    throw new Error(`CL-06 catalog row is missing scenario metadata: ${row.title}`);
+  }
+
+  const identifierField =
+    section === "seller" ? "Seller identifier" : "Buyer identifier";
+  const schemeField =
+    section === "seller"
+      ? "Seller identifier - Scheme identifier"
+      : "Scheme identifier";
+  const codeField =
+    section === "seller"
+      ? "Seller Identifier (textual code)"
+      : "Buyer Identifier (textual code)";
+  const identifierRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === identifierField
+  );
+  const schemeRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === schemeField
+  );
+  const codeRule = OMN_UI_FIELD_RULES.find((rule) => rule.field === codeField);
+  if (!identifierRule || !schemeRule || !codeRule) {
+    throw new Error(`Missing CL-06 UI rule metadata for ${row.field}`);
+  }
+
+  const selectedRule = companion === "scheme" ? schemeRule : codeRule;
+  const unusedRule = companion === "scheme" ? codeRule : schemeRule;
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(
+    invoice,
+    section,
+    entry,
+    new Set([identifierRule.inputId, schemeRule.inputId, codeRule.inputId])
+  );
+
+  if (entry !== "create") {
+    await invoice.clearAutocomplete(
+      section,
+      unusedRule.inputId,
+      unusedRule.altInputIds
+    );
+  }
+  await invoice.replaceInput(
+    section,
+    identifierRule.inputId,
+    identifier,
+    identifierRule.altInputIds
+  );
+
+  if (row.expectsError) {
+    let autocompleteRejected = false;
+    try {
+      await invoice.selectAutocomplete(
+        section,
+        selectedRule.inputId,
+        companionValue,
+        selectedRule.altInputIds
+      );
+    } catch {
+      autocompleteRejected = true;
+      await invoice.dismissOpenDropdown();
+    }
+    if (autocompleteRejected) {
+      expect(
+        autocompleteRejected,
+        `${row.field} should reject a value outside the CL-06 master`
+      ).toBe(true);
+      return;
+    }
+  } else {
+    await invoice.selectAutocomplete(
+      section,
+      selectedRule.inputId,
+      companionValue,
+      selectedRule.altInputIds
+    );
+  }
+
+  await commitSection(invoice, section, entry);
+  const message = await invoice.readFieldError(
+    section,
+    selectedRule.inputId,
+    selectedRule.altInputIds
+  );
+  if (row.expectsError) {
+    expect(message, `expected a field error for ${row.field}`).toBeTruthy();
+    await invoice.expectSectionNotSaved(section, entry);
+    return;
+  }
+
+  expect(message, `did not expect a field error for ${row.field}`).toBeFalsy();
+  await invoice.expectSectionSavedReadOnly(section);
+}
+
 export async function runOmnUiFieldCatalogRow(
   page: Page,
   entry: OmnUiEntry,
@@ -942,6 +1047,10 @@ export async function runOmnUiFieldCatalogRow(
       entry,
       row.partyIdentifierScenario
     );
+    return;
+  }
+  if (row.kind === "cl06") {
+    await runOmnUiCl06Case(page, entry, row);
     return;
   }
   throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);

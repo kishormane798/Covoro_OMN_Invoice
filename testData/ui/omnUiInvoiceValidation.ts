@@ -117,6 +117,10 @@ import {
   PARTY_IDENTIFIER_LENGTH_CASES,
   type PartyIdentifierLengthCase,
 } from "../FieldValidations/partyIdentifierCompanionLength";
+import {
+  CL06_OM_NEGATIVE_SCENARIOS,
+  CL06_OM_POSITIVE_PACKS,
+} from "../FieldValidations/buyerSellerIdentifierScheme";
 
 export const OMN_UI_INVOICE_TEST_TIMEOUT_MS = 180_000;
 export const OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS = 240_000;
@@ -193,6 +197,10 @@ export type OmnUiCatalogRow = {
   numericValue?: string;
   expectsError?: boolean;
   partyIdentifierScenario?: PartyIdentifierLengthCase;
+  cl06Party?: "buyer" | "seller";
+  cl06Companion?: "scheme" | "code";
+  cl06CompanionValue?: string;
+  cl06Identifier?: string;
 };
 
 export function omnUiCatalogRowsFor(
@@ -430,16 +438,60 @@ const partyIdentifierCompanionRows: OmnUiCatalogRow[] =
     partyIdentifierScenario: scenario,
   }));
 
+const CL06_UI_GROUP =
+  "CL-06-OM — Scheme Identifier and textual code masters";
+
+const cl06Rows: OmnUiCatalogRow[] = [
+  ...CL06_OM_POSITIVE_PACKS.map((pack) => {
+    const companionValue = pack.master[0]?.label;
+    if (!companionValue) {
+      throw new Error(`CL-06 master is empty for ${pack.companionField}`);
+    }
+    return {
+      group: CL06_UI_GROUP,
+      title: pack.title.replace(
+        "Then the invoice should be accepted.",
+        "Then Save should succeed."
+      ),
+      mode: "run" as const,
+      kind: "cl06" as const,
+      field: pack.companionField,
+      expectsError: false,
+      cl06Party: pack.party,
+      cl06Companion: pack.companion,
+      cl06CompanionValue: companionValue,
+      cl06Identifier: pack.identifier,
+    };
+  }),
+  ...CL06_OM_NEGATIVE_SCENARIOS.map((scenario) => ({
+    group: CL06_UI_GROUP,
+    title: scenario.title.replace(
+      "Then the invoice should be rejected with an error.",
+      "Then the form should show an error."
+    ),
+    mode: "run" as const,
+    kind: "cl06" as const,
+    field: scenario.expectedErrorField,
+    expectsError: true,
+    cl06Party: scenario.party,
+    cl06Companion: scenario.companion,
+    cl06CompanionValue: scenario.companionValue,
+    cl06Identifier: scenario.identifier,
+  })),
+  {
+    group: CL06_UI_GROUP,
+    title:
+      "Remaining CL-06 scheme and textual code master values are covered by one representative UI selection per field. (CL-06-OM)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "cl06",
+  },
+];
+
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...issueDateRows,
   ...partyIdentifierCompanionRows,
-  {
-    group: "CL-06-OM — Scheme Identifier and textual code masters",
-    title: "CL-06 scheme and textual code pending UI select. (Scheme identifier)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.masterList,
-    kind: "pending",
-  },
+  ...cl06Rows,
   ...numericValidRows,
   ...numericInvalidRows,
   {
