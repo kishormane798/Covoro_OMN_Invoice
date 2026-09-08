@@ -41,6 +41,7 @@ import {
   omnUiMinMaxExpectsError,
   omnUiPrecedingInvoiceEnablement,
   omnUiTestValue,
+  type OmnUiCatalogRow,
   type OmnUiConditionalScenario,
   type OmnUiEntry,
   type OmnUiExcelPartyIdentityCase,
@@ -716,6 +717,17 @@ export async function runOmnUiMinMaxCase(
     expect(message, `did not expect a field error on ${rule.field}`).toBeFalsy();
     await invoice.expectSectionSavedReadOnly(rule.section);
   }
+}
+
+export async function runOmnUiFieldCatalogRow(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  if (row.mode === "skip") {
+    throw new Error(`runOmnUiFieldCatalogRow called for skip row: ${row.group}`);
+  }
+  throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);
 }
 
 export async function runOmnUiExcelPartyIdentityCase(

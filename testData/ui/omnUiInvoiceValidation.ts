@@ -191,6 +191,120 @@ export function omnUiCatalogRowsFor(
   );
 }
 
+export const OMN_UI_FIELD_CATALOG_GROUPS = [
+  "Invoice Issue Date",
+  "Party identifier — companion length",
+  "CL-06-OM — Scheme Identifier and textual code masters",
+  "Numeric fields — valid digit count",
+  "Numeric fields — invalid digit count",
+  "Invoice Currency dropdown",
+  "Dropdown — valid values",
+  "Dropdown — valid HS codes",
+  "Dropdown — valid tax exemption reason (Zero rated)",
+  "Dropdown — invalid values",
+  "Dropdown — invalid tax exemption reason (charges/allowances companions)",
+  "Tax exemption reason — code / text companion",
+  "Format / context fields — VATIN, UUID, rate, FX, profit margin",
+] as const;
+
+export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
+  {
+    group: "Invoice Issue Date",
+    title: "Invoice Issue Date scenarios pending UI date entry. (Invoice Issue Date)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("Invoice Issue Date picker runner"),
+    kind: "pending",
+    field: "Invoice Issue Date",
+  },
+  {
+    group: "Party identifier — companion length",
+    title: "Party identifier companion length pending UI entry. (Seller identifier)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("Party identifier companion runner"),
+    kind: "pending",
+  },
+  {
+    group: "CL-06-OM — Scheme Identifier and textual code masters",
+    title: "CL-06 scheme and textual code pending UI select. (Scheme identifier)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+  },
+  {
+    group: "Numeric fields — valid digit count",
+    title: "Numeric digit-count cases pending UI entry. (numeric)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("numeric digit runner"),
+    kind: "pending",
+  },
+  {
+    group: "Numeric fields — invalid digit count",
+    title: "Numeric invalid digit-count cases pending UI entry. (numeric)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("numeric digit runner"),
+    kind: "pending",
+  },
+  {
+    group: "Invoice Currency dropdown",
+    title: "Invoice Currency master list. (Invoice Currency Code)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+    field: "Invoice Currency Code",
+  },
+  {
+    group: "Dropdown — valid values",
+    title: "Valid dropdown master lists. (dropdown)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+  },
+  {
+    group: "Dropdown — valid HS codes",
+    title: "HS code master list. (Item classification identifier)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+    field: "Item classification identifier",
+  },
+  {
+    group: "Dropdown — valid tax exemption reason (Zero rated)",
+    title: "Zero rated exemption reason master list. (Tax exemption reason code)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+    field: "Tax exemption reason code",
+  },
+  {
+    group: "Dropdown — invalid values",
+    title: "Invalid dropdown values pending UI select. (dropdown)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("invalid dropdown runner"),
+    kind: "pending",
+  },
+  {
+    group: "Dropdown — invalid tax exemption reason (charges/allowances companions)",
+    title: "Invalid charge/allowance exemption reason pending UI select. (Tax exemption reason - charges)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("exemption companion dropdown runner"),
+    kind: "pending",
+  },
+  {
+    group: "Tax exemption reason — code / text companion",
+    title: "Exemption code and text companion pending UI entry. (Tax exemption reason code)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("exemption companion runner"),
+    kind: "pending",
+  },
+  {
+    group: "Format / context fields — VATIN, UUID, rate, FX, profit margin",
+    title: "Format/context fields pending UI entry. (format)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("format context runner"),
+    kind: "pending",
+  },
+];
+
 export const OMN_UI_MIN_MAX_VARIANTS: readonly OmnUiMinMaxVariant[] = [
   "min",
   "max",
