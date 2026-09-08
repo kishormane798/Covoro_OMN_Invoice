@@ -30,6 +30,9 @@ import {
   OMN_UI_INVOICE_TYPE_SELF_BILLED,
   OMN_UI_ITEM_FORMULA_KEYS,
   OMN_UI_ITEM_TYPE_GOODS,
+  OMN_UI_FIELD_RULES,
+  OMN_UI_PARTY_IDENTIFIER_SCHEME,
+  OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE,
   OMN_UI_PRECEDING_DATE_ID,
   OMN_UI_PRECEDING_REF_ID,
   OMN_UI_PRECEDING_UUID_ID,
@@ -38,9 +41,11 @@ import {
   OMN_UI_UNIT_OF_MEASURE,
   OMN_UI_TXN_FULL_TAX,
   OMN_UI_TXN_SELF_BILLED,
+  omnUiNumericFieldLocation,
   omnUiMinMaxExpectsError,
   omnUiPrecedingInvoiceEnablement,
   omnUiTestValue,
+  type OmnUiCatalogRow,
   type OmnUiConditionalScenario,
   type OmnUiEntry,
   type OmnUiExcelPartyIdentityCase,
@@ -48,6 +53,7 @@ import {
   type OmnUiMinMaxVariant,
   type OmnUiSection,
 } from "../../testData/ui/omnUiInvoiceValidation";
+import type { PartyIdentifierLengthCase } from "../../testData/FieldValidations/partyIdentifierCompanionLength";
 import {
   CREDIT_DEBIT_REASON_SAMPLE,
   PRECEDING_INVOICE_UUID_SAMPLE,
@@ -67,6 +73,7 @@ import {
   TXN_THIRD_PARTY_INVOICE,
   UAE_COUNTRY_CODE,
 } from "../../testData/FieldValidations/ConditionalValidation";
+import { createInvoiceIssueDateScenarios } from "../../testData/FieldValidations/InvoiceIssueDateValidation";
 import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -859,6 +866,344 @@ export async function runOmnUiMinMaxCase(
     expect(message, `did not expect a field error on ${rule.field}`).toBeFalsy();
     await invoice.expectSectionSavedReadOnly(rule.section);
   }
+}
+
+function formatOmnUiIssueDateValue(
+  issueDateValue: Date | string | number,
+  issueDateFormat: string
+): string {
+  if (!(issueDateValue instanceof Date)) {
+    return String(issueDateValue);
+  }
+  const yyyy = issueDateValue.getFullYear();
+  const mm = String(issueDateValue.getMonth() + 1).padStart(2, "0");
+  const dd = String(issueDateValue.getDate()).padStart(2, "0");
+  if (issueDateFormat === "dd-mm-yyyy") {
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export async function runOmnUiIssueDateCase(
+  page: Page,
+  entry: OmnUiEntry,
+  scenarioName: string
+): Promise<void> {
+  const scenario = createInvoiceIssueDateScenarios().find(
+    (candidate) => candidate.name === scenarioName
+  );
+  if (!scenario) {
+    throw new Error(`Unknown issue date scenario ${scenarioName}`);
+  }
+
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, "document", entry, new Set());
+  const value = formatOmnUiIssueDateValue(
+    scenario.issueDateValue,
+    scenario.issueDateFormat
+  );
+  await invoice.replaceInput("document", "invDate", value, ["issueDate", "invIssueDate"]);
+
+  if (scenario.shouldError) {
+    const message = await invoice.readFieldError(
+      "document",
+      "invDate",
+      ["issueDate", "invIssueDate"]
+    );
+    expect(
+      message.length,
+      `expected a field error for Invoice Issue Date in ${scenario.name}`
+    ).toBeGreaterThan(0);
+    return;
+  }
+  await invoice.clickSectionCommit("document", entry);
+  await invoice.expectSectionSavedReadOnly("document");
+}
+
+export async function runOmnUiNumericCase(
+  page: Page,
+  entry: OmnUiEntry,
+  field: string,
+  digits: string,
+  expectsError: boolean
+): Promise<void> {
+  const location = omnUiNumericFieldLocation(field);
+  if (!location) {
+    throw new Error(`No editable UI numeric control for ${field}`);
+  }
+
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, location.section, entry, new Set());
+  await invoice.replaceInput(
+    location.section,
+    location.inputId,
+    digits,
+    location.altInputIds
+  );
+
+  await commitSection(invoice, location.section, entry);
+  const message = await invoice.readFieldError(
+    location.section,
+    location.inputId,
+    location.altInputIds
+  );
+  if (expectsError) {
+    expect(message, `expected a field error for ${field}`).toBeTruthy();
+    await invoice.expectSectionNotSaved(location.section, entry);
+    return;
+  }
+
+  expect(message, `did not expect a field error for ${field}`).toBeFalsy();
+  await invoice.expectSectionSavedReadOnly(location.section);
+}
+
+export async function runOmnUiPartyIdentifierCompanionCase(
+  page: Page,
+  entry: OmnUiEntry,
+  scenario: PartyIdentifierLengthCase
+): Promise<void> {
+  const section = scenario.party;
+  const schemeField =
+    section === "seller"
+      ? "Seller identifier - Scheme identifier"
+      : "Scheme identifier";
+  const codeField =
+    section === "seller"
+      ? "Seller Identifier (textual code)"
+      : "Buyer Identifier (textual code)";
+  const identifierRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === scenario.identifierField
+  );
+  const schemeRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === schemeField
+  );
+  const codeRule = OMN_UI_FIELD_RULES.find((rule) => rule.field === codeField);
+
+  if (!identifierRule || !schemeRule || !codeRule) {
+    throw new Error(
+      `Missing party identifier UI rule metadata for ${scenario.identifierField}`
+    );
+  }
+
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, section, entry, new Set([
+    identifierRule.inputId,
+    schemeRule.inputId,
+    codeRule.inputId,
+  ]));
+
+  if (scenario.companion === "scheme" || scenario.companion === "both") {
+    await invoice.selectAutocomplete(
+      section,
+      schemeRule.inputId,
+      OMN_UI_PARTY_IDENTIFIER_SCHEME,
+      schemeRule.altInputIds
+    );
+  } else {
+    await invoice.clearAutocomplete(
+      section,
+      schemeRule.inputId,
+      schemeRule.altInputIds
+    );
+  }
+  if (scenario.companion === "code" || scenario.companion === "both") {
+    await invoice.selectAutocomplete(
+      section,
+      codeRule.inputId,
+      OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE,
+      codeRule.altInputIds
+    );
+  } else {
+    await invoice.clearAutocomplete(
+      section,
+      codeRule.inputId,
+      codeRule.altInputIds
+    );
+  }
+  await invoice.replaceInput(
+    section,
+    identifierRule.inputId,
+    "x".repeat(scenario.length),
+    identifierRule.altInputIds
+  );
+  await commitSection(invoice, section, entry);
+
+  const message = await invoice.readFieldError(
+    section,
+    identifierRule.inputId,
+    identifierRule.altInputIds
+  );
+  if (!scenario.shouldAccept) {
+    expect(
+      message,
+      `expected a field error for ${scenario.identifierField}`
+    ).toBeTruthy();
+    await invoice.expectSectionNotSaved(section, entry);
+    return;
+  }
+
+  expect(
+    message,
+    `did not expect a field error for ${scenario.identifierField}`
+  ).toBeFalsy();
+  await invoice.expectSectionSavedReadOnly(section);
+}
+
+export async function runOmnUiCl06Case(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  const {
+    cl06Party: section,
+    cl06Companion: companion,
+    cl06CompanionValue: companionValue,
+    cl06Identifier: identifier,
+  } = row;
+  if (!section || !companion || !companionValue || !identifier) {
+    throw new Error(`CL-06 catalog row is missing scenario metadata: ${row.title}`);
+  }
+
+  const identifierField =
+    section === "seller" ? "Seller identifier" : "Buyer identifier";
+  const schemeField =
+    section === "seller"
+      ? "Seller identifier - Scheme identifier"
+      : "Scheme identifier";
+  const codeField =
+    section === "seller"
+      ? "Seller Identifier (textual code)"
+      : "Buyer Identifier (textual code)";
+  const identifierRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === identifierField
+  );
+  const schemeRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === schemeField
+  );
+  const codeRule = OMN_UI_FIELD_RULES.find((rule) => rule.field === codeField);
+  if (!identifierRule || !schemeRule || !codeRule) {
+    throw new Error(`Missing CL-06 UI rule metadata for ${row.field}`);
+  }
+
+  const selectedRule = companion === "scheme" ? schemeRule : codeRule;
+  const unusedRule = companion === "scheme" ? codeRule : schemeRule;
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(
+    invoice,
+    section,
+    entry,
+    new Set([identifierRule.inputId, schemeRule.inputId, codeRule.inputId])
+  );
+
+  if (entry !== "create") {
+    await invoice.clearAutocomplete(
+      section,
+      unusedRule.inputId,
+      unusedRule.altInputIds
+    );
+  }
+  await invoice.replaceInput(
+    section,
+    identifierRule.inputId,
+    identifier,
+    identifierRule.altInputIds
+  );
+
+  if (row.expectsError) {
+    await invoice.replaceInput(
+      section,
+      selectedRule.inputId,
+      companionValue,
+      selectedRule.altInputIds
+    );
+    await invoice.dismissOpenDropdown();
+  } else {
+    await invoice.selectAutocomplete(
+      section,
+      selectedRule.inputId,
+      companionValue,
+      selectedRule.altInputIds
+    );
+  }
+
+  await commitSection(invoice, section, entry);
+  const message = await invoice.readFieldError(
+    section,
+    selectedRule.inputId,
+    selectedRule.altInputIds
+  );
+  if (row.expectsError) {
+    const actualValue = await invoice.readInputValue(
+      section,
+      selectedRule.inputId,
+      selectedRule.altInputIds
+    );
+    expect(
+      Boolean(message) || actualValue !== companionValue,
+      `${row.field} should show an error or reject the invalid CL-06 value`
+    ).toBe(true);
+    await invoice.expectSectionNotSaved(section, entry);
+    return;
+  }
+
+  expect(message, `did not expect a field error for ${row.field}`).toBeFalsy();
+  await invoice.expectSectionSavedReadOnly(section);
+}
+
+export async function runOmnUiFieldCatalogRow(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  if (row.mode === "skip") {
+    throw new Error(`runOmnUiFieldCatalogRow called for skip row: ${row.group}`);
+  }
+  if (row.kind === "issueDate") {
+    await runOmnUiIssueDateCase(page, entry, row.excelTitle ?? "");
+    return;
+  }
+  if (row.kind === "numeric") {
+    if (!row.field || row.numericValue === undefined) {
+      throw new Error(`Numeric catalog row is missing field/value metadata: ${row.title}`);
+    }
+    await runOmnUiNumericCase(
+      page,
+      entry,
+      row.field,
+      row.numericValue,
+      Boolean(row.expectsError)
+    );
+    return;
+  }
+  if (row.kind === "partyIdentifierCompanion") {
+    if (!row.partyIdentifierScenario) {
+      throw new Error(
+        `Party identifier catalog row is missing scenario metadata: ${row.title}`
+      );
+    }
+    await runOmnUiPartyIdentifierCompanionCase(
+      page,
+      entry,
+      row.partyIdentifierScenario
+    );
+    return;
+  }
+  if (row.kind === "cl06") {
+    await runOmnUiCl06Case(page, entry, row);
+    return;
+  }
+  throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);
+}
+
+export async function runOmnUiFormulaCatalogRow(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  if (row.mode === "skip") {
+    throw new Error(`runOmnUiFormulaCatalogRow called for skip row: ${row.group}`);
+  }
+  throw new Error(`No UI runner for formula catalog kind ${row.kind} (${row.group})`);
 }
 
 export async function runOmnUiExcelPartyIdentityCase(

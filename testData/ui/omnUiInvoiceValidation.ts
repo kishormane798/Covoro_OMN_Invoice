@@ -58,6 +58,7 @@ import {
   SELLER_ADDRESS_LINE_3_FIELD,
   SELLER_ADDRESS_REQUIRED_SCENARIOS,
   SELLER_CITY_FIELD,
+  SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN,
   SELLER_POST_CODE_FIELD,
   SELLER_VAT_IDENTIFIER_FIELD,
   SELLER_VAT_MANDATORY_SCENARIOS,
@@ -106,12 +107,23 @@ import {
   fieldValidationConditional,
   fieldValidationMandatory,
   fieldValidationOptional,
+  formatOmanNumericBoundaryValue,
   invoiceFormulaTestData,
 } from "../FieldValidations/Min_max_field_validation";
+import { numericFieldConfigs } from "../../Helpers/excel/fieldValidationSpecSupport";
 import {
   conditionalDropdownFieldMasterConfig,
   dropdownFieldMasterConfig,
 } from "../FieldValidations/TestDataConfig";
+import { createInvoiceIssueDateScenarios } from "../FieldValidations/InvoiceIssueDateValidation";
+import {
+  PARTY_IDENTIFIER_LENGTH_CASES,
+  type PartyIdentifierLengthCase,
+} from "../FieldValidations/partyIdentifierCompanionLength";
+import {
+  CL06_OM_NEGATIVE_SCENARIOS,
+  CL06_OM_POSITIVE_PACKS,
+} from "../FieldValidations/buyerSellerIdentifierScheme";
 
 export const OMN_UI_INVOICE_TEST_TIMEOUT_MS = 180_000;
 export const OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS = 240_000;
@@ -130,6 +142,10 @@ export const OMN_UI_INDUSTRIAL_CLASSIFICATION =
   INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS[0].industrialClassificationCode;
 export const OMN_UI_TAX_CATEGORY_STANDARD = STANDARD_TAX_CATEGORY_CODE;
 export const OMN_UI_UNIT_OF_MEASURE = "each";
+export const OMN_UI_PARTY_IDENTIFIER_SCHEME =
+  SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN;
+export const OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE =
+  buyerSellerIdentifierCodeValidTestData[0].label;
 
 export const OMN_UI_PRECEDING_REF_ID = "proceedingDtls[0].invoiceReference";
 export const OMN_UI_PRECEDING_DATE_ID = "proceedingDtls[0].invoiceIssueDate";
@@ -143,6 +159,573 @@ export type OmnUiMinMaxVariant = "min" | "max" | "belowMin" | "aboveMax";
 export type OmnUiFieldKind = "text" | "digits" | "date" | "autocomplete";
 /** Excel source of truth — never the UI asterisk. Conditional = optional until a PINT-OM row fires. */
 export type OmnUiExcelPresence = "mandatory" | "optional" | "conditional";
+
+export type OmnUiCatalogMode = "run" | "skip";
+
+export const OMN_UI_SKIP = {
+  noControl: (field: string) => `No Create Invoice control for ${field}.`,
+  masterList:
+    "UI does not replay the full Excel master list; one representative value is used on the form.",
+  calculated: "This amount is calculated; the form does not let you enter it.",
+  createOnly: "Create-only: Edit/Copy cannot set this the same way.",
+  partyIdentity: "Excel worker identity is covered by the party-identity UI cases.",
+  twentyLine:
+    "UI does not replay the 20-line Excel sweep; two lines cover multi-line entry.",
+} as const;
+
+export type OmnUiCatalogKind =
+  | "pending"
+  | "issueDate"
+  | "numeric"
+  | "partyIdentifierCompanion"
+  | "cl06"
+  | "dropdownInvalid"
+  | "exemptionCompanion"
+  | "formatContext"
+  | "formulaNegative"
+  | "formulaProfitMargin"
+  | "formulaNonOmr"
+  | "formulaTwoLine"
+  | "formulaMismatch";
+
+export type OmnUiCatalogRow = {
+  group: string;
+  title: string;
+  entries?: readonly OmnUiEntry[];
+  mode: OmnUiCatalogMode;
+  skipReason?: string;
+  kind: OmnUiCatalogKind;
+  field?: string;
+  excelTitle?: string;
+  numericValue?: string;
+  expectsError?: boolean;
+  partyIdentifierScenario?: PartyIdentifierLengthCase;
+  cl06Party?: "buyer" | "seller";
+  cl06Companion?: "scheme" | "code";
+  cl06CompanionValue?: string;
+  cl06Identifier?: string;
+};
+
+export function omnUiCatalogRowsFor(
+  rows: readonly OmnUiCatalogRow[],
+  entry: OmnUiEntry,
+  group: string
+): OmnUiCatalogRow[] {
+  return rows.filter(
+    (row) =>
+      row.group === group && (!row.entries || row.entries.includes(entry))
+  );
+}
+
+export function omnUiCatalogDisplayTitle(entry: OmnUiEntry, row: OmnUiCatalogRow): string {
+  if (entry === "create") return row.title;
+  return row.title
+    .replaceAll("Then Save should succeed.", "Then Update should succeed.")
+    .replaceAll(" — Save should succeed.", " — Update should succeed.");
+}
+
+export const OMN_UI_FIELD_CATALOG_GROUPS = [
+  "Invoice Issue Date",
+  "Party identifier — companion length",
+  "CL-06-OM — Scheme Identifier and textual code masters",
+  "Numeric fields — valid digit count",
+  "Numeric fields — invalid digit count",
+  "Invoice Currency dropdown",
+  "Dropdown — valid values",
+  "Dropdown — valid HS codes",
+  "Dropdown — valid tax exemption reason (Zero rated)",
+  "Dropdown — invalid values",
+  "Dropdown — invalid tax exemption reason (charges/allowances companions)",
+  "Tax exemption reason — code / text companion",
+  "Format / context fields — VATIN, UUID, rate, FX, profit margin",
+] as const;
+
+const issueDateRows: OmnUiCatalogRow[] = createInvoiceIssueDateScenarios().map((scenario) => {
+  const outcome = scenario.shouldError
+    ? "the form should show an error"
+    : "Save should succeed";
+  return {
+    group: "Invoice Issue Date",
+    title: `Invoice Issue Date in ${scenario.name.trim()} — ${outcome}. (Invoice Issue Date)`,
+    mode: "run",
+    kind: "issueDate",
+    field: "Invoice Issue Date",
+    excelTitle: scenario.name,
+  };
+});
+
+export type OmnUiNumericFieldLocation = {
+  section: "item" | "invoice";
+  inputId: string;
+  altInputIds?: readonly string[];
+};
+
+export const OMN_UI_FORMULA_INPUT_CANDIDATES: Record<string, readonly string[]> = {
+  itemPriceBaseQty: ["priceBaseQty"],
+  itemGrossPrice: ["itemGrossPrice"],
+  itemPriceDiscount: ["itemPriceDiscount", "invLinePriceDiscount"],
+  invoicedQty: ["invoiceQty", "invoicedQty", "invQty"],
+  lineCharge: ["chargesDtls[0].amount", "invLineChargeAmount"],
+  lineAllowance: ["allowanceDtls[0].amount", "invLineAllowanceAmount"],
+  taxRate: ["taxRateDtls[0].taxRate"],
+  docCharges: ["docLevelCharges[0].amount", "docCharges"],
+  docAllowances: ["docLevelAllowances[0].amount", "docAllowances"],
+  paidAmount: ["paidAmt", "paidAmount"],
+  roundingAmount: ["roundingAmt", "roundingAmount"],
+  profitMarginTotalDue: [
+    "totalAmtDueProfitMargin",
+    "profitMarginDueAmt",
+    "totalAmountDueProfitMargin",
+  ],
+  taxInAccountingCurrencyAmount: [
+    "invoiceTotalTaxAccountingCurrency",
+    "taxAmtInAccCurr",
+    "taxAmountInAccountingCurrency",
+    "ibt111",
+  ],
+};
+
+const OMN_UI_ITEM_NUMERIC_FORMULA_KEYS: Record<string, string> = {
+  "Item price base quantity": "itemPriceBaseQty",
+  "Item gross price": "itemGrossPrice",
+  "Item price discount": "itemPriceDiscount",
+  "Invoiced quantity": "invoicedQty",
+  "Invoice line charge amount": "lineCharge",
+  "Invoice line allowance amount": "lineAllowance",
+};
+
+const OMN_UI_INVOICE_NUMERIC_FORMULA_KEYS: Record<string, string> = {
+  "Charges on document level": "docCharges",
+  "Allowances on document level": "docAllowances",
+  "Paid amount": "paidAmount",
+  "Rounding amount": "roundingAmount",
+};
+
+const OMN_UI_CALCULATED_NUMERIC_FIELDS = new Set<string>([
+  "Item net price",
+  "Invoice line net amount",
+  "Line item VAT amount",
+  "Total amount including VAT",
+  "Sum of Invoice line net amount",
+  "Invoice total amount without tax",
+  "Invoice total tax amount",
+  "Invoice total amount with tax",
+  "Amount due for payment",
+]);
+
+export function omnUiNumericFieldLocation(
+  field: string
+): OmnUiNumericFieldLocation | undefined {
+  const itemKey = OMN_UI_ITEM_NUMERIC_FORMULA_KEYS[field];
+  const invoiceKey = OMN_UI_INVOICE_NUMERIC_FORMULA_KEYS[field];
+  const formulaKey = itemKey ?? invoiceKey;
+  const [inputId, ...altInputIds] =
+    (formulaKey ? OMN_UI_FORMULA_INPUT_CANDIDATES[formulaKey] : undefined) ?? [];
+  if (!inputId) return undefined;
+  return {
+    section: itemKey ? "item" : "invoice",
+    inputId,
+    ...(altInputIds.length ? { altInputIds } : {}),
+  };
+}
+
+type NumericConfig = (typeof numericFieldConfigs)[number];
+
+function numericCatalogMode(
+  config: NumericConfig
+): Pick<OmnUiCatalogRow, "mode" | "skipReason"> {
+  if (OMN_UI_CALCULATED_NUMERIC_FIELDS.has(config.field)) {
+    return { mode: "skip", skipReason: OMN_UI_SKIP.calculated };
+  }
+  if (!omnUiNumericFieldLocation(config.field)) {
+    return {
+      mode: "skip",
+      skipReason: OMN_UI_SKIP.noControl(config.field),
+    };
+  }
+  return { mode: "run" };
+}
+
+function numericCatalogRow(
+  group: "Numeric fields — valid digit count" | "Numeric fields — invalid digit count",
+  config: NumericConfig,
+  title: string,
+  numericValue: string,
+  expectsError: boolean
+): OmnUiCatalogRow {
+  return {
+    group,
+    title,
+    ...numericCatalogMode(config),
+    kind: "numeric",
+    field: config.field,
+    numericValue,
+    expectsError,
+  };
+}
+
+function numericPersistTitle(expectsError?: boolean): string {
+  return expectsError ? "the form should show an error" : "Save should succeed";
+}
+
+const numericValidRows: OmnUiCatalogRow[] = numericFieldConfigs.flatMap((config) => {
+  const decimals = config.decimals ?? 2;
+  const minValue = formatOmanNumericBoundaryValue(config.min, decimals);
+  const maxValue = formatOmanNumericBoundaryValue(config.max, decimals);
+  const rows = [
+    numericCatalogRow(
+      "Numeric fields — valid digit count",
+      config,
+      `${config.field} at minimum value (${minValue}) — ${numericPersistTitle(config.minExpectsError)}. (${config.field})`,
+      minValue,
+      Boolean(config.minExpectsError)
+    ),
+    numericCatalogRow(
+      "Numeric fields — valid digit count",
+      config,
+      `${config.field} at maximum digits (${config.max}) — ${numericPersistTitle(config.maxExpectsError)}. (${config.field})`,
+      maxValue,
+      Boolean(config.maxExpectsError)
+    ),
+  ];
+
+  if (config.belowMin === 0 && !config.omitEmptyTest) {
+    rows.push(
+      numericCatalogRow(
+        "Numeric fields — valid digit count",
+        config,
+        `An empty ${config.field} — ${numericPersistTitle(config.emptyExpectsError)}. (${config.field})`,
+        "",
+        Boolean(config.emptyExpectsError)
+      )
+    );
+  }
+
+  if (config.allowsNegative) {
+    const negativeValue = `-${minValue}`;
+    rows.push(
+      numericCatalogRow(
+        "Numeric fields — valid digit count",
+        config,
+        `${config.field} with negative value (${negativeValue}) — Save should succeed. (${config.field})`,
+        negativeValue,
+        false
+      )
+    );
+  }
+  return rows;
+});
+
+const numericInvalidRows: OmnUiCatalogRow[] = numericFieldConfigs.map((config) =>
+  numericCatalogRow(
+    "Numeric fields — invalid digit count",
+    config,
+    `${config.field} of ${config.aboveMax} digits — the form should show an error. (${config.field})`,
+    formatOmanNumericBoundaryValue(config.aboveMax, config.decimals ?? 2),
+    true
+  )
+);
+
+const partyIdentifierCompanionRows: OmnUiCatalogRow[] =
+  PARTY_IDENTIFIER_LENGTH_CASES.map((scenario) => ({
+    group: "Party identifier — companion length",
+    title: `${scenario.identifierField} with ${scenario.titleSuffix} — ${
+      scenario.shouldAccept
+        ? "Save should succeed"
+        : "the form should show an error"
+    }. (${scenario.identifierField})`,
+    mode: "run",
+    kind: "partyIdentifierCompanion",
+    field: scenario.identifierField,
+    expectsError: !scenario.shouldAccept,
+    partyIdentifierScenario: scenario,
+  }));
+
+const CL06_UI_GROUP =
+  "CL-06-OM — Scheme Identifier and textual code masters";
+
+const cl06Rows: OmnUiCatalogRow[] = [
+  ...CL06_OM_POSITIVE_PACKS.map((pack) => {
+    const companionValue = pack.master[0]?.label;
+    if (!companionValue) {
+      throw new Error(`CL-06 master is empty for ${pack.companionField}`);
+    }
+    return {
+      group: CL06_UI_GROUP,
+      title: pack.title.replace(
+        "Then the invoice should be accepted.",
+        "Then Save should succeed."
+      ),
+      mode: "run" as const,
+      kind: "cl06" as const,
+      field: pack.companionField,
+      expectsError: false,
+      cl06Party: pack.party,
+      cl06Companion: pack.companion,
+      cl06CompanionValue: companionValue,
+      cl06Identifier: pack.identifier,
+    };
+  }),
+  ...CL06_OM_NEGATIVE_SCENARIOS.map((scenario) => ({
+    group: CL06_UI_GROUP,
+    title: scenario.title.replace(
+      "Then the invoice should be rejected with an error.",
+      "Then the form should show an error."
+    ),
+    mode: "run" as const,
+    kind: "cl06" as const,
+    field: scenario.expectedErrorField,
+    expectsError: true,
+    cl06Party: scenario.party,
+    cl06Companion: scenario.companion,
+    cl06CompanionValue: scenario.companionValue,
+    cl06Identifier: scenario.identifier,
+  })),
+  {
+    group: CL06_UI_GROUP,
+    title:
+      "Remaining CL-06 scheme and textual code master values are covered by one representative UI selection per field. (CL-06-OM)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "cl06",
+  },
+];
+
+export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
+  ...issueDateRows,
+  ...partyIdentifierCompanionRows,
+  ...cl06Rows,
+  ...numericValidRows,
+  ...numericInvalidRows,
+  {
+    group: "Invoice Currency dropdown",
+    title: "Invoice Currency master list. (Invoice Currency Code)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+    field: "Invoice Currency Code",
+  },
+  {
+    group: "Dropdown — valid values",
+    title: "Valid dropdown master lists. (dropdown)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+  },
+  {
+    group: "Dropdown — valid HS codes",
+    title: "HS code master list. (Item classification identifier)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+    field: "Item classification identifier",
+  },
+  {
+    group: "Dropdown — valid tax exemption reason (Zero rated)",
+    title: "Zero rated exemption reason master list. (Tax exemption reason code)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+    field: "Tax exemption reason code",
+  },
+  {
+    group: "Dropdown — invalid values",
+    title: "Invalid dropdown values pending UI select. (dropdown)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("invalid dropdown runner"),
+    kind: "pending",
+  },
+  {
+    group: "Dropdown — invalid tax exemption reason (charges/allowances companions)",
+    title: "Invalid charge/allowance exemption reason pending UI select. (Tax exemption reason - charges)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("exemption companion dropdown runner"),
+    kind: "pending",
+  },
+  {
+    group: "Tax exemption reason — code / text companion",
+    title: "Exemption code and text companion pending UI entry. (Tax exemption reason code)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("exemption companion runner"),
+    kind: "pending",
+  },
+  {
+    group: "Format / context fields — VATIN, UUID, rate, FX, profit margin",
+    title: "Format/context fields pending UI entry. (format)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("format context runner"),
+    kind: "pending",
+  },
+];
+
+export const OMN_UI_FORMULA_CATALOG_GROUPS = [
+  "Invalid inputs",
+  "Calculated field mismatch",
+  "Calculated field tolerance",
+  "Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM)",
+  "Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM)",
+  "Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM)",
+  "Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM)",
+  "Profit Margin Total Amount Due (IBR-082-OM)",
+  "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+  "Multi-line (2 lines) — same tax category",
+  "Multi-line (20 lines) — positive (OMR)",
+] as const;
+
+export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
+  {
+    group: "Invalid inputs",
+    title:
+      "Given Invalid inputs — When calculated totals match — Then Save should succeed. (Invalid inputs)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("negative formula runner"),
+    kind: "formulaNegative",
+  },
+  {
+    group: "Calculated field mismatch",
+    title:
+      "Given Calculated field mismatch — When calculated totals match — Then Save should succeed. (Calculated field mismatch)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Calculated field tolerance",
+    title:
+      "Given Calculated field tolerance — When calculated totals match — Then Save should succeed. (Calculated field tolerance)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM)",
+    title:
+      "Given Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM) — When calculated totals match — Then Save should succeed. (Exempt VAT category taxable amount (ALIGNED-IBRP-E-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM)",
+    title:
+      "Given Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM) — When calculated totals match — Then Save should succeed. (Not subject VAT category taxable amount (ALIGNED-IBRP-O-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM)",
+    title:
+      "Given Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM) — When calculated totals match — Then Save should succeed. (Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM)",
+    title:
+      "Given Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM) — When calculated totals match — Then Save should succeed. (Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Profit Margin Total Amount Due (IBR-082-OM)",
+    title:
+      "Given Profit Margin Total Amount Due (IBR-082-OM) — When calculated totals match — Then Save should succeed. (Profit Margin Total Amount Due (IBR-082-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("profit margin formula runner"),
+    kind: "formulaProfitMargin",
+  },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Item net price and line net formulas (IBR-075-OM / IBR-071-OM) — When calculated totals match — Then Save should succeed. (Item net price and line net formulas (IBR-075-OM / IBR-071-OM))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("line net formula runner"),
+    kind: "formulaNegative",
+  },
+  {
+    group: "Multi-line (2 lines) — same tax category",
+    title:
+      "Given Multi-line (2 lines) — same tax category — When calculated totals match — Then Save should succeed. (Multi-line (2 lines) — same tax category)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("two-line Add Item runner"),
+    kind: "formulaTwoLine",
+  },
+  {
+    group: "Multi-line (20 lines) — positive (OMR)",
+    title:
+      "Given Multi-line (20 lines) — positive (OMR) — When calculated totals match — Then Save should succeed. (Multi-line (20 lines) — positive (OMR))",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.twentyLine,
+    kind: "pending",
+  },
+];
+
+export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [
+  "Tax accounting currency amount required (ibr-053)",
+  "Amount decimal precision (IBR-DEC-03-OM)",
+  "VAT rate numeric format (IBR-046-OM)",
+  "Item Type required (IBR-078-OM)",
+  "Classification identifier for goods lines (IBR-079-OM)",
+  "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
+  "Profit Margin Self-Invoice (IBR-086/087-OM)",
+  "Summary Invoice period (IBR-037-OM)",
+  "Summary Invoice period same calendar month (IBR-036-OM)",
+  "Document allowance/charge VAT category and exemption (IBR-062/064-OM)",
+  "Document level charge reason code (IBR-042-OM)",
+  "Export Deliver to country (IBR-014-OM)",
+  "Export Service Type (IBR-155-OM / CL-12)",
+  "Export deliver country must not be Oman (IBR-012-OM)",
+  "Export supporting documents (IBR-013-OM)",
+  "Special Zone country subdivision (IBR-150-OM)",
+  "Special Zone seller identifier (IBR-151-OM)",
+  "Self-billed / RCM Buyer VATIN (IBR-017-OM)",
+  "Seller / Buyer / Third Party VATIN pattern (IBR-003-OM)",
+  "Self-billed / RCM Buyer country must be Oman (IBR-020-OM)",
+  "Self-billed document transaction constraint (IBR-177-OM)",
+  "Prepayment cannot combine with Summary, Deemed, or Profit Margin Self-Invoice (IBR-176-OM)",
+  "Document charge/allowance category rate (IBR-045/047/094-OM)",
+  "VAT breakdown category presence (ALIGNED-IBRP-E/O/S/Z-01-OM)",
+  "Line item VAT amount required (IBR-038-OM)",
+  "Line VAT amount zero for Exempt (IBR-039-OM)",
+  "Line VAT amount zero for Not subject and Zero rated (IBR-054/077-OM)",
+  "Exempt VAT category tax amount must be zero (ALIGNED-IBRP-E-09-OM)",
+  "Not subject VAT category tax amount must be zero (ALIGNED-IBRP-O-09-OM)",
+  "Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)",
+  "Seller identifier + scheme mandatory (IBR-007-OM)",
+  "HS code must be 12 digits (IBR-080-OM)",
+  "Document allowance exemption reason codelist (IBR-CL-05-OM / IBR-CL-10-OM)",
+  "RCM seller country must not be Oman (IBR-160-OM)",
+  "Profit Margin preceding invoice (IBR-175-OM)",
+  "Profit Margin HS prefix ban (IBR-091-OM)",
+  "Profit Margin item type code (CL-11-OM)",
+  "Buyer/Seller identifier scheme and textual code (PARTY-ID)",
+  "Amounts and quantities non-negative except rounding (IBR-137-OM)",
+] as const;
+
+const OMN_UI_CALCULATED_PENDING_GROUPS = new Set<string>([
+  "Line item VAT amount required (IBR-038-OM)",
+  "Line VAT amount zero for Exempt (IBR-039-OM)",
+  "Line VAT amount zero for Not subject and Zero rated (IBR-054/077-OM)",
+  "Exempt VAT category tax amount must be zero (ALIGNED-IBRP-E-09-OM)",
+  "Not subject VAT category tax amount must be zero (ALIGNED-IBRP-O-09-OM)",
+  "Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)",
+]);
+
+export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] =
+  OMN_UI_CONDITIONAL_PENDING_GROUPS.map((group) => ({
+    group,
+    title: group,
+    mode: "skip",
+    skipReason: OMN_UI_CALCULATED_PENDING_GROUPS.has(group)
+      ? OMN_UI_SKIP.calculated
+      : group === "HS Code from ROP Customs list for goods lines (IBR-174-OM)"
+        ? OMN_UI_SKIP.masterList
+        : OMN_UI_SKIP.noControl(`${group} runner`),
+    kind: "pending",
+  }));
 
 export const OMN_UI_MIN_MAX_VARIANTS: readonly OmnUiMinMaxVariant[] = [
   "min",
@@ -679,8 +1262,8 @@ export const OMN_UI_EXCEL_PARTY_IDENTITY_CASES: readonly OmnUiExcelPartyIdentity
   { invoiceType: "selfBilled", section: "buyer" },
 ];
 
-function charsPhrase(n: number): string {
-  return n === 1 ? "1-character" : `${n}-character`;
+function lengthNoun(n: number): string {
+  return n === 1 ? "character" : "characters";
 }
 
 export function omnUiMinMaxWhatEntered(
@@ -689,15 +1272,15 @@ export function omnUiMinMaxWhatEntered(
 ): string {
   switch (variant) {
     case "min":
-      return `A ${charsPhrase(rule.min)} ${rule.field}`;
+      return `${rule.field} at minimum length (${rule.min} ${lengthNoun(rule.min)})`;
     case "max":
       return `${rule.field} at maximum length (${rule.max} characters)`;
     case "belowMin":
       return rule.belowMin === 0
         ? `An empty ${rule.field}`
-        : `A ${charsPhrase(rule.belowMin)} ${rule.field} (below minimum)`;
+        : `${rule.field} of ${rule.belowMin} characters`;
     case "aboveMax":
-      return `A ${charsPhrase(rule.aboveMax)} ${rule.field} (above maximum)`;
+      return `${rule.field} of ${rule.aboveMax} characters`;
   }
 }
 
@@ -708,6 +1291,37 @@ export function omnUiMinMaxExpectsError(
   if (variant === "aboveMax") return true;
   if (variant === "belowMin") return rule.requiredOnForm || rule.belowMin > 0;
   return false;
+}
+
+export function omnUiMinMaxDisplayTitle(
+  entry: OmnUiEntry,
+  variant: OmnUiMinMaxVariant,
+  rule: OmnUiFieldRule
+): string {
+  const expectsError = omnUiMinMaxExpectsError(rule, variant);
+  const persist =
+    expectsError
+      ? "the form should show an error"
+      : entry === "create"
+        ? "Save should succeed"
+        : "Update should succeed";
+  return `${omnUiMinMaxWhatEntered(variant, rule)} — ${persist}. (${rule.field})`;
+}
+
+export function omnUiFormulaDisplayTitle(
+  entry: OmnUiEntry,
+  name: string,
+  expectsError = false
+): string {
+  const when = expectsError
+    ? "When calculated totals do not match"
+    : "When calculated totals match";
+  const then = expectsError
+    ? "Then the form should show an error."
+    : entry === "create"
+      ? "Then Save should succeed."
+      : "Then Update should succeed.";
+  return `Given ${name} — ${when} — ${then} (${name})`;
 }
 
 export function omnUiTestValue(length: number, kind: OmnUiFieldKind): string {
@@ -1638,36 +2252,11 @@ export const OMN_UI_INVOICE_FORMULA_KEYS = [
   "roundingAmount",
 ] as const;
 
-export const OMN_UI_FORMULA_INPUT_CANDIDATES: Record<string, readonly string[]> = {
-  itemPriceBaseQty: ["priceBaseQty"],
-  itemGrossPrice: ["itemGrossPrice"],
-  itemPriceDiscount: ["itemPriceDiscount", "invLinePriceDiscount"],
-  invoicedQty: ["invoiceQty", "invoicedQty", "invQty"],
-  lineCharge: ["chargesDtls[0].amount", "invLineChargeAmount"],
-  lineAllowance: ["allowanceDtls[0].amount", "invLineAllowanceAmount"],
-  taxRate: ["taxRateDtls[0].taxRate"],
-  docCharges: ["docLevelCharges[0].amount", "docCharges"],
-  docAllowances: ["docLevelAllowances[0].amount", "docAllowances"],
-  paidAmount: ["paidAmt", "paidAmount"],
-  roundingAmount: ["roundingAmt", "roundingAmount"],
-  profitMarginTotalDue: [
-    "totalAmtDueProfitMargin",
-    "profitMarginDueAmt",
-    "totalAmountDueProfitMargin",
-  ],
-  taxInAccountingCurrencyAmount: [
-    "invoiceTotalTaxAccountingCurrency",
-    "taxAmtInAccCurr",
-    "taxAmountInAccountingCurrency",
-    "ibt111",
-  ],
-};
-
 const COPY_INVOICE_NUMBER_EMPTY_SOURCE = "Copied invoice number is empty until filled";
 
 export function omnUiConditionalDisplayTitle(entry: OmnUiEntry, sourceTitle: string): string {
   if (sourceTitle === COPY_INVOICE_NUMBER_EMPTY_SOURCE) {
-    return "An empty invoice number on a copied invoice — Update should succeed. (Invoice Number)";
+    return "Given a copied invoice — When invoice number is left empty — Then Update should succeed. (Invoice Number)";
   }
   const when = entry === "create" ? "When the form is saved" : "When the form is updated";
   const accepted =

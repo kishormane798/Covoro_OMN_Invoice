@@ -2,8 +2,12 @@ import { test } from "../../Src/baseTest";
 import { runOmnUiConditionalScenario } from "../../Helpers/ui/omnUiInvoiceHelper";
 import { openOmnUiInvoiceEditor } from "../../Helpers/ui/omnUiInvoiceEntryHelper";
 import {
+  OMN_UI_CONDITIONAL_PENDING_CATALOG,
+  OMN_UI_CONDITIONAL_PENDING_GROUPS,
   OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS,
   OMN_UI_SECTION_ORDER,
+  omnUiCatalogDisplayTitle,
+  omnUiCatalogRowsFor,
   omnUiConditionalDisplayTitle,
   omnUiConditionalScenariosFor,
 } from "../../testData/ui/omnUiInvoiceValidation";
@@ -30,6 +34,22 @@ test.describe("Copy Invoice UI — conditional", () => {
             await runOmnUiConditionalScenario(page, ENTRY, scenario);
           }
         );
+      }
+    });
+  }
+
+  for (const group of OMN_UI_CONDITIONAL_PENDING_GROUPS) {
+    test.describe(`Copy Invoice UI — ${group}`, () => {
+      for (const row of omnUiCatalogRowsFor(
+        OMN_UI_CONDITIONAL_PENDING_CATALOG,
+        ENTRY,
+        group
+      )) {
+        test(omnUiCatalogDisplayTitle(ENTRY, row), async () => {
+          if (row.mode === "skip") {
+            test.skip(true, row.skipReason ?? "missing skip reason");
+          }
+        });
       }
     });
   }

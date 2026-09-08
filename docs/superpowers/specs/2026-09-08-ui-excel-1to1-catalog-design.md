@@ -124,7 +124,9 @@ Keep `omnUiConditionalDisplayTitle`: swap upload → Save/Update. Do not change 
 
 Source: each `test.describe` in `OMN_FieldValidation_CovoroTemplate_Test.spec.ts`. One group per turn. Create / Edit / Copy share the same catalog.
 
-**Run** when the form has an `inputId` (or date/autocomplete already on `OMN_UI_FIELD_RULES`): type length/numeric/format values; select a **single** invalid dropdown option; pick Invoice Issue Date cases; party-identifier companion and CL-06 when those controls exist; tax exemption code/text companion when those controls exist.
+**Run** when the form has an `inputId` (or date/autocomplete already on `OMN_UI_FIELD_RULES`): type length/numeric values; pick Invoice Issue Date cases; party-identifier companion and CL-06 when those controls exist; tax exemption code/text companion when those controls exist.
+
+**Stay skip (do not convert):** Excel **Dropdown — invalid values**, invalid charge/allowance exemption-reason dropdowns, and **Format / context fields** (VATIN, UUID, rate, FX, profit margin). They remain listed with a named skip reason.
 
 **Skip** (row still listed):
 
