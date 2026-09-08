@@ -117,5 +117,8 @@ graphify-out/
 # GitNexus (local code intelligence index; regenerate with `gitnexus analyze`)
 .gitnexus/
 
+# Isolated git worktrees (SDD / feature branches)
+.worktrees/
+
 # Local testcase notes / fixtures (not part of the shared suite)
 /testcase/
