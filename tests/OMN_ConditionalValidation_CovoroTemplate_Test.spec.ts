@@ -12,6 +12,7 @@ import {
   verifyAlignedIbrpZ09OmAllowedBatch,
   verifyAlignedIbrpZ09OmNotAllowedBatch,
   patchIbr137OmNegativeAmountAfterGenerate,
+  patchLineItemVatAmountFromRow,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
   verifyIbr019OmAllowedBatch,
@@ -690,7 +691,8 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.LINE_ITEM_VAT_AMOUNT_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          { patchFile: patchLineItemVatAmountFromRow }
         );
       });
     }

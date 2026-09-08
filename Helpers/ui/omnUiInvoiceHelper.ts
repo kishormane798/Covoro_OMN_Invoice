@@ -142,14 +142,15 @@ function workerElectronic(): string {
 const OMAN_PEPPOL_VATIN_SCHEME_LABEL = "Oman Value Added Tax Identification Number (VATIN)";
 const OMAN_PEPPOL_VATIN_SCHEME = /Oman Value Added Tax Identification Number \(VATIN\)/i;
 
-function isSelfBilledOnForm(invoiceTypeCode?: string, txnType?: string): boolean {
-  return isSelfBilledInvoiceType(invoiceTypeCode) || isSelfBilledInvoiceType(txnType);
+function isSelfBilledOnForm(invoiceTypeCode?: string): boolean {
+  // Invoice Type Code only — Transaction Type "Self-billed Invoice" must not swap parties.
+  return isSelfBilledInvoiceType(invoiceTypeCode);
 }
 
 /** Same seller/buyer TRN + electronic mapping as Excel `applyParallelWorkerIdentityToSubmitRow`. */
 function excelPartyIdentity(
   invoiceTypeCode?: string,
-  invoiceTransactionTypeCode?: string
+  _invoiceTransactionTypeCode?: string
 ): {
   sellerVat: string;
   sellerElectronic: string;
@@ -160,7 +161,7 @@ function excelPartyIdentity(
   const workerEl = workerElectronic();
   const counterpartyVat = getCounterpartyVatIdentifier();
   const counterpartyEl = getCounterpartyElectronicAddress();
-  if (isSelfBilledOnForm(invoiceTypeCode, invoiceTransactionTypeCode)) {
+  if (isSelfBilledOnForm(invoiceTypeCode)) {
     return {
       sellerVat: counterpartyVat,
       sellerElectronic: counterpartyEl,
@@ -826,8 +827,9 @@ function extraSectionsForKind(kind: OmnUiConditionalScenario["kind"]): OmnUiSect
     case "thirdPartyRequired":
       return ["thirdParty"];
     case "buyerIdOrVatin":
+    case "buyerIdentifierScheme":
     case "buyerAddress":
-      return ["buyer"];
+      return kind === "buyerIdentifierScheme" ? ["buyer", "seller"] : ["buyer"];
     case "deliverToAddress":
       return ["shipping"];
     case "prepaymentPaidAmount":
@@ -908,6 +910,19 @@ function excludeIdsForConditional(
       ids.add("vatIdentifier");
       ids.add("sellerVatIdentifier");
     }
+    if (scenario.sellerIdentifier !== undefined) {
+      ids.add("sellerIdentifier");
+      ids.add("identifier");
+    }
+    if (scenario.sellerIdentifierTextualCode !== undefined) {
+      ids.add("identifierCode");
+      ids.add("textualCode");
+      ids.add("sellerIdentifierCode");
+    }
+    if (scenario.sellerCountrySubdivision !== undefined) {
+      ids.add("countrySubdivision");
+      ids.add("sellerCountrySubdivision");
+    }
   }
   if (section === "thirdParty") {
     if (scenario.thirdPartyName !== undefined) ids.add("name");
@@ -919,6 +934,19 @@ function excludeIdsForConditional(
       ids.add("identifier");
     }
     if (scenario.buyerVatIdentifier !== undefined) ids.add("vatIdentifier");
+    if (scenario.buyerIdentifierScheme !== undefined) {
+      ids.add("schemeIdentifier");
+      ids.add("buyerSchemeIdentifier");
+    }
+    if (scenario.buyerIdentifierTextualCode !== undefined) {
+      ids.add("identifierCode");
+      ids.add("textualCode");
+      ids.add("buyerIdentifierCode");
+    }
+    if (scenario.buyerCountrySubdivision !== undefined) {
+      ids.add("countrySubdivision");
+      ids.add("buyerCountrySubdivision");
+    }
   }
   if (section === "invoice" && scenario.paidAmount !== undefined) {
     ids.add("paidAmt");
@@ -1283,6 +1311,27 @@ async function applyConditionalSectionFields(
     if (scenario.kind === "sellerAddress") {
       await fillAddressBlock(invoice, entry, "seller", scenario);
     }
+    if (scenario.kind === "buyerIdentifierScheme") {
+      await writeText(invoice, entry, "seller", "sellerIdentifier", scenario.sellerIdentifier, [
+        "identifier",
+      ]);
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "seller",
+        "identifierCode",
+        scenario.sellerIdentifierTextualCode,
+        ["textualCode", "sellerIdentifierCode"]
+      );
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "seller",
+        "countrySubdivision",
+        scenario.sellerCountrySubdivision,
+        ["sellerCountrySubdivision"]
+      );
+    }
     return;
   }
   if (section === "thirdParty") {
@@ -1294,6 +1343,32 @@ async function applyConditionalSectionFields(
   if (section === "buyer") {
     await writeText(invoice, entry, "buyer", "buyerIdentifier", scenario.buyerIdentifier, ["identifier"]);
     await writeText(invoice, entry, "buyer", "vatIdentifier", scenario.buyerVatIdentifier);
+    if (scenario.kind === "buyerIdentifierScheme") {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "buyer",
+        "schemeIdentifier",
+        scenario.buyerIdentifierScheme,
+        ["buyerSchemeIdentifier"]
+      );
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "buyer",
+        "identifierCode",
+        scenario.buyerIdentifierTextualCode,
+        ["textualCode", "buyerIdentifierCode"]
+      );
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "buyer",
+        "countrySubdivision",
+        scenario.buyerCountrySubdivision,
+        ["buyerCountrySubdivision"]
+      );
+    }
     if (scenario.kind === "buyerAddress") {
       await fillAddressBlock(invoice, entry, "buyer", scenario);
     }

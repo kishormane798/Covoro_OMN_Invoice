@@ -280,7 +280,7 @@ def today_offset_date() -> datetime:
 
 
 def write_common(sheet, data_row: int, date_col: int, invoice_col: int) -> str:
-    invoice_number = f"INV-{int(time.time() * 1000)}"
+    invoice_number = datetime.now().strftime("INV-OM-%Y%m%d%H%M%S")
     sheet.cell(row=data_row, column=date_col).value = today_offset_date()
     sheet.cell(row=data_row, column=date_col).number_format = "yyyy-mm-dd"
     sheet.cell(row=data_row, column=invoice_col).value = invoice_number
@@ -1977,9 +1977,8 @@ def _apply_parallel_worker_identity_to_row(
     )
     worker_el = _oman_electronic_address_from_worker_vat(worker_vat)
     t_txn = " ".join(txn_type.split()).strip().lower()
-    self_billed = _is_self_billed_invoice_type(inv_type) or _is_self_billed_invoice_type(
-        txn_type
-    )
+    # Party swap is Invoice Type Code only (Self-billed invoice / Self billed credit note).
+    self_billed = _is_self_billed_invoice_type(inv_type)
     deemed = t_txn == "deemed supply"
 
     counterparty_el = _counterparty_electronic_address()

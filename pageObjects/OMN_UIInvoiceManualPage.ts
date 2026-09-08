@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { DashboardPage } from "./OMN_DashboardPage";
+import { waitForEInvoiceListValidatingGone } from "../Helpers/waitForWithPageRefresh";
 import { parallelWorkerDashboardOpenOpts } from "../Helpers/worker/parallelWorkerSubmitIdentity";
 import {
   excelFormulaToUiValue,
@@ -587,5 +588,285 @@ export class OMN_UIInvoiceManualPage {
     await expect(
       this.sectionFooter(section).getByRole("button", { name, exact: true })
     ).toBeVisible();
+  }
+
+  /**
+   * Section **7. Attachment Details** (`section[data-id="7"]`).
+   * Locators match UAE Edit Invoice Attachment Details (verified there).
+   */
+  attachmentSection(): Locator {
+    return this.page.locator('section.invoice-content-section[data-id="7"]');
+  }
+
+  attachmentFileInput(): Locator {
+    return this.attachmentSection().locator("#file-input");
+  }
+
+  attachmentUploadZone(): Locator {
+    return this.attachmentSection().locator(".upload-section:not(.uploaded-files)");
+  }
+
+  attachmentUploadedFiles(): Locator {
+    return this.attachmentSection().locator(".uploaded-files.upload-section");
+  }
+
+  attachmentFileRows(): Locator {
+    return this.attachmentUploadedFiles().locator(".file-details");
+  }
+
+  attachmentAddFilesLabel(): Locator {
+    return this.attachmentSection().locator('label.file-button[for="file-input"]');
+  }
+
+  private documentMainScope(): Locator {
+    return this.page.locator("main.invoice-content-container");
+  }
+
+  private async waitForCreateInvoiceIdle(timeoutMs = 20_000): Promise<void> {
+    await waitForEInvoiceListValidatingGone(this.page, timeoutMs, {
+      loaderStuckBeforeRefreshMs: 12_000,
+      maxLoaderRefreshes: 1,
+    });
+  }
+
+  async openFromUploadedInvoice(invoiceNumber: string): Promise<void> {
+    await this.dashboard.refreshDashboardForInvoiceTable(invoiceNumber);
+    await this.dashboard.openInvoiceEdit(invoiceNumber);
+    await this.expectEditorVisible();
+    await this.waitForCreateInvoiceIdle();
+  }
+
+  async scrollToAttachmentSection(): Promise<void> {
+    const main = this.documentMainScope();
+    await expect(main).toBeVisible({ timeout: 30_000 });
+
+    await main
+      .evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      })
+      .catch(() => undefined);
+    await this.page
+      .evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+      .catch(() => undefined);
+
+    const section = this.attachmentSection();
+    await expect(
+      section,
+      "Expected Create Invoice section 7. Attachment Details after prior sections were saved"
+    ).toBeVisible({ timeout: 45_000 });
+
+    await section.scrollIntoViewIfNeeded({ timeout: 15_000 });
+
+    await expect(
+      section
+        .locator('hr[data-content="7. Attachment Details"]')
+        .or(section.locator("hr[data-content*='Attachment Details']")),
+      "Expected Attachment Details heading inside section 7"
+    ).toBeVisible({ timeout: 30_000 });
+  }
+
+  async expectAttachmentUploadZoneVisible(): Promise<void> {
+    await expect(this.attachmentUploadZone()).toBeVisible({ timeout: 15_000 });
+    await expect(this.attachmentAddFilesLabel()).toBeVisible();
+  }
+
+  async expectAttachmentUploadZoneHidden(): Promise<void> {
+    await expect(this.attachmentUploadZone()).toBeHidden({ timeout: 15_000 });
+    await expect(this.attachmentAddFilesLabel()).toBeHidden({ timeout: 15_000 });
+    await expect(this.attachmentUploadedFiles()).toBeVisible({ timeout: 15_000 });
+  }
+
+  attachedFileRow(fileName: string): Locator {
+    return this.attachmentFileRows().filter({ hasText: fileName });
+  }
+
+  attachedFileName(fileName: string): Locator {
+    return this.attachedFileRow(fileName).locator(".ellipsis-text");
+  }
+
+  async expectAttachedFilesListed(fileNames: string[]): Promise<void> {
+    await expect(this.attachmentUploadedFiles()).toBeVisible({ timeout: 20_000 });
+    await expect(
+      this.attachmentFileRows(),
+      `Expected ${fileNames.length} attached file row(s) under Attachment Details`
+    ).toHaveCount(fileNames.length, { timeout: 20_000 });
+    for (const name of fileNames) {
+      await expect(
+        this.attachedFileName(name).first(),
+        `Expected attached file "${name}" in .ellipsis-text`
+      ).toBeVisible({ timeout: 20_000 });
+    }
+  }
+
+  async expectAttachmentsDisplayedInView(fileNames: string[]): Promise<void> {
+    await this.scrollToAttachmentSection();
+    await this.expectAttachedFilesListed(fileNames);
+    for (const name of fileNames) {
+      await expect(
+        this.attachedFileRow(name).locator(".icon-hover-effect"),
+        `View mode should not show remove cross for "${name}"`
+      ).toHaveCount(0);
+    }
+  }
+
+  attachmentRemoveConfirmModal(): Locator {
+    return this.page.locator('[data-testid="modalBody"]').filter({
+      hasText: /Are you sure you want remove the selected file/i,
+    });
+  }
+
+  async expectAttachmentRemoveConfirmVisible(): Promise<void> {
+    const modal = this.attachmentRemoveConfirmModal();
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+    await expect(modal.getByRole("button", { name: "No", exact: true })).toBeVisible();
+    await expect(modal.getByRole("button", { name: "Yes", exact: true })).toBeVisible();
+  }
+
+  async confirmAttachmentRemove(decision: "Yes" | "No" = "Yes"): Promise<void> {
+    const modal = this.attachmentRemoveConfirmModal();
+    await this.expectAttachmentRemoveConfirmVisible();
+    await modal
+      .locator(".btn-container")
+      .getByRole("button", { name: decision, exact: true })
+      .click();
+    await expect(modal).toBeHidden({ timeout: 15_000 });
+  }
+
+  async removeAttachedFile(
+    fileName: string,
+    options?: { confirm?: "Yes" | "No" }
+  ): Promise<void> {
+    const confirm = options?.confirm ?? "Yes";
+    const row = this.attachedFileRow(fileName).first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await row.locator(".icon-hover-effect").click();
+    await this.confirmAttachmentRemove(confirm);
+    if (confirm === "Yes") {
+      await expect(
+        this.attachedFileRow(fileName),
+        `Attachment "${fileName}" should be removed after Yes`
+      ).toHaveCount(0, { timeout: 15_000 });
+    } else {
+      await expect(this.attachedFileName(fileName).first()).toBeVisible({ timeout: 10_000 });
+    }
+  }
+
+  async expectAttachmentRejectionMessage(errorPattern: RegExp): Promise<void> {
+    const section = this.attachmentSection();
+    const candidates = this.page
+      .getByRole("alert")
+      .or(this.page.locator(".MuiAlert-root, .Toastify__toast, [role='status']"))
+      .or(this.page.getByRole("dialog"))
+      .or(section.locator(".error, .error-message, .guidelines-container"))
+      .or(this.page.getByText(errorPattern));
+    await expect(
+      candidates.filter({ hasText: errorPattern }).first(),
+      `Expected attachment rejection matching ${errorPattern}`
+    ).toBeVisible({ timeout: 20_000 });
+  }
+
+  async selectAttachmentFiles(...filePaths: string[]): Promise<void> {
+    if (!filePaths.length) {
+      throw new Error("selectAttachmentFiles: at least one file path is required");
+    }
+    await this.scrollToAttachmentSection();
+    await this.expectAttachmentUploadZoneVisible();
+    const input = this.attachmentFileInput();
+    await expect(input).toBeAttached({ timeout: 15_000 });
+    await input.setInputFiles(filePaths);
+  }
+
+  createInvoicePageUpdateButton(): Locator {
+    return this.page
+      .locator(".btn-container .button-wrapper button.base-btn")
+      .filter({ has: this.page.locator(".btn-children", { hasText: /^Update$/ }) })
+      .or(
+        this.page.locator(".btn-container button", {
+          has: this.page.locator(".btn-children", { hasText: /^Update$/ }),
+        })
+      )
+      .or(this.page.getByRole("button", { name: "Update", exact: true }))
+      .first();
+  }
+
+  createInvoicePageSubmitButton(): Locator {
+    return this.page
+      .locator(".btn-container .button-wrapper button.base-btn")
+      .filter({ has: this.page.locator(".btn-children", { hasText: /^Submit$/ }) })
+      .or(
+        this.page.locator(".btn-container button", {
+          has: this.page.locator(".btn-children", { hasText: /^Submit$/ }),
+        })
+      )
+      .first();
+  }
+
+  async clickCreateInvoicePageUpdate(): Promise<void> {
+    await this.waitForCreateInvoiceIdle();
+    const update = this.createInvoicePageUpdateButton();
+    await expect(update).toBeVisible({ timeout: 30_000 });
+    await expect(update).toBeEnabled({ timeout: 30_000 });
+    await update.scrollIntoViewIfNeeded();
+    await this.dismissOpenDropdown();
+    try {
+      await update.click({ timeout: 12_000 });
+    } catch {
+      await update.click({ timeout: 12_000, force: true });
+    }
+  }
+
+  async clickCreateInvoicePageSubmit(): Promise<void> {
+    await this.waitForCreateInvoiceIdle();
+    const submit = this.createInvoicePageSubmitButton();
+    await expect(submit).toBeVisible({ timeout: 30_000 });
+    await expect(submit).toBeEnabled({ timeout: 30_000 });
+    await submit.scrollIntoViewIfNeeded();
+    await this.dismissOpenDropdown();
+    try {
+      await submit.click({ timeout: 12_000 });
+    } catch {
+      await submit.click({ timeout: 12_000, force: true });
+    }
+  }
+
+  async waitAfterAttachmentPersist(
+    timeoutMs = 90_000
+  ): Promise<"dashboard" | "edit"> {
+    const deadline = Date.now() + timeoutMs;
+    const started = Date.now();
+    const upload = this.page.locator("#upload-invoice-btn").first();
+    const update = this.createInvoicePageUpdateButton();
+    const submit = this.createInvoicePageSubmitButton();
+
+    while (Date.now() < deadline) {
+      if (await upload.isVisible().catch(() => false)) {
+        return "dashboard";
+      }
+      const url = this.page.url();
+      if (!/einvoice\/edit/i.test(url) && /\/einvoice/i.test(url)) {
+        if (await upload.isVisible().catch(() => false)) {
+          return "dashboard";
+        }
+      }
+      if (Date.now() - started >= 12_000 && /einvoice\/edit/i.test(url)) {
+        const onEditShell =
+          (await update.isVisible().catch(() => false)) ||
+          (await submit.isVisible().catch(() => false));
+        if (onEditShell) {
+          return "edit";
+        }
+      }
+      await this.page.waitForTimeout(1_000);
+    }
+
+    if (await upload.isVisible().catch(() => false)) {
+      return "dashboard";
+    }
+    if (/einvoice\/edit/i.test(this.page.url())) {
+      return "edit";
+    }
+    throw new Error(
+      `After attachment Update/Submit: neither e-invoice dashboard nor edit shell within ${timeoutMs}ms (url=${this.page.url()})`
+    );
   }
 }

@@ -252,6 +252,24 @@ function patchIbr039LineVatAfterGenerate(
 }
 
 /**
+ * IBR-054-OM / IBR-077-OM: submit writer recalculates Line item VAT amount to 0
+ * for Not subject / Zero rated. Re-apply 0 / 50 after generate so the Not
+ * Allowed 50 is not wiped.
+ */
+export function patchLineItemVatAmountFromRow(
+  filePath: string,
+  rowData: Record<string, string | null>
+): void {
+  const raw = readRowFieldIgnoringCase(rowData, LINE_ITEM_VAT_AMOUNT_FIELD);
+  const amount = Number(raw);
+  if (raw.trim() && !Number.isNaN(amount)) {
+    patchInvoiceDataCellInFile(filePath, LINE_ITEM_VAT_AMOUNT_FIELD, amount);
+    return;
+  }
+  patchInvoiceTextCellInFile(filePath, LINE_ITEM_VAT_AMOUNT_FIELD, raw);
+}
+
+/**
  * IBR-039-OM Allowed: one workbook, one row per invoice type × compatible txn
  * (dropdown-style batch), Exempt + VAT 0 → completed.
  */

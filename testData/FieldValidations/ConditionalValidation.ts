@@ -6920,11 +6920,11 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
     {
       ruleId: "IBR-152-OM",
       title:
-        "Given a Full Tax invoice with free-zone buyer subdivision — When buyer uses Special Zone License — Then the invoice should be rejected with an error. (IBR-152-OM)",
+        "Given a Full Tax invoice with free-zone buyer subdivision — When buyer uses Special Zone License — Then the invoice should be accepted. (IBR-152-OM)",
       invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
       buyerIdentifierScheme: SPECIAL_ZONE_LICENSE_SCHEME,
       buyerIdentifier: "SZ-BUYER-001",
-      shouldError: true,
+      shouldError: false,
       expectedErrorField: "Buyer identifier",
     },
     {

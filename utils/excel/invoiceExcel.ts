@@ -50,7 +50,32 @@ export const errorValidationLogLines: string[] = [];
 
 let submitInvoiceNumberSeq = 0;
 
-/** Parallel-safe numeric invoice # (`INV-{timestamp}{worker}{seq}`; max 64 chars). */
+const UNIQUE_INVOICE_NUMBER_PREFIX = "INV-OM-";
+const MUSCAT_TZ = "Asia/Muscat";
+
+function muscatDateTimeCompact(now = new Date()): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: MUSCAT_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return {
+    date: `${get("year")}${get("month")}${get("day")}`,
+    time: `${get("hour")}${get("minute")}${get("second")}`,
+  };
+}
+
+/**
+ * Parallel-safe invoice #: `INV-OM-{YYYYMMDD}{HHmmss}{worker}{seq}`
+ * Example: `INV-OM-20260907154822001001`
+ */
 export function buildUniqueSubmitInvoiceNumber(): string {
   submitInvoiceNumberSeq += 1;
   const worker = Number(
@@ -58,9 +83,9 @@ export function buildUniqueSubmitInvoiceNumber(): string {
       process.env.UAE_EINVOICE_WORKER_INDEX?.trim() ||
       "0"
   );
-  const suffix = `${Math.max(0, worker)}${String(submitInvoiceNumberSeq).padStart(3, "0")}`;
-  const raw = `INV-${Date.now()}${suffix}`;
-  return raw.length <= 64 ? raw : raw.slice(0, 64);
+  const workerSeq = `${Math.max(0, worker)}${String(submitInvoiceNumberSeq).padStart(3, "0")}`;
+  const { date, time } = muscatDateTimeCompact();
+  return `${UNIQUE_INVOICE_NUMBER_PREFIX}${date}${time}${workerSeq}`;
 }
 
 type CommentPayload = {

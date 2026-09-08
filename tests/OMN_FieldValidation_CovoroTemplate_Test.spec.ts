@@ -62,7 +62,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     });
 
     test(`An Invoice Number of 65 or more characters should be rejected with an error. (Invoice Number)`, async ({ page }) => {
-      const tooLong = "INV-" + randomAlphaNumeric(80);
+      const tooLong = "INV-OM-" + randomAlphaNumeric(80);
       const invoiceNumber = buildInvoiceNumber(tooLong, 65);
       const { filePath } = await generateOmanSeededFieldExcel("Invoice Number", invoiceNumber);
       await runErrorValidation(

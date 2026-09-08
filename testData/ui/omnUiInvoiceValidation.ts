@@ -6,6 +6,9 @@ import {
   BUYER_CITY_FIELD,
   BUYER_ID_OR_VATIN_SCENARIOS,
   BUYER_IDENTIFIER_FIELD,
+  BUYER_IDENTIFIER_SCHEME_FIELD,
+  BUYER_IDENTIFIER_SCHEME_SCENARIOS,
+  BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD,
   BUYER_POST_CODE_FIELD,
   BUYER_VAT_IDENTIFIER_FIELD,
   CREDIT_DEBIT_NOTE_REASON_CODE_FIELD,
@@ -90,7 +93,11 @@ import {
   OMAN_COUNTRY_CODE,
   OMAN_CURRENCY_OMR,
   OMAN_CURRENCY_USD,
+  SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+  SPECIAL_ZONE_LICENSE_SCHEME,
+  TXN_SPECIAL_ZONE_SUPPLIES,
 } from "../FieldValidations/ConditionalValidation";
+import { buyerSellerIdentifierCodeValidTestData } from "../Master/Master.omnCore";
 import {
   fieldInvoice_number,
   fieldValidationConditional,
@@ -742,6 +749,7 @@ export type OmnUiConditionalKind =
   | "sellerAddress"
   | "thirdPartyRequired"
   | "buyerIdOrVatin"
+  | "buyerIdentifierScheme"
   | "buyerAddress"
   | "deliverToAddress"
   | "industrialClassification"
@@ -788,7 +796,13 @@ export type OmnUiConditionalScenario = {
   thirdPartyName?: string;
   thirdPartyVatin?: string;
   buyerIdentifier?: string;
+  buyerIdentifierScheme?: string;
+  buyerIdentifierTextualCode?: string;
+  buyerCountrySubdivision?: string;
   buyerVatIdentifier?: string;
+  sellerIdentifier?: string;
+  sellerIdentifierTextualCode?: string;
+  sellerCountrySubdivision?: string;
   industrialClassificationCode?: string;
   taxCategory?: string;
   taxRate?: string | null;
@@ -888,6 +902,16 @@ const CV_FIELD_LOC: Record<string, CvFieldLoc> = {
     section: "buyer",
     inputId: "buyerIdentifier",
     altInputIds: ["identifier"],
+  },
+  [BUYER_IDENTIFIER_SCHEME_FIELD]: {
+    section: "buyer",
+    inputId: "schemeIdentifier",
+    altInputIds: ["buyerSchemeIdentifier"],
+  },
+  [BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD]: {
+    section: "buyer",
+    inputId: "identifierCode",
+    altInputIds: ["textualCode", "buyerIdentifierCode"],
   },
   [BUYER_ADDRESS_LINE_1_FIELD]: { section: "buyer", inputId: "address1", altInputIds: ["address"] },
   [BUYER_ADDRESS_LINE_2_FIELD]: { section: "buyer", inputId: "address2" },
@@ -1009,6 +1033,7 @@ export const OMN_UI_DROPDOWN_ASSERT_IDS = new Set([
 const DROPDOWN_STYLE_KINDS = new Set<OmnUiConditionalKind>([
   "creditDebitReason",
   "buyerIdOrVatin",
+  "buyerIdentifierScheme",
   "buyerAddress",
   "deliverToAddress",
   "industrialClassification",
@@ -1066,6 +1091,51 @@ function uiImportTxnDocumentCompanions(txn?: string): Pick<
 
 function locFor(field: string | undefined, fallback: CvFieldLoc): CvFieldLoc {
   return (field && CV_FIELD_LOC[field]) || fallback;
+}
+
+/** Same XOR heuristic as `buildBuyerIdentifierSchemeScenarioRow`. */
+function uiBuyerIdentifierCompanion(
+  s: (typeof BUYER_IDENTIFIER_SCHEME_SCENARIOS)[number]
+): "scheme" | "code" {
+  if (s.buyerCompanion) return s.buyerCompanion;
+  const usesOmanBuyerSellerTextualCode = buyerSellerIdentifierCodeValidTestData.some(
+    (item) => item.label === s.buyerIdentifierScheme
+  );
+  return s.invoiceTransactionTypeCode === TXN_IMPORT_OF_GOODS || usesOmanBuyerSellerTextualCode
+    ? "code"
+    : "scheme";
+}
+
+function mapUiBuyerIdentifierScheme(): OmnUiConditionalScenario[] {
+  return BUYER_IDENTIFIER_SCHEME_SCENARIOS.map((s) => {
+    const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[BUYER_IDENTIFIER_FIELD]);
+    const companion = uiBuyerIdentifierCompanion(s);
+    const isSpecialZoneTxn = s.invoiceTransactionTypeCode === TXN_SPECIAL_ZONE_SUPPLIES;
+    const usesSzSubdivision =
+      isSpecialZoneTxn || s.buyerIdentifierScheme === SPECIAL_ZONE_LICENSE_SCHEME;
+    return {
+      title: s.title,
+      ruleId: s.ruleId,
+      kind: "buyerIdentifierScheme" as const,
+      section: loc.section,
+      shouldError: s.shouldError,
+      assertInputId: loc.inputId,
+      altInputIds: loc.altInputIds,
+      dropdownStyle: true,
+      invoiceTransactionTypeCode: s.invoiceTransactionTypeCode,
+      buyerIdentifier: s.buyerIdentifier,
+      buyerIdentifierScheme: companion === "scheme" ? s.buyerIdentifierScheme : "",
+      buyerIdentifierTextualCode: companion === "code" ? s.buyerIdentifierScheme : "",
+      buyerCountrySubdivision:
+        s.buyerCountrySubdivisionCode ??
+        (usesSzSubdivision ? SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13 : undefined),
+      sellerIdentifier: isSpecialZoneTxn ? "SZ-SELLER-001" : undefined,
+      sellerIdentifierTextualCode: isSpecialZoneTxn ? SPECIAL_ZONE_LICENSE_SCHEME : undefined,
+      sellerCountrySubdivision: usesSzSubdivision
+        ? SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13
+        : undefined,
+    };
+  });
 }
 
 function isUiInvoicingPeriodSupported(title: string): boolean {
@@ -1416,6 +1486,7 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       prepaymentInvoiceUuid: s.prepaymentInvoiceUuid,
     };
   }),
+  ...mapUiBuyerIdentifierScheme(),
   {
     title: "Copied invoice number is empty until filled",
     section: "document",

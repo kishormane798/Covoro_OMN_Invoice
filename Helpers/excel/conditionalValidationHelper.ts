@@ -316,8 +316,9 @@ export function applySpecialZoneCountrySubdivisions(
 
 /**
  * Positive Special Zone Supplies companions: CL-13 subdivisions (IBR-150-OM)
- * plus Seller identifier + ICD scheme (IBR-007-OM). Textual code stays empty
- * (XOR). Call after Invoice Transaction Type Code is Special Zone Supplies.
+ * plus Seller identifier + ICD scheme (IBR-007-OM) + textual Special Zone
+ * License Number (IBR-151-OM free-zone). Call after Invoice Transaction Type
+ * Code is Special Zone Supplies.
  */
 export function applySpecialZonePositiveCompanions(
   row: Record<string, string | null>
@@ -342,11 +343,12 @@ const IBR_007_SELLER_IDENTIFIER_TXN_TYPES = new Set<string>([
  * - Seller (IBR-007-OM): Import of Goods / Import of Services (RCM) /
  *   Profit Margin Self-Invoice / Special Zone Supplies — overlay fills
  *   Seller identifier + ICD scheme (textual alone is Not Allowed).
+ *   Special Zone also fills textual Special Zone License Number (IBR-151-OM
+ *   free-zone). IBR-151/IBR-007 scenario builders overwrite after this overlay.
  * - Buyer Import of Goods (IBR-153-OM): textual code `Importer Customs ID`
  *   (ICD scheme stays empty — XOR).
  * - Buyer Special Zone (IBR-152-OM): textual code `Special Zone License Number`
- *   (ICD scheme stays empty — XOR). Seller SZLN textual is IBR-151-OM
- *   scenario builders only — they overwrite after this overlay.
+ *   (ICD scheme stays empty — XOR).
  * Scenario builders may overwrite these afterward (including empty for error cases).
  */
 export function applyPartyIdentifiersByTxnType(
@@ -371,10 +373,12 @@ export function applyPartyIdentifiersByTxnType(
   );
 
   if (IBR_007_SELLER_IDENTIFIER_TXN_TYPES.has(txn)) {
-    // XOR: ICD scheme + identifier. Special Zone IBR-085/084 companions
-    // must not use textual-only (IBR-007-OM errors on empty scheme).
+    // Scheme + identifier. Special Zone free-zone (Sohar) also needs
+    // textual Special Zone License Number (IBR-151-OM). Textual-only is
+    // still Not Allowed (IBR-007-OM).
     next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] = defaultScheme;
-    next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = "";
+    next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
+      txn === FV.TXN_SPECIAL_ZONE_SUPPLIES ? specialZoneLicenseCode : "";
     next[FV.SELLER_IDENTIFIER_FIELD] =
       txn === FV.TXN_SPECIAL_ZONE_SUPPLIES ? "SZ-SELLER-001" : "OM-SELLER-001";
   } else {
@@ -843,6 +847,15 @@ export function buildImportOfGoodsScenarioRow(
       stringRow[key] = value == null ? "" : String(value);
     }
     row = applySelfBilledPartyIdentitySwap(stringRow);
+  }
+  // IBR-151-OM: Sohar seller subdivision requires textual Special Zone
+  // License Number. Overlay leaves it empty (IBR-007 XOR).
+  if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = masterLabelIncluding(
+      buyerSellerIdentifierCodeValidTestData,
+      "Special Zone License Number",
+      FV.SPECIAL_ZONE_LICENSE_SCHEME
+    );
   }
   row[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] = scenario.itemCountryOfOrigin;
   row[FV.IMPORT_DATE_FIELD] = scenario.importDate;
@@ -2020,6 +2033,16 @@ export function buildVatCategoryTaxAmountE09ScenarioRow(
 
   row = applyPartyIdentifiersByTxnType(row);
 
+  // IBR-151-OM: Sohar seller subdivision requires textual Special Zone
+  // License Number. Overlay leaves it empty (IBR-007 XOR).
+  if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = masterLabelIncluding(
+      buyerSellerIdentifierCodeValidTestData,
+      "Special Zone License Number",
+      FV.SPECIAL_ZONE_LICENSE_SCHEME
+    );
+  }
+
   if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     row[FV.ITEM_TYPE_FIELD] = "";
     row[FV.ITEM_CLASSIFICATION_IDENTIFIER_FIELD] = "";
@@ -2535,6 +2558,17 @@ export function buildBuyerAddressRequiredScenarioRow(
     row = applySelfBilledPartyIdentitySwap(stringRow);
   }
 
+  // IBR-151-OM: free-zone seller subdivision (Sohar) requires textual
+  // Special Zone License Number. applyPartyIdentifiersByTxnType leaves it
+  // empty (IBR-007 XOR). Set after the overlay so the 11-row pack is accepted.
+  if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = masterLabelIncluding(
+      buyerSellerIdentifierCodeValidTestData,
+      "Special Zone License Number",
+      FV.SPECIAL_ZONE_LICENSE_SCHEME
+    );
+  }
+
   row[FV.BUYER_ADDRESS_LINE_1_FIELD] = scenario.addressLine1;
   row[FV.BUYER_ADDRESS_LINE_2_FIELD] = scenario.addressLine2;
   row[FV.BUYER_ADDRESS_LINE_3_FIELD] = scenario.addressLine3;
@@ -2677,6 +2711,15 @@ export function buildIndustrialClassificationRequiredScenarioRow(
       stringRow[key] = value == null ? "" : String(value);
     }
     row = applySelfBilledPartyIdentitySwap(stringRow);
+  }
+  // IBR-151-OM: Sohar seller subdivision requires textual Special Zone
+  // License Number. Overlay leaves it empty (IBR-007 XOR).
+  if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = masterLabelIncluding(
+      buyerSellerIdentifierCodeValidTestData,
+      "Special Zone License Number",
+      FV.SPECIAL_ZONE_LICENSE_SCHEME
+    );
   }
   row[FV.INDUSTRIAL_CLASSIFICATION_CODE_FIELD] =
     scenario.industrialClassificationCode;
@@ -2849,6 +2892,16 @@ export function buildBuyerIdentifierSchemeScenarioRow(
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]:
       scenario.invoiceTransactionTypeCode,
   });
+  // IBR-151-OM: Sohar seller subdivision (applySpecialZoneCountrySubdivisions)
+  // requires Seller Identifier (textual code) = Special Zone License Number.
+  // Overlay leaves it empty; fill after so Mainland-Oman buyer-empty is accepted.
+  if (scenario.invoiceTransactionTypeCode === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+    row[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] = masterLabelIncluding(
+      buyerSellerIdentifierCodeValidTestData,
+      "Special Zone License Number",
+      FV.SPECIAL_ZONE_LICENSE_SCHEME
+    );
+  }
   // Scenario values win (including empty buyer identifier for error cases).
   row["Buyer identifier"] = scenario.buyerIdentifier;
   const usesOmanBuyerSellerTextualCode =

@@ -152,6 +152,7 @@ function normalizeSubmitInvoiceType(value: unknown): string {
 /**
  * Mirror `invoice_excel_writer._apply_parallel_worker_identity_to_row` for UI submit rows.
  * Patches seller/buyer electronic address and VAT/TIN columns per worker slot.
+ * Party swap is Invoice Type Code only (Self-billed invoice / Self billed credit note).
  */
 export function applyParallelWorkerIdentityToSubmitRow(
   data: Record<string, string>
@@ -166,9 +167,7 @@ export function applyParallelWorkerIdentityToSubmitRow(
   const counterpartyEl = getCounterpartyElectronicAddress();
 
   const txnType = normalizeSubmitInvoiceType(data["Invoice Transaction Type Code"]);
-  const selfBilled =
-    isSelfBilledInvoiceType(data["Invoice Type Code"]) ||
-    isSelfBilledInvoiceType(data["Invoice Transaction Type Code"]);
+  const selfBilled = isSelfBilledInvoiceType(data["Invoice Type Code"]);
   const deemed = txnType === "deemed supply";
 
   const next: Record<string, string> = { ...data };
