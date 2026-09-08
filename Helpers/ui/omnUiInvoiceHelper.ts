@@ -720,6 +720,22 @@ export async function runOmnUiMinMaxCase(
   }
 }
 
+function formatOmnUiIssueDateValue(
+  issueDateValue: Date | string | number,
+  issueDateFormat: string
+): string {
+  if (!(issueDateValue instanceof Date)) {
+    return String(issueDateValue);
+  }
+  const yyyy = issueDateValue.getFullYear();
+  const mm = String(issueDateValue.getMonth() + 1).padStart(2, "0");
+  const dd = String(issueDateValue.getDate()).padStart(2, "0");
+  if (issueDateFormat === "dd-mm-yyyy") {
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export async function runOmnUiIssueDateCase(
   page: Page,
   entry: OmnUiEntry,
@@ -734,18 +750,26 @@ export async function runOmnUiIssueDateCase(
 
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   await ensureSectionBaseline(invoice, "document", entry, new Set());
-  const value =
-    typeof scenario.issueDateValue === "string"
-      ? scenario.issueDateValue
-      : String(scenario.issueDateValue);
+  const value = formatOmnUiIssueDateValue(
+    scenario.issueDateValue,
+    scenario.issueDateFormat
+  );
   await invoice.replaceInput("document", "invDate", value, ["issueDate", "invIssueDate"]);
 
   if (scenario.shouldError) {
-    const message = await invoice.readFieldError("document", "invDate", ["issueDate"]);
-    expect(message.length).toBeGreaterThan(0);
+    const message = await invoice.readFieldError(
+      "document",
+      "invDate",
+      ["issueDate", "invIssueDate"]
+    );
+    expect(
+      message.length,
+      `expected a field error for Invoice Issue Date in ${scenario.name}`
+    ).toBeGreaterThan(0);
     return;
   }
   await invoice.clickSectionCommit("document", entry);
+  await invoice.expectSectionSavedReadOnly("document");
 }
 
 export async function runOmnUiFieldCatalogRow(
