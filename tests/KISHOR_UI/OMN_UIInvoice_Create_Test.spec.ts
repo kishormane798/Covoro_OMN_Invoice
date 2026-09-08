@@ -13,8 +13,8 @@ import {
   OMN_UI_MIN_MAX_VARIANTS,
   OMN_UI_SECTION_ORDER,
   omnUiFieldRulesForSection,
-  omnUiMinMaxExpectsError,
-  omnUiMinMaxWhatEntered,
+  omnUiFormulaDisplayTitle,
+  omnUiMinMaxDisplayTitle,
 } from "../../testData/ui/omnUiInvoiceValidation";
 
 const ENTRY = "create" as const;
@@ -51,12 +51,8 @@ test.describe("Create Invoice UI — field and formula", () => {
     test.describe(`Create Invoice UI — ${section} min/max`, () => {
       for (const rule of omnUiFieldRulesForSection(section)) {
         for (const variant of OMN_UI_MIN_MAX_VARIANTS) {
-          const expectsError = omnUiMinMaxExpectsError(rule, variant);
-          const outcome = expectsError
-            ? "the form should show an error"
-            : "Save should succeed";
           test(
-            `${omnUiMinMaxWhatEntered(variant, rule)} — ${outcome}. (${rule.field})`,
+            omnUiMinMaxDisplayTitle(ENTRY, variant, rule),
             async ({ page }) => {
               await runOmnUiMinMaxCase(page, ENTRY, rule, variant);
             }
@@ -70,7 +66,7 @@ test.describe("Create Invoice UI — field and formula", () => {
     test.describe.configure({ timeout: OMN_UI_INVOICE_FORMULA_TIMEOUT_MS });
     for (const scenario of OMN_UI_FORMULA_SCENARIOS) {
       test(
-        `Calculated totals should match the formula. (${scenario.name})`,
+        omnUiFormulaDisplayTitle(ENTRY, scenario.name),
         async ({ page }) => {
           await runOmnUiFormulaScenario(page, ENTRY, scenario);
         }

@@ -726,8 +726,8 @@ export const OMN_UI_EXCEL_PARTY_IDENTITY_CASES: readonly OmnUiExcelPartyIdentity
   { invoiceType: "selfBilled", section: "buyer" },
 ];
 
-function charsPhrase(n: number): string {
-  return n === 1 ? "1-character" : `${n}-character`;
+function lengthNoun(n: number): string {
+  return n === 1 ? "character" : "characters";
 }
 
 export function omnUiMinMaxWhatEntered(
@@ -736,15 +736,15 @@ export function omnUiMinMaxWhatEntered(
 ): string {
   switch (variant) {
     case "min":
-      return `A ${charsPhrase(rule.min)} ${rule.field}`;
+      return `${rule.field} at minimum length (${rule.min} ${lengthNoun(rule.min)})`;
     case "max":
       return `${rule.field} at maximum length (${rule.max} characters)`;
     case "belowMin":
       return rule.belowMin === 0
         ? `An empty ${rule.field}`
-        : `A ${charsPhrase(rule.belowMin)} ${rule.field} (below minimum)`;
+        : `${rule.field} of ${rule.belowMin} characters`;
     case "aboveMax":
-      return `A ${charsPhrase(rule.aboveMax)} ${rule.field} (above maximum)`;
+      return `${rule.field} of ${rule.aboveMax} characters`;
   }
 }
 
@@ -755,6 +755,37 @@ export function omnUiMinMaxExpectsError(
   if (variant === "aboveMax") return true;
   if (variant === "belowMin") return rule.requiredOnForm || rule.belowMin > 0;
   return false;
+}
+
+export function omnUiMinMaxDisplayTitle(
+  entry: OmnUiEntry,
+  variant: OmnUiMinMaxVariant,
+  rule: OmnUiFieldRule
+): string {
+  const expectsError = omnUiMinMaxExpectsError(rule, variant);
+  const persist =
+    expectsError
+      ? "the form should show an error"
+      : entry === "create"
+        ? "Save should succeed"
+        : "Update should succeed";
+  return `${omnUiMinMaxWhatEntered(variant, rule)} — ${persist}. (${rule.field})`;
+}
+
+export function omnUiFormulaDisplayTitle(
+  entry: OmnUiEntry,
+  name: string,
+  expectsError = false
+): string {
+  const when = expectsError
+    ? "When calculated totals do not match"
+    : "When calculated totals match";
+  const then = expectsError
+    ? "Then the form should show an error."
+    : entry === "create"
+      ? "Then Save should succeed."
+      : "Then Update should succeed.";
+  return `Given ${name} — ${when} — ${then} (${name})`;
 }
 
 export function omnUiTestValue(length: number, kind: OmnUiFieldKind): string {
@@ -1687,7 +1718,7 @@ const COPY_INVOICE_NUMBER_EMPTY_SOURCE = "Copied invoice number is empty until f
 
 export function omnUiConditionalDisplayTitle(entry: OmnUiEntry, sourceTitle: string): string {
   if (sourceTitle === COPY_INVOICE_NUMBER_EMPTY_SOURCE) {
-    return "An empty invoice number on a copied invoice — Update should succeed. (Invoice Number)";
+    return "Given a copied invoice — When invoice number is left empty — Then Update should succeed. (Invoice Number)";
   }
   const when = entry === "create" ? "When the form is saved" : "When the form is updated";
   const accepted =
