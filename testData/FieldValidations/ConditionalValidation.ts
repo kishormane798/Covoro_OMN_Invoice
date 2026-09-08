@@ -932,10 +932,10 @@ export type VatinPatternScenario = OmanConditionalScenario & {
   /** Exact VATIN cell value to write for the party under test. */
   vatinValue: string;
   /**
-   * When true, re-patch seller VAT after generate (worker identity overwrites
-   * Seller VAT Identifier on write).
+   * Re-write this party's VATIN after generate so worker identity cannot
+   * replace the fake/test value (Seller / Buyer VAT cells).
    */
-  patchSellerVatAfterGenerate?: boolean;
+  patchVatinAfterGenerate?: boolean;
 };
 
 export type DocumentAllowanceChargeRateScenario = OmanConditionalScenario & {
@@ -5038,7 +5038,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
     shouldError: false,
     expectedErrorField: SELLER_VAT_IDENTIFIER_FIELD,
     // Leave worker identity seller VAT (already OM + 10 digits); do not patch.
-    patchSellerVatAfterGenerate: false,
+    patchVatinAfterGenerate: false,
   },
   {
     ruleId: "IBR-003-OM",
@@ -5048,7 +5048,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
     vatinValue: "XX1108202600",
     shouldError: true,
     expectedErrorField: SELLER_VAT_IDENTIFIER_FIELD,
-    patchSellerVatAfterGenerate: true,
+    patchVatinAfterGenerate: true,
   },
   {
     ruleId: "IBR-003-OM",
@@ -5058,7 +5058,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
     vatinValue: "OM110820260A",
     shouldError: true,
     expectedErrorField: SELLER_VAT_IDENTIFIER_FIELD,
-    patchSellerVatAfterGenerate: true,
+    patchVatinAfterGenerate: true,
   },
   {
     ruleId: "IBR-003-OM",
@@ -5077,6 +5077,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
     vatinValue: "XX1000091919",
     shouldError: true,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
+    patchVatinAfterGenerate: true,
   },
   {
     ruleId: "IBR-003-OM",
@@ -5086,6 +5087,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
     vatinValue: "OM100009191A",
     shouldError: true,
     expectedErrorField: BUYER_VAT_IDENTIFIER_FIELD,
+    patchVatinAfterGenerate: true,
   },
   {
     ruleId: "IBR-003-OM",
@@ -5104,6 +5106,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
     vatinValue: "XX2000091919",
     shouldError: true,
     expectedErrorField: THIRD_PARTY_VATIN_FIELD,
+    patchVatinAfterGenerate: true,
   },
   {
     ruleId: "IBR-003-OM",
@@ -5113,6 +5116,7 @@ export const VATIN_PATTERN_SCENARIOS: VatinPatternScenario[] = [
     vatinValue: "OM200009191A",
     shouldError: true,
     expectedErrorField: THIRD_PARTY_VATIN_FIELD,
+    patchVatinAfterGenerate: true,
   },
 ];
 

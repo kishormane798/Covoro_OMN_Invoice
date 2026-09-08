@@ -1784,7 +1784,8 @@ export function buildDocumentChargeReasonScenarioRow(
 /**
  * IBR-003-OM: Seller / Buyer / Third Party VATIN pattern OM + 10 digits.
  * Third-party cases activate Third-party Invoice + mandatory TP address fields.
- * Seller negatives rely on `patchSellerVatFromRow` after generate (worker identity).
+ * Fake VATIN values are re-written after generate (`patchVatinAfterGenerate`)
+ * because worker identity overwrites Seller / Buyer VAT cells.
  */
 export function buildVatinPatternScenarioRow(
   scenario: FV.VatinPatternScenario

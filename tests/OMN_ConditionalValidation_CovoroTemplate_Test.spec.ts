@@ -4,6 +4,7 @@ import {
   patchBlankTaxAmountInAccountingCurrencyIfEmpty,
   patchProfitMarginItemTypeFromRow,
   patchSellerVatFromRow,
+  vatinPatternPatchOptions,
   patchTaxRateFromRow,
   verifyAlignedIbrpE09OmAllowedBatch,
   verifyAlignedIbrpE09OmNotAllowedBatch,
@@ -531,9 +532,7 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           rowData,
           scenario.expectedErrorField ?? FV.BUYER_VAT_IDENTIFIER_FIELD,
           scenario.shouldError,
-          scenario.patchSellerVatAfterGenerate
-            ? { patchFile: patchSellerVatFromRow }
-            : {}
+          vatinPatternPatchOptions(scenario)
         );
       });
     }

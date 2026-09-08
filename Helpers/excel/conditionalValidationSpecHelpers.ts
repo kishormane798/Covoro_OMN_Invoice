@@ -27,6 +27,7 @@ import {
   LINE_ITEM_VAT_AMOUNT_ZERO_E_NOT_ALLOWED_SCENARIOS,
   PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
   SELLER_VAT_IDENTIFIER_FIELD,
+  THIRD_PARTY_VATIN_FIELD,
   IBR_137_OM_PATCH_AFTER_GENERATE_FIELDS,
   SUMMARY_INVOICE_PERIOD_SCENARIOS,
   TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
@@ -45,6 +46,8 @@ import {
   type VatCategoryTaxAmountE09Scenario,
   type VatCategoryTaxAmountO09Scenario,
   type VatCategoryTaxAmountZ09Scenario,
+  type VatinParty,
+  type VatinPatternScenario,
 } from "../../testData/FieldValidations/ConditionalValidation";
 import {
   buildBuyerAddressRequiredScenarioRow,
@@ -116,6 +119,41 @@ export function patchSellerVatFromRow(
     SELLER_VAT_IDENTIFIER_FIELD,
     String(rowData[SELLER_VAT_IDENTIFIER_FIELD] ?? "")
   );
+}
+
+const VATIN_PATTERN_FIELD_BY_PARTY: Record<VatinParty, string> = {
+  seller: SELLER_VAT_IDENTIFIER_FIELD,
+  buyer: BUYER_VAT_IDENTIFIER_FIELD,
+  thirdParty: THIRD_PARTY_VATIN_FIELD,
+};
+
+/**
+ * IBR-003-OM: worker identity overwrites Seller / Buyer VATIN on generate.
+ * Re-write the party's test VATIN so fake prefix / non-digit values stay.
+ */
+export function patchVatinPatternFromRow(
+  filePath: string,
+  rowData: Record<string, string | null>,
+  party: VatinParty
+): void {
+  const field = VATIN_PATTERN_FIELD_BY_PARTY[party];
+  patchInvoiceTextCellInFile(
+    filePath,
+    field,
+    String(rowData[field] ?? "")
+  );
+}
+
+export function vatinPatternPatchOptions(
+  scenario: VatinPatternScenario
+): ConditionalErrorOptions {
+  if (!scenario.patchVatinAfterGenerate) {
+    return {};
+  }
+  return {
+    patchFile: (filePath, rowData) =>
+      patchVatinPatternFromRow(filePath, rowData, scenario.party),
+  };
 }
 
 /**

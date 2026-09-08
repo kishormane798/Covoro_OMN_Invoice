@@ -3,6 +3,7 @@ import {
   patchBlankTaxAmountInAccountingCurrencyIfEmpty,
   patchProfitMarginItemTypeFromRow,
   patchTaxRateFromRow,
+  vatinPatternPatchOptions,
   verifyAlignedIbrpE09OmAllowedBatch,
   verifyAlignedIbrpE09OmNotAllowedBatch,
   verifyAlignedIbrpO09OmAllowedBatch,
@@ -581,7 +582,8 @@ test.describe("Conditional validation (Simplified)", () => {
           page,
           rowData,
           scenario.expectedErrorField ?? FV.THIRD_PARTY_VATIN_FIELD,
-          scenario.shouldError
+          scenario.shouldError,
+          vatinPatternPatchOptions(scenario)
         );
       });
     }
