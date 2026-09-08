@@ -156,6 +156,7 @@ import {
   CL06_OM_NEGATIVE_SCENARIOS,
   CL06_OM_POSITIVE_PACKS,
 } from "../FieldValidations/buyerSellerIdentifierScheme";
+import { IBR_082_OM_CASES } from "../../Helpers/excel/formulaValidationHelper";
 
 export const OMN_UI_INVOICE_TEST_TIMEOUT_MS = 180_000;
 export const OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS = 240_000;
@@ -224,8 +225,6 @@ export type OmnUiCatalogRow = {
   group: string;
   title: string;
   entries?: readonly OmnUiEntry[];
-  /** Continue committing prerequisite sections through this section before asserting. */
-  completeThrough?: OmnUiSection;
   mode: OmnUiCatalogMode;
   skipReason?: string;
   kind: OmnUiCatalogKind;
@@ -658,21 +657,16 @@ const negativeFormulaRows: OmnUiCatalogRow[] = invoiceNegativeFormulaTestData.ma
   }
 );
 
-const profitMarginFormulaRows: OmnUiCatalogRow[] = invoiceFormulaTestData
-  .filter(
-    (scenario) =>
-      !scenario.nonOmrOnly &&
-      /profit margin (?:self-)?invoice/i.test(
-        String(scenario.invoiceTransactionTypeCode ?? "")
-      )
-  )
-  .map((scenario) => ({
+const profitMarginFormulaRows: OmnUiCatalogRow[] = IBR_082_OM_CASES.map(
+  (scenario) => ({
     group: "Profit Margin Total Amount Due (IBR-082-OM)",
-    title: omnUiFormulaDisplayTitle("create", scenario.name),
-    mode: "run",
+    title: scenario.title,
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
     kind: "formulaProfitMargin",
-    formulaScenario: scenario,
-  }));
+    expectsError: scenario.shouldError,
+  })
+);
 
 const nonOmrFormulaRows: OmnUiCatalogRow[] = invoiceFormulaTestData
   .filter((scenario) => Boolean(scenario.nonOmrOnly))
@@ -684,16 +678,68 @@ const nonOmrFormulaRows: OmnUiCatalogRow[] = invoiceFormulaTestData
     formulaScenario: scenario,
   }));
 
-const lineNetFormulaRows: OmnUiCatalogRow[] = invoiceFormulaTestData
-  .filter((scenario) => /IBR-075-OM|IBR-071-OM/i.test(scenario.name))
-  .map((scenario) => ({
+const lineNetFormulaRows: OmnUiCatalogRow[] = [
+  {
     group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
-    title: omnUiFormulaDisplayTitle("create", scenario.name),
+    title:
+      "Given Item Net Price — When it matches gross price minus discount — Then the invoice should be accepted. (IBR-075-OM)",
     mode: "run",
     kind: "formulaNegative",
-    formulaScenario: scenario,
+    formulaScenario: {
+      name: "IBR-075-OM valid net = gross − discount",
+      itemPriceBaseQty: 1,
+      itemGrossPrice: 1000,
+      itemPriceDiscount: 100,
+      invoicedQty: 1,
+      lineCharge: 0,
+      lineAllowance: 0,
+      taxRate: 5,
+      docCharges: 0,
+      docAllowances: 0,
+      paidAmount: 0,
+      roundingAmount: 0,
+    },
     expectsError: false,
-  }));
+  },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Item Net Price — When it does not match gross price minus discount — Then the invoice should be rejected with an error. (IBR-075-OM)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Invoice Line Net Amount — When it matches the formula — Then the invoice should be accepted. (IBR-071-OM)",
+    mode: "run",
+    kind: "formulaNegative",
+    formulaScenario: {
+      name: "IBR-071-OM valid line net with charge and allowance",
+      itemPriceBaseQty: 1,
+      itemGrossPrice: 1000,
+      itemPriceDiscount: 0,
+      invoicedQty: 2,
+      lineCharge: 10,
+      lineAllowance: 5,
+      taxRate: 5,
+      docCharges: 0,
+      docAllowances: 0,
+      paidAmount: 0,
+      roundingAmount: 0,
+    },
+    expectsError: false,
+  },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Invoice Line Net Amount — When it does not match the formula — Then the invoice should be rejected with an error. (IBR-071-OM)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+];
 
 const twoLineFormulaRows: OmnUiCatalogRow[] = [
   ...invoiceFormulaTestData.map((scenario) => ({ scenario, expectsError: false })),
@@ -779,7 +825,6 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
 export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [
   "Tax accounting currency amount required (ibr-053)",
   "VAT rate numeric format (IBR-046-OM)",
-  "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
   "Document level charge reason code (IBR-042-OM)",
   "Line item VAT amount required (IBR-038-OM)",
   "Line VAT amount zero for Exempt (IBR-039-OM)",
@@ -787,7 +832,6 @@ export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [
   "Exempt VAT category tax amount must be zero (ALIGNED-IBRP-E-09-OM)",
   "Not subject VAT category tax amount must be zero (ALIGNED-IBRP-O-09-OM)",
   "Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)",
-  "Amounts and quantities non-negative except rounding (IBR-137-OM)",
 ] as const;
 
 const OMN_UI_CALCULATED_PENDING_GROUPS = new Set<string>([
@@ -807,13 +851,6 @@ export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.calculated,
     kind: "pending" as const,
   })),
-  {
-    group: "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
-    title: "Remaining ROP HS master values are covered by representative UI cases.",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.masterList,
-    kind: "pending",
-  },
   ...DOCUMENT_CHARGE_REASON_SCENARIOS.map((scenario) => ({
     group: "Document level charge reason code (IBR-042-OM)",
     title: scenario.title,
@@ -828,6 +865,35 @@ export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.noControl("editable Tax Rate"),
     kind: "pending" as const,
   })),
+  ...OMN_UI_CONDITIONAL_PENDING_GROUPS.filter(
+    (group) =>
+      group !== "Tax accounting currency amount required (ibr-053)" &&
+      group !== "VAT rate numeric format (IBR-046-OM)" &&
+      group !== "Document level charge reason code (IBR-042-OM)"
+  ).map((group) => ({
+    group,
+    title: group,
+    mode: "skip",
+    skipReason: OMN_UI_CALCULATED_PENDING_GROUPS.has(group)
+      ? OMN_UI_SKIP.calculated
+      : OMN_UI_SKIP.noControl(`${group} runner`),
+    kind: "pending",
+  })),
+];
+
+export const OMN_UI_CONDITIONAL_RESIDUAL_GROUPS = [
+  "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
+  "Amounts and quantities non-negative except rounding (IBR-137-OM)",
+] as const;
+
+export const OMN_UI_CONDITIONAL_RESIDUAL_CATALOG: OmnUiCatalogRow[] = [
+  {
+    group: "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
+    title: "Remaining ROP HS master values are covered by representative UI cases.",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.masterList,
+    kind: "pending",
+  },
   ...AMOUNT_QUANTITY_SIGN_SCENARIOS.filter((scenario) => {
     const field = scenario.amountField ?? scenario.expectedErrorField;
     return !field || !omnUiNumericFieldLocation(field);
@@ -838,22 +904,16 @@ export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.calculated,
     kind: "pending" as const,
   })),
-  ...OMN_UI_CONDITIONAL_PENDING_GROUPS.filter(
-    (group) =>
-      group !== "Tax accounting currency amount required (ibr-053)" &&
-      group !== "VAT rate numeric format (IBR-046-OM)" &&
-      group !== "HS Code from ROP Customs list for goods lines (IBR-174-OM)" &&
-      group !== "Document level charge reason code (IBR-042-OM)" &&
-      group !== "Amounts and quantities non-negative except rounding (IBR-137-OM)"
-  ).map((group) => ({
-    group,
-    title: group,
-    mode: "skip",
-    skipReason: OMN_UI_CALCULATED_PENDING_GROUPS.has(group)
-      ? OMN_UI_SKIP.calculated
-      : OMN_UI_SKIP.noControl(`${group} runner`),
-    kind: "pending",
-  })),
+];
+
+export const OMN_UI_CONDITIONAL_SKIP_GROUPS = [
+  ...OMN_UI_CONDITIONAL_PENDING_GROUPS,
+  ...OMN_UI_CONDITIONAL_RESIDUAL_GROUPS,
+] as const;
+
+export const OMN_UI_CONDITIONAL_SKIP_CATALOG: OmnUiCatalogRow[] = [
+  ...OMN_UI_CONDITIONAL_PENDING_CATALOG,
+  ...OMN_UI_CONDITIONAL_RESIDUAL_CATALOG,
 ];
 
 export const OMN_UI_MIN_MAX_VARIANTS: readonly OmnUiMinMaxVariant[] = [
@@ -1522,6 +1582,8 @@ export type OmnUiConditionalScenario = {
   altInputIds?: readonly string[];
   ruleId?: string;
   entries?: readonly OmnUiEntry[];
+  /** Continue prerequisite section commits through this section before asserting. */
+  completeThrough?: OmnUiSection;
   /** Master txn/type expansion or a dropdown/autocomplete assert field. */
   dropdownStyle?: boolean;
   /** UI gate: field must stay disabled (do not type a value). */
@@ -2047,8 +2109,8 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
     ])
   ),
-  ...PROFIT_MARGIN_SELF_INVOICE_SCENARIOS.map((s) =>
-    catalogControlScenario(
+  ...PROFIT_MARGIN_SELF_INVOICE_SCENARIOS.map((s) => ({
+    ...catalogControlScenario(
       { ...s, invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE },
       s.expectedErrorField === "Seller country code" ? "seller" : "item",
       s.expectedErrorField === "Seller country code"
@@ -2069,8 +2131,9 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
           value: s.sellerCountryCode,
         },
       ]
-    )
-  ),
+    ),
+    completeThrough: "item" as const,
+  })),
   ...SUMMARY_INVOICE_PERIOD_SCENARIOS.map((s) => ({
     title: s.title,
     ruleId: s.ruleId,

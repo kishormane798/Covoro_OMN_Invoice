@@ -1284,12 +1284,15 @@ async function runOmnUiFormulaCatalogScenario(
   if (row.kind === "formulaTwoLine") {
     await fillOmnUiFormulaItem(invoice, entry, scenario as InvoiceFormulaScenario, false);
   }
+  await invoice.openSectionForEdit("invoice", entry);
   for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
     await fillFormulaCandidate(invoice, "invoice", key, scenario[key]);
   }
+  await commitSection(invoice, "invoice", entry);
 
   if (row.expectsError) {
     await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
+    await invoice.expectSectionNotSaved("invoice", entry);
     return;
   }
   const target =
@@ -1303,6 +1306,7 @@ async function runOmnUiFormulaCatalogScenario(
     const value = await invoice.readInputValue(target.section, inputId, altInputIds);
     expect(value, `${target.excelField} should be visible and calculated`).not.toBe("");
   }
+  await invoice.expectSectionSavedReadOnly("invoice");
 }
 
 export async function runOmnUiFormulaCatalogRow(
