@@ -967,25 +967,13 @@ export async function runOmnUiCl06Case(
   );
 
   if (row.expectsError) {
-    let autocompleteRejected = false;
-    try {
-      await invoice.selectAutocomplete(
-        section,
-        selectedRule.inputId,
-        companionValue,
-        selectedRule.altInputIds
-      );
-    } catch {
-      autocompleteRejected = true;
-      await invoice.dismissOpenDropdown();
-    }
-    if (autocompleteRejected) {
-      expect(
-        autocompleteRejected,
-        `${row.field} should reject a value outside the CL-06 master`
-      ).toBe(true);
-      return;
-    }
+    await invoice.replaceInput(
+      section,
+      selectedRule.inputId,
+      companionValue,
+      selectedRule.altInputIds
+    );
+    await invoice.dismissOpenDropdown();
   } else {
     await invoice.selectAutocomplete(
       section,
@@ -1002,7 +990,15 @@ export async function runOmnUiCl06Case(
     selectedRule.altInputIds
   );
   if (row.expectsError) {
-    expect(message, `expected a field error for ${row.field}`).toBeTruthy();
+    const actualValue = await invoice.readInputValue(
+      section,
+      selectedRule.inputId,
+      selectedRule.altInputIds
+    );
+    expect(
+      Boolean(message) || actualValue !== companionValue,
+      `${row.field} should show an error or reject the invalid CL-06 value`
+    ).toBe(true);
     await invoice.expectSectionNotSaved(section, entry);
     return;
   }
