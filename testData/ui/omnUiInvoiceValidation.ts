@@ -55,6 +55,7 @@ import {
   SELLER_ADDRESS_LINE_3_FIELD,
   SELLER_ADDRESS_REQUIRED_SCENARIOS,
   SELLER_CITY_FIELD,
+  SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN,
   SELLER_POST_CODE_FIELD,
   SELLER_VAT_IDENTIFIER_FIELD,
   SELLER_VAT_MANDATORY_SCENARIOS,
@@ -112,6 +113,10 @@ import {
   dropdownFieldMasterConfig,
 } from "../FieldValidations/TestDataConfig";
 import { createInvoiceIssueDateScenarios } from "../FieldValidations/InvoiceIssueDateValidation";
+import {
+  PARTY_IDENTIFIER_LENGTH_CASES,
+  type PartyIdentifierLengthCase,
+} from "../FieldValidations/partyIdentifierCompanionLength";
 
 export const OMN_UI_INVOICE_TEST_TIMEOUT_MS = 180_000;
 export const OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS = 240_000;
@@ -130,6 +135,10 @@ export const OMN_UI_INDUSTRIAL_CLASSIFICATION =
   INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS[0].industrialClassificationCode;
 export const OMN_UI_TAX_CATEGORY_STANDARD = STANDARD_TAX_CATEGORY_CODE;
 export const OMN_UI_UNIT_OF_MEASURE = "each";
+export const OMN_UI_PARTY_IDENTIFIER_SCHEME =
+  SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN;
+export const OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE =
+  buyerSellerIdentifierCodeValidTestData[0].label;
 
 export const OMN_UI_PRECEDING_REF_ID = "proceedingDtls[0].invoiceReference";
 export const OMN_UI_PRECEDING_DATE_ID = "proceedingDtls[0].invoiceIssueDate";
@@ -183,6 +192,7 @@ export type OmnUiCatalogRow = {
   excelTitle?: string;
   numericValue?: string;
   expectsError?: boolean;
+  partyIdentifierScenario?: PartyIdentifierLengthCase;
 };
 
 export function omnUiCatalogRowsFor(
@@ -405,15 +415,24 @@ const numericInvalidRows: OmnUiCatalogRow[] = numericFieldConfigs.map((config) =
   )
 );
 
+const partyIdentifierCompanionRows: OmnUiCatalogRow[] =
+  PARTY_IDENTIFIER_LENGTH_CASES.map((scenario) => ({
+    group: "Party identifier — companion length",
+    title: `${scenario.identifierField} with ${scenario.titleSuffix} — ${
+      scenario.shouldAccept
+        ? "Save should succeed"
+        : "the form should show an error"
+    }. (${scenario.identifierField})`,
+    mode: "run",
+    kind: "partyIdentifierCompanion",
+    field: scenario.identifierField,
+    expectsError: !scenario.shouldAccept,
+    partyIdentifierScenario: scenario,
+  }));
+
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...issueDateRows,
-  {
-    group: "Party identifier — companion length",
-    title: "Party identifier companion length pending UI entry. (Seller identifier)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("Party identifier companion runner"),
-    kind: "pending",
-  },
+  ...partyIdentifierCompanionRows,
   {
     group: "CL-06-OM — Scheme Identifier and textual code masters",
     title: "CL-06 scheme and textual code pending UI select. (Scheme identifier)",

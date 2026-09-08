@@ -30,6 +30,9 @@ import {
   OMN_UI_INVOICE_TYPE_SELF_BILLED,
   OMN_UI_ITEM_FORMULA_KEYS,
   OMN_UI_ITEM_TYPE_GOODS,
+  OMN_UI_FIELD_RULES,
+  OMN_UI_PARTY_IDENTIFIER_SCHEME,
+  OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE,
   OMN_UI_PRECEDING_DATE_ID,
   OMN_UI_PRECEDING_REF_ID,
   OMN_UI_PRECEDING_UUID_ID,
@@ -50,6 +53,7 @@ import {
   type OmnUiMinMaxVariant,
   type OmnUiSection,
 } from "../../testData/ui/omnUiInvoiceValidation";
+import type { PartyIdentifierLengthCase } from "../../testData/FieldValidations/partyIdentifierCompanionLength";
 import {
   CREDIT_DEBIT_REASON_SAMPLE,
   PRECEDING_INVOICE_UUID_SAMPLE,
@@ -810,6 +814,86 @@ export async function runOmnUiNumericCase(
   await invoice.expectSectionSavedReadOnly(location.section);
 }
 
+export async function runOmnUiPartyIdentifierCompanionCase(
+  page: Page,
+  entry: OmnUiEntry,
+  scenario: PartyIdentifierLengthCase
+): Promise<void> {
+  const section = scenario.party;
+  const schemeField =
+    section === "seller"
+      ? "Seller identifier - Scheme identifier"
+      : "Scheme identifier";
+  const codeField =
+    section === "seller"
+      ? "Seller Identifier (textual code)"
+      : "Buyer Identifier (textual code)";
+  const identifierRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === scenario.identifierField
+  );
+  const schemeRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === schemeField
+  );
+  const codeRule = OMN_UI_FIELD_RULES.find((rule) => rule.field === codeField);
+
+  if (!identifierRule || !schemeRule || !codeRule) {
+    throw new Error(
+      `Missing party identifier UI rule metadata for ${scenario.identifierField}`
+    );
+  }
+
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, section, entry, new Set([
+    identifierRule.inputId,
+    schemeRule.inputId,
+    codeRule.inputId,
+  ]));
+
+  if (scenario.companion === "scheme" || scenario.companion === "both") {
+    await invoice.selectAutocomplete(
+      section,
+      schemeRule.inputId,
+      OMN_UI_PARTY_IDENTIFIER_SCHEME,
+      schemeRule.altInputIds
+    );
+  }
+  if (scenario.companion === "code" || scenario.companion === "both") {
+    await invoice.selectAutocomplete(
+      section,
+      codeRule.inputId,
+      OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE,
+      codeRule.altInputIds
+    );
+  }
+  await invoice.replaceInput(
+    section,
+    identifierRule.inputId,
+    "x".repeat(scenario.length),
+    identifierRule.altInputIds
+  );
+  await commitSection(invoice, section, entry);
+
+  const message = await invoice.readFieldError(
+    section,
+    identifierRule.inputId,
+    identifierRule.altInputIds
+  );
+  if (!scenario.shouldAccept) {
+    expect(
+      message,
+      `expected a field error for ${scenario.identifierField}`
+    ).toBeTruthy();
+    await invoice.expectSectionNotSaved(section, entry);
+    return;
+  }
+
+  expect(
+    message,
+    `did not expect a field error for ${scenario.identifierField}`
+  ).toBeFalsy();
+  await invoice.expectSectionSavedReadOnly(section);
+}
+
 export async function runOmnUiFieldCatalogRow(
   page: Page,
   entry: OmnUiEntry,
@@ -832,6 +916,19 @@ export async function runOmnUiFieldCatalogRow(
       row.field,
       row.numericValue,
       Boolean(row.expectsError)
+    );
+    return;
+  }
+  if (row.kind === "partyIdentifierCompanion") {
+    if (!row.partyIdentifierScenario) {
+      throw new Error(
+        `Party identifier catalog row is missing scenario metadata: ${row.title}`
+      );
+    }
+    await runOmnUiPartyIdentifierCompanionCase(
+      page,
+      entry,
+      row.partyIdentifierScenario
     );
     return;
   }
