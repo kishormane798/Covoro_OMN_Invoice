@@ -103,8 +103,10 @@ import {
   fieldValidationConditional,
   fieldValidationMandatory,
   fieldValidationOptional,
+  formatOmanNumericBoundaryValue,
   invoiceFormulaTestData,
 } from "../FieldValidations/Min_max_field_validation";
+import { numericFieldConfigs } from "../../Helpers/excel/fieldValidationSpecSupport";
 import {
   conditionalDropdownFieldMasterConfig,
   dropdownFieldMasterConfig,
@@ -179,6 +181,8 @@ export type OmnUiCatalogRow = {
   kind: OmnUiCatalogKind;
   field?: string;
   excelTitle?: string;
+  numericValue?: string;
+  expectsError?: boolean;
 };
 
 export function omnUiCatalogRowsFor(
@@ -229,6 +233,172 @@ const issueDateRows: OmnUiCatalogRow[] = createInvoiceIssueDateScenarios().map((
   };
 });
 
+export type OmnUiNumericFieldLocation = {
+  section: "item" | "invoice";
+  inputId: string;
+  altInputIds?: readonly string[];
+};
+
+const OMN_UI_NUMERIC_FIELD_LOCATIONS: Record<string, OmnUiNumericFieldLocation> = {
+  "Item price base quantity": { section: "item", inputId: "priceBaseQty" },
+  "Item gross price": { section: "item", inputId: "itemGrossPrice" },
+  "Item price discount": {
+    section: "item",
+    inputId: "itemPriceDiscount",
+    altInputIds: ["invLinePriceDiscount"],
+  },
+  "Invoiced quantity": {
+    section: "item",
+    inputId: "invoiceQty",
+    altInputIds: ["invoicedQty", "invQty"],
+  },
+  "Invoice line charge amount": {
+    section: "item",
+    inputId: "chargesDtls[0].amount",
+    altInputIds: ["invLineChargeAmount"],
+  },
+  "Invoice line allowance amount": {
+    section: "item",
+    inputId: "allowanceDtls[0].amount",
+    altInputIds: ["invLineAllowanceAmount"],
+  },
+  "Charges on document level": {
+    section: "invoice",
+    inputId: "docLevelCharges[0].amount",
+    altInputIds: ["docCharges"],
+  },
+  "Allowances on document level": {
+    section: "invoice",
+    inputId: "docLevelAllowances[0].amount",
+    altInputIds: ["docAllowances"],
+  },
+  "Paid amount": {
+    section: "invoice",
+    inputId: "paidAmt",
+    altInputIds: ["paidAmount"],
+  },
+  "Rounding amount": {
+    section: "invoice",
+    inputId: "roundingAmt",
+    altInputIds: ["roundingAmount"],
+  },
+};
+
+const OMN_UI_CALCULATED_NUMERIC_FIELDS = new Set<string>([
+  "Item net price",
+  "Invoice line net amount",
+  "Line item VAT amount",
+  "Total amount including VAT",
+  "Sum of Invoice line net amount",
+  "Invoice total amount without tax",
+  "Invoice total tax amount",
+  "Invoice total amount with tax",
+  "Amount due for payment",
+]);
+
+export function omnUiNumericFieldLocation(
+  field: string
+): OmnUiNumericFieldLocation | undefined {
+  return OMN_UI_NUMERIC_FIELD_LOCATIONS[field];
+}
+
+type NumericConfig = (typeof numericFieldConfigs)[number];
+
+function numericCatalogMode(
+  config: NumericConfig
+): Pick<OmnUiCatalogRow, "mode" | "skipReason"> {
+  if (OMN_UI_CALCULATED_NUMERIC_FIELDS.has(config.field)) {
+    return { mode: "skip", skipReason: OMN_UI_SKIP.calculated };
+  }
+  if (!omnUiNumericFieldLocation(config.field)) {
+    return {
+      mode: "skip",
+      skipReason: OMN_UI_SKIP.noControl(config.field),
+    };
+  }
+  return { mode: "run" };
+}
+
+function numericCatalogRow(
+  group: "Numeric fields — valid digit count" | "Numeric fields — invalid digit count",
+  config: NumericConfig,
+  title: string,
+  numericValue: string,
+  expectsError: boolean
+): OmnUiCatalogRow {
+  return {
+    group,
+    title,
+    ...numericCatalogMode(config),
+    kind: "numeric",
+    field: config.field,
+    numericValue,
+    expectsError,
+  };
+}
+
+function numericPersistTitle(expectsError?: boolean): string {
+  return expectsError ? "the form should show an error" : "Save should succeed";
+}
+
+const numericValidRows: OmnUiCatalogRow[] = numericFieldConfigs.flatMap((config) => {
+  const decimals = config.decimals ?? 2;
+  const minValue = formatOmanNumericBoundaryValue(config.min, decimals);
+  const maxValue = formatOmanNumericBoundaryValue(config.max, decimals);
+  const rows = [
+    numericCatalogRow(
+      "Numeric fields — valid digit count",
+      config,
+      `${config.field} at minimum value (${minValue}) — ${numericPersistTitle(config.minExpectsError)}. (${config.field})`,
+      minValue,
+      Boolean(config.minExpectsError)
+    ),
+    numericCatalogRow(
+      "Numeric fields — valid digit count",
+      config,
+      `${config.field} at maximum digits (${config.max}) — ${numericPersistTitle(config.maxExpectsError)}. (${config.field})`,
+      maxValue,
+      Boolean(config.maxExpectsError)
+    ),
+  ];
+
+  if (config.belowMin === 0 && !config.omitEmptyTest) {
+    rows.push(
+      numericCatalogRow(
+        "Numeric fields — valid digit count",
+        config,
+        `An empty ${config.field} — ${numericPersistTitle(config.emptyExpectsError)}. (${config.field})`,
+        "",
+        Boolean(config.emptyExpectsError)
+      )
+    );
+  }
+
+  if (config.allowsNegative) {
+    const negativeValue = `-${minValue}`;
+    rows.push(
+      numericCatalogRow(
+        "Numeric fields — valid digit count",
+        config,
+        `${config.field} with negative value (${negativeValue}) — Save should succeed. (${config.field})`,
+        negativeValue,
+        false
+      )
+    );
+  }
+  return rows;
+});
+
+const numericInvalidRows: OmnUiCatalogRow[] = numericFieldConfigs.map((config) =>
+  numericCatalogRow(
+    "Numeric fields — invalid digit count",
+    config,
+    `${config.field} of ${config.aboveMax} digits — the form should show an error. (${config.field})`,
+    formatOmanNumericBoundaryValue(config.aboveMax, config.decimals ?? 2),
+    true
+  )
+);
+
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...issueDateRows,
   {
@@ -245,20 +415,8 @@ export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.masterList,
     kind: "pending",
   },
-  {
-    group: "Numeric fields — valid digit count",
-    title: "Numeric digit-count cases pending UI entry. (numeric)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("numeric digit runner"),
-    kind: "pending",
-  },
-  {
-    group: "Numeric fields — invalid digit count",
-    title: "Numeric invalid digit-count cases pending UI entry. (numeric)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("numeric digit runner"),
-    kind: "pending",
-  },
+  ...numericValidRows,
+  ...numericInvalidRows,
   {
     group: "Invoice Currency dropdown",
     title: "Invoice Currency master list. (Invoice Currency Code)",

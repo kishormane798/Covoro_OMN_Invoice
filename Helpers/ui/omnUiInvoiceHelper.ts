@@ -38,6 +38,7 @@ import {
   OMN_UI_UNIT_OF_MEASURE,
   OMN_UI_TXN_FULL_TAX,
   OMN_UI_TXN_SELF_BILLED,
+  omnUiNumericFieldLocation,
   omnUiMinMaxExpectsError,
   omnUiPrecedingInvoiceEnablement,
   omnUiTestValue,
@@ -772,6 +773,41 @@ export async function runOmnUiIssueDateCase(
   await invoice.expectSectionSavedReadOnly("document");
 }
 
+export async function runOmnUiNumericCase(
+  page: Page,
+  entry: OmnUiEntry,
+  field: string,
+  digits: string,
+  expectsError: boolean
+): Promise<void> {
+  const location = omnUiNumericFieldLocation(field);
+  if (!location) {
+    throw new Error(`No editable UI numeric control for ${field}`);
+  }
+
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, location.section, entry, new Set());
+  await invoice.replaceInput(
+    location.section,
+    location.inputId,
+    digits,
+    location.altInputIds
+  );
+
+  if (expectsError) {
+    const message = await invoice.readFieldError(
+      location.section,
+      location.inputId,
+      location.altInputIds
+    );
+    expect(message, `expected a field error for ${field}`).toBeTruthy();
+    return;
+  }
+
+  await commitSection(invoice, location.section, entry);
+  await invoice.expectSectionSavedReadOnly(location.section);
+}
+
 export async function runOmnUiFieldCatalogRow(
   page: Page,
   entry: OmnUiEntry,
@@ -782,6 +818,19 @@ export async function runOmnUiFieldCatalogRow(
   }
   if (row.kind === "issueDate") {
     await runOmnUiIssueDateCase(page, entry, row.excelTitle ?? "");
+    return;
+  }
+  if (row.kind === "numeric") {
+    if (!row.field || row.numericValue === undefined) {
+      throw new Error(`Numeric catalog row is missing field/value metadata: ${row.title}`);
+    }
+    await runOmnUiNumericCase(
+      page,
+      entry,
+      row.field,
+      row.numericValue,
+      Boolean(row.expectsError)
+    );
     return;
   }
   throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);
