@@ -109,6 +109,7 @@ import {
   conditionalDropdownFieldMasterConfig,
   dropdownFieldMasterConfig,
 } from "../FieldValidations/TestDataConfig";
+import { createInvoiceIssueDateScenarios } from "../FieldValidations/InvoiceIssueDateValidation";
 
 export const OMN_UI_INVOICE_TEST_TIMEOUT_MS = 180_000;
 export const OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS = 240_000;
@@ -214,15 +215,22 @@ export const OMN_UI_FIELD_CATALOG_GROUPS = [
   "Format / context fields — VATIN, UUID, rate, FX, profit margin",
 ] as const;
 
-export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
-  {
+const issueDateRows: OmnUiCatalogRow[] = createInvoiceIssueDateScenarios().map((scenario) => {
+  const outcome = scenario.shouldError
+    ? "the form should show an error"
+    : "Save should succeed";
+  return {
     group: "Invoice Issue Date",
-    title: "Invoice Issue Date scenarios pending UI date entry. (Invoice Issue Date)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("Invoice Issue Date picker runner"),
-    kind: "pending",
+    title: `Invoice Issue Date in ${scenario.name.trim()} — ${outcome}. (Invoice Issue Date)`,
+    mode: "run",
+    kind: "issueDate",
     field: "Invoice Issue Date",
-  },
+    excelTitle: scenario.name,
+  };
+});
+
+export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
+  ...issueDateRows,
   {
     group: "Party identifier — companion length",
     title: "Party identifier companion length pending UI entry. (Seller identifier)",

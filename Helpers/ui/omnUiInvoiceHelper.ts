@@ -62,6 +62,7 @@ import {
   TXN_SUMMARY_INVOICE,
   UAE_COUNTRY_CODE,
 } from "../../testData/FieldValidations/ConditionalValidation";
+import { createInvoiceIssueDateScenarios } from "../../testData/FieldValidations/InvoiceIssueDateValidation";
 import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -719,6 +720,34 @@ export async function runOmnUiMinMaxCase(
   }
 }
 
+export async function runOmnUiIssueDateCase(
+  page: Page,
+  entry: OmnUiEntry,
+  scenarioName: string
+): Promise<void> {
+  const scenario = createInvoiceIssueDateScenarios().find(
+    (candidate) => candidate.name === scenarioName
+  );
+  if (!scenario) {
+    throw new Error(`Unknown issue date scenario ${scenarioName}`);
+  }
+
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, "document", entry, new Set());
+  const value =
+    typeof scenario.issueDateValue === "string"
+      ? scenario.issueDateValue
+      : String(scenario.issueDateValue);
+  await invoice.replaceInput("document", "invDate", value, ["issueDate", "invIssueDate"]);
+
+  if (scenario.shouldError) {
+    const message = await invoice.readFieldError("document", "invDate", ["issueDate"]);
+    expect(message.length).toBeGreaterThan(0);
+    return;
+  }
+  await invoice.clickSectionCommit("document", entry);
+}
+
 export async function runOmnUiFieldCatalogRow(
   page: Page,
   entry: OmnUiEntry,
@@ -726,6 +755,10 @@ export async function runOmnUiFieldCatalogRow(
 ): Promise<void> {
   if (row.mode === "skip") {
     throw new Error(`runOmnUiFieldCatalogRow called for skip row: ${row.group}`);
+  }
+  if (row.kind === "issueDate") {
+    await runOmnUiIssueDateCase(page, entry, row.excelTitle ?? "");
+    return;
   }
   throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);
 }
