@@ -156,7 +156,7 @@ export const fieldValidationConditional: FieldLengthRule[] = [
   { field: "Item attribute name", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
   { field: "Item attribute value", min: 1, max: 300, belowMin: 0, aboveMax: 301 },
   { field: "Supporting document reference", min: 1, max: 64, belowMin: 0, aboveMax: 65 },
-  { field: "Supporting document UUID", min: 1, max: 64, belowMin: 0, aboveMax: 65 },
+  { field: "Supporting document UUID", min: 1, max: 108, belowMin: 0, aboveMax: 109 },
   { field: "Scheme Identifier - Payment", min: 1, max: 10, belowMin: 0, aboveMax: 11 },
   { field: "Payment account identifier", min: 1, max: 35, belowMin: 0, aboveMax: 36 },
   /** Tax Rate: Oman length rule 1–1 (single character / single digit). */

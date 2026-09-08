@@ -382,6 +382,37 @@ export class OMN_UIInvoiceManualPage {
     await this.clearDate("document", inputId);
   }
 
+  private foldAutocompleteLabel(value: string): string {
+    return value.trim().toLowerCase().replace(/[- ]+/g, " ");
+  }
+
+  private autocompleteValueMatches(current: string, option: string | RegExp): boolean {
+    if (typeof option !== "string") return option.test(current);
+    return (
+      current === option || this.foldAutocompleteLabel(current) === this.foldAutocompleteLabel(option)
+    );
+  }
+
+  private async autocompleteOption(
+    listbox: Locator,
+    option: string | RegExp
+  ): Promise<Locator> {
+    if (typeof option !== "string") {
+      return listbox.getByRole("option", { name: option });
+    }
+    // exact: "Credit note" must not match "Factored credit note". Hyphen fold
+    // covers "Self billed credit note" vs "Self-billed credit note". Substring
+    // is last for ICD-prefixed Peppol labels ("0248: Oman … (VATIN)").
+    const exact = listbox.getByRole("option", { name: option, exact: true });
+    if ((await exact.count()) > 0) return exact;
+    const folded = option
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/[- ]+/g, "[- ]");
+    const hyphenFold = listbox.getByRole("option", { name: new RegExp(`^${folded}$`, "i") });
+    if ((await hyphenFold.count()) > 0) return hyphenFold;
+    return listbox.getByRole("option", { name: option });
+  }
+
   async selectAutocomplete(
     section: OmnUiSection,
     inputId: string,
@@ -392,7 +423,7 @@ export class OMN_UIInvoiceManualPage {
     const input = await this.resolveInput(section, inputId, altInputIds);
     await expect(input).toBeVisible({ timeout: 15_000 });
     const current = (await input.inputValue().catch(() => "")).trim();
-    if (typeof option === "string" ? current === option : option.test(current)) {
+    if (this.autocompleteValueMatches(current, option)) {
       return;
     }
     // Buyer Peppol stays disabled until country schemes load. The disabled popup
@@ -402,22 +433,22 @@ export class OMN_UIInvoiceManualPage {
       input,
       `${section} #${inputId} should be enabled before selecting`
     ).toBeEnabled({ timeout: 15_000 });
+    // MUI keeps the previous option until the clear (X) is used. fill() over a
+    // prefilled Invoice Type / Transaction Type does not commit a new value.
+    if (current) {
+      await this.clearInput(section, inputId, altInputIds);
+      await this.dismissOpenDropdown();
+    }
     await input.click();
     if (typeof option === "string") {
-      await input.fill("");
       await input.fill(option);
     }
     const listbox = this.page.locator('[role="listbox"]').last();
-    await expect(listbox).toBeVisible({ timeout: 15_000 });
-    // exact: "Credit note" must not match "Factored credit note". Fall back to
-    // substring for ICD-prefixed Peppol labels ("0248: Oman … (VATIN)").
-    let choice =
-      typeof option === "string"
-        ? listbox.getByRole("option", { name: option, exact: true })
-        : listbox.getByRole("option", { name: option });
-    if (typeof option === "string" && (await choice.count()) === 0) {
-      choice = listbox.getByRole("option", { name: option });
+    if (!(await listbox.isVisible().catch(() => false))) {
+      await input.press("ArrowDown");
     }
+    await expect(listbox).toBeVisible({ timeout: 15_000 });
+    const choice = await this.autocompleteOption(listbox, option);
     await expect(choice.first()).toBeVisible({ timeout: 15_000 });
     try {
       await choice.first().click({ timeout: 5_000 });
@@ -428,7 +459,7 @@ export class OMN_UIInvoiceManualPage {
     const selected = (await input.inputValue().catch(() => "")).trim();
     if (typeof option === "string") {
       expect(
-        selected === option || selected.includes(option),
+        this.autocompleteValueMatches(selected, option) || selected.includes(option),
         `${section} #${inputId} should contain ${option}`
       ).toBe(true);
     } else {

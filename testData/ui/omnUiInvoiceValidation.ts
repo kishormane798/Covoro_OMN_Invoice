@@ -39,6 +39,9 @@ import {
   INVOICING_PERIOD_CONDITIONAL_SCENARIOS,
   INVOICING_PERIOD_END_DATE_FIELD,
   INVOICING_PERIOD_START_DATE_FIELD,
+  ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS,
+  ITEM_ATTRIBUTE_NAME_FIELD,
+  ITEM_ATTRIBUTE_VALUE_FIELD,
   ITEM_COUNTRY_OF_ORIGIN_FIELD,
   ITEM_TYPE_GOODS,
   OMAN_HS_CODE_12,
@@ -756,6 +759,7 @@ export type OmnUiConditionalKind =
   | "exemptionReason"
   | "vatCategoryRate"
   | "prepaymentPaidAmount"
+  | "itemAttribute"
   | "copyInvoiceNumberEmpty";
 
 export type OmnUiConditionalScenario = {
@@ -811,6 +815,8 @@ export type OmnUiConditionalScenario = {
   paidAmount?: string;
   prepaymentInvoiceNumber?: string;
   prepaymentInvoiceUuid?: string;
+  itemAttributeName?: string;
+  itemAttributeValue?: string;
 };
 
 export type OmnUiPrecedingEnablement = "all" | "refAndUuid" | "none";
@@ -858,6 +864,16 @@ const CV_FIELD_LOC: Record<string, CvFieldLoc> = {
     section: "item",
     inputId: "originCountry",
     altInputIds: ["itemCountryOfOrigin", "countryOfOrigin"],
+  },
+  [ITEM_ATTRIBUTE_NAME_FIELD]: {
+    section: "item",
+    inputId: "itemAttributeName",
+    altInputIds: ["attributeName"],
+  },
+  [ITEM_ATTRIBUTE_VALUE_FIELD]: {
+    section: "item",
+    inputId: "itemAttributeValue",
+    altInputIds: ["attributeValue"],
   },
   [SELLER_VAT_IDENTIFIER_FIELD]: {
     section: "seller",
@@ -1487,6 +1503,20 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
     };
   }),
   ...mapUiBuyerIdentifierScheme(),
+  ...ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS.map((s) => {
+    const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[ITEM_ATTRIBUTE_VALUE_FIELD]);
+    return {
+      title: s.title,
+      ruleId: s.ruleId,
+      kind: "itemAttribute" as const,
+      section: loc.section,
+      shouldError: s.shouldError,
+      assertInputId: loc.inputId,
+      altInputIds: loc.altInputIds,
+      itemAttributeName: s.itemAttributeName,
+      itemAttributeValue: s.itemAttributeValue,
+    };
+  }),
   {
     title: "Copied invoice number is empty until filled",
     section: "document",

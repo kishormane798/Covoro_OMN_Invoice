@@ -222,7 +222,7 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     includeEmpty: false,
   }),
   ...uuidCases(PREPAY_UUID, "Prepayment", "prepayment", 109),
-  ...uuidCases(SUPPORT_UUID, "Supporting document", "supporting", 65).map((c) =>
+  ...uuidCases(SUPPORT_UUID, "Supporting document", "supporting", 109).map((c) =>
     c.condition === "empty"
       ? {
           ...c,
