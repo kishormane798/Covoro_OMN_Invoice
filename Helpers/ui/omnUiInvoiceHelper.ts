@@ -856,12 +856,24 @@ export async function runOmnUiPartyIdentifierCompanionCase(
       OMN_UI_PARTY_IDENTIFIER_SCHEME,
       schemeRule.altInputIds
     );
+  } else {
+    await invoice.clearAutocomplete(
+      section,
+      schemeRule.inputId,
+      schemeRule.altInputIds
+    );
   }
   if (scenario.companion === "code" || scenario.companion === "both") {
     await invoice.selectAutocomplete(
       section,
       codeRule.inputId,
       OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE,
+      codeRule.altInputIds
+    );
+  } else {
+    await invoice.clearAutocomplete(
+      section,
+      codeRule.inputId,
       codeRule.altInputIds
     );
   }
