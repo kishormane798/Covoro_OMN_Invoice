@@ -87,7 +87,7 @@ Useful **npm** scripts:
 | `npm run report`                                            | Open the **HTML** report (use this so `data/` attachments resolve).         |
 | `npm run allure:generate`                                   | Build single-file Allure report under `allure-report/`.                     |
 | `npm run allure:serve`                                      | Serve Allure from `allure-results` without a permanent folder.              |
-| `npm run clean`                                             | Remove reports, results, Allure output, generated data, and outage markers. |
+| `npm run clean`                                             | Remove `playwright-report`, `allure-results`, `allure-report`, `blob-report`, `reports`, generated data, outage markers, auth state (`storageState.json`, `sessionStorage.json`), and `consecutive-fail-skip.json`. |
 | `npm run lint`                                              | ESLint.                                                                     |
 | `npm run format`                                            | Prettier for `ts`, `js`, `json`, `md`.                                      |
 
@@ -189,7 +189,7 @@ Push your branch, then open a PR from your branch to `main` on Bitbucket and inc
 
 - **`Missing TEST_USER_EMAIL or TEST_USER_PASSWORD`** — Add both to `.env`.
 - **Site unreachable / tests skipped** — Global setup or navigation may write `site-unavailable.json` (and per-worker `site-unavailable-w*.json`). Fix network/`BASE_URL`, then remove markers or run `npm run clean`.
-- **Stale login** — Delete `storageState.json` and rerun so global setup logs in again.
+- **Stale login** — Run `npm run clean` (or delete `storageState.json` and `sessionStorage.json`), then rerun so global setup logs in again.
 - **Python / Excel errors** — Ensure `pip install -r requirements.txt` and that `python`/`py` runs `utils/excel/invoice_excel_writer.py` from the repo root.
 
 ---

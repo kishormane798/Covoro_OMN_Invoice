@@ -16,7 +16,7 @@
     "allure:generate": "npx allure generate allure-results --clean --single-file -o allure-report",
     "allure:open": "npx allure open allure-report",
     "allure:serve": "npx allure serve allure-results",
-    "clean": "rimraf playwright-report test-results allure-results allure-report blob-report site-unavailable.json testData/generated && rimraf -g \"site-unavailable-w*.json\"",
+    "clean": "rimraf playwright-report test-results allure-results allure-report blob-report reports report site-unavailable.json testData/generated storageState.json sessionStorage.json consecutive-fail-skip.json consecutive-fail-skip.lock && rimraf -g \"site-unavailable-w*.json\"",
     "install:browsers": "playwright install",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,js,json,md}\""

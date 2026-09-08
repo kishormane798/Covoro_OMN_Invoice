@@ -2317,20 +2317,27 @@ export function buildSellerIdentifierSchemeScenarioRow(
     row[FV.SELLER_COUNTRY_CODE_FIELD] = FV.OMAN_COUNTRY_CODE;
   }
   let next = applyPartyIdentifiersByTxnType(row);
-  if (txn === FV.TXN_SPECIAL_ZONE_SUPPLIES) {
+  const isSpecialZone = txn === FV.TXN_SPECIAL_ZONE_SUPPLIES;
+  if (isSpecialZone) {
     next = applySpecialZoneCountrySubdivisions(next);
   }
   // IBR-007 probe: set scheme / textual / ID from scenario (override txn overlays).
+  // Special Zone + free-zone subdivision also needs textual SZLN (IBR-151-OM)
+  // on the Allowed path; empty textual is an IBR-151 error, not IBR-007.
   next[FV.SELLER_IDENTIFIER_SCHEME_FIELD] =
     scenario.sellerCompanion === "scheme" ? schemeLabel : "";
   next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
     scenario.sellerCompanion === "code"
-      ? txn === FV.TXN_SPECIAL_ZONE_SUPPLIES
+      ? isSpecialZone
         ? FV.SPECIAL_ZONE_LICENSE_SCHEME
         : codeLabel
-      : "";
+      : scenario.sellerCompanion === "scheme" &&
+          isSpecialZone &&
+          scenario.sellerIdentifierProvided
+        ? FV.SPECIAL_ZONE_LICENSE_SCHEME
+        : "";
   next[FV.SELLER_IDENTIFIER_FIELD] = scenario.sellerIdentifierProvided
-    ? txn === FV.TXN_SPECIAL_ZONE_SUPPLIES
+    ? isSpecialZone
       ? "SZ-SELLER-001"
       : "OM-SELLER-001"
     : "";

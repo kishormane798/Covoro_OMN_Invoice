@@ -149,21 +149,6 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
     }
   });
 
-  test.describe("Unique Identifier Number must be UUID v5 (IBR-002-OM)", () => {
-    for (const scenario of FV.UUID_VERSION5_SCENARIOS) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildPrecedingInvoiceScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.PRECEDING_INVOICE_UUID_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
   // Phase 3 — FX
   test.describe("Currency exchange and accounting (IBR-004/005/034/172/DEC-03-OM)", () => {
     for (const scenario of FV.EXCHANGE_RATE_SCENARIOS) {

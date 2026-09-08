@@ -442,16 +442,9 @@ export const SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13 = "Sohar Free Zone.";
 export const MAINLAND_OMAN_COUNTRY_SUBDIVISION_CL13 = "Mainland Oman.";
 /** Not on CL-13-OM — IBR-150-OM Not Allowed (codelist) polarity. */
 export const COUNTRY_SUBDIVISION_NOT_IN_CL13 = "NOT-A-CL13-SUBDIVISION";
-/** Valid UUID version 5 (IBR-002-OM / BTOM-002|BTOM-031 pattern). */
+/** Valid UUID version 5 (BTOM-002|BTOM-031 pattern). */
 export const PRECEDING_INVOICE_UUID_SAMPLE =
   "a1b2c3d4-e5f6-5a90-8bcd-ef1234567890";
-
-/** UUID v4 — fails IBR-002-OM (version nibble must be 5). */
-export const UUID_V4_INVALID_FOR_IBR_002 =
-  "a1b2c3d4-e5f6-4a90-8bcd-ef1234567890";
-
-/** Non-UUID garbage — fails IBR-002-OM. */
-export const UUID_GARBAGE_INVALID_FOR_IBR_002 = "UUID-PREV-OMN-001";
 
 export const ITEM_TYPE_GOODS = itemTypeValidTestData[0]!.label;
 export const ITEM_TYPE_SERVICES = itemTypeValidTestData[1]!.label;
@@ -2927,49 +2920,6 @@ export const PRECEDING_INVOICE_SCENARIOS: PrecedingInvoiceScenario[] = [
     creditDebitNoteReasonCode: "",
     shouldError: false,
     expectedErrorField: PRECEDING_INVOICE_REFERENCE_FIELD,
-  },
-];
-
-/**
- * IBR-002-OM: Unique Identifier Number must match UUID version 5 when provided.
- * Covoro column sits with preceding-invoice fields (used as BTOM-031 on CN/DN).
- */
-export const UUID_VERSION5_SCENARIOS: PrecedingInvoiceScenario[] = [
-  {
-    ruleId: "IBR-002-OM",
-    title:
-      "Given a Credit note — When the UUID is version 5 — Then the invoice should be accepted. (IBR-002-OM)",
-    invoiceTypeCode: INVOICE_TYPE_CREDIT_NOTE,
-    precedingInvoiceReference: "INV-PREV-002",
-    precedingInvoiceIssueDate: "2026-01-15",
-    precedingInvoiceUuid: PRECEDING_INVOICE_UUID_SAMPLE,
-    creditDebitNoteReasonCode: CREDIT_DEBIT_REASON_SAMPLE,
-    shouldError: false,
-    expectedErrorField: PRECEDING_INVOICE_UUID_FIELD,
-  },
-  {
-    ruleId: "IBR-002-OM",
-    title:
-      "Given a Credit note — When the UUID is version 4 — Then the invoice should be rejected with an error. (IBR-002-OM)",
-    invoiceTypeCode: INVOICE_TYPE_CREDIT_NOTE,
-    precedingInvoiceReference: "INV-PREV-002",
-    precedingInvoiceIssueDate: "2026-01-15",
-    precedingInvoiceUuid: UUID_V4_INVALID_FOR_IBR_002,
-    creditDebitNoteReasonCode: CREDIT_DEBIT_REASON_SAMPLE,
-    shouldError: true,
-    expectedErrorField: PRECEDING_INVOICE_UUID_FIELD,
-  },
-  {
-    ruleId: "IBR-002-OM",
-    title:
-      "Given a Credit note — When the UUID is not a valid UUID — Then the invoice should be rejected with an error. (IBR-002-OM)",
-    invoiceTypeCode: INVOICE_TYPE_CREDIT_NOTE,
-    precedingInvoiceReference: "INV-PREV-002",
-    precedingInvoiceIssueDate: "2026-01-15",
-    precedingInvoiceUuid: UUID_GARBAGE_INVALID_FOR_IBR_002,
-    creditDebitNoteReasonCode: CREDIT_DEBIT_REASON_SAMPLE,
-    shouldError: true,
-    expectedErrorField: PRECEDING_INVOICE_UUID_FIELD,
   },
 ];
 

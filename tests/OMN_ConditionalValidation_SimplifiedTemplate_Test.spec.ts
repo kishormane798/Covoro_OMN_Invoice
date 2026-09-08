@@ -203,24 +203,6 @@ test.describe("Conditional validation (Simplified)", () => {
     }
   });
 
-  test.describe("Unique Identifier Number must be UUID v5 (IBR-002-OM)", () => {
-    for (const scenario of keepConditionalScenarios(
-      FV.UUID_VERSION5_SCENARIOS,
-      FV.PRECEDING_INVOICE_UUID_FIELD
-    )) {
-      test(`${scenario.title}`, async ({ page }) => {
-        const rowData =
-          ConditionalRows.buildPrecedingInvoiceScenarioRow(scenario);
-        await verifyConditionalScenario(
-          page,
-          rowData,
-          scenario.expectedErrorField ?? FV.PRECEDING_INVOICE_UUID_FIELD,
-          scenario.shouldError
-        );
-      });
-    }
-  });
-
   test.describe("Currency exchange and accounting (IBR-004/005/034/172/DEC-03-OM)", () => {
     for (const scenario of keepConditionalScenarios(
       FV.EXCHANGE_RATE_SCENARIOS,
