@@ -417,6 +417,70 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
   },
 ];
 
+export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [
+  "Tax accounting currency amount required (ibr-053)",
+  "Amount decimal precision (IBR-DEC-03-OM)",
+  "VAT rate numeric format (IBR-046-OM)",
+  "Item Type required (IBR-078-OM)",
+  "Classification identifier for goods lines (IBR-079-OM)",
+  "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
+  "Profit Margin Self-Invoice (IBR-086/087-OM)",
+  "Summary Invoice period (IBR-037-OM)",
+  "Summary Invoice period same calendar month (IBR-036-OM)",
+  "Document allowance/charge VAT category and exemption (IBR-062/064-OM)",
+  "Document level charge reason code (IBR-042-OM)",
+  "Export Deliver to country (IBR-014-OM)",
+  "Export Service Type (IBR-155-OM / CL-12)",
+  "Export deliver country must not be Oman (IBR-012-OM)",
+  "Export supporting documents (IBR-013-OM)",
+  "Special Zone country subdivision (IBR-150-OM)",
+  "Special Zone seller identifier (IBR-151-OM)",
+  "Self-billed / RCM Buyer VATIN (IBR-017-OM)",
+  "Seller / Buyer / Third Party VATIN pattern (IBR-003-OM)",
+  "Self-billed / RCM Buyer country must be Oman (IBR-020-OM)",
+  "Self-billed document transaction constraint (IBR-177-OM)",
+  "Prepayment cannot combine with Summary, Deemed, or Profit Margin Self-Invoice (IBR-176-OM)",
+  "Document charge/allowance category rate (IBR-045/047/094-OM)",
+  "VAT breakdown category presence (ALIGNED-IBRP-E/O/S/Z-01-OM)",
+  "Line item VAT amount required (IBR-038-OM)",
+  "Line VAT amount zero for Exempt (IBR-039-OM)",
+  "Line VAT amount zero for Not subject and Zero rated (IBR-054/077-OM)",
+  "Exempt VAT category tax amount must be zero (ALIGNED-IBRP-E-09-OM)",
+  "Not subject VAT category tax amount must be zero (ALIGNED-IBRP-O-09-OM)",
+  "Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)",
+  "Seller identifier + scheme mandatory (IBR-007-OM)",
+  "HS code must be 12 digits (IBR-080-OM)",
+  "Document allowance exemption reason codelist (IBR-CL-05-OM / IBR-CL-10-OM)",
+  "RCM seller country must not be Oman (IBR-160-OM)",
+  "Profit Margin preceding invoice (IBR-175-OM)",
+  "Profit Margin HS prefix ban (IBR-091-OM)",
+  "Profit Margin item type code (CL-11-OM)",
+  "Buyer/Seller identifier scheme and textual code (PARTY-ID)",
+  "Amounts and quantities non-negative except rounding (IBR-137-OM)",
+] as const;
+
+const OMN_UI_CALCULATED_PENDING_GROUPS = new Set<string>([
+  "Line item VAT amount required (IBR-038-OM)",
+  "Line VAT amount zero for Exempt (IBR-039-OM)",
+  "Line VAT amount zero for Not subject and Zero rated (IBR-054/077-OM)",
+  "Exempt VAT category tax amount must be zero (ALIGNED-IBRP-E-09-OM)",
+  "Not subject VAT category tax amount must be zero (ALIGNED-IBRP-O-09-OM)",
+  "Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)",
+]);
+
+export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] =
+  OMN_UI_CONDITIONAL_PENDING_GROUPS.map((group) => ({
+    group,
+    title: group,
+    mode: "skip",
+    skipReason: OMN_UI_CALCULATED_PENDING_GROUPS.has(group)
+      ? OMN_UI_SKIP.calculated
+      : group === "HS Code from ROP Customs list for goods lines (IBR-174-OM)"
+        ? OMN_UI_SKIP.masterList
+        : OMN_UI_SKIP.noControl(`${group} runner`),
+    kind: "pending",
+  }));
+
 export const OMN_UI_MIN_MAX_VARIANTS: readonly OmnUiMinMaxVariant[] = [
   "min",
   "max",
