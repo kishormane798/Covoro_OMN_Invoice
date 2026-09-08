@@ -881,40 +881,10 @@ export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] = [
   })),
 ];
 
-export const OMN_UI_CONDITIONAL_RESIDUAL_GROUPS = [
-  "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
-  "Amounts and quantities non-negative except rounding (IBR-137-OM)",
-] as const;
+export const OMN_UI_CONDITIONAL_SKIP_GROUPS = OMN_UI_CONDITIONAL_PENDING_GROUPS;
 
-export const OMN_UI_CONDITIONAL_RESIDUAL_CATALOG: OmnUiCatalogRow[] = [
-  {
-    group: "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
-    title: "Remaining ROP HS master values are covered by representative UI cases.",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.masterList,
-    kind: "pending",
-  },
-  ...AMOUNT_QUANTITY_SIGN_SCENARIOS.filter((scenario) => {
-    const field = scenario.amountField ?? scenario.expectedErrorField;
-    return !field || !omnUiNumericFieldLocation(field);
-  }).map((scenario) => ({
-    group: "Amounts and quantities non-negative except rounding (IBR-137-OM)",
-    title: scenario.title,
-    mode: "skip" as const,
-    skipReason: OMN_UI_SKIP.calculated,
-    kind: "pending" as const,
-  })),
-];
-
-export const OMN_UI_CONDITIONAL_SKIP_GROUPS = [
-  ...OMN_UI_CONDITIONAL_PENDING_GROUPS,
-  ...OMN_UI_CONDITIONAL_RESIDUAL_GROUPS,
-] as const;
-
-export const OMN_UI_CONDITIONAL_SKIP_CATALOG: OmnUiCatalogRow[] = [
-  ...OMN_UI_CONDITIONAL_PENDING_CATALOG,
-  ...OMN_UI_CONDITIONAL_RESIDUAL_CATALOG,
-];
+export const OMN_UI_CONDITIONAL_SKIP_CATALOG: OmnUiCatalogRow[] =
+  OMN_UI_CONDITIONAL_PENDING_CATALOG;
 
 export const OMN_UI_MIN_MAX_VARIANTS: readonly OmnUiMinMaxVariant[] = [
   "min",
@@ -1588,6 +1558,8 @@ export type OmnUiConditionalScenario = {
   dropdownStyle?: boolean;
   /** UI gate: field must stay disabled (do not type a value). */
   expectDisabled?: boolean;
+  /** Named Allure skip; mapped loop must not call the runner. */
+  skipReason?: string;
   invoiceTypeCode?: string;
   invoiceTransactionTypeCode?: string;
   invoiceCurrencyCode?: string;
@@ -2091,12 +2063,13 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
     ])
   ),
-  ...HS_CODE_FROM_ROP_LIST_SCENARIOS.filter(
-    (s, index) => index === HS_CODE_FROM_ROP_LIST_SCENARIOS.findIndex(
-      (candidate) => candidate.shouldError === s.shouldError
-    )
-  ).map((s) =>
-    catalogControlScenario(s, "item", UI_CLASSIFICATION_IDS[0], [
+  ...HS_CODE_FROM_ROP_LIST_SCENARIOS.map((s, index) => {
+    const representative =
+      index ===
+      HS_CODE_FROM_ROP_LIST_SCENARIOS.findIndex(
+        (candidate) => candidate.shouldError === s.shouldError
+      );
+    const row = catalogControlScenario(s, "item", UI_CLASSIFICATION_IDS[0], [
       { section: "item", inputId: "itemType", control: "autocomplete", value: s.itemType },
       {
         section: "item",
@@ -2107,8 +2080,9 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
             : "autocomplete",
         value: s.itemClassificationIdentifier,
       },
-    ])
-  ),
+    ]);
+    return representative ? row : { ...row, skipReason: OMN_UI_SKIP.masterList };
+  }),
   ...PROFIT_MARGIN_SELF_INVOICE_SCENARIOS.map((s) => ({
     ...catalogControlScenario(
       { ...s, invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE },
@@ -2538,20 +2512,29 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
     ], ["identifier"]);
   }),
-  ...AMOUNT_QUANTITY_SIGN_SCENARIOS.flatMap((s) => {
+  ...AMOUNT_QUANTITY_SIGN_SCENARIOS.map((s) => {
     const field = s.amountField ?? s.expectedErrorField;
     const location = field ? omnUiNumericFieldLocation(field) : undefined;
     const value = s.amountValue ??
       (field === "Invoiced quantity" ? s.invoicedQuantity : s.roundingAmount);
-    return location
-      ? [catalogControlScenario(s, location.section, location.inputId, [{
-          section: location.section,
-          inputId: location.inputId,
-          altInputIds: location.altInputIds,
-          control: "text",
-          value,
-        }], location.altInputIds)]
-      : [];
+    if (!location) {
+      return {
+        title: s.title,
+        ruleId: s.ruleId,
+        kind: "catalogControl" as const,
+        section: "item" as const,
+        shouldError: s.shouldError,
+        assertInputId: "itemGrossPrice",
+        skipReason: OMN_UI_SKIP.calculated,
+      };
+    }
+    return catalogControlScenario(s, location.section, location.inputId, [{
+      section: location.section,
+      inputId: location.inputId,
+      altInputIds: location.altInputIds,
+      control: "text",
+      value,
+    }], location.altInputIds);
   }),
 ];
 

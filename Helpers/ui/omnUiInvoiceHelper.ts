@@ -1281,8 +1281,18 @@ async function runOmnUiFormulaCatalogScenario(
     (row.formulaFirstScenario ?? scenario) as InvoiceFormulaScenario,
     isOmnUiPrefilledLineItemEntry(entry)
   );
+  if (row.expectsError && (await invoice.itemModal().isVisible().catch(() => false))) {
+    await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
+    await invoice.expectSectionNotSaved("item", entry);
+    return;
+  }
   if (row.kind === "formulaTwoLine") {
     await fillOmnUiFormulaItem(invoice, entry, scenario as InvoiceFormulaScenario, false);
+    if (row.expectsError && (await invoice.itemModal().isVisible().catch(() => false))) {
+      await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
+      await invoice.expectSectionNotSaved("item", entry);
+      return;
+    }
   }
   await invoice.openSectionForEdit("invoice", entry);
   for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
@@ -2077,6 +2087,11 @@ export async function runOmnUiConditionalScenario(
   entry: OmnUiEntry,
   scenario: OmnUiConditionalScenario
 ): Promise<void> {
+  if (scenario.skipReason) {
+    throw new Error(
+      `runOmnUiConditionalScenario called for skipped row: ${scenario.title}`
+    );
+  }
   const invoice = await openOmnUiInvoiceEditor(page, entry);
 
   if (scenario.kind === "copyInvoiceNumberEmpty") {

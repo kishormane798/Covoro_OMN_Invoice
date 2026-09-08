@@ -31,6 +31,9 @@ test.describe("Copy Invoice UI — conditional", () => {
         test(
           omnUiConditionalDisplayTitle(ENTRY, scenario.title),
           async ({ page }) => {
+            if (scenario.skipReason) {
+              test.skip(true, scenario.skipReason);
+            }
             await runOmnUiConditionalScenario(page, ENTRY, scenario);
           }
         );
