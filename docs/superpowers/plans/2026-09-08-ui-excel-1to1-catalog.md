@@ -18,7 +18,7 @@
 - `tests/KISHOR_UI/OMN_UIInvoice_Attachment_Test.spec.ts` is out of scope.
 - Commented-out Excel `describe` blocks (txn mutual-exclusion IBR-138–149) stay out.
 - Do not replay full HS / UOM / currency master lists on the form.
-- Do **not** convert Excel **Dropdown — invalid values**, **Dropdown — invalid tax exemption reason (charges/allowances companions)**, or **Format / context fields — VATIN, UUID, rate, FX, profit margin**. Those catalog groups stay `mode: "skip"` (Task 3 stubs). Tasks 10 and 12 are cancelled.
+- Do **not** convert Excel **Dropdown — invalid values** or **Format / context fields — VATIN, UUID, rate, FX, profit margin**. Those stay `mode: "skip"`. Task 12 stays cancelled. Convert **Dropdown — invalid tax exemption reason (charges/allowances companions)** (user restored).
 - Do not run Playwright until the user says **run**.
 - Do not commit unless the user explicitly asks.
 - One Excel `describe` group converted from `skip` to `run` per agent turn after titles + skip stubs.
@@ -753,9 +753,9 @@ npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts --grep "In
 
 ---
 
-### Task 10: Convert invalid dropdown values — CANCELLED
+### Task 10: Convert invalid dropdown values — PARTIALLY CANCELLED
 
-Stay skip. Do not add `runOmnUiInvalidDropdownCase`. Catalog stubs for `Dropdown — invalid values` and `Dropdown — invalid tax exemption reason (charges/allowances companions)` remain `mode: "skip"`.
+Generic `Dropdown — invalid values` stays skipped. The restored exemption-companion subset is converted: line/charge/allowance reason controls select Exempt or Zero-rated VAT context, type each invalid label, commit the section, and assert a field error or rejected value.
 
 ---
 

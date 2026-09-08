@@ -2,8 +2,8 @@ import { test } from "../../Src/baseTest";
 import { runOmnUiConditionalScenario } from "../../Helpers/ui/omnUiInvoiceHelper";
 import { openOmnUiInvoiceEditor } from "../../Helpers/ui/omnUiInvoiceEntryHelper";
 import {
-  OMN_UI_CONDITIONAL_PENDING_CATALOG,
-  OMN_UI_CONDITIONAL_PENDING_GROUPS,
+  OMN_UI_CONDITIONAL_SKIP_CATALOG,
+  OMN_UI_CONDITIONAL_SKIP_GROUPS,
   OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS,
   OMN_UI_SECTION_ORDER,
   omnUiCatalogDisplayTitle,
@@ -31,6 +31,9 @@ test.describe("Copy Invoice UI — conditional", () => {
         test(
           omnUiConditionalDisplayTitle(ENTRY, scenario.title),
           async ({ page }) => {
+            if (scenario.skipReason) {
+              test.skip(true, scenario.skipReason);
+            }
             await runOmnUiConditionalScenario(page, ENTRY, scenario);
           }
         );
@@ -38,10 +41,10 @@ test.describe("Copy Invoice UI — conditional", () => {
     });
   }
 
-  for (const group of OMN_UI_CONDITIONAL_PENDING_GROUPS) {
+  for (const group of OMN_UI_CONDITIONAL_SKIP_GROUPS) {
     test.describe(`Copy Invoice UI — ${group}`, () => {
       for (const row of omnUiCatalogRowsFor(
-        OMN_UI_CONDITIONAL_PENDING_CATALOG,
+        OMN_UI_CONDITIONAL_SKIP_CATALOG,
         ENTRY,
         group
       )) {

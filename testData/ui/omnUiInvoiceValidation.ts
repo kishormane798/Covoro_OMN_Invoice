@@ -1,4 +1,6 @@
 import {
+  AMOUNT_DECIMAL_PRECISION_SCENARIOS,
+  AMOUNT_QUANTITY_SIGN_SCENARIOS,
   BUYER_ADDRESS_LINE_1_FIELD,
   BUYER_ADDRESS_LINE_2_FIELD,
   BUYER_ADDRESS_LINE_3_FIELD,
@@ -11,6 +13,9 @@ import {
   BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD,
   BUYER_POST_CODE_FIELD,
   BUYER_VAT_IDENTIFIER_FIELD,
+  DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS,
+  DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS,
+  DOCUMENT_CHARGE_REASON_SCENARIOS,
   CREDIT_DEBIT_NOTE_REASON_CODE_FIELD,
   CREDIT_DEBIT_REASON_SCENARIOS,
   CUSTOMS_DECLARATION_NUMBER_FIELD,
@@ -25,6 +30,10 @@ import {
   SOURCE_CURRENCY_CODE_FIELD,
   EXCHANGE_RATE_SCENARIOS,
   EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+  EXPORT_DELIVERY_SCENARIOS,
+  EXPORT_DELIVER_COUNTRY_FORBIDDEN_OM_SCENARIOS,
+  EXPORT_SERVICE_TYPE_SCENARIOS,
+  EXPORT_SUPPORTING_DOCUMENT_SCENARIOS,
   INVOICED_ITEM_TAX_RATE_FIELD,
   NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
   IMPORT_DATE_FIELD,
@@ -32,6 +41,10 @@ import {
   INCOTERMS_FIELD,
   INDUSTRIAL_CLASSIFICATION_CODE_FIELD,
   INDUSTRIAL_CLASSIFICATION_REQUIRED_SCENARIOS,
+  GOODS_CLASSIFICATION_SCENARIOS,
+  HS_CODE_FROM_ROP_LIST_SCENARIOS,
+  HS_CODE_LENGTH_SCENARIOS,
+  IBR_CL_05_DOC_ALLOWANCE_SCENARIOS,
   INVOICE_TYPE_COMMERCIAL_INVOICE,
   INVOICE_TYPE_CREDIT_NOTE,
   INVOICE_TYPE_SELF_BILLED_CREDIT_NOTE,
@@ -44,6 +57,7 @@ import {
   ITEM_ATTRIBUTE_VALUE_FIELD,
   ITEM_COUNTRY_OF_ORIGIN_FIELD,
   ITEM_TYPE_GOODS,
+  ITEM_TYPE_REQUIRED_SCENARIOS,
   OMAN_HS_CODE_12,
   CN_DN_SELF_BILLED_INVOICE_TYPES,
   PRECEDING_INVOICE_ISSUE_DATE_FIELD,
@@ -51,6 +65,10 @@ import {
   PRECEDING_INVOICE_SCENARIOS,
   PRECEDING_INVOICE_UUID_FIELD,
   PRECEDING_INVOICE_UUID_SAMPLE,
+  PREPAYMENT_TXN_EXCLUSION_SCENARIOS,
+  PROFIT_MARGIN_HS_PREFIX_SCENARIOS,
+  PROFIT_MARGIN_ITEM_TYPE_SCENARIOS,
+  PROFIT_MARGIN_SELF_INVOICE_SCENARIOS,
   PROFIT_MARGIN_PRECEDING_SCENARIOS,
   PREPAYMENT_PAID_AMOUNT_SCENARIOS,
   SELLER_ADDRESS_LINE_1_FIELD,
@@ -60,6 +78,8 @@ import {
   SELLER_CITY_FIELD,
   SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN,
   SELLER_POST_CODE_FIELD,
+  SELLER_COUNTRY_RCM_SCENARIOS,
+  SELLER_IDENTIFIER_SCHEME_SCENARIOS,
   SELLER_VAT_IDENTIFIER_FIELD,
   SELLER_VAT_MANDATORY_SCENARIOS,
   STANDARD_TAX_CATEGORY_CODE,
@@ -98,8 +118,20 @@ import {
   OMAN_CURRENCY_OMR,
   OMAN_CURRENCY_USD,
   SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+  SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS,
+  SPECIAL_ZONE_SELLER_SCENARIOS,
+  SELF_BILLED_BUYER_VAT_SCENARIOS,
+  SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS,
+  SELF_BILLED_TXN_CONSTRAINT_SCENARIOS,
+  SUMMARY_INVOICE_PERIOD_SCENARIOS,
+  SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS,
   SPECIAL_ZONE_LICENSE_SCHEME,
   TXN_SPECIAL_ZONE_SUPPLIES,
+  TAX_ACCOUNTING_CURRENCY_AMOUNT_SCENARIOS,
+  VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS,
+  VAT_RATE_FORMAT_SCENARIOS,
+  VATIN_PATTERN_SCENARIOS,
+  PARTY_IDENTIFIER_COMPANION_SCENARIOS,
 } from "../FieldValidations/ConditionalValidation";
 import { buyerSellerIdentifierCodeValidTestData } from "../Master/Master.omnCore";
 import {
@@ -109,11 +141,14 @@ import {
   fieldValidationOptional,
   formatOmanNumericBoundaryValue,
   invoiceFormulaTestData,
+  invoiceNegativeFormulaTestData,
+  type InvoiceFormulaScenario,
 } from "../FieldValidations/Min_max_field_validation";
 import { numericFieldConfigs } from "../../Helpers/excel/fieldValidationSpecSupport";
 import {
   conditionalDropdownFieldMasterConfig,
   dropdownFieldMasterConfig,
+  taxExemptionReasonInvalidWithDocumentCompanionsConfig,
 } from "../FieldValidations/TestDataConfig";
 import { createInvoiceIssueDateScenarios } from "../FieldValidations/InvoiceIssueDateValidation";
 import {
@@ -124,6 +159,7 @@ import {
   CL06_OM_NEGATIVE_SCENARIOS,
   CL06_OM_POSITIVE_PACKS,
 } from "../FieldValidations/buyerSellerIdentifierScheme";
+import { IBR_082_OM_CASES } from "../../Helpers/excel/formulaValidationHelper";
 
 export const OMN_UI_INVOICE_TEST_TIMEOUT_MS = 180_000;
 export const OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS = 240_000;
@@ -204,6 +240,11 @@ export type OmnUiCatalogRow = {
   cl06Companion?: "scheme" | "code";
   cl06CompanionValue?: string;
   cl06Identifier?: string;
+  vatContext?: "exempt" | "zero";
+  exemptionCode?: string;
+  exemptionText?: string;
+  formulaScenario?: Omit<InvoiceFormulaScenario, "expect">;
+  formulaFirstScenario?: Omit<InvoiceFormulaScenario, "expect">;
 };
 
 export function omnUiCatalogRowsFor(
@@ -491,6 +532,46 @@ const cl06Rows: OmnUiCatalogRow[] = [
   },
 ];
 
+const invalidExemptionRows: OmnUiCatalogRow[] =
+  taxExemptionReasonInvalidWithDocumentCompanionsConfig.flatMap((config) =>
+    config.master.map((option) => ({
+      group:
+        "Dropdown — invalid tax exemption reason (charges/allowances companions)",
+      title: `${config.field} (${config.vatCategoryLabel}) with invalid value "${option.label}" — the form should show an error. (${config.field})`,
+      mode: "run" as const,
+      kind: "dropdownInvalid" as const,
+      field: config.field,
+      vatContext: config.vatContext,
+      exemptionCode: option.label,
+      expectsError: true,
+    }))
+  );
+
+const exemptionCompanionRows: OmnUiCatalogRow[] = [
+  {
+    group: "Tax exemption reason — code / text companion",
+    title:
+      "Exempt VAT with exemption code and no text — Save should succeed. (Tax exemption reason text)",
+    mode: "run",
+    kind: "exemptionCompanion",
+    field: TAX_EXEMPTION_REASON_TEXT_FIELD,
+    exemptionCode: TAX_EXEMPTION_REASON_SAMPLE,
+    exemptionText: "",
+    expectsError: false,
+  },
+  {
+    group: "Tax exemption reason — code / text companion",
+    title:
+      "Exempt VAT with exemption text and no code — the form should show an error. (Tax exemption reason code)",
+    mode: "run",
+    kind: "exemptionCompanion",
+    field: TAX_EXEMPTION_REASON_CODE_FIELD,
+    exemptionCode: "",
+    exemptionText: "Exempt supply under Oman VAT",
+    expectsError: true,
+  },
+];
+
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...issueDateRows,
   ...partyIdentifierCompanionRows,
@@ -535,20 +616,8 @@ export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.noControl("invalid dropdown runner"),
     kind: "pending",
   },
-  {
-    group: "Dropdown — invalid tax exemption reason (charges/allowances companions)",
-    title: "Invalid charge/allowance exemption reason pending UI select. (Tax exemption reason - charges)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("exemption companion dropdown runner"),
-    kind: "pending",
-  },
-  {
-    group: "Tax exemption reason — code / text companion",
-    title: "Exemption code and text companion pending UI entry. (Tax exemption reason code)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("exemption companion runner"),
-    kind: "pending",
-  },
+  ...invalidExemptionRows,
+  ...exemptionCompanionRows,
   {
     group: "Format / context fields — VATIN, UUID, rate, FX, profit margin",
     title: "Format/context fields pending UI entry. (format)",
@@ -567,20 +636,133 @@ export const OMN_UI_FORMULA_CATALOG_GROUPS = [
   "Standard VAT category taxable amount (ALIGNED-IBRP-S-08-OM)",
   "Zero rated VAT category taxable amount (ALIGNED-IBRP-Z-08-OM)",
   "Profit Margin Total Amount Due (IBR-082-OM)",
+  "Non-OMR tax in accounting currency (IBT-111)",
   "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
   "Multi-line (2 lines) — same tax category",
   "Multi-line (20 lines) — positive (OMR)",
 ] as const;
 
-export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
-  {
-    group: "Invalid inputs",
-    title:
-      "Given Invalid inputs — When calculated totals match — Then Save should succeed. (Invalid inputs)",
+const negativeFormulaRows: OmnUiCatalogRow[] = invoiceNegativeFormulaTestData.map(
+  (scenario) => {
+    const noEditableControl = scenario.errorField === "Tax Rate";
+    return {
+      group: "Invalid inputs",
+      title: omnUiFormulaDisplayTitle("create", scenario.name, true),
+      mode: noEditableControl ? "skip" : "run",
+      ...(noEditableControl
+        ? { skipReason: OMN_UI_SKIP.noControl(scenario.errorField) }
+        : {}),
+      kind: "formulaNegative",
+      excelTitle: scenario.name,
+      formulaScenario: scenario,
+      expectsError: true,
+    };
+  }
+);
+
+const profitMarginFormulaRows: OmnUiCatalogRow[] = IBR_082_OM_CASES.map(
+  (scenario) => ({
+    group: "Profit Margin Total Amount Due (IBR-082-OM)",
+    title: scenario.title,
     mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("negative formula runner"),
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaProfitMargin",
+    expectsError: scenario.shouldError,
+  })
+);
+
+const nonOmrFormulaRows: OmnUiCatalogRow[] = invoiceFormulaTestData
+  .filter((scenario) => Boolean(scenario.nonOmrOnly))
+  .map((scenario) => ({
+    group: "Non-OMR tax in accounting currency (IBT-111)",
+    title: omnUiFormulaDisplayTitle("create", scenario.name),
+    mode: "run",
+    kind: "formulaNonOmr",
+    formulaScenario: scenario,
+  }));
+
+const lineNetFormulaRows: OmnUiCatalogRow[] = [
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Item Net Price — When it matches gross price minus discount — Then the invoice should be accepted. (IBR-075-OM)",
+    mode: "run",
     kind: "formulaNegative",
+    formulaScenario: {
+      name: "IBR-075-OM valid net = gross − discount",
+      itemPriceBaseQty: 1,
+      itemGrossPrice: 1000,
+      itemPriceDiscount: 100,
+      invoicedQty: 1,
+      lineCharge: 0,
+      lineAllowance: 0,
+      taxRate: 5,
+      docCharges: 0,
+      docAllowances: 0,
+      paidAmount: 0,
+      roundingAmount: 0,
+    },
+    expectsError: false,
   },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Item Net Price — When it does not match gross price minus discount — Then the invoice should be rejected with an error. (IBR-075-OM)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Invoice Line Net Amount — When it matches the formula — Then the invoice should be accepted. (IBR-071-OM)",
+    mode: "run",
+    kind: "formulaNegative",
+    formulaScenario: {
+      name: "IBR-071-OM valid line net with charge and allowance",
+      itemPriceBaseQty: 1,
+      itemGrossPrice: 1000,
+      itemPriceDiscount: 0,
+      invoicedQty: 2,
+      lineCharge: 10,
+      lineAllowance: 5,
+      taxRate: 5,
+      docCharges: 0,
+      docAllowances: 0,
+      paidAmount: 0,
+      roundingAmount: 0,
+    },
+    expectsError: false,
+  },
+  {
+    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
+    title:
+      "Given Invoice Line Net Amount — When it does not match the formula — Then the invoice should be rejected with an error. (IBR-071-OM)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "formulaMismatch",
+  },
+];
+
+const twoLineFormulaRows: OmnUiCatalogRow[] = [
+  ...invoiceFormulaTestData.map((scenario) => ({ scenario, expectsError: false })),
+  ...invoiceNegativeFormulaTestData.map((scenario) => ({ scenario, expectsError: true })),
+].map(({ scenario, expectsError }) => ({
+  group: "Multi-line (2 lines) — same tax category",
+  title: omnUiFormulaDisplayTitle(
+    "create",
+    `${scenario.name} on two lines`,
+    expectsError
+  ),
+  mode: "run",
+  kind: "formulaTwoLine",
+  formulaScenario: scenario,
+  formulaFirstScenario: expectsError ? invoiceFormulaTestData[0] : scenario,
+  expectsError,
+}));
+
+export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
+  ...negativeFormulaRows,
   {
     group: "Calculated field mismatch",
     title:
@@ -629,30 +811,10 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.calculated,
     kind: "formulaMismatch",
   },
-  {
-    group: "Profit Margin Total Amount Due (IBR-082-OM)",
-    title:
-      "Given Profit Margin Total Amount Due (IBR-082-OM) — When calculated totals match — Then Save should succeed. (Profit Margin Total Amount Due (IBR-082-OM))",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("profit margin formula runner"),
-    kind: "formulaProfitMargin",
-  },
-  {
-    group: "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
-    title:
-      "Given Item net price and line net formulas (IBR-075-OM / IBR-071-OM) — When calculated totals match — Then Save should succeed. (Item net price and line net formulas (IBR-075-OM / IBR-071-OM))",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("line net formula runner"),
-    kind: "formulaNegative",
-  },
-  {
-    group: "Multi-line (2 lines) — same tax category",
-    title:
-      "Given Multi-line (2 lines) — same tax category — When calculated totals match — Then Save should succeed. (Multi-line (2 lines) — same tax category)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.noControl("two-line Add Item runner"),
-    kind: "formulaTwoLine",
-  },
+  ...profitMarginFormulaRows,
+  ...nonOmrFormulaRows,
+  ...lineNetFormulaRows,
+  ...twoLineFormulaRows,
   {
     group: "Multi-line (20 lines) — positive (OMR)",
     title:
@@ -665,44 +827,14 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
 
 export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [
   "Tax accounting currency amount required (ibr-053)",
-  "Amount decimal precision (IBR-DEC-03-OM)",
   "VAT rate numeric format (IBR-046-OM)",
-  "Item Type required (IBR-078-OM)",
-  "Classification identifier for goods lines (IBR-079-OM)",
-  "HS Code from ROP Customs list for goods lines (IBR-174-OM)",
-  "Profit Margin Self-Invoice (IBR-086/087-OM)",
-  "Summary Invoice period (IBR-037-OM)",
-  "Summary Invoice period same calendar month (IBR-036-OM)",
-  "Document allowance/charge VAT category and exemption (IBR-062/064-OM)",
   "Document level charge reason code (IBR-042-OM)",
-  "Export Deliver to country (IBR-014-OM)",
-  "Export Service Type (IBR-155-OM / CL-12)",
-  "Export deliver country must not be Oman (IBR-012-OM)",
-  "Export supporting documents (IBR-013-OM)",
-  "Special Zone country subdivision (IBR-150-OM)",
-  "Special Zone seller identifier (IBR-151-OM)",
-  "Self-billed / RCM Buyer VATIN (IBR-017-OM)",
-  "Seller / Buyer / Third Party VATIN pattern (IBR-003-OM)",
-  "Self-billed / RCM Buyer country must be Oman (IBR-020-OM)",
-  "Self-billed document transaction constraint (IBR-177-OM)",
-  "Prepayment cannot combine with Summary, Deemed, or Profit Margin Self-Invoice (IBR-176-OM)",
-  "Document charge/allowance category rate (IBR-045/047/094-OM)",
-  "VAT breakdown category presence (ALIGNED-IBRP-E/O/S/Z-01-OM)",
   "Line item VAT amount required (IBR-038-OM)",
   "Line VAT amount zero for Exempt (IBR-039-OM)",
   "Line VAT amount zero for Not subject and Zero rated (IBR-054/077-OM)",
   "Exempt VAT category tax amount must be zero (ALIGNED-IBRP-E-09-OM)",
   "Not subject VAT category tax amount must be zero (ALIGNED-IBRP-O-09-OM)",
   "Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)",
-  "Seller identifier + scheme mandatory (IBR-007-OM)",
-  "HS code must be 12 digits (IBR-080-OM)",
-  "Document allowance exemption reason codelist (IBR-CL-05-OM / IBR-CL-10-OM)",
-  "RCM seller country must not be Oman (IBR-160-OM)",
-  "Profit Margin preceding invoice (IBR-175-OM)",
-  "Profit Margin HS prefix ban (IBR-091-OM)",
-  "Profit Margin item type code (CL-11-OM)",
-  "Buyer/Seller identifier scheme and textual code (PARTY-ID)",
-  "Amounts and quantities non-negative except rounding (IBR-137-OM)",
 ] as const;
 
 const OMN_UI_CALCULATED_PENDING_GROUPS = new Set<string>([
@@ -714,18 +846,48 @@ const OMN_UI_CALCULATED_PENDING_GROUPS = new Set<string>([
   "Zero rated VAT category tax amount must be zero (ALIGNED-IBRP-Z-09-OM)",
 ]);
 
-export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] =
-  OMN_UI_CONDITIONAL_PENDING_GROUPS.map((group) => ({
+export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] = [
+  ...TAX_ACCOUNTING_CURRENCY_AMOUNT_SCENARIOS.map((scenario) => ({
+    group: "Tax accounting currency amount required (ibr-053)",
+    title: scenario.title,
+    mode: "skip" as const,
+    skipReason: OMN_UI_SKIP.calculated,
+    kind: "pending" as const,
+  })),
+  ...DOCUMENT_CHARGE_REASON_SCENARIOS.map((scenario) => ({
+    group: "Document level charge reason code (IBR-042-OM)",
+    title: scenario.title,
+    mode: "skip" as const,
+    skipReason: OMN_UI_SKIP.noControl("Document level charge reason code"),
+    kind: "pending" as const,
+  })),
+  ...VAT_RATE_FORMAT_SCENARIOS.map((scenario) => ({
+    group: "VAT rate numeric format (IBR-046-OM)",
+    title: scenario.title,
+    mode: "skip" as const,
+    skipReason: OMN_UI_SKIP.noControl("editable Tax Rate"),
+    kind: "pending" as const,
+  })),
+  ...OMN_UI_CONDITIONAL_PENDING_GROUPS.filter(
+    (group) =>
+      group !== "Tax accounting currency amount required (ibr-053)" &&
+      group !== "VAT rate numeric format (IBR-046-OM)" &&
+      group !== "Document level charge reason code (IBR-042-OM)"
+  ).map((group) => ({
     group,
     title: group,
     mode: "skip",
     skipReason: OMN_UI_CALCULATED_PENDING_GROUPS.has(group)
       ? OMN_UI_SKIP.calculated
-      : group === "HS Code from ROP Customs list for goods lines (IBR-174-OM)"
-        ? OMN_UI_SKIP.masterList
-        : OMN_UI_SKIP.noControl(`${group} runner`),
+      : OMN_UI_SKIP.noControl(`${group} runner`),
     kind: "pending",
-  }));
+  })),
+];
+
+export const OMN_UI_CONDITIONAL_SKIP_GROUPS = OMN_UI_CONDITIONAL_PENDING_GROUPS;
+
+export const OMN_UI_CONDITIONAL_SKIP_CATALOG: OmnUiCatalogRow[] =
+  OMN_UI_CONDITIONAL_PENDING_CATALOG;
 
 export const OMN_UI_MIN_MAX_VARIANTS: readonly OmnUiMinMaxVariant[] = [
   "min",
@@ -1374,7 +1536,16 @@ export type OmnUiConditionalKind =
   | "vatCategoryRate"
   | "prepaymentPaidAmount"
   | "itemAttribute"
+  | "catalogControl"
   | "copyInvoiceNumberEmpty";
+
+export type OmnUiConditionalControlWrite = {
+  section: OmnUiSection;
+  inputId: string;
+  altInputIds?: readonly string[];
+  control: "text" | "autocomplete" | "autocompleteInput" | "date";
+  value: string | null | undefined;
+};
 
 export type OmnUiConditionalScenario = {
   title: string;
@@ -1385,10 +1556,14 @@ export type OmnUiConditionalScenario = {
   altInputIds?: readonly string[];
   ruleId?: string;
   entries?: readonly OmnUiEntry[];
+  /** Continue prerequisite section commits through this section before asserting. */
+  completeThrough?: OmnUiSection;
   /** Master txn/type expansion or a dropdown/autocomplete assert field. */
   dropdownStyle?: boolean;
   /** UI gate: field must stay disabled (do not type a value). */
   expectDisabled?: boolean;
+  /** Named Allure skip; mapped loop must not call the runner. */
+  skipReason?: string;
   invoiceTypeCode?: string;
   invoiceTransactionTypeCode?: string;
   invoiceCurrencyCode?: string;
@@ -1431,6 +1606,7 @@ export type OmnUiConditionalScenario = {
   prepaymentInvoiceUuid?: string;
   itemAttributeName?: string;
   itemAttributeValue?: string;
+  catalogWrites?: readonly OmnUiConditionalControlWrite[];
 };
 
 export type OmnUiPrecedingEnablement = "all" | "refAndUuid" | "none";
@@ -1838,7 +2014,548 @@ function mapUiVatCategoryRate(
   });
 }
 
+type CatalogConditionalSource = {
+  title: string;
+  ruleId: string;
+  shouldError: boolean;
+  invoiceTypeCode?: string;
+  invoiceTransactionTypeCode?: string;
+};
+
+function catalogControlScenario(
+  source: CatalogConditionalSource,
+  section: OmnUiSection,
+  inputId: string,
+  writes: readonly OmnUiConditionalControlWrite[],
+  altInputIds?: readonly string[]
+): OmnUiConditionalScenario {
+  return {
+    title: source.title,
+    ruleId: source.ruleId,
+    kind: "catalogControl",
+    section,
+    shouldError: source.shouldError,
+    assertInputId: inputId,
+    altInputIds,
+    invoiceTypeCode: source.invoiceTypeCode,
+    invoiceTransactionTypeCode: source.invoiceTransactionTypeCode,
+    catalogWrites: writes,
+  };
+}
+
+const UI_ITEM_TYPE_IDS = ["itemType"] as const;
+const UI_CLASSIFICATION_IDS = ["classificationIdentifier"] as const;
+const UI_SELLER_COUNTRY_IDS = ["country", "countryCode"] as const;
+const UI_BUYER_COUNTRY_IDS = ["country", "countryCode"] as const;
+const UI_SHIPPING_COUNTRY_IDS = ["country", "countryCode"] as const;
+
+const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
+  ...AMOUNT_DECIMAL_PRECISION_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "item", "itemGrossPrice", [
+      { section: "item", inputId: "itemGrossPrice", control: "text", value: s.itemGrossPrice },
+    ])
+  ),
+  ...ITEM_TYPE_REQUIRED_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "item", UI_ITEM_TYPE_IDS[0], [
+      {
+        section: "item",
+        inputId: UI_ITEM_TYPE_IDS[0],
+        control: "autocomplete",
+        value: s.itemType,
+      },
+    ])
+  ),
+  ...GOODS_CLASSIFICATION_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "item", UI_CLASSIFICATION_IDS[0], [
+      { section: "item", inputId: "itemType", control: "autocomplete", value: s.itemType },
+      {
+        section: "item",
+        inputId: UI_CLASSIFICATION_IDS[0],
+        control:
+          s.shouldError && Boolean(s.itemClassificationIdentifier)
+            ? "autocompleteInput"
+            : "autocomplete",
+        value: s.itemClassificationIdentifier,
+      },
+    ])
+  ),
+  ...HS_CODE_FROM_ROP_LIST_SCENARIOS.map((s, index) => {
+    const representative =
+      index ===
+      HS_CODE_FROM_ROP_LIST_SCENARIOS.findIndex(
+        (candidate) => candidate.shouldError === s.shouldError
+      );
+    const row = catalogControlScenario(s, "item", UI_CLASSIFICATION_IDS[0], [
+      { section: "item", inputId: "itemType", control: "autocomplete", value: s.itemType },
+      {
+        section: "item",
+        inputId: UI_CLASSIFICATION_IDS[0],
+        control:
+          s.shouldError && Boolean(s.itemClassificationIdentifier)
+            ? "autocompleteInput"
+            : "autocomplete",
+        value: s.itemClassificationIdentifier,
+      },
+    ]);
+    return representative ? row : { ...row, skipReason: OMN_UI_SKIP.masterList };
+  }),
+  ...PROFIT_MARGIN_SELF_INVOICE_SCENARIOS.map((s) => ({
+    ...catalogControlScenario(
+      { ...s, invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_SELF_INVOICE },
+      s.expectedErrorField === "Seller country code" ? "seller" : "item",
+      s.expectedErrorField === "Seller country code"
+        ? UI_SELLER_COUNTRY_IDS[0]
+        : "taxRateDtls[0].taxCategory",
+      [
+        {
+          section: "item",
+          inputId: "taxRateDtls[0].taxCategory",
+          control: "autocomplete",
+          value: s.taxCategory,
+        },
+        {
+          section: "seller",
+          inputId: UI_SELLER_COUNTRY_IDS[0],
+          altInputIds: UI_SELLER_COUNTRY_IDS.slice(1),
+          control: "autocomplete",
+          value: s.sellerCountryCode,
+        },
+      ]
+    ),
+    completeThrough: "item" as const,
+  })),
+  ...SUMMARY_INVOICE_PERIOD_SCENARIOS.map((s) => ({
+    title: s.title,
+    ruleId: s.ruleId,
+    kind: "invoicingPeriod" as const,
+    section: "document" as const,
+    shouldError: s.shouldError,
+    assertInputId: "invStartDate",
+    invoiceTypeCode: s.invoiceTypeCode,
+    invoiceTransactionTypeCode: s.invoiceTransactionTypeCode,
+    periodStart: s.periodStart,
+    periodEnd: s.periodEnd,
+  })),
+  ...SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS.map((s) => ({
+    title: s.title,
+    ruleId: s.ruleId,
+    kind: "invoicingPeriod" as const,
+    section: "document" as const,
+    shouldError: s.shouldError,
+    assertInputId: "invEndDate",
+    invoiceTypeCode: s.invoiceTypeCode,
+    invoiceTransactionTypeCode: s.invoiceTransactionTypeCode,
+    periodStart: s.periodStart,
+    periodEnd: s.periodEnd,
+  })),
+  ...EXPORT_DELIVERY_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "shipping", UI_SHIPPING_COUNTRY_IDS[0], [
+      {
+        section: "shipping",
+        inputId: UI_SHIPPING_COUNTRY_IDS[0],
+        altInputIds: UI_SHIPPING_COUNTRY_IDS.slice(1),
+        control: "autocomplete",
+        value: s.deliverToCountryCode,
+      },
+    ], UI_SHIPPING_COUNTRY_IDS.slice(1))
+  ),
+  ...EXPORT_SERVICE_TYPE_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "item", "serviceTypeCode", [
+      {
+        section: "item",
+        inputId: "taxRateDtls[0].taxCategory",
+        control: "autocomplete",
+        value: ZERO_RATED_TAX_CATEGORY_CODE,
+      },
+      {
+        section: "item",
+        inputId: "taxExemptionRsnType",
+        altInputIds: ["taxRateDtls[0].exemptionReasonCode", "taxExemptionReasonCode"],
+        control: "autocomplete",
+        value: s.taxExemptionReasonCode,
+      },
+      {
+        section: "item",
+        inputId: "serviceTypeCode",
+        control: s.serviceTypeCode === "NOT-A-CL12-SERVICE-TYPE"
+          ? "autocompleteInput"
+          : "autocomplete",
+        value: s.serviceTypeCode,
+      },
+    ])
+  ),
+  ...EXPORT_DELIVER_COUNTRY_FORBIDDEN_OM_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "shipping", UI_SHIPPING_COUNTRY_IDS[0], [
+      {
+        section: "item",
+        inputId: "taxRateDtls[0].taxCategory",
+        control: "autocomplete",
+        value: ZERO_RATED_TAX_CATEGORY_CODE,
+      },
+      {
+        section: "item",
+        inputId: "taxExemptionRsnType",
+        control: "autocomplete",
+        value: s.taxExemptionReasonCode,
+      },
+      {
+        section: "shipping",
+        inputId: UI_SHIPPING_COUNTRY_IDS[0],
+        altInputIds: UI_SHIPPING_COUNTRY_IDS.slice(1),
+        control: "autocomplete",
+        value: s.deliverToCountryCode,
+      },
+    ], UI_SHIPPING_COUNTRY_IDS.slice(1))
+  ),
+  ...EXPORT_SUPPORTING_DOCUMENT_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "payment", "supportingDocRef", [
+      {
+        section: "item",
+        inputId: "taxRateDtls[0].taxCategory",
+        control: "autocomplete",
+        value: ZERO_RATED_TAX_CATEGORY_CODE,
+      },
+      {
+        section: "item",
+        inputId: "taxExemptionRsnType",
+        control: "autocomplete",
+        value: s.taxExemptionReasonCode,
+      },
+      {
+        section: "payment",
+        inputId: "supportingDocRef",
+        altInputIds: ["supportingDocumentReference"],
+        control: "text",
+        value: s.supportingDocumentReference,
+      },
+      {
+        section: "payment",
+        inputId: "supportingDocUuid",
+        altInputIds: ["supportingDocumentUUID"],
+        control: "text",
+        value: s.supportingDocumentUuid,
+      },
+    ], ["supportingDocumentReference"])
+  ),
+  ...SELF_BILLED_BUYER_VAT_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "buyer", "vatIdentifier", [
+      {
+        section: "buyer",
+        inputId: "buyerIdentifier",
+        altInputIds: ["identifier"],
+        control: "text",
+        value: s.buyerIdentifier,
+      },
+      { section: "buyer", inputId: "vatIdentifier", control: "text", value: s.buyerVatIdentifier },
+    ])
+  ),
+  ...VATIN_PATTERN_SCENARIOS.map((s) => {
+    const section = s.party;
+    const inputId = "vatIdentifier";
+    return catalogControlScenario(s, section, inputId, [
+      { section, inputId, control: "text", value: s.vatinValue },
+    ], section === "seller" ? ["sellerVatIdentifier"] : undefined);
+  }),
+  ...SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "buyer", UI_BUYER_COUNTRY_IDS[0], [
+      {
+        section: "buyer",
+        inputId: UI_BUYER_COUNTRY_IDS[0],
+        altInputIds: UI_BUYER_COUNTRY_IDS.slice(1),
+        control: "autocomplete",
+        value: s.buyerCountryCode,
+      },
+    ], UI_BUYER_COUNTRY_IDS.slice(1))
+  ),
+  ...SELF_BILLED_TXN_CONSTRAINT_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "document", "invTxnType", [])
+  ),
+  ...PREPAYMENT_TXN_EXCLUSION_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "document", "invTxnType", [])
+  ),
+  ...[
+    ...DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS,
+    ...DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS,
+  ].map((s) => {
+    const charge = s.kind === "charge";
+    const amountId = charge
+      ? "docLevelCharges[0].amount"
+      : "docLevelAllowances[0].amount";
+    const categoryId = charge
+      ? "docLevelCharges[0].vatCategory"
+      : "docLevelAllowances[0].vatCategory";
+    const reasonId = charge
+      ? "docLevelCharges[0].exemptionRsn"
+      : "docLevelAllowances[0].exemptionRsn";
+    return catalogControlScenario(s, "invoice", reasonId, [
+      { section: "invoice", inputId: amountId, control: "text", value: s.amount },
+      { section: "invoice", inputId: categoryId, control: "autocomplete", value: s.vatCategory },
+      {
+        section: "invoice",
+        inputId: reasonId,
+        control: s.shouldError && Boolean(s.exemptionReason)
+          ? "autocompleteInput"
+          : "autocomplete",
+        value: s.exemptionReason,
+      },
+    ]);
+  }),
+  ...IBR_CL_05_DOC_ALLOWANCE_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "invoice", "docLevelAllowances[0].exemptionRsn", [
+      { section: "invoice", inputId: "docLevelAllowances[0].amount", control: "text", value: s.amount },
+      {
+        section: "invoice",
+        inputId: "docLevelAllowances[0].vatCategory",
+        control: "autocomplete",
+        value: s.vatCategory,
+      },
+      {
+        section: "invoice",
+        inputId: "docLevelAllowances[0].exemptionRsn",
+        control: s.shouldError && Boolean(s.exemptionReason)
+          ? "autocompleteInput"
+          : "autocomplete",
+        value: s.exemptionReason,
+      },
+    ])
+  ),
+  ...VAT_BREAKDOWN_CATEGORY_PRESENCE_SCENARIOS.map((s) => {
+    const source = s.source ?? "line";
+    const componentPrefix =
+      source === "charge" ? "docLevelCharges[0]" : "docLevelAllowances[0]";
+    const componentWrites: OmnUiConditionalControlWrite[] =
+      source === "line"
+        ? []
+        : [
+            {
+              section: "invoice",
+              inputId: `${componentPrefix}.amount`,
+              control: "text",
+              value: "10",
+            },
+            {
+              section: "invoice",
+              inputId: `${componentPrefix}.vatCategory`,
+              control: "autocomplete",
+              value: s.taxCategory,
+            },
+          ];
+    const lineCategory =
+      source === "line" || s.breakdownMatches !== false
+        ? s.taxCategory
+        : s.taxCategory === STANDARD_TAX_CATEGORY_CODE
+          ? ZERO_RATED_TAX_CATEGORY_CODE
+          : STANDARD_TAX_CATEGORY_CODE;
+    const assertId =
+      source === "line"
+        ? "taxRateDtls[0].taxCategory"
+        : `${componentPrefix}.vatCategory`;
+    return catalogControlScenario(s, source === "line" ? "item" : "invoice", assertId, [
+      {
+        section: "item",
+        inputId: "taxRateDtls[0].taxCategory",
+        control: "autocomplete",
+        value: lineCategory,
+      },
+      ...componentWrites,
+    ]);
+  }),
+  ...SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS.map((s) =>
+    ({
+      ...catalogControlScenario(
+        s,
+        s.expectedErrorField?.startsWith("Seller") ? "seller" : "buyer",
+        "countrySubdivision",
+        [
+        {
+          section: "seller",
+          inputId: "countrySubdivision",
+          altInputIds: ["sellerCountrySubdivision"],
+          control: "autocomplete",
+          value: s.sellerCountrySubdivisionCode,
+        },
+        {
+          section: "buyer",
+          inputId: "countrySubdivision",
+          altInputIds: ["buyerCountrySubdivision"],
+          control: s.shouldError && Boolean(s.buyerCountrySubdivisionCode)
+            ? "autocompleteInput"
+            : "autocomplete",
+          value: s.buyerCountrySubdivisionCode,
+        },
+        ]
+      ),
+      completeThrough: "buyer" as const,
+    })
+  ),
+  ...SPECIAL_ZONE_SELLER_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "seller", "sellerIdentifier", [
+      {
+        section: "seller",
+        inputId: "sellerIdentifier",
+        altInputIds: ["identifier"],
+        control: "text",
+        value: s.sellerIdentifier,
+      },
+      {
+        section: "seller",
+        inputId: "schemeIdentifier",
+        altInputIds: ["sellerSchemeIdentifier"],
+        control: "autocomplete",
+        value: s.sellerIdentifierScheme,
+      },
+      {
+        section: "seller",
+        inputId: "identifierCode",
+        altInputIds: ["textualCode", "sellerIdentifierCode"],
+        control: "autocomplete",
+        value: s.sellerIdentifierTextualCode,
+      },
+      {
+        section: "seller",
+        inputId: "countrySubdivision",
+        altInputIds: ["sellerCountrySubdivision"],
+        control: "autocomplete",
+        value: s.sellerCountrySubdivisionCode,
+      },
+    ], ["identifier"])
+  ),
+  ...SELLER_IDENTIFIER_SCHEME_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "seller", "sellerIdentifier", [
+      {
+        section: "seller",
+        inputId: "sellerIdentifier",
+        altInputIds: ["identifier"],
+        control: "text",
+        value: s.sellerIdentifierProvided ? "OM-SELLER-001" : "",
+      },
+      {
+        section: "seller",
+        inputId: "schemeIdentifier",
+        altInputIds: ["sellerSchemeIdentifier"],
+        control: "autocomplete",
+        value: s.sellerCompanion === "scheme"
+          ? SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN
+          : "",
+      },
+      {
+        section: "seller",
+        inputId: "identifierCode",
+        altInputIds: ["textualCode", "sellerIdentifierCode"],
+        control: "autocomplete",
+        value: s.sellerCompanion === "code"
+          ? OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE
+          : "",
+      },
+    ], ["identifier"])
+  ),
+  ...HS_CODE_LENGTH_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "item", UI_CLASSIFICATION_IDS[0], [
+      {
+        section: "item",
+        inputId: UI_CLASSIFICATION_IDS[0],
+        control:
+          s.shouldError && Boolean(s.itemClassificationIdentifier)
+            ? "autocompleteInput"
+            : "autocomplete",
+        value: s.itemClassificationIdentifier,
+      },
+    ])
+  ),
+  ...SELLER_COUNTRY_RCM_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "seller", UI_SELLER_COUNTRY_IDS[0], [
+      {
+        section: "seller",
+        inputId: UI_SELLER_COUNTRY_IDS[0],
+        altInputIds: UI_SELLER_COUNTRY_IDS.slice(1),
+        control: "autocomplete",
+        value: s.sellerCountryCode,
+      },
+    ], UI_SELLER_COUNTRY_IDS.slice(1))
+  ),
+  ...PROFIT_MARGIN_HS_PREFIX_SCENARIOS.map((s) =>
+    catalogControlScenario(
+      { ...s, invoiceTransactionTypeCode: TXN_PROFIT_MARGIN_INVOICE },
+      "item",
+      UI_CLASSIFICATION_IDS[0],
+      [{
+        section: "item",
+        inputId: UI_CLASSIFICATION_IDS[0],
+        control: "autocomplete",
+        value: s.itemClassificationIdentifier,
+      }]
+    )
+  ),
+  ...PROFIT_MARGIN_ITEM_TYPE_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "item", "profitMarginItemType", [
+      {
+        section: "item",
+        inputId: "profitMarginItemType",
+        altInputIds: ["profitMarginItemTypeCode"],
+        control:
+          s.shouldError && Boolean(s.profitMarginItemTypeCode)
+            ? "autocompleteInput"
+            : "autocomplete",
+        value: s.profitMarginItemTypeCode,
+      },
+    ], ["profitMarginItemTypeCode"])
+  ),
+  ...PARTY_IDENTIFIER_COMPANION_SCENARIOS.map((s) => {
+    const seller = s.party === "seller";
+    const section = seller ? "seller" as const : "buyer" as const;
+    const identifierId = seller ? "sellerIdentifier" : "buyerIdentifier";
+    const schemeId = seller ? "schemeIdentifier" : "schemeIdentifier";
+    const codeId = "identifierCode";
+    return catalogControlScenario(s, section, identifierId, [
+      { section, inputId: identifierId, altInputIds: ["identifier"], control: "text", value: s.identifier },
+      {
+        section,
+        inputId: schemeId,
+        altInputIds: seller ? ["sellerSchemeIdentifier"] : ["buyerSchemeIdentifier"],
+        control: "autocomplete",
+        value: s.companion === "scheme" || s.companion === "both"
+          ? SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN
+          : "",
+      },
+      {
+        section,
+        inputId: codeId,
+        altInputIds: ["textualCode", seller ? "sellerIdentifierCode" : "buyerIdentifierCode"],
+        control: "autocomplete",
+        value: s.companion === "code" || s.companion === "both"
+          ? OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE
+          : "",
+      },
+    ], ["identifier"]);
+  }),
+  ...AMOUNT_QUANTITY_SIGN_SCENARIOS.map((s) => {
+    const field = s.amountField ?? s.expectedErrorField;
+    const location = field ? omnUiNumericFieldLocation(field) : undefined;
+    const value = s.amountValue ??
+      (field === "Invoiced quantity" ? s.invoicedQuantity : s.roundingAmount);
+    if (!location) {
+      return {
+        title: s.title,
+        ruleId: s.ruleId,
+        kind: "catalogControl" as const,
+        section: "item" as const,
+        shouldError: s.shouldError,
+        assertInputId: "itemGrossPrice",
+        skipReason: OMN_UI_SKIP.calculated,
+      };
+    }
+    return catalogControlScenario(s, location.section, location.inputId, [{
+      section: location.section,
+      inputId: location.inputId,
+      altInputIds: location.altInputIds,
+      control: "text",
+      value,
+    }], location.altInputIds);
+  }),
+];
+
 const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
+  ...remainingCatalogConditionalScenarios,
   ...EXCHANGE_RATE_SCENARIOS.filter((s) => s.expectedErrorField === EXCHANGE_RATE_FIELD).map(
     (s) => {
       const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[EXCHANGE_RATE_FIELD]);
@@ -1900,9 +2617,7 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       precedingInvoiceUuid: s.precedingInvoiceUuid,
     };
   }),
-  ...PROFIT_MARGIN_PRECEDING_SCENARIOS.filter(
-    (s) => s.invoiceTypeCode === INVOICE_TYPE_COMMERCIAL_INVOICE
-  ).map((s) => {
+  ...PROFIT_MARGIN_PRECEDING_SCENARIOS.map((s) => {
     const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[PRECEDING_INVOICE_REFERENCE_FIELD]);
     return {
       title: s.title,

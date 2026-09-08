@@ -36,7 +36,9 @@ import {
   OMN_UI_PRECEDING_DATE_ID,
   OMN_UI_PRECEDING_REF_ID,
   OMN_UI_PRECEDING_UUID_ID,
+  OMN_UI_PROFIT_MARGIN_TOTAL_DUE,
   OMN_UI_SECTION_ORDER,
+  OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT,
   OMN_UI_TAX_CATEGORY_STANDARD,
   OMN_UI_UNIT_OF_MEASURE,
   OMN_UI_TXN_FULL_TAX,
@@ -56,7 +58,10 @@ import {
 import type { PartyIdentifierLengthCase } from "../../testData/FieldValidations/partyIdentifierCompanionLength";
 import {
   CREDIT_DEBIT_REASON_SAMPLE,
+  EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+  OMAN_CURRENCY_USD,
   PRECEDING_INVOICE_UUID_SAMPLE,
+  TAX_EXEMPTION_REASON_SAMPLE,
   TAX_EXEMPTION_REASON_TEXT_SAMPLE,
   TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
   TAX_RATE_ZERO,
@@ -68,10 +73,12 @@ import {
   TXN_IMPORT_OF_SERVICES_RCM,
   TXN_PREPAYMENT_INVOICE,
   TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
   TXN_SELF_BILLED_INVOICE,
   TXN_SUMMARY_INVOICE,
   TXN_THIRD_PARTY_INVOICE,
   UAE_COUNTRY_CODE,
+  ZERO_RATED_TAX_CATEGORY_CODE,
 } from "../../testData/FieldValidations/ConditionalValidation";
 import { createInvoiceIssueDateScenarios } from "../../testData/FieldValidations/InvoiceIssueDateValidation";
 import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
@@ -1150,6 +1157,127 @@ export async function runOmnUiCl06Case(
   await invoice.expectSectionSavedReadOnly(section);
 }
 
+async function runOmnUiInvalidExemptionCase(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  const rule = OMN_UI_FIELD_RULES.find((candidate) => candidate.field === row.field);
+  if (!rule || !row.exemptionCode || !row.vatContext) {
+    throw new Error(`Invalid exemption row is missing UI metadata: ${row.title}`);
+  }
+  const vatCategory =
+    row.vatContext === "exempt"
+      ? EXEMPT_FROM_TAX_TAX_CATEGORY_CODE
+      : ZERO_RATED_TAX_CATEGORY_CODE;
+  const vatField =
+    row.field === "Tax exemption reason code"
+      ? OMN_UI_FIELD_RULES.find((candidate) => candidate.field === "Tax Category")
+      : OMN_UI_FIELD_RULES.find((candidate) =>
+          candidate.field ===
+          (row.field === "Tax exemption reason - charges"
+            ? "Vat category - charges"
+            : "Vat category - allowances")
+        );
+  if (!vatField) {
+    throw new Error(`Missing VAT category rule for ${row.field}`);
+  }
+
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, rule.section, entry, new Set([
+    rule.inputId,
+    vatField.inputId,
+  ]));
+  await invoice.selectAutocomplete(
+    rule.section,
+    vatField.inputId,
+    vatCategory,
+    vatField.altInputIds
+  );
+  await invoice.replaceInput(
+    rule.section,
+    rule.inputId,
+    row.exemptionCode,
+    rule.altInputIds
+  );
+  await invoice.dismissOpenDropdown();
+  await commitSection(invoice, rule.section, entry);
+  const message = await invoice.readFieldError(
+    rule.section,
+    rule.inputId,
+    rule.altInputIds
+  );
+  const actual = await invoice.readInputValue(
+    rule.section,
+    rule.inputId,
+    rule.altInputIds
+  );
+  expect(
+    Boolean(message) || actual !== row.exemptionCode,
+    `${row.field} should show an error or reject the invalid value`
+  ).toBe(true);
+  await invoice.expectSectionNotSaved(rule.section, entry);
+}
+
+async function runOmnUiExemptionCompanionCase(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  const categoryRule = OMN_UI_FIELD_RULES.find((rule) => rule.field === "Tax Category");
+  const codeRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === "Tax exemption reason code"
+  );
+  const textRule = OMN_UI_FIELD_RULES.find(
+    (rule) => rule.field === "Tax exemption reason text"
+  );
+  if (!categoryRule || !codeRule || !textRule) {
+    throw new Error("Missing item exemption companion UI rules");
+  }
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await ensureSectionBaseline(invoice, "item", entry, new Set([
+    categoryRule.inputId,
+    codeRule.inputId,
+    textRule.inputId,
+  ]));
+  await invoice.selectAutocomplete(
+    "item",
+    categoryRule.inputId,
+    EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+    categoryRule.altInputIds
+  );
+  await writeAutocomplete(
+    invoice,
+    entry,
+    "item",
+    codeRule.inputId,
+    row.exemptionCode,
+    codeRule.altInputIds
+  );
+  await writeText(
+    invoice,
+    entry,
+    "item",
+    textRule.inputId,
+    row.exemptionText,
+    textRule.altInputIds
+  );
+  await commitSection(invoice, "item", entry);
+  const assertedRule = row.expectsError ? codeRule : textRule;
+  const message = await invoice.readFieldError(
+    "item",
+    assertedRule.inputId,
+    assertedRule.altInputIds
+  );
+  if (row.expectsError) {
+    expect(message, `expected a field error for ${row.field}`).toBeTruthy();
+    await invoice.expectSectionNotSaved("item", entry);
+    return;
+  }
+  expect(message, `did not expect a field error for ${row.field}`).toBeFalsy();
+  await invoice.expectSectionSavedReadOnly("item");
+}
+
 export async function runOmnUiFieldCatalogRow(
   page: Page,
   entry: OmnUiEntry,
@@ -1192,7 +1320,146 @@ export async function runOmnUiFieldCatalogRow(
     await runOmnUiCl06Case(page, entry, row);
     return;
   }
+  if (row.kind === "dropdownInvalid") {
+    await runOmnUiInvalidExemptionCase(page, entry, row);
+    return;
+  }
+  if (row.kind === "exemptionCompanion") {
+    await runOmnUiExemptionCompanionCase(page, entry, row);
+    return;
+  }
   throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);
+}
+
+async function fillOmnUiFormulaItem(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: InvoiceFormulaScenario,
+  prefilled: boolean
+): Promise<void> {
+  await invoice.openItemEditor(prefilled);
+  await fillIfEmpty(invoice, "item", "itemName", "Formula item");
+  if (!(await invoice.readInputValue("item", "industrialClassification"))) {
+    await invoice.selectAutocomplete(
+      "item",
+      "industrialClassification",
+      OMN_UI_INDUSTRIAL_CLASSIFICATION
+    );
+  }
+  if (!(await invoice.readInputValue("item", "itemType"))) {
+    await invoice.selectAutocomplete("item", "itemType", OMN_UI_ITEM_TYPE_GOODS);
+  }
+  if (!(await invoice.readInputValue("item", "unitOfMeasure"))) {
+    await invoice.selectAutocomplete("item", "unitOfMeasure", OMN_UI_UNIT_OF_MEASURE);
+  }
+  if (!(await invoice.readInputValue("item", "taxRateDtls[0].taxCategory"))) {
+    await invoice.selectAutocomplete(
+      "item",
+      "taxRateDtls[0].taxCategory",
+      OMN_UI_TAX_CATEGORY_STANDARD
+    );
+  }
+  for (const key of OMN_UI_ITEM_FORMULA_KEYS) {
+    await fillFormulaCandidate(invoice, "item", key, scenario[key]);
+  }
+  await invoice.clickItemCommit(entry);
+  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 }).catch(() => {});
+}
+
+async function expectAnyFormulaError(
+  invoice: OMN_UIInvoiceManualPage,
+  scenario: InvoiceFormulaScenario
+): Promise<void> {
+  const messages: string[] = [];
+  for (const key of [...OMN_UI_ITEM_FORMULA_KEYS, ...OMN_UI_INVOICE_FORMULA_KEYS]) {
+    const ids = OMN_UI_FORMULA_INPUT_CANDIDATES[key];
+    if (!ids?.length || scenario[key] === undefined) continue;
+    const section: OmnUiSection = OMN_UI_ITEM_FORMULA_KEYS.includes(
+      key as (typeof OMN_UI_ITEM_FORMULA_KEYS)[number]
+    )
+      ? "item"
+      : "invoice";
+    messages.push(await invoice.readFieldError(section, ids[0], ids.slice(1)));
+  }
+  expect(
+    messages.some(Boolean),
+    `expected a formula field error for ${scenario.name}`
+  ).toBe(true);
+}
+
+async function runOmnUiFormulaCatalogScenario(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow
+): Promise<void> {
+  const scenario = row.formulaScenario;
+  if (!scenario) {
+    throw new Error(`Formula catalog row is missing scenario metadata: ${row.title}`);
+  }
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await invoice.openSectionForEdit("document", entry);
+  await ensureDocumentBaseline(invoice, entry, new Set(["invTxnType", "invCurrCode"]));
+
+  if (row.kind === "formulaProfitMargin") {
+    await invoice.selectAutocomplete(
+      "document",
+      "invTxnType",
+      scenario.invoiceTransactionTypeCode || TXN_PROFIT_MARGIN_INVOICE
+    );
+  } else if (row.kind === "formulaNonOmr") {
+    await invoice.selectFirstNonOmrCurrency();
+    await invoice.selectAutocomplete(
+      "document",
+      "taxAccountingCurrency",
+      OMAN_CURRENCY_USD,
+      ["taxAccCurr", "taxAccountingCurrCode"]
+    );
+  }
+  await invoice.clickSectionCommit("document", entry);
+  await invoice.expectSectionSavedReadOnly("document");
+
+  await fillOmnUiFormulaItem(
+    invoice,
+    entry,
+    (row.formulaFirstScenario ?? scenario) as InvoiceFormulaScenario,
+    isOmnUiPrefilledLineItemEntry(entry)
+  );
+  if (row.expectsError && (await invoice.itemModal().isVisible().catch(() => false))) {
+    await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
+    await invoice.expectSectionNotSaved("item", entry);
+    return;
+  }
+  if (row.kind === "formulaTwoLine") {
+    await fillOmnUiFormulaItem(invoice, entry, scenario as InvoiceFormulaScenario, false);
+    if (row.expectsError && (await invoice.itemModal().isVisible().catch(() => false))) {
+      await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
+      await invoice.expectSectionNotSaved("item", entry);
+      return;
+    }
+  }
+  await invoice.openSectionForEdit("invoice", entry);
+  for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
+    await fillFormulaCandidate(invoice, "invoice", key, scenario[key]);
+  }
+  await commitSection(invoice, "invoice", entry);
+
+  if (row.expectsError) {
+    await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
+    await invoice.expectSectionNotSaved("invoice", entry);
+    return;
+  }
+  const target =
+    row.kind === "formulaProfitMargin"
+      ? OMN_UI_PROFIT_MARGIN_TOTAL_DUE
+      : row.kind === "formulaNonOmr"
+        ? OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT
+        : undefined;
+  if (target) {
+    const [inputId, ...altInputIds] = target.inputIds;
+    const value = await invoice.readInputValue(target.section, inputId, altInputIds);
+    expect(value, `${target.excelField} should be visible and calculated`).not.toBe("");
+  }
+  await invoice.expectSectionSavedReadOnly("invoice");
 }
 
 export async function runOmnUiFormulaCatalogRow(
@@ -1202,6 +1469,15 @@ export async function runOmnUiFormulaCatalogRow(
 ): Promise<void> {
   if (row.mode === "skip") {
     throw new Error(`runOmnUiFormulaCatalogRow called for skip row: ${row.group}`);
+  }
+  if (
+    row.kind === "formulaNegative" ||
+    row.kind === "formulaProfitMargin" ||
+    row.kind === "formulaNonOmr" ||
+    row.kind === "formulaTwoLine"
+  ) {
+    await runOmnUiFormulaCatalogScenario(page, entry, row);
+    return;
   }
   throw new Error(`No UI runner for formula catalog kind ${row.kind} (${row.group})`);
 }
@@ -1338,7 +1614,11 @@ function sectionsForConditional(scenario: OmnUiConditionalScenario): OmnUiSectio
   for (const section of extraSectionsForKind(scenario.kind)) {
     needed.add(section);
   }
+  for (const write of scenario.catalogWrites ?? []) {
+    needed.add(write.section);
+  }
   needed.add(scenario.section);
+  if (scenario.completeThrough) needed.add(scenario.completeThrough);
   return OMN_UI_SECTION_ORDER.filter((section) => needed.has(section));
 }
 
@@ -1347,6 +1627,11 @@ function excludeIdsForConditional(
   section: OmnUiSection
 ): Set<string> {
   const ids = new Set<string>();
+  for (const write of scenario.catalogWrites ?? []) {
+    if (write.section !== section) continue;
+    ids.add(write.inputId);
+    for (const alt of write.altInputIds ?? []) ids.add(alt);
+  }
   if (section === "document") {
     if (scenario.invoiceTypeCode !== undefined) ids.add("invType");
     if (scenario.invoiceTransactionTypeCode !== undefined) ids.add("invTxnType");
@@ -1945,11 +2230,74 @@ async function applyConditionalSectionFields(
   }
 }
 
+async function applyCatalogControlWrites(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario,
+  section: OmnUiSection
+): Promise<void> {
+  for (const write of scenario.catalogWrites ?? []) {
+    if (write.section !== section) continue;
+    if (write.control === "autocompleteInput") {
+      const literal = excelFormulaToUiValue(write.value) ?? "";
+      if (isUiEmptyValue(literal)) {
+        await leaveOrClearEmpty(
+          invoice,
+          entry,
+          section,
+          write.inputId,
+          write.altInputIds ?? [],
+          "autocomplete"
+        );
+      } else {
+        await invoice.replaceInput(
+          section,
+          write.inputId,
+          literal,
+          write.altInputIds
+        );
+        await invoice.dismissOpenDropdown();
+      }
+    } else if (write.control === "autocomplete") {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        section,
+        write.inputId,
+        write.value,
+        write.altInputIds
+      );
+    } else if (write.control === "date") {
+      await writeDate(
+        invoice,
+        entry,
+        section,
+        write.inputId,
+        write.value ?? undefined
+      );
+    } else {
+      await writeText(
+        invoice,
+        entry,
+        section,
+        write.inputId,
+        write.value ?? undefined,
+        write.altInputIds
+      );
+    }
+  }
+}
+
 export async function runOmnUiConditionalScenario(
   page: Page,
   entry: OmnUiEntry,
   scenario: OmnUiConditionalScenario
 ): Promise<void> {
+  if (scenario.skipReason) {
+    throw new Error(
+      `runOmnUiConditionalScenario called for skipped row: ${scenario.title}`
+    );
+  }
   const invoice = await openOmnUiInvoiceEditor(page, entry);
 
   if (scenario.kind === "copyInvoiceNumberEmpty") {
@@ -1972,11 +2320,12 @@ export async function runOmnUiConditionalScenario(
       }
     );
     await applyConditionalSectionFields(invoice, entry, scenario, section);
+    await applyCatalogControlWrites(invoice, entry, scenario, section);
     await commitSection(invoice, section, entry);
     // Save the section under test before later sections. Add Item takes
     // Document out of edit mode, so a Save after the item modal times out
     // (footer Save is gone — only Edit remains).
-    if (section === scenario.section) {
+    if (section === (scenario.completeThrough ?? scenario.section)) {
       break;
     }
   }

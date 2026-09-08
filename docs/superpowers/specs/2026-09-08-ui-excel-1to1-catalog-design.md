@@ -126,7 +126,7 @@ Source: each `test.describe` in `OMN_FieldValidation_CovoroTemplate_Test.spec.ts
 
 **Run** when the form has an `inputId` (or date/autocomplete already on `OMN_UI_FIELD_RULES`): type length/numeric values; pick Invoice Issue Date cases; party-identifier companion and CL-06 when those controls exist; tax exemption code/text companion when those controls exist.
 
-**Stay skip (do not convert):** Excel **Dropdown — invalid values**, invalid charge/allowance exemption-reason dropdowns, and **Format / context fields** (VATIN, UUID, rate, FX, profit margin). They remain listed with a named skip reason.
+**Stay skip (do not convert):** generic Excel **Dropdown — invalid values** and **Format / context fields** (VATIN, UUID, rate, FX, profit margin). Invalid line/charge/allowance exemption-reason dropdowns are converted with their Exempt/Zero-rated VAT companions and typed invalid values.
 
 **Skip** (row still listed):
 
