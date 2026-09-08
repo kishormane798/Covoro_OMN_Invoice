@@ -18,6 +18,7 @@
 - `tests/KISHOR_UI/OMN_UIInvoice_Attachment_Test.spec.ts` is out of scope.
 - Commented-out Excel `describe` blocks (txn mutual-exclusion IBR-138–149) stay out.
 - Do not replay full HS / UOM / currency master lists on the form.
+- Do **not** convert Excel **Dropdown — invalid values**, **Dropdown — invalid tax exemption reason (charges/allowances companions)**, or **Format / context fields — VATIN, UUID, rate, FX, profit margin**. Those catalog groups stay `mode: "skip"` (Task 3 stubs). Tasks 10 and 12 are cancelled.
 - Do not run Playwright until the user says **run**.
 - Do not commit unless the user explicitly asks.
 - One Excel `describe` group converted from `skip` to `run` per agent turn after titles + skip stubs.
@@ -752,18 +753,9 @@ npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts --grep "In
 
 ---
 
-### Task 10: Convert invalid dropdown values
+### Task 10: Convert invalid dropdown values — CANCELLED
 
-**Files:** `omnUiInvoiceValidation.ts`, `omnUiInvoiceHelper.ts`
-
-**Interfaces:**
-- Consumes: `dropdownInvalidOnCovoro` **labels only** (do not generate Excel)
-- Produces: `runOmnUiInvalidDropdownCase(page, entry, field, label)`
-
-- [ ] One catalog row per Excel invalid option title: `{Field} with invalid value "{label}" — the form should show an error. ({Field})`.
-- [ ] Runner: type/select that label in the autocomplete. If MUI ignores invalid text, assert the field does not accept it or shows helper text. Skip a field with `OMN_UI_SKIP.noControl(field)` if there is no input.
-- [ ] Charge/allowance exemption invalid companions: same runner with those `inputId`s (`docLevelCharges[0].exemptionRsn`, allowances).
-- [ ] Run after user says run.
+Stay skip. Do not add `runOmnUiInvalidDropdownCase`. Catalog stubs for `Dropdown — invalid values` and `Dropdown — invalid tax exemption reason (charges/allowances companions)` remain `mode: "skip"`.
 
 ---
 
@@ -777,13 +769,9 @@ npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts --grep "In
 
 ---
 
-### Task 12: Convert format/context fields
+### Task 12: Convert format/context fields — CANCELLED
 
-**Files:** `omnUiInvoiceValidation.ts`, `omnUiInvoiceHelper.ts`, `pageObjects/OMN_UIInvoiceManualPage.ts` only if MCP shows a missing control
-
-- [ ] For each Excel format/context case: if `inputId` exists, type the VATIN/UUID/rate/FX/profit-margin value (`mode: "run"`). If the control is calculated or missing, `mode: "skip"` with `OMN_UI_SKIP.calculated` or `noControl`.
-- [ ] Titles follow the field recipe with Save/Update.
-- [ ] Run after user says run.
+Stay skip. Do not add a format/context runner. Catalog stub for `Format / context fields — VATIN, UUID, rate, FX, profit margin` remains `mode: "skip"`.
 
 ---
 
@@ -903,7 +891,7 @@ npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.t
 |---|---|
 | Catalog shape + skip vocabulary | Task 1 |
 | Phase 1 titles (min/max, formula, copy invoice) | Task 2 |
-| Field skip stubs then convert | Tasks 3, 6–12 |
+| Field skip stubs then convert | Tasks 3, 6–9, 11 (10 and 12 cancelled — stay skip) |
 | Formula skip stubs; negative; PM; non-OMR; 2-line; 20-line skip; mismatch if editable | Tasks 4, 13–15 |
 | Conditional pending stubs; mapped groups unchanged | Task 5 |
 | One describe per turn; select/type; no Excel upload | Tasks 6–48 + Global Constraints |
