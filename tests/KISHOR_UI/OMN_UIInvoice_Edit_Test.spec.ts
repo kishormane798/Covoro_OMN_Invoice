@@ -38,13 +38,13 @@ test.describe("Edit Invoice UI — field and formula", () => {
     await invoice.expectEditorVisible();
   });
 
-  test.describe("Edit Invoice UI — Excel party identity", () => {
+  test.describe("Edit Invoice UI — party identity", () => {
     for (const identityCase of OMN_UI_EXCEL_PARTY_IDENTITY_CASES) {
       const party = identityCase.section === "seller" ? "Seller" : "Buyer";
       const source =
         identityCase.invoiceType === "selfBilled"
-          ? "from self-billed Excel worker TIN"
-          : "from Excel identity";
+          ? "from the self-billed worker TIN"
+          : "from the worker identity";
       test(
         `${party} VAT Identifier and electronic address ${source} — Update should succeed. (VAT Identifier)`,
         async ({ page }) => {

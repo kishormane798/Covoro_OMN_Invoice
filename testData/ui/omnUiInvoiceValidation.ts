@@ -124,6 +124,20 @@ import {
   SELF_BILLED_BUYER_VAT_SCENARIOS,
   SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS,
   SELF_BILLED_TXN_CONSTRAINT_SCENARIOS,
+  SELF_BILLED_TXN_EXCLUSION_SCENARIOS,
+  IBR_139_TXN_EXCLUSION_SCENARIOS,
+  SUMMARY_TXN_EXCLUSION_SCENARIOS,
+  CONTINUOUS_TXN_EXCLUSION_SCENARIOS,
+  IBR_142_TXN_EXCLUSION_SCENARIOS,
+  IBR_143_TXN_EXCLUSION_SCENARIOS,
+  IBR_144_TXN_EXCLUSION_SCENARIOS,
+  IBR_145_TXN_EXCLUSION_SCENARIOS,
+  IBR_146_TXN_EXCLUSION_SCENARIOS,
+  IBR_147_TXN_EXCLUSION_SCENARIOS,
+  IBR_148_TXN_EXCLUSION_SCENARIOS,
+  IBR_149_TXN_EXCLUSION_SCENARIOS,
+  SELF_BILLED_OR_RCM_TXN_TYPES,
+  splitOmanTxnMasterLabels,
   SUMMARY_INVOICE_PERIOD_SCENARIOS,
   SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS,
   SPECIAL_ZONE_LICENSE_SCHEME,
@@ -205,12 +219,12 @@ export type OmnUiCatalogMode = "run" | "skip";
 export const OMN_UI_SKIP = {
   noControl: (field: string) => `No Create Invoice control for ${field}.`,
   masterList:
-    "UI does not replay the full Excel master list; one representative value is used on the form.",
+    "UI does not replay the full field master list; one representative value is used on the form.",
   calculated: "This amount is calculated; the form does not let you enter it.",
   createOnly: "Create-only: Edit/Copy cannot set this the same way.",
-  partyIdentity: "Excel worker identity is covered by the party-identity UI cases.",
+  partyIdentity: "Worker identity is covered by the party-identity UI cases.",
   twentyLine:
-    "UI does not replay the 20-line Excel sweep; two lines cover multi-line entry.",
+    "UI does not replay the 20-line sweep; two lines cover multi-line entry.",
 } as const;
 
 export type OmnUiCatalogKind =
@@ -226,7 +240,8 @@ export type OmnUiCatalogKind =
   | "formulaProfitMargin"
   | "formulaNonOmr"
   | "formulaTwoLine"
-  | "formulaMismatch";
+  | "formulaMismatch"
+  | "txnExclusion";
 
 export type OmnUiCatalogRow = {
   group: string;
@@ -249,6 +264,8 @@ export type OmnUiCatalogRow = {
   exemptionText?: string;
   formulaScenario?: Omit<InvoiceFormulaScenario, "expect">;
   formulaFirstScenario?: Omit<InvoiceFormulaScenario, "expect">;
+  invoiceTypeCode?: string;
+  invoiceTransactionTypeCode?: string;
 };
 
 export function omnUiCatalogRowsFor(
@@ -283,6 +300,7 @@ export const OMN_UI_FIELD_CATALOG_GROUPS = [
   "Dropdown — invalid tax exemption reason (charges/allowances companions)",
   "Tax exemption reason — code / text companion",
   "Format / context fields — VATIN, UUID, rate, FX, profit margin",
+  "Invoice transaction type exclusion (IBR-138-OM … IBR-149-OM)",
 ] as const;
 
 const issueDateRows: OmnUiCatalogRow[] = [
@@ -559,6 +577,87 @@ const exemptionCompanionRows: OmnUiCatalogRow[] = [
   },
 ];
 
+const OMN_UI_TXN_EXCLUSION_GROUP =
+  "Invoice transaction type exclusion (IBR-138-OM … IBR-149-OM)";
+const OMN_UI_TXN_EXCLUSION_FORMULA_GROUP =
+  "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)";
+
+type TxnExclusionSource = {
+  title: string;
+  ruleId: string;
+  shouldError: boolean;
+  invoiceTransactionTypeCode: string;
+};
+
+function uiInvoiceTypeForTxnCell(cell: string): string {
+  const labels = splitOmanTxnMasterLabels(cell);
+  if (
+    labels.some((label) =>
+      (SELF_BILLED_OR_RCM_TXN_TYPES as readonly string[]).includes(label)
+    )
+  ) {
+    return INVOICE_TYPE_SELF_BILLED_INVOICE;
+  }
+  return INVOICE_TYPE_COMMERCIAL_INVOICE;
+}
+
+function uniqueUiTxnExclusionSources(
+  sources: readonly TxnExclusionSource[]
+): TxnExclusionSource[] {
+  const seen = new Set<string>();
+  const out: TxnExclusionSource[] = [];
+  for (const source of sources) {
+    const key = `${source.ruleId}|${source.invoiceTransactionTypeCode}|${source.shouldError}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(source);
+  }
+  return out;
+}
+
+const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
+  ...SELF_BILLED_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_139_TXN_EXCLUSION_SCENARIOS,
+  ...SUMMARY_TXN_EXCLUSION_SCENARIOS,
+  ...CONTINUOUS_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_142_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_143_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_144_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_145_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_146_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_147_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_148_TXN_EXCLUSION_SCENARIOS,
+  ...IBR_149_TXN_EXCLUSION_SCENARIOS,
+]).map((source) => ({
+  group: OMN_UI_TXN_EXCLUSION_GROUP,
+  title: source.title
+    .replace(/ \| Invoice Type: .+? \((IBR-\d+-OM)\)$/, " ($1)")
+    .replace("When the invoice is uploaded", "When the form is saved")
+    .replace("Then the invoice should be accepted.", "Then Save should succeed.")
+    .replace(
+      "Then the invoice should be rejected with an error.",
+      "Then that transaction type checkbox should be disabled."
+    ),
+  mode: "run" as const,
+  kind: "txnExclusion" as const,
+  field: "Invoice Transaction Type Code",
+  expectsError: source.shouldError,
+  invoiceTypeCode: uiInvoiceTypeForTxnCell(source.invoiceTransactionTypeCode),
+  invoiceTransactionTypeCode: source.invoiceTransactionTypeCode,
+}));
+
+const txnExclusionFormulaRows: OmnUiCatalogRow[] = txnExclusionFieldRows
+  .filter((row) => !row.expectsError)
+  .map((row) => ({
+    ...row,
+    group: OMN_UI_TXN_EXCLUSION_FORMULA_GROUP,
+    title: row.title.replace(
+      "When the form is saved",
+      "When calculated totals match"
+    ),
+    formulaScenario: invoiceFormulaTestData[0],
+  }));
+
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...issueDateRows,
   ...partyIdentifierCompanionRows,
@@ -619,6 +718,7 @@ export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.noControl("format context runner"),
     kind: "pending",
   },
+  ...txnExclusionFieldRows,
 ];
 
 export const OMN_UI_FORMULA_CATALOG_GROUPS = [
@@ -634,6 +734,7 @@ export const OMN_UI_FORMULA_CATALOG_GROUPS = [
   "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
   "Multi-line (2 lines) — same tax category",
   "Multi-line (20 lines) — positive (OMR)",
+  "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)",
 ] as const;
 
 const negativeFormulaRows: OmnUiCatalogRow[] = invoiceNegativeFormulaTestData.map(
@@ -817,6 +918,7 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.twentyLine,
     kind: "pending",
   },
+  ...txnExclusionFormulaRows,
 ];
 
 export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [

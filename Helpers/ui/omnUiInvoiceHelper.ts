@@ -70,19 +70,27 @@ import {
   TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
   TAX_RATE_ZERO,
   TXN_CONTINUOUS_SUPPLY,
+  TXN_FULL_TAX_INVOICE,
   TXN_IMPORT_OF_GOODS,
   TXN_IMPORT_OF_SERVICES_RCM,
   TXN_PREPAYMENT_INVOICE,
   TXN_PROFIT_MARGIN_INVOICE,
   TXN_PROFIT_MARGIN_SELF_INVOICE,
   TXN_SELF_BILLED_INVOICE,
+  TXN_SIMPLIFIED_TAX_INVOICE,
   TXN_SUMMARY_INVOICE,
   TXN_THIRD_PARTY_INVOICE,
+  SELF_BILLED_DOCUMENT_INVOICE_TYPES,
+  SELF_BILLED_OR_RCM_TXN_TYPES,
   UAE_COUNTRY_CODE,
   ZERO_RATED_TAX_CATEGORY_CODE,
+  splitOmanTxnMasterLabels,
 } from "../../testData/FieldValidations/ConditionalValidation";
 import { createInvoiceIssueDateScenarios } from "../../testData/FieldValidations/InvoiceIssueDateValidation";
-import type { InvoiceFormulaScenario } from "../../testData/FieldValidations/Min_max_field_validation";
+import {
+  invoiceFormulaTestData,
+  type InvoiceFormulaScenario,
+} from "../../testData/FieldValidations/Min_max_field_validation";
 
 function toNumber(value: unknown, fallback = 0): number {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -257,6 +265,55 @@ async function writePartyIdentity(
   expect(actual, `${section}.${inputId} should be entered`).toBe(value);
 }
 
+const COMMERCIAL_BASE_TXN_TYPES = new Set<string>([
+  TXN_FULL_TAX_INVOICE,
+  TXN_SIMPLIFIED_TAX_INVOICE,
+]);
+
+function isSelfBilledDocumentInvoiceType(invoiceType: string): boolean {
+  return (SELF_BILLED_DOCUMENT_INVOICE_TYPES as readonly string[]).includes(invoiceType);
+}
+
+function invoiceTypeForTxnLabels(labels: readonly string[]): string {
+  if (
+    labels.some((label) =>
+      (SELF_BILLED_OR_RCM_TXN_TYPES as readonly string[]).includes(label)
+    )
+  ) {
+    return OMN_UI_INVOICE_TYPE_SELF_BILLED;
+  }
+  return OMN_UI_INVOICE_TYPE_COMMERCIAL;
+}
+
+function txnLabelsToSelect(labels: readonly string[], invoiceType: string): string[] {
+  if (isSelfBilledDocumentInvoiceType(invoiceType)) return [...labels];
+  const needsFullTaxBase = labels.some((label) => !COMMERCIAL_BASE_TXN_TYPES.has(label));
+  if (
+    needsFullTaxBase &&
+    !labels.includes(TXN_FULL_TAX_INVOICE) &&
+    !labels.includes(TXN_SIMPLIFIED_TAX_INVOICE)
+  ) {
+    return [TXN_FULL_TAX_INVOICE, ...labels];
+  }
+  return [...labels];
+}
+
+async function selectDocumentTransactionTypes(
+  invoice: OMN_UIInvoiceManualPage,
+  txnCell: string | readonly string[],
+  invoiceTypeOverride?: string
+): Promise<void> {
+  const labels =
+    typeof txnCell === "string" ? splitOmanTxnMasterLabels(txnCell) : [...txnCell];
+  const wanted = labels.map((label) => label.trim()).filter(Boolean);
+  if (wanted.length === 0) return;
+  const invoiceType = invoiceTypeOverride || invoiceTypeForTxnLabels(wanted);
+  // Always click-commit Invoice Type. fill() can make inputValue look right
+  // while the form still gates txn checkboxes from the previous type.
+  await invoice.selectInvoiceType(invoiceType);
+  await invoice.selectTransactionTypes(txnLabelsToSelect(wanted, invoiceType));
+}
+
 async function ensureDocumentBaseline(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
@@ -271,11 +328,15 @@ async function ensureDocumentBaseline(
   // Invoice type first so transaction-type options match the selected document.
   // Always apply: Edit/Copy and Create prefills keep a previous type if we only
   // fill when empty.
+  if (!excludeInputIds.has("invType") && !excludeInputIds.has("invTxnType")) {
+    await selectDocumentTransactionTypes(invoice, OMN_UI_TXN_FULL_TAX);
+    return;
+  }
   if (!excludeInputIds.has("invType")) {
     await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
   }
   if (!excludeInputIds.has("invTxnType")) {
-    await invoice.selectAutocomplete("document", "invTxnType", OMN_UI_TXN_FULL_TAX);
+    await selectDocumentTransactionTypes(invoice, OMN_UI_TXN_FULL_TAX);
   }
 }
 
@@ -679,7 +740,7 @@ async function enablePrepaymentMinMaxFields(
 
   await invoice.openSectionForEdit("document", entry);
   await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
-  await invoice.selectAutocomplete("document", "invTxnType", TXN_PREPAYMENT_INVOICE);
+  await selectDocumentTransactionTypes(invoice, TXN_PREPAYMENT_INVOICE, OMN_UI_INVOICE_TYPE_COMMERCIAL);
   await invoice.clickSectionCommit("document", entry);
   await invoice.expectSectionSavedReadOnly("document");
   await invoice.openSectionForEdit("payment", entry);
@@ -719,7 +780,7 @@ async function clearImportDetailsOnEditOrCopy(
   if (!hasLeftover) return;
 
   if (await invoice.isInputDisabled("document", "customsDeclarationNumber")) {
-    await invoice.selectAutocomplete("document", "invTxnType", TXN_IMPORT_OF_GOODS);
+    await selectDocumentTransactionTypes(invoice, TXN_IMPORT_OF_GOODS);
     await invoice.expectInputDisabled("document", "customsDeclarationNumber", false);
   }
   await leaveOrClearEmpty(
@@ -749,13 +810,11 @@ async function enableImportOfGoodsMinMaxFields(
 
   if (isEmptyCustomsDeclarationMinMax(rule, variant)) {
     await clearImportDetailsOnEditOrCopy(invoice, entry);
-    await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
-    await invoice.selectAutocomplete("document", "invTxnType", OMN_UI_TXN_FULL_TAX);
+    await selectDocumentTransactionTypes(invoice, OMN_UI_TXN_FULL_TAX);
     return;
   }
 
-  await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
-  await invoice.selectAutocomplete("document", "invTxnType", TXN_IMPORT_OF_GOODS);
+  await selectDocumentTransactionTypes(invoice, TXN_IMPORT_OF_GOODS);
   await invoice.expectInputDisabled("document", "importDate", false);
   await invoice.expectInputDisabled("document", "customsDeclarationNumber", false);
   await writeDate(invoice, entry, "document", "importDate", "2026-01-10");
@@ -780,8 +839,7 @@ async function enableThirdPartyMinMaxFields(
   if (!isThirdPartyLengthField(rule)) return;
   if (isOmnUiEmptyThirdPartyOnFullTax(rule, variant, txnContext)) {
     await invoice.openSectionForEdit("document", entry);
-    await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
-    await invoice.selectAutocomplete("document", "invTxnType", OMN_UI_TXN_FULL_TAX);
+    await selectDocumentTransactionTypes(invoice, OMN_UI_TXN_FULL_TAX);
     await invoice.clickSectionCommit("document", entry);
     await invoice.expectSectionSavedReadOnly("document");
     await invoice.openSectionForEdit("thirdParty", entry);
@@ -789,8 +847,7 @@ async function enableThirdPartyMinMaxFields(
   }
 
   await invoice.openSectionForEdit("document", entry);
-  await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
-  await invoice.selectAutocomplete("document", "invTxnType", TXN_THIRD_PARTY_INVOICE);
+  await selectDocumentTransactionTypes(invoice, TXN_THIRD_PARTY_INVOICE);
   await invoice.clickSectionCommit("document", entry);
   await invoice.expectSectionSavedReadOnly("document");
   await invoice.openSectionForEdit("thirdParty", entry);
@@ -1397,6 +1454,60 @@ async function runOmnUiExemptionCompanionCase(
   await invoice.expectSectionSavedReadOnly("item");
 }
 
+async function runOmnUiTxnExclusionCase(
+  page: Page,
+  entry: OmnUiEntry,
+  row: OmnUiCatalogRow,
+  fillFormula: boolean
+): Promise<void> {
+  const txnCell = row.invoiceTransactionTypeCode;
+  if (!txnCell) {
+    throw new Error(`txnExclusion row is missing invoiceTransactionTypeCode: ${row.title}`);
+  }
+  const invoice = await openOmnUiInvoiceEditor(page, entry);
+  await invoice.openSectionForEdit("document", entry);
+  await ensureDocumentBaseline(invoice, entry, new Set(["invType", "invTxnType"]));
+  const labels = splitOmanTxnMasterLabels(txnCell);
+  if (row.expectsError) {
+    const [applicable, ...forbidden] = labels;
+    if (!applicable || forbidden.length === 0) {
+      throw new Error(
+        `txnExclusion Not Allowed row needs a pair of transaction types: ${row.title}`
+      );
+    }
+    await selectDocumentTransactionTypes(
+      invoice,
+      applicable,
+      invoiceTypeForTxnLabels([applicable])
+    );
+    await invoice.expectTransactionTypesDisabled(forbidden);
+    return;
+  }
+  await selectDocumentTransactionTypes(invoice, txnCell, row.invoiceTypeCode);
+  for (const txn of labels) {
+    await applyTxnDocumentCompanions(invoice, entry, {
+      title: row.title,
+      section: "document",
+      kind: "catalogControl",
+      shouldError: false,
+      assertInputId: "invTxnType",
+      invoiceTypeCode: row.invoiceTypeCode,
+      invoiceTransactionTypeCode: txn,
+    });
+  }
+  await invoice.clickSectionCommit("document", entry);
+  await invoice.expectSectionSavedReadOnly("document");
+  if (!fillFormula) return;
+  const formula = row.formulaScenario ?? invoiceFormulaTestData[0];
+  if (!formula) return;
+  await fillOmnUiFormulaItem(
+    invoice,
+    entry,
+    formula as InvoiceFormulaScenario,
+    isOmnUiPrefilledLineItemEntry(entry)
+  );
+}
+
 export async function runOmnUiFieldCatalogRow(
   page: Page,
   entry: OmnUiEntry,
@@ -1445,6 +1556,10 @@ export async function runOmnUiFieldCatalogRow(
   }
   if (row.kind === "exemptionCompanion") {
     await runOmnUiExemptionCompanionCase(page, entry, row);
+    return;
+  }
+  if (row.kind === "txnExclusion") {
+    await runOmnUiTxnExclusionCase(page, entry, row, false);
     return;
   }
   throw new Error(`No UI runner for field catalog kind ${row.kind} (${row.group})`);
@@ -1523,9 +1638,8 @@ async function runOmnUiFormulaCatalogScenario(
   await ensureDocumentBaseline(invoice, entry, new Set(["invCurrCode"]));
 
   if (row.kind === "formulaProfitMargin") {
-    await invoice.selectAutocomplete(
-      "document",
-      "invTxnType",
+    await selectDocumentTransactionTypes(
+      invoice,
       scenario.invoiceTransactionTypeCode || TXN_PROFIT_MARGIN_INVOICE
     );
   } else if (row.kind === "formulaNonOmr") {
@@ -1601,6 +1715,10 @@ export async function runOmnUiFormulaCatalogRow(
     await runOmnUiFormulaCatalogScenario(page, entry, row);
     return;
   }
+  if (row.kind === "txnExclusion") {
+    await runOmnUiTxnExclusionCase(page, entry, row, true);
+    return;
+  }
   throw new Error(`No UI runner for formula catalog kind ${row.kind} (${row.group})`);
 }
 
@@ -1619,8 +1737,7 @@ export async function runOmnUiExcelPartyIdentityCase(
   };
   await invoice.openSectionForEdit("document", entry);
   if (selfBilled) {
-    await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_SELF_BILLED);
-    await invoice.selectAutocomplete("document", "invTxnType", OMN_UI_TXN_SELF_BILLED);
+    await selectDocumentTransactionTypes(invoice, OMN_UI_TXN_SELF_BILLED);
   }
   await ensureDocumentBaseline(
     invoice,
@@ -1992,6 +2109,10 @@ async function writeAutocomplete(
     await invoice.typeWhitespace(section, inputId, literal, altInputIds);
     return;
   }
+  if (inputId === "invTxnType" || altInputIds.includes("invTxnType")) {
+    await selectDocumentTransactionTypes(invoice, literal);
+    return;
+  }
   await invoice.selectAutocomplete(section, inputId, literal, altInputIds);
 }
 
@@ -2103,20 +2224,19 @@ async function applyConditionalSectionFields(
       scenario.invoiceTypeCode ||
       (txn === TXN_SELF_BILLED_INVOICE ? OMN_UI_INVOICE_TYPE_SELF_BILLED : undefined) ||
       (scenario.kind === "prepaymentPaidAmount" ? OMN_UI_INVOICE_TYPE_COMMERCIAL : undefined);
-    // Invoice type first so txn options match (Self billed credit note → Self-billed).
-    if (invoiceType) {
-      await invoice.selectAutocomplete("document", "invType", invoiceType);
-    }
     if (txn) {
       await invoice.expectInputDisabled("document", "invTxnType", false);
-      await invoice.selectAutocomplete("document", "invTxnType", txn);
+      await selectDocumentTransactionTypes(invoice, txn, invoiceType);
     } else if (invoiceType) {
-      // Changing invoice type can clear transaction type. Restore Full Tax when
-      // the scenario did not name a txn (Credit note + default Full Tax).
+      await invoice.selectAutocomplete("document", "invType", invoiceType);
       await invoice.expectInputDisabled("document", "invTxnType", false);
       const currentTxn = await invoice.readInputValue("document", "invTxnType");
       if (!currentTxn) {
-        await invoice.selectAutocomplete("document", "invTxnType", OMN_UI_TXN_FULL_TAX);
+        await selectDocumentTransactionTypes(
+          invoice,
+          OMN_UI_TXN_FULL_TAX,
+          invoiceType
+        );
       }
     }
     await expectPrecedingInvoiceEnablement(invoice, scenario);
