@@ -570,18 +570,33 @@ export class OMN_UIInvoiceManualPage {
         choice = await optionOf();
       }
       if ((await choice.getAttribute("aria-selected")) === "true") continue;
-      // Live DOM: native input is hidden; the visible box is span.checkmarks.
-      const mark = choice.locator("span.checkmarks").first();
-      try {
-        if ((await mark.count()) > 0) {
-          await mark.click({ timeout: 5_000 });
-        } else {
-          await choice.click({ timeout: 5_000 });
-        }
-      } catch {
-        await choice.click({ force: true, timeout: 5_000 });
+      await choice.scrollIntoViewIfNeeded();
+      await choice.hover();
+      // MUI multi-select listens on the <li>. Clicks on the inner checkbox /
+      // span.checkmarks succeed in Playwright but do not toggle aria-selected.
+      const optionText = choice.getByText(label, { exact: true });
+      if ((await optionText.count()) > 0) {
+        await optionText.click({ timeout: 5_000 });
+      } else {
+        await choice.click({ timeout: 5_000 });
       }
-      await expect(choice).toHaveAttribute("aria-selected", "true", { timeout: 5_000 });
+      if ((await (await optionOf()).getAttribute("aria-selected")) !== "true") {
+        await (await optionOf()).hover();
+        await this.page.keyboard.press("Space");
+      }
+      await expect
+        .poll(
+          async () => {
+            await openList();
+            const row = await optionOf();
+            return row.getAttribute("aria-selected");
+          },
+          {
+            timeout: 10_000,
+            message: `invTxnType "${label}" should be selected`,
+          }
+        )
+        .toBe("true");
     }
     await this.dismissOpenDropdown();
   }

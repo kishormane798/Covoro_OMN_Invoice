@@ -64,6 +64,7 @@ import {
   NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
   OMAN_CURRENCY_USD,
   PRECEDING_INVOICE_UUID_SAMPLE,
+  PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
   STANDARD_TAX_CATEGORY_CODE,
   TAX_EXEMPTION_REASON_SAMPLE,
   TAX_EXEMPTION_REASON_TEXT_SAMPLE,
@@ -80,8 +81,8 @@ import {
   TXN_SIMPLIFIED_TAX_INVOICE,
   TXN_SUMMARY_INVOICE,
   TXN_THIRD_PARTY_INVOICE,
-  SELF_BILLED_DOCUMENT_INVOICE_TYPES,
   SELF_BILLED_OR_RCM_TXN_TYPES,
+  btom001EnsureBaseTxnLabels,
   UAE_COUNTRY_CODE,
   ZERO_RATED_TAX_CATEGORY_CODE,
   splitOmanTxnMasterLabels,
@@ -265,15 +266,6 @@ async function writePartyIdentity(
   expect(actual, `${section}.${inputId} should be entered`).toBe(value);
 }
 
-const COMMERCIAL_BASE_TXN_TYPES = new Set<string>([
-  TXN_FULL_TAX_INVOICE,
-  TXN_SIMPLIFIED_TAX_INVOICE,
-]);
-
-function isSelfBilledDocumentInvoiceType(invoiceType: string): boolean {
-  return (SELF_BILLED_DOCUMENT_INVOICE_TYPES as readonly string[]).includes(invoiceType);
-}
-
 function invoiceTypeForTxnLabels(labels: readonly string[]): string {
   if (
     labels.some((label) =>
@@ -283,19 +275,6 @@ function invoiceTypeForTxnLabels(labels: readonly string[]): string {
     return OMN_UI_INVOICE_TYPE_SELF_BILLED;
   }
   return OMN_UI_INVOICE_TYPE_COMMERCIAL;
-}
-
-function txnLabelsToSelect(labels: readonly string[], invoiceType: string): string[] {
-  if (isSelfBilledDocumentInvoiceType(invoiceType)) return [...labels];
-  const needsFullTaxBase = labels.some((label) => !COMMERCIAL_BASE_TXN_TYPES.has(label));
-  if (
-    needsFullTaxBase &&
-    !labels.includes(TXN_FULL_TAX_INVOICE) &&
-    !labels.includes(TXN_SIMPLIFIED_TAX_INVOICE)
-  ) {
-    return [TXN_FULL_TAX_INVOICE, ...labels];
-  }
-  return [...labels];
 }
 
 async function selectDocumentTransactionTypes(
@@ -311,7 +290,7 @@ async function selectDocumentTransactionTypes(
   // Always click-commit Invoice Type. fill() can make inputValue look right
   // while the form still gates txn checkboxes from the previous type.
   await invoice.selectInvoiceType(invoiceType);
-  await invoice.selectTransactionTypes(txnLabelsToSelect(wanted, invoiceType));
+  await invoice.selectTransactionTypes(btom001EnsureBaseTxnLabels(wanted));
 }
 
 async function ensureDocumentBaseline(
@@ -2210,6 +2189,32 @@ async function applyTxnDocumentCompanions(
   }
 }
 
+function txnCellIncludesProfitMargin(txn?: string): boolean {
+  if (!txn) return false;
+  return splitOmanTxnMasterLabels(txn).some(
+    (label) =>
+      label === TXN_PROFIT_MARGIN_INVOICE ||
+      label === TXN_PROFIT_MARGIN_SELF_INVOICE
+  );
+}
+
+/** Excel CL-11-OM companion: Profit Margin / Self-Invoice cannot save without item type. */
+async function applyTxnItemCompanions(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario
+): Promise<void> {
+  if (!txnCellIncludesProfitMargin(scenario.invoiceTransactionTypeCode)) return;
+  await writeAutocomplete(
+    invoice,
+    entry,
+    "item",
+    "profitMarginItemType",
+    PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
+    ["profitMarginItemTypeCode"]
+  );
+}
+
 async function applyConditionalSectionFields(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
@@ -2298,6 +2303,7 @@ async function applyConditionalSectionFields(
     return;
   }
   if (section === "item") {
+    await applyTxnItemCompanions(invoice, entry, scenario);
     await writeAutocomplete(
       invoice,
       entry,

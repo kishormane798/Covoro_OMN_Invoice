@@ -137,6 +137,8 @@ import {
   IBR_148_TXN_EXCLUSION_SCENARIOS,
   IBR_149_TXN_EXCLUSION_SCENARIOS,
   SELF_BILLED_OR_RCM_TXN_TYPES,
+  btom001EnsureBaseTxnLabels,
+  combineOmanTxnTypeDescriptions,
   splitOmanTxnMasterLabels,
   SUMMARY_INVOICE_PERIOD_SCENARIOS,
   SUMMARY_PERIOD_SAME_CALENDAR_MONTH_SCENARIOS,
@@ -601,6 +603,13 @@ function uiInvoiceTypeForTxnCell(cell: string): string {
   return INVOICE_TYPE_COMMERCIAL_INVOICE;
 }
 
+/** Field/formula success cells: companion txn types must include Full Tax or Simplified. */
+function uiTxnCellWithAllowedCompanions(cell: string): string {
+  return combineOmanTxnTypeDescriptions(
+    ...btom001EnsureBaseTxnLabels(splitOmanTxnMasterLabels(cell))
+  );
+}
+
 function uniqueUiTxnExclusionSources(
   sources: readonly TxnExclusionSource[]
 ): TxnExclusionSource[] {
@@ -643,7 +652,9 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
   field: "Invoice Transaction Type Code",
   expectsError: source.shouldError,
   invoiceTypeCode: uiInvoiceTypeForTxnCell(source.invoiceTransactionTypeCode),
-  invoiceTransactionTypeCode: source.invoiceTransactionTypeCode,
+  invoiceTransactionTypeCode: source.shouldError
+    ? source.invoiceTransactionTypeCode
+    : uiTxnCellWithAllowedCompanions(source.invoiceTransactionTypeCode),
 }));
 
 const txnExclusionFormulaRows: OmnUiCatalogRow[] = txnExclusionFieldRows

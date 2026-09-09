@@ -353,6 +353,239 @@ export const OMAN_TXN_LABEL_TO_BIT: Readonly<Record<string, string>> = {
   [TXN_PREPAYMENT_INVOICE]: TXN_BIT_PREPAYMENT,
 };
 
+/**
+ * BTOM-001: only Full Tax and Simplified may be selected alone.
+ * Those two may also be selected with allowed companions
+ * (Full Tax + any companion except Simplified; Simplified + E-commerce /
+ * Special Zone Supplies / Prepayment). They must not both be selected.
+ */
+export const BTOM_001_SINGLE_ALLOWED_TXN_TYPES = [
+  TXN_FULL_TAX_INVOICE,
+  TXN_SIMPLIFIED_TAX_INVOICE,
+] as const;
+
+/** Never select these alone — they must sit on Full Tax or Simplified. */
+export const BTOM_001_COMPANION_TXN_TYPES = [
+  TXN_SELF_BILLED_INVOICE,
+  TXN_THIRD_PARTY_INVOICE,
+  TXN_SUMMARY_INVOICE,
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_EXPORT_INVOICE,
+  TXN_DEEMED_SUPPLY_INVOICE,
+  TXN_IMPORT_OF_SERVICES_RCM,
+  TXN_PROFIT_MARGIN_INVOICE,
+  TXN_PROFIT_MARGIN_SELF_INVOICE,
+  TXN_ECOMMERCE_TRANSACTION,
+  TXN_IMPORT_OF_GOODS,
+  TXN_SPECIAL_ZONE_SUPPLIES,
+  TXN_PREPAYMENT_INVOICE,
+] as const;
+
+export const BTOM_001_NOT_ALLOWED_TXN_TYPES: Readonly<
+  Record<string, readonly string[]>
+> = {
+  [TXN_FULL_TAX_INVOICE]: [TXN_SIMPLIFIED_TAX_INVOICE],
+  [TXN_SIMPLIFIED_TAX_INVOICE]: [
+    TXN_FULL_TAX_INVOICE,
+    TXN_SELF_BILLED_INVOICE,
+    TXN_THIRD_PARTY_INVOICE,
+    TXN_SUMMARY_INVOICE,
+    TXN_CONTINUOUS_SUPPLY,
+    TXN_EXPORT_INVOICE,
+    TXN_DEEMED_SUPPLY_INVOICE,
+    TXN_IMPORT_OF_SERVICES_RCM,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_SELF_BILLED_INVOICE]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_THIRD_PARTY_INVOICE,
+    TXN_EXPORT_INVOICE,
+    TXN_IMPORT_OF_SERVICES_RCM,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_THIRD_PARTY_INVOICE]: [TXN_SIMPLIFIED_TAX_INVOICE, TXN_SELF_BILLED_INVOICE],
+  [TXN_SUMMARY_INVOICE]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_CONTINUOUS_SUPPLY,
+    TXN_EXPORT_INVOICE,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_CONTINUOUS_SUPPLY]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_SUMMARY_INVOICE,
+    TXN_DEEMED_SUPPLY_INVOICE,
+    TXN_EXPORT_INVOICE,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_EXPORT_INVOICE]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_SELF_BILLED_INVOICE,
+    TXN_SUMMARY_INVOICE,
+    TXN_DEEMED_SUPPLY_INVOICE,
+    TXN_IMPORT_OF_SERVICES_RCM,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_DEEMED_SUPPLY_INVOICE]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_CONTINUOUS_SUPPLY,
+    TXN_EXPORT_INVOICE,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+  ],
+  [TXN_IMPORT_OF_SERVICES_RCM]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_SELF_BILLED_INVOICE,
+    TXN_EXPORT_INVOICE,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_PROFIT_MARGIN_INVOICE]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_SELF_BILLED_INVOICE,
+    TXN_SUMMARY_INVOICE,
+    TXN_CONTINUOUS_SUPPLY,
+    TXN_EXPORT_INVOICE,
+    TXN_DEEMED_SUPPLY_INVOICE,
+    TXN_IMPORT_OF_SERVICES_RCM,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_PROFIT_MARGIN_SELF_INVOICE]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_SELF_BILLED_INVOICE,
+    TXN_SUMMARY_INVOICE,
+    TXN_CONTINUOUS_SUPPLY,
+    TXN_EXPORT_INVOICE,
+    TXN_DEEMED_SUPPLY_INVOICE,
+    TXN_IMPORT_OF_SERVICES_RCM,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_ECOMMERCE_TRANSACTION,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_ECOMMERCE_TRANSACTION]: [
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_IMPORT_OF_GOODS,
+  ],
+  [TXN_IMPORT_OF_GOODS]: [
+    TXN_SIMPLIFIED_TAX_INVOICE,
+    TXN_SELF_BILLED_INVOICE,
+    TXN_SUMMARY_INVOICE,
+    TXN_CONTINUOUS_SUPPLY,
+    TXN_EXPORT_INVOICE,
+    TXN_IMPORT_OF_SERVICES_RCM,
+    TXN_PROFIT_MARGIN_INVOICE,
+    TXN_PROFIT_MARGIN_SELF_INVOICE,
+    TXN_ECOMMERCE_TRANSACTION,
+  ],
+  [TXN_SPECIAL_ZONE_SUPPLIES]: [],
+  [TXN_PREPAYMENT_INVOICE]: [],
+};
+
+const BTOM_001_BASE_TXN_TYPES = new Set<string>(BTOM_001_SINGLE_ALLOWED_TXN_TYPES);
+const BTOM_001_COMPANION_SET = new Set<string>(BTOM_001_COMPANION_TXN_TYPES);
+const BTOM_001_ALL_TXN_TYPES = [
+  ...BTOM_001_SINGLE_ALLOWED_TXN_TYPES,
+  ...BTOM_001_COMPANION_TXN_TYPES,
+] as const;
+
+/**
+ * Allowed Other for a row = every other type that is not in that row's
+ * Not Allowed list. Single Allowed types (Full Tax, Simplified) are the
+ * only bases a companion may sit on.
+ */
+export function btom001AllowedOtherTxnTypes(label: string): string[] {
+  const forbidden = new Set(BTOM_001_NOT_ALLOWED_TXN_TYPES[label] ?? []);
+  return BTOM_001_ALL_TXN_TYPES.filter(
+    (other) => other !== label && !forbidden.has(other)
+  );
+}
+
+/**
+ * Companion (Single Allowed = No) must sit on Full Tax or Simplified.
+ * Prefer Full Tax when it is in Allowed Other for every named companion
+ * (Summary, Export, Self-billed, …). Use Simplified only when Full Tax
+ * is not allowed and Simplified is (none of the current companions
+ * forbid Full Tax; E-commerce / Special Zone / Prepayment allow both).
+ */
+export function btom001PickBaseForCompanions(
+  companions: readonly string[]
+): string {
+  if (companions.length === 0) return TXN_FULL_TAX_INVOICE;
+  const allowedBases = BTOM_001_SINGLE_ALLOWED_TXN_TYPES.filter((base) =>
+    companions.every((companion) =>
+      btom001AllowedOtherTxnTypes(companion).includes(base)
+    )
+  );
+  if (allowedBases.includes(TXN_FULL_TAX_INVOICE)) return TXN_FULL_TAX_INVOICE;
+  if (allowedBases.includes(TXN_SIMPLIFIED_TAX_INVOICE)) {
+    return TXN_SIMPLIFIED_TAX_INVOICE;
+  }
+  return TXN_FULL_TAX_INVOICE;
+}
+
+/** True when either side lists the other as Not Allowed. */
+export function btom001TxnPairForbidden(left: string, right: string): boolean {
+  if (left === right) return false;
+  const forbidLeft = BTOM_001_NOT_ALLOWED_TXN_TYPES[left] ?? [];
+  const forbidRight = BTOM_001_NOT_ALLOWED_TXN_TYPES[right] ?? [];
+  return forbidLeft.includes(right) || forbidRight.includes(left);
+}
+
+/**
+ * UI multi-select from the BTOM-001 matrix:
+ * - Full Tax / Simplified alone → leave as-is (Single Allowed = Yes).
+ * - Companion with no base → prepend Full Tax or Simplified from that
+ *   companion's Allowed Other (Full Tax first when both are listed).
+ * - Named Simplified is kept even with a forbidden companion (error polarity).
+ * - Both bases named → keep both (IBR-149-OM).
+ */
+export function btom001EnsureBaseTxnLabels(labels: readonly string[]): string[] {
+  const unique: string[] = [];
+  for (const label of labels) {
+    const trimmed = String(label ?? "").trim();
+    if (trimmed && !unique.includes(trimmed)) unique.push(trimmed);
+  }
+  const hasFull = unique.includes(TXN_FULL_TAX_INVOICE);
+  const hasSimplified = unique.includes(TXN_SIMPLIFIED_TAX_INVOICE);
+  const companions = unique.filter((label) => BTOM_001_COMPANION_SET.has(label));
+  const other = unique.filter(
+    (label) => !BTOM_001_BASE_TXN_TYPES.has(label) && !BTOM_001_COMPANION_SET.has(label)
+  );
+  const pickedBase = btom001PickBaseForCompanions(companions);
+  let result: string[];
+  if (hasFull && hasSimplified) {
+    result = [TXN_FULL_TAX_INVOICE, TXN_SIMPLIFIED_TAX_INVOICE, ...companions, ...other];
+  } else if (hasSimplified) {
+    result = [TXN_SIMPLIFIED_TAX_INVOICE, ...companions, ...other];
+  } else if (hasFull) {
+    result = [TXN_FULL_TAX_INVOICE, ...companions, ...other];
+  } else if (companions.length > 0) {
+    result = [pickedBase, ...companions, ...other];
+  } else {
+    result = [...unique];
+  }
+  const namedCompanion = result.find((label) => BTOM_001_COMPANION_SET.has(label));
+  const hasBase =
+    result.includes(TXN_FULL_TAX_INVOICE) || result.includes(TXN_SIMPLIFIED_TAX_INVOICE);
+  if (namedCompanion && !hasBase) {
+    throw new Error(
+      `BTOM-001: "${namedCompanion}" cannot be selected alone; pair it with Full Tax Invoice or Simplified Tax Invoice`
+    );
+  }
+  return result;
+}
+
 /** True when BTOM-001 is a Peppol 20-bit string rather than a Master label. */
 export function isOmanTxnPeppolBitString(value: string): boolean {
   return /^[01]{20}$/.test(String(value ?? "").trim());
