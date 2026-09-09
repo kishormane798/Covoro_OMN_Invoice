@@ -44,14 +44,16 @@ import {
   OMN_UI_TXN_FULL_TAX,
   OMN_UI_TXN_SELF_BILLED,
   omnUiNumericFieldLocation,
+  isOmnUiEmptyThirdPartyOnFullTax,
   omnUiMinMaxExpectsError,
+  omnUiMinMaxFieldValue,
   omnUiPrecedingInvoiceEnablement,
-  omnUiTestValue,
   type OmnUiCatalogRow,
   type OmnUiConditionalScenario,
   type OmnUiEntry,
   type OmnUiExcelPartyIdentityCase,
   type OmnUiFieldRule,
+  type OmnUiMinMaxTxnContext,
   type OmnUiMinMaxVariant,
   type OmnUiSection,
 } from "../../testData/ui/omnUiInvoiceValidation";
@@ -59,6 +61,7 @@ import type { PartyIdentifierLengthCase } from "../../testData/FieldValidations/
 import {
   CREDIT_DEBIT_REASON_SAMPLE,
   EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+  NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
   OMAN_CURRENCY_USD,
   PRECEDING_INVOICE_UUID_SAMPLE,
   STANDARD_TAX_CATEGORY_CODE,
@@ -426,6 +429,16 @@ async function ensureItemBaseline(
   }
 }
 
+/** Invoice Details Save needs a line item first; totals stay read-only until then. */
+async function addAndCommitBaselineItem(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry
+): Promise<void> {
+  await ensureItemBaseline(invoice, entry, new Set());
+  await invoice.clickItemCommit(entry);
+  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
+}
+
 async function ensureThirdPartyBaseline(
   invoice: OMN_UIInvoiceManualPage,
   excludeInputIds: Set<string>
@@ -574,6 +587,9 @@ async function ensureSectionBaseline(
       await invoice.clickSectionCommit("document", entry);
       await invoice.expectSectionSavedReadOnly("document");
     }
+    if (section === "invoice") {
+      await addAndCommitBaselineItem(invoice, entry);
+    }
     await invoice.openSectionForEdit(section, entry);
   } else {
     await ensureDocumentBaseline(invoice, entry, excludeInputIds);
@@ -674,15 +690,69 @@ function isCustomsDeclarationLengthField(rule: OmnUiFieldRule): boolean {
   return rule.inputId === "customsDeclarationNumber";
 }
 
+/** Empty customs is allowed on Full Tax with import details absent (IBR-085-OM). */
+function isEmptyCustomsDeclarationMinMax(
+  rule: OmnUiFieldRule,
+  variant: OmnUiMinMaxVariant
+): boolean {
+  return (
+    isCustomsDeclarationLengthField(rule) &&
+    variant === "belowMin" &&
+    rule.belowMin === 0
+  );
+}
+
 /**
- * Customs Declaration number stays disabled until Document uses Import of Goods.
+ * Edit/Copy may reuse an Import of Goods row. Clear leftover import details
+ * while the fields are still enabled, then Full Tax can disable them.
+ */
+async function clearImportDetailsOnEditOrCopy(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry
+): Promise<void> {
+  if (entry === "create") return;
+
+  const hasLeftover =
+    Boolean(await invoice.readInputValue("document", "customsDeclarationNumber")) ||
+    Boolean(await invoice.readInputValue("document", "importDate")) ||
+    Boolean(await invoice.readInputValue("document", "incoterms"));
+  if (!hasLeftover) return;
+
+  if (await invoice.isInputDisabled("document", "customsDeclarationNumber")) {
+    await invoice.selectAutocomplete("document", "invTxnType", TXN_IMPORT_OF_GOODS);
+    await invoice.expectInputDisabled("document", "customsDeclarationNumber", false);
+  }
+  await leaveOrClearEmpty(
+    invoice,
+    entry,
+    "document",
+    "customsDeclarationNumber",
+    [],
+    "text"
+  );
+  await leaveOrClearEmpty(invoice, entry, "document", "importDate", [], "date");
+  await leaveOrClearEmpty(invoice, entry, "document", "incoterms", [], "autocomplete");
+}
+
+/**
+ * Length tests need Import of Goods so Customs Declaration is enabled.
+ * Empty stays Full Tax (field disabled) and just Save/Update.
+ * Edit/Copy clears leftover import details first. Create does not touch the field.
  */
 async function enableImportOfGoodsMinMaxFields(
   invoice: OMN_UIInvoiceManualPage,
   rule: OmnUiFieldRule,
-  entry: OmnUiEntry
+  entry: OmnUiEntry,
+  variant: OmnUiMinMaxVariant
 ): Promise<void> {
   if (!isCustomsDeclarationLengthField(rule)) return;
+
+  if (isEmptyCustomsDeclarationMinMax(rule, variant)) {
+    await clearImportDetailsOnEditOrCopy(invoice, entry);
+    await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
+    await invoice.selectAutocomplete("document", "invTxnType", OMN_UI_TXN_FULL_TAX);
+    return;
+  }
 
   await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
   await invoice.selectAutocomplete("document", "invTxnType", TXN_IMPORT_OF_GOODS);
@@ -697,14 +767,26 @@ function isThirdPartyLengthField(rule: OmnUiFieldRule): boolean {
 }
 
 /**
- * Third Party fields stay disabled until Document uses Third-party Invoice.
+ * Third Party fields stay disabled on Full Tax. Empty Full Tax keeps them
+ * disabled and just Save/Update. Length and Third-party-empty tests switch txn.
  */
 async function enableThirdPartyMinMaxFields(
   invoice: OMN_UIInvoiceManualPage,
   rule: OmnUiFieldRule,
-  entry: OmnUiEntry
+  entry: OmnUiEntry,
+  variant: OmnUiMinMaxVariant,
+  txnContext?: OmnUiMinMaxTxnContext
 ): Promise<void> {
   if (!isThirdPartyLengthField(rule)) return;
+  if (isOmnUiEmptyThirdPartyOnFullTax(rule, variant, txnContext)) {
+    await invoice.openSectionForEdit("document", entry);
+    await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
+    await invoice.selectAutocomplete("document", "invTxnType", OMN_UI_TXN_FULL_TAX);
+    await invoice.clickSectionCommit("document", entry);
+    await invoice.expectSectionSavedReadOnly("document");
+    await invoice.openSectionForEdit("thirdParty", entry);
+    return;
+  }
 
   await invoice.openSectionForEdit("document", entry);
   await invoice.selectAutocomplete("document", "invType", OMN_UI_INVOICE_TYPE_COMMERCIAL);
@@ -798,14 +880,36 @@ function isTaxRateLengthField(rule: OmnUiFieldRule): boolean {
   return rule.inputId === "taxRateDtls[0].taxRate";
 }
 
+/** Empty Tax Rate is allowed on Not subject (ALIGNED-IBRP-O-05-OM / IBR-061-OM). */
+function isEmptyTaxRateMinMax(
+  rule: OmnUiFieldRule,
+  variant: OmnUiMinMaxVariant
+): boolean {
+  return (
+    isTaxRateLengthField(rule) &&
+    variant === "belowMin" &&
+    rule.belowMin === 0
+  );
+}
+
 /**
- * Tax Rate stays disabled unless Tax Category is Standard rate.
+ * Length tests need Standard rate so Tax Rate is enabled.
+ * Empty stays Not subject (field disabled) and just Save/Update.
  */
 async function enableTaxRateMinMaxFields(
   invoice: OMN_UIInvoiceManualPage,
-  rule: OmnUiFieldRule
+  rule: OmnUiFieldRule,
+  variant: OmnUiMinMaxVariant
 ): Promise<void> {
   if (!isTaxRateLengthField(rule)) return;
+  if (isEmptyTaxRateMinMax(rule, variant)) {
+    await invoice.selectAutocomplete(
+      "item",
+      "taxRateDtls[0].taxCategory",
+      NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE
+    );
+    return;
+  }
   await invoice.selectAutocomplete(
     "item",
     "taxRateDtls[0].taxCategory",
@@ -818,25 +922,42 @@ export async function runOmnUiMinMaxCase(
   page: Page,
   entry: OmnUiEntry,
   rule: OmnUiFieldRule,
-  variant: OmnUiMinMaxVariant
+  variant: OmnUiMinMaxVariant,
+  txnContext?: OmnUiMinMaxTxnContext
 ): Promise<void> {
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   // Fill every field in the section first, then overwrite the field under test.
   await ensureSectionBaseline(invoice, rule.section, entry, new Set());
   await enablePrecedingInvoiceMinMaxFields(invoice, rule);
   await enablePrepaymentMinMaxFields(invoice, rule, entry);
-  await enableImportOfGoodsMinMaxFields(invoice, rule, entry);
-  await enableThirdPartyMinMaxFields(invoice, rule, entry);
+  await enableImportOfGoodsMinMaxFields(invoice, rule, entry, variant);
+  await enableThirdPartyMinMaxFields(invoice, rule, entry, variant, txnContext);
   await enableExemptionReasonTextMinMaxFields(invoice, rule);
-  await enableTaxRateMinMaxFields(invoice, rule);
+  await enableTaxRateMinMaxFields(invoice, rule, variant);
 
-  if (await invoice.isInputDisabled(rule.section, rule.inputId, rule.altInputIds)) {
+  const value = omnUiMinMaxFieldValue(rule, lengthForVariant(rule, variant));
+  const emptyCustomsOnFullTax = isEmptyCustomsDeclarationMinMax(rule, variant);
+  const emptyTaxRateOnNotSubject = isEmptyTaxRateMinMax(rule, variant);
+  const emptyThirdPartyOnFullTax = isOmnUiEmptyThirdPartyOnFullTax(
+    rule,
+    variant,
+    txnContext
+  );
+  const emptyAllowedWhenDisabled =
+    emptyCustomsOnFullTax || emptyTaxRateOnNotSubject || emptyThirdPartyOnFullTax;
+  const fieldDisabled = await invoice.isInputDisabled(
+    rule.section,
+    rule.inputId,
+    rule.altInputIds
+  );
+  // Full Tax / Not subject leave the field disabled; that is the empty-allowed state, not a skip.
+  if (fieldDisabled && !emptyAllowedWhenDisabled) {
     test.skip(true, `${rule.field} is disabled on ${entry}`);
   }
-
-  const value = omnUiTestValue(lengthForVariant(rule, variant), rule.kind);
   const writeMinMaxField = async () => {
     if (isUiEmptyValue(value)) {
+      // Disabled empty is the allowed state. Create just Save. Edit/Copy already cleared.
+      if (emptyAllowedWhenDisabled && fieldDisabled) return;
       await leaveOrClearEmpty(
         invoice,
         entry,
@@ -862,7 +983,7 @@ export async function runOmnUiMinMaxCase(
   await fillItemAttributeMinMaxCompanion(invoice, entry, rule, value);
   await commitSection(invoice, rule.section, entry);
 
-  const expectsError = omnUiMinMaxExpectsError(rule, variant);
+  const expectsError = omnUiMinMaxExpectsError(rule, variant, txnContext);
   const message = await invoice.readFieldError(rule.section, rule.inputId, rule.altInputIds);
   if (expectsError) {
     expect(message, `expected a field error on ${rule.field}`).toBeTruthy();
@@ -1396,7 +1517,10 @@ async function runOmnUiFormulaCatalogScenario(
   }
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   await invoice.openSectionForEdit("document", entry);
-  await ensureDocumentBaseline(invoice, entry, new Set(["invTxnType", "invCurrCode"]));
+  // Changing invoice type clears transaction type. Do not skip invTxnType or
+  // Create leaves the control empty and Document Save never completes.
+  // Profit-margin rows overwrite Full Tax below.
+  await ensureDocumentBaseline(invoice, entry, new Set(["invCurrCode"]));
 
   if (row.kind === "formulaProfitMargin") {
     await invoice.selectAutocomplete(
@@ -2300,7 +2424,12 @@ export async function runOmnUiConditionalScenario(
 
   if (scenario.kind === "copyInvoiceNumberEmpty") {
     const invNum = await invoice.readInputValue("document", "invNum");
+    const invDate = await invoice.readInputValue("document", "invDate", [
+      "issueDate",
+      "invIssueDate",
+    ]);
     expect(invNum, "copied invoice number should be empty").toBe("");
+    expect(invDate, "copied invoice date should be empty").toBe("");
     return;
   }
 

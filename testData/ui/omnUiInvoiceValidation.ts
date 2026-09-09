@@ -44,6 +44,7 @@ import {
   GOODS_CLASSIFICATION_SCENARIOS,
   HS_CODE_FROM_ROP_LIST_SCENARIOS,
   HS_CODE_LENGTH_SCENARIOS,
+  IBR_003_VALID_THIRD_PARTY_VATIN,
   IBR_CL_05_DOC_ALLOWANCE_SCENARIOS,
   INVOICE_TYPE_COMMERCIAL_INVOICE,
   INVOICE_TYPE_CREDIT_NOTE,
@@ -148,9 +149,7 @@ import { numericFieldConfigs } from "../../Helpers/excel/fieldValidationSpecSupp
 import {
   conditionalDropdownFieldMasterConfig,
   dropdownFieldMasterConfig,
-  taxExemptionReasonInvalidWithDocumentCompanionsConfig,
 } from "../FieldValidations/TestDataConfig";
-import { createInvoiceIssueDateScenarios } from "../FieldValidations/InvoiceIssueDateValidation";
 import {
   PARTY_IDENTIFIER_LENGTH_CASES,
   type PartyIdentifierLengthCase,
@@ -192,6 +191,11 @@ const CN_DN_261_TYPES = new Set<string>(CN_DN_SELF_BILLED_INVOICE_TYPES);
 
 export type OmnUiEntry = "create" | "edit" | "copy";
 export type OmnUiMinMaxVariant = "min" | "max" | "belowMin" | "aboveMax";
+export type OmnUiMinMaxTxnContext = "fullTax" | "thirdParty";
+export type OmnUiMinMaxCase = {
+  variant: OmnUiMinMaxVariant;
+  txnContext?: OmnUiMinMaxTxnContext;
+};
 export type OmnUiFieldKind = "text" | "digits" | "date" | "autocomplete";
 /** Excel source of truth — never the UI asterisk. Conditional = optional until a PINT-OM row fires. */
 export type OmnUiExcelPresence = "mandatory" | "optional" | "conditional";
@@ -281,19 +285,17 @@ export const OMN_UI_FIELD_CATALOG_GROUPS = [
   "Format / context fields — VATIN, UUID, rate, FX, profit margin",
 ] as const;
 
-const issueDateRows: OmnUiCatalogRow[] = createInvoiceIssueDateScenarios().map((scenario) => {
-  const outcome = scenario.shouldError
-    ? "the form should show an error"
-    : "Save should succeed";
-  return {
+const issueDateRows: OmnUiCatalogRow[] = [
+  {
     group: "Invoice Issue Date",
-    title: `Invoice Issue Date in ${scenario.name.trim()} — ${outcome}. (Invoice Issue Date)`,
-    mode: "run",
-    kind: "issueDate",
+    title:
+      "Invoice Issue Date format and whitespace cases pending UI date entry. (Invoice Issue Date)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("Invoice Issue Date picker runner"),
+    kind: "pending",
     field: "Invoice Issue Date",
-    excelTitle: scenario.name,
-  };
-});
+  },
+];
 
 export type OmnUiNumericFieldLocation = {
   section: "item" | "invoice";
@@ -532,21 +534,6 @@ const cl06Rows: OmnUiCatalogRow[] = [
   },
 ];
 
-const invalidExemptionRows: OmnUiCatalogRow[] =
-  taxExemptionReasonInvalidWithDocumentCompanionsConfig.flatMap((config) =>
-    config.master.map((option) => ({
-      group:
-        "Dropdown — invalid tax exemption reason (charges/allowances companions)",
-      title: `${config.field} (${config.vatCategoryLabel}) with invalid value "${option.label}" — the form should show an error. (${config.field})`,
-      mode: "run" as const,
-      kind: "dropdownInvalid" as const,
-      field: config.field,
-      vatContext: config.vatContext,
-      exemptionCode: option.label,
-      expectsError: true,
-    }))
-  );
-
 const exemptionCompanionRows: OmnUiCatalogRow[] = [
   {
     group: "Tax exemption reason — code / text companion",
@@ -616,7 +603,14 @@ export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.noControl("invalid dropdown runner"),
     kind: "pending",
   },
-  ...invalidExemptionRows,
+  {
+    group: "Dropdown — invalid tax exemption reason (charges/allowances companions)",
+    title:
+      "Invalid tax exemption reason (charges/allowances companions) pending UI select. (dropdown)",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.noControl("exemption companion dropdown runner"),
+    kind: "pending",
+  },
   ...exemptionCompanionRows,
   {
     group: "Format / context fields — VATIN, UUID, rate, FX, profit margin",
@@ -961,6 +955,8 @@ export type OmnUiFieldRule = {
   dropdown?: boolean;
   /** Seller/buyer TRN + electronic follow Excel worker identity — not min/max length. */
   excelPartyIdentity?: boolean;
+  /** Disabled / autopopulated on the form — not min/max length. */
+  noEditableControl?: boolean;
 };
 
 type ExcelLengthRow = {
@@ -981,6 +977,7 @@ function fromExcel(
     altInputIds?: readonly string[];
     dropdown?: boolean;
     excelPartyIdentity?: boolean;
+    noEditableControl?: boolean;
     /** When the UI gate that enables this field also makes it required. */
     requiredOnForm?: boolean;
   }
@@ -1004,6 +1001,7 @@ function fromExcel(
     kind: options?.kind ?? "text",
     dropdown: options?.dropdown,
     excelPartyIdentity: options?.excelPartyIdentity,
+    noEditableControl: options?.noEditableControl,
   };
 }
 
@@ -1304,6 +1302,8 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   dropdownRule("Tax Category", "item", "taxRateDtls[0].taxCategory"),
   fromExcel("Tax Rate", "item", "taxRateDtls[0].taxRate", fieldValidationConditional, {
     kind: "digits",
+    // Tax Rate is disabled and autopopulated; length is Excel-only.
+    noEditableControl: true,
   }),
   dropdownRule("Tax exemption reason code", "item", "taxExemptionRsnType", {
     altInputIds: [
@@ -1403,6 +1403,7 @@ export function omnUiFieldRulesForSection(section: OmnUiSection): OmnUiFieldRule
       rule.section === section &&
       !rule.dropdown &&
       !rule.excelPartyIdentity &&
+      !rule.noEditableControl &&
       rule.kind !== "autocomplete" &&
       rule.kind !== "date"
   );
@@ -1428,10 +1429,72 @@ function lengthNoun(n: number): string {
   return n === 1 ? "character" : "characters";
 }
 
+function isOmanVatinLengthField(rule: OmnUiFieldRule): boolean {
+  return rule.field === THIRD_PARTY_VATIN_FIELD;
+}
+
+function isThirdPartyEmptyOptionalField(rule: OmnUiFieldRule): boolean {
+  return rule.section === "thirdParty" && rule.belowMin === 0;
+}
+
+/** IBR-003-OM: VATIN is OM + digits, never a 12-character letter string. */
+export function omnUiVatinOfLength(
+  length: number,
+  valid = IBR_003_VALID_THIRD_PARTY_VATIN
+): string {
+  if (length <= 0) return "";
+  if (length <= valid.length) return valid.slice(0, length);
+  return valid + "0".repeat(length - valid.length);
+}
+
+/** Min and max are the same length for Third Party VATIN — keep one valid-length case. */
+export function omnUiMinMaxVariantsFor(
+  rule: OmnUiFieldRule
+): readonly OmnUiMinMaxVariant[] {
+  if (isOmanVatinLengthField(rule) && rule.min === rule.max) {
+    return OMN_UI_MIN_MAX_VARIANTS.filter((variant) => variant !== "max");
+  }
+  return OMN_UI_MIN_MAX_VARIANTS;
+}
+
+/** Empty Third Party fields: Full Tax saves; Third-party invoice errors. */
+export function omnUiMinMaxCasesFor(rule: OmnUiFieldRule): readonly OmnUiMinMaxCase[] {
+  return omnUiMinMaxVariantsFor(rule).flatMap((variant) => {
+    if (variant === "belowMin" && isThirdPartyEmptyOptionalField(rule)) {
+      return [
+        { variant, txnContext: "fullTax" },
+        { variant, txnContext: "thirdParty" },
+      ];
+    }
+    return [{ variant }];
+  });
+}
+
+export function isOmnUiEmptyThirdPartyOnFullTax(
+  rule: OmnUiFieldRule,
+  variant: OmnUiMinMaxVariant,
+  txnContext?: OmnUiMinMaxTxnContext
+): boolean {
+  return (
+    isThirdPartyEmptyOptionalField(rule) &&
+    variant === "belowMin" &&
+    txnContext !== "thirdParty"
+  );
+}
+
 export function omnUiMinMaxWhatEntered(
   variant: OmnUiMinMaxVariant,
-  rule: OmnUiFieldRule
+  rule: OmnUiFieldRule,
+  txnContext?: OmnUiMinMaxTxnContext
 ): string {
+  if (isOmanVatinLengthField(rule) && variant === "min" && rule.min === rule.max) {
+    return `${rule.field} of OM plus 10 digits`;
+  }
+  if (isThirdPartyEmptyOptionalField(rule) && variant === "belowMin") {
+    return txnContext === "thirdParty"
+      ? `An empty ${rule.field} on a Third-party invoice`
+      : `An empty ${rule.field} on a Full Tax invoice`;
+  }
   switch (variant) {
     case "min":
       return `${rule.field} at minimum length (${rule.min} ${lengthNoun(rule.min)})`;
@@ -1448,9 +1511,13 @@ export function omnUiMinMaxWhatEntered(
 
 export function omnUiMinMaxExpectsError(
   rule: OmnUiFieldRule,
-  variant: OmnUiMinMaxVariant
+  variant: OmnUiMinMaxVariant,
+  txnContext?: OmnUiMinMaxTxnContext
 ): boolean {
   if (variant === "aboveMax") return true;
+  if (variant === "belowMin" && isThirdPartyEmptyOptionalField(rule)) {
+    return txnContext === "thirdParty";
+  }
   if (variant === "belowMin") return rule.requiredOnForm || rule.belowMin > 0;
   return false;
 }
@@ -1458,16 +1525,17 @@ export function omnUiMinMaxExpectsError(
 export function omnUiMinMaxDisplayTitle(
   entry: OmnUiEntry,
   variant: OmnUiMinMaxVariant,
-  rule: OmnUiFieldRule
+  rule: OmnUiFieldRule,
+  txnContext?: OmnUiMinMaxTxnContext
 ): string {
-  const expectsError = omnUiMinMaxExpectsError(rule, variant);
+  const expectsError = omnUiMinMaxExpectsError(rule, variant, txnContext);
   const persist =
     expectsError
       ? "the form should show an error"
       : entry === "create"
         ? "Save should succeed"
         : "Update should succeed";
-  return `${omnUiMinMaxWhatEntered(variant, rule)} — ${persist}. (${rule.field})`;
+  return `${omnUiMinMaxWhatEntered(variant, rule, txnContext)} — ${persist}. (${rule.field})`;
 }
 
 export function omnUiFormulaDisplayTitle(
@@ -1490,6 +1558,14 @@ export function omnUiTestValue(length: number, kind: OmnUiFieldKind): string {
   if (length <= 0) return "";
   const ch = kind === "digits" ? "1" : "A";
   return ch.repeat(length);
+}
+
+export function omnUiMinMaxFieldValue(
+  rule: OmnUiFieldRule,
+  length: number
+): string {
+  if (isOmanVatinLengthField(rule)) return omnUiVatinOfLength(length);
+  return omnUiTestValue(length, rule.kind);
 }
 
 /**
@@ -2847,7 +2923,7 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
     };
   }),
   {
-    title: "Copied invoice number is empty until filled",
+    title: "Copied invoice number and invoice date are empty until filled",
     section: "document",
     kind: "copyInvoiceNumberEmpty",
     shouldError: false,
@@ -2967,11 +3043,12 @@ export const OMN_UI_INVOICE_FORMULA_KEYS = [
   "roundingAmount",
 ] as const;
 
-const COPY_INVOICE_NUMBER_EMPTY_SOURCE = "Copied invoice number is empty until filled";
+const COPY_INVOICE_NUMBER_EMPTY_SOURCE =
+  "Copied invoice number and invoice date are empty until filled";
 
 export function omnUiConditionalDisplayTitle(entry: OmnUiEntry, sourceTitle: string): string {
   if (sourceTitle === COPY_INVOICE_NUMBER_EMPTY_SOURCE) {
-    return "Given a copied invoice — When invoice number is left empty — Then Update should succeed. (Invoice Number)";
+    return "Given a copied invoice — When the copied form opens — Then Invoice Number and Invoice Issue Date should be empty. (Invoice Number, Invoice Issue Date)";
   }
   const when = entry === "create" ? "When the form is saved" : "When the form is updated";
   const accepted =

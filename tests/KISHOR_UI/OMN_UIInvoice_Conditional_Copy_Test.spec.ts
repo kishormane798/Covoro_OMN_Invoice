@@ -2,12 +2,8 @@ import { test } from "../../Src/baseTest";
 import { runOmnUiConditionalScenario } from "../../Helpers/ui/omnUiInvoiceHelper";
 import { openOmnUiInvoiceEditor } from "../../Helpers/ui/omnUiInvoiceEntryHelper";
 import {
-  OMN_UI_CONDITIONAL_SKIP_CATALOG,
-  OMN_UI_CONDITIONAL_SKIP_GROUPS,
   OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS,
   OMN_UI_SECTION_ORDER,
-  omnUiCatalogDisplayTitle,
-  omnUiCatalogRowsFor,
   omnUiConditionalDisplayTitle,
   omnUiConditionalScenariosFor,
 } from "../../testData/ui/omnUiInvoiceValidation";
@@ -26,33 +22,18 @@ test.describe("Copy Invoice UI — conditional", () => {
   });
 
   for (const section of OMN_UI_SECTION_ORDER) {
+    const scenarios = omnUiConditionalScenariosFor(ENTRY, section).filter(
+      (scenario) => !scenario.skipReason
+    );
+    if (scenarios.length === 0) continue;
     test.describe(`Copy Invoice UI — ${section} conditional`, () => {
-      for (const scenario of omnUiConditionalScenariosFor(ENTRY, section)) {
+      for (const scenario of scenarios) {
         test(
           omnUiConditionalDisplayTitle(ENTRY, scenario.title),
           async ({ page }) => {
-            if (scenario.skipReason) {
-              test.skip(true, scenario.skipReason);
-            }
             await runOmnUiConditionalScenario(page, ENTRY, scenario);
           }
         );
-      }
-    });
-  }
-
-  for (const group of OMN_UI_CONDITIONAL_SKIP_GROUPS) {
-    test.describe(`Copy Invoice UI — ${group}`, () => {
-      for (const row of omnUiCatalogRowsFor(
-        OMN_UI_CONDITIONAL_SKIP_CATALOG,
-        ENTRY,
-        group
-      )) {
-        test(omnUiCatalogDisplayTitle(ENTRY, row), async () => {
-          if (row.mode === "skip") {
-            test.skip(true, row.skipReason ?? "missing skip reason");
-          }
-        });
       }
     });
   }

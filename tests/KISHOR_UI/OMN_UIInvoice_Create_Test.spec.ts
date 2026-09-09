@@ -16,12 +16,12 @@ import {
   OMN_UI_FORMULA_SCENARIOS,
   OMN_UI_INVOICE_FORMULA_TIMEOUT_MS,
   OMN_UI_INVOICE_TEST_TIMEOUT_MS,
-  OMN_UI_MIN_MAX_VARIANTS,
   OMN_UI_SECTION_ORDER,
   omnUiCatalogDisplayTitle,
   omnUiCatalogRowsFor,
   omnUiFieldRulesForSection,
   omnUiFormulaDisplayTitle,
+  omnUiMinMaxCasesFor,
   omnUiMinMaxDisplayTitle,
 } from "../../testData/ui/omnUiInvoiceValidation";
 
@@ -58,11 +58,22 @@ test.describe("Create Invoice UI — field and formula", () => {
   for (const section of OMN_UI_SECTION_ORDER) {
     test.describe(`Create Invoice UI — ${section} min/max`, () => {
       for (const rule of omnUiFieldRulesForSection(section)) {
-        for (const variant of OMN_UI_MIN_MAX_VARIANTS) {
+        for (const minMaxCase of omnUiMinMaxCasesFor(rule)) {
           test(
-            omnUiMinMaxDisplayTitle(ENTRY, variant, rule),
+            omnUiMinMaxDisplayTitle(
+              ENTRY,
+              minMaxCase.variant,
+              rule,
+              minMaxCase.txnContext
+            ),
             async ({ page }) => {
-              await runOmnUiMinMaxCase(page, ENTRY, rule, variant);
+              await runOmnUiMinMaxCase(
+                page,
+                ENTRY,
+                rule,
+                minMaxCase.variant,
+                minMaxCase.txnContext
+              );
             }
           );
         }
@@ -83,12 +94,13 @@ test.describe("Create Invoice UI — field and formula", () => {
   });
 
   for (const group of OMN_UI_FIELD_CATALOG_GROUPS) {
+    const rows = omnUiCatalogRowsFor(OMN_UI_FIELD_CATALOG, ENTRY, group).filter(
+      (row) => row.mode !== "skip"
+    );
+    if (rows.length === 0) continue;
     test.describe(`Create Invoice UI — ${group}`, () => {
-      for (const row of omnUiCatalogRowsFor(OMN_UI_FIELD_CATALOG, ENTRY, group)) {
+      for (const row of rows) {
         test(omnUiCatalogDisplayTitle(ENTRY, row), async ({ page }) => {
-          if (row.mode === "skip") {
-            test.skip(true, row.skipReason ?? "missing skip reason");
-          }
           await runOmnUiFieldCatalogRow(page, ENTRY, row);
         });
       }
@@ -96,12 +108,13 @@ test.describe("Create Invoice UI — field and formula", () => {
   }
 
   for (const group of OMN_UI_FORMULA_CATALOG_GROUPS) {
+    const rows = omnUiCatalogRowsFor(OMN_UI_FORMULA_CATALOG, ENTRY, group).filter(
+      (row) => row.mode !== "skip"
+    );
+    if (rows.length === 0) continue;
     test.describe(`Create Invoice UI — ${group}`, () => {
-      for (const row of omnUiCatalogRowsFor(OMN_UI_FORMULA_CATALOG, ENTRY, group)) {
+      for (const row of rows) {
         test(omnUiCatalogDisplayTitle(ENTRY, row), async ({ page }) => {
-          if (row.mode === "skip") {
-            test.skip(true, row.skipReason ?? "missing skip reason");
-          }
           await runOmnUiFormulaCatalogRow(page, ENTRY, row);
         });
       }

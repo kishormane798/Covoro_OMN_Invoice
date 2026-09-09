@@ -16,12 +16,12 @@ import {
   OMN_UI_FORMULA_SCENARIOS,
   OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS,
   OMN_UI_INVOICE_FORMULA_TIMEOUT_MS,
-  OMN_UI_MIN_MAX_VARIANTS,
   OMN_UI_SECTION_ORDER,
   omnUiCatalogDisplayTitle,
   omnUiCatalogRowsFor,
   omnUiFieldRulesForSection,
   omnUiFormulaDisplayTitle,
+  omnUiMinMaxCasesFor,
   omnUiMinMaxDisplayTitle,
 } from "../../testData/ui/omnUiInvoiceValidation";
 
@@ -57,11 +57,22 @@ test.describe("Copy Invoice UI — field and formula", () => {
   for (const section of OMN_UI_SECTION_ORDER) {
     test.describe(`Copy Invoice UI — ${section} min/max`, () => {
       for (const rule of omnUiFieldRulesForSection(section)) {
-        for (const variant of OMN_UI_MIN_MAX_VARIANTS) {
+        for (const minMaxCase of omnUiMinMaxCasesFor(rule)) {
           test(
-            omnUiMinMaxDisplayTitle(ENTRY, variant, rule),
+            omnUiMinMaxDisplayTitle(
+              ENTRY,
+              minMaxCase.variant,
+              rule,
+              minMaxCase.txnContext
+            ),
             async ({ page }) => {
-              await runOmnUiMinMaxCase(page, ENTRY, rule, variant);
+              await runOmnUiMinMaxCase(
+                page,
+                ENTRY,
+                rule,
+                minMaxCase.variant,
+                minMaxCase.txnContext
+              );
             }
           );
         }
