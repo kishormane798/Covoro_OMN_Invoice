@@ -3,9 +3,9 @@
 #   Morning 05:45 IST starts the full field suite.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
 #   starts the next suite: field → conditional → formula →
-#   UI create 1–3 → UI conditional create 1–3 →
-#   UI edit 1–3 → UI conditional edit 1–3 →
-#   UI copy 1–3 → UI conditional copy 1–3, then stops.
+#   UI create 1–4 → UI conditional create 1–4 →
+#   UI edit 1–4 → UI conditional edit 1–4 →
+#   UI copy 1–4 → UI conditional copy 1–4, then stops.
 #   Submit stays Run workflow only.
 #   Leave "scheduled_wave" off for one-off manual runs.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -31,23 +31,29 @@ on:
           - covoro_ui_create_1
           - covoro_ui_create_2
           - covoro_ui_create_3
+          - covoro_ui_create_4
           - covoro_ui_conditional_create_1
           - covoro_ui_conditional_create_2
           - covoro_ui_conditional_create_3
+          - covoro_ui_conditional_create_4
           - covoro_ui_edit_1
           - covoro_ui_edit_2
           - covoro_ui_edit_3
+          - covoro_ui_edit_4
           - covoro_ui_conditional_edit_1
           - covoro_ui_conditional_edit_2
           - covoro_ui_conditional_edit_3
+          - covoro_ui_conditional_edit_4
           - covoro_ui_copy_1
           - covoro_ui_copy_2
           - covoro_ui_copy_3
+          - covoro_ui_copy_4
           - covoro_ui_conditional_copy_1
           - covoro_ui_conditional_copy_2
           - covoro_ui_conditional_copy_3
+          - covoro_ui_conditional_copy_4
       scheduled_wave:
-        description: "Internal. Set by the morning schedule queue. On = continue formula → UI create 1–3 → UI conditional create 1–3 → UI edit 1–3 → UI conditional edit 1–3 → UI copy 1–3 → UI conditional copy 1–3. Leave off for manual runs."
+        description: "Internal. Set by the morning schedule queue. On = continue formula → UI create 1–4 → UI conditional create 1–4 → UI edit 1–4 → UI conditional edit 1–4 → UI copy 1–4 → UI conditional copy 1–4. Leave off for manual runs."
         required: false
         type: boolean
         default: false
@@ -282,21 +288,27 @@ jobs:
             covoro_ui_create_1) LABEL="UI create 1" ;;
             covoro_ui_create_2) LABEL="UI create 2" ;;
             covoro_ui_create_3) LABEL="UI create 3" ;;
+            covoro_ui_create_4) LABEL="UI create 4" ;;
             covoro_ui_conditional_create_1) LABEL="UI conditional create 1" ;;
             covoro_ui_conditional_create_2) LABEL="UI conditional create 2" ;;
             covoro_ui_conditional_create_3) LABEL="UI conditional create 3" ;;
+            covoro_ui_conditional_create_4) LABEL="UI conditional create 4" ;;
             covoro_ui_edit_1) LABEL="UI edit 1" ;;
             covoro_ui_edit_2) LABEL="UI edit 2" ;;
             covoro_ui_edit_3) LABEL="UI edit 3" ;;
+            covoro_ui_edit_4) LABEL="UI edit 4" ;;
             covoro_ui_conditional_edit_1) LABEL="UI conditional edit 1" ;;
             covoro_ui_conditional_edit_2) LABEL="UI conditional edit 2" ;;
             covoro_ui_conditional_edit_3) LABEL="UI conditional edit 3" ;;
+            covoro_ui_conditional_edit_4) LABEL="UI conditional edit 4" ;;
             covoro_ui_copy_1) LABEL="UI copy 1" ;;
             covoro_ui_copy_2) LABEL="UI copy 2" ;;
             covoro_ui_copy_3) LABEL="UI copy 3" ;;
+            covoro_ui_copy_4) LABEL="UI copy 4" ;;
             covoro_ui_conditional_copy_1) LABEL="UI conditional copy 1" ;;
             covoro_ui_conditional_copy_2) LABEL="UI conditional copy 2" ;;
             covoro_ui_conditional_copy_3) LABEL="UI conditional copy 3" ;;
+            covoro_ui_conditional_copy_4) LABEL="UI conditional copy 4" ;;
             *) LABEL="Playwright ${MODE}" ;;
           esac
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
@@ -532,6 +544,9 @@ jobs:
               NEXT_SUITE="covoro_ui_create_3"
               ;;
             covoro_ui_create_3)
+              NEXT_SUITE="covoro_ui_create_4"
+              ;;
+            covoro_ui_create_4)
               NEXT_SUITE="covoro_ui_conditional_create_1"
               ;;
             covoro_ui_conditional_create_1)
@@ -541,6 +556,9 @@ jobs:
               NEXT_SUITE="covoro_ui_conditional_create_3"
               ;;
             covoro_ui_conditional_create_3)
+              NEXT_SUITE="covoro_ui_conditional_create_4"
+              ;;
+            covoro_ui_conditional_create_4)
               NEXT_SUITE="covoro_ui_edit_1"
               ;;
             covoro_ui_edit_1)
@@ -550,6 +568,9 @@ jobs:
               NEXT_SUITE="covoro_ui_edit_3"
               ;;
             covoro_ui_edit_3)
+              NEXT_SUITE="covoro_ui_edit_4"
+              ;;
+            covoro_ui_edit_4)
               NEXT_SUITE="covoro_ui_conditional_edit_1"
               ;;
             covoro_ui_conditional_edit_1)
@@ -559,6 +580,9 @@ jobs:
               NEXT_SUITE="covoro_ui_conditional_edit_3"
               ;;
             covoro_ui_conditional_edit_3)
+              NEXT_SUITE="covoro_ui_conditional_edit_4"
+              ;;
+            covoro_ui_conditional_edit_4)
               NEXT_SUITE="covoro_ui_copy_1"
               ;;
             covoro_ui_copy_1)
@@ -568,6 +592,9 @@ jobs:
               NEXT_SUITE="covoro_ui_copy_3"
               ;;
             covoro_ui_copy_3)
+              NEXT_SUITE="covoro_ui_copy_4"
+              ;;
+            covoro_ui_copy_4)
               NEXT_SUITE="covoro_ui_conditional_copy_1"
               ;;
             covoro_ui_conditional_copy_1)
@@ -577,7 +604,10 @@ jobs:
               NEXT_SUITE="covoro_ui_conditional_copy_3"
               ;;
             covoro_ui_conditional_copy_3)
-              echo "UI conditional copy 3 finished — scheduled wave complete."
+              NEXT_SUITE="covoro_ui_conditional_copy_4"
+              ;;
+            covoro_ui_conditional_copy_4)
+              echo "UI conditional copy 4 finished — scheduled wave complete."
               exit 0
               ;;
             *)

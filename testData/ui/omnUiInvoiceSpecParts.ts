@@ -24,17 +24,19 @@ import {
   type OmnUiMinMaxVariant,
 } from "./omnUiInvoiceValidation";
 
-/** CI sets `OMN_UI_SPEC_PART=1|2|3` so one spec file runs at most this many tests. */
+/** CI sets `OMN_UI_SPEC_PART=1|2|3|4` so one spec file runs at most this many tests. */
 export const OMN_UI_SPEC_PART_MAX_TESTS = 200;
-export const OMN_UI_SPEC_PART_COUNT = 3;
-export type OmnUiSpecPart = 1 | 2 | 3;
+export const OMN_UI_SPEC_PART_COUNT = 4;
+export type OmnUiSpecPart = 1 | 2 | 3 | 4;
 
-/** Unset = local/full run. CI numbered suites set 1, 2, or 3. */
+/** Unset = local/full run. CI numbered suites set 1–4. */
 export function resolveOmnUiSpecPart(): OmnUiSpecPart | "all" {
   const raw = process.env.OMN_UI_SPEC_PART?.trim();
   if (!raw) return "all";
-  if (raw === "1" || raw === "2" || raw === "3") return Number(raw) as OmnUiSpecPart;
-  throw new Error(`OMN_UI_SPEC_PART must be 1, 2, or 3 (got ${JSON.stringify(raw)}).`);
+  if (raw === "1" || raw === "2" || raw === "3" || raw === "4") {
+    return Number(raw) as OmnUiSpecPart;
+  }
+  throw new Error(`OMN_UI_SPEC_PART must be 1–4 (got ${JSON.stringify(raw)}).`);
 }
 
 export type OmnUiFieldFormulaCase =

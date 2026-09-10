@@ -25,17 +25,28 @@ def main() -> int:
 
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     try:
-        ws = wb["All Testcases"] if "All Testcases" in wb.sheetnames else wb[wb.sheetnames[0]]
+        if "Field" in wb.sheetnames:
+            ws = wb["Field"]
+        elif "All Testcases" in wb.sheetnames:
+            ws = wb["All Testcases"]
+        else:
+            ws = wb[wb.sheetnames[0]]
         rows_iter = ws.iter_rows(values_only=True)
         headers = [str(c).strip() if c is not None else "" for c in next(rows_iter)]
-        col = {h: i for i, h in enumerate(headers) if h}
+        col = {h.strip().lower(): i for i, h in enumerate(headers) if h}
 
-        def cell(row, name: str) -> str:
-            idx = col.get(name)
-            if idx is None or idx >= len(row):
-                return ""
-            v = row[idx]
-            return "" if v is None else str(v).strip()
+        def cell(row, *names: str) -> str:
+            for name in names:
+                idx = col.get(name.strip().lower())
+                if idx is None or idx >= len(row):
+                    continue
+                v = row[idx]
+                if v is None:
+                    continue
+                text = str(v).strip()
+                if text:
+                    return text
+            return ""
 
         cases = []
         for row in rows_iter:
@@ -44,14 +55,24 @@ def main() -> int:
             tc_id = cell(row, "Test Case ID")
             if not tc_id:
                 continue
+            # Oman All Testcases: Testcase Title. Simplified Field sheet: Test Scenario.
+            title = cell(
+                row,
+                "Test Scenario",
+                "Test Case Title",
+                "Testcase Title",
+                "Test Cases Title",
+            )
             cases.append(
                 {
                     "id": tc_id,
                     "priority": cell(row, "Priority"),
                     "section": cell(row, "Section"),
-                    "field": cell(row, "Filed name") or cell(row, "Field name"),
-                    "title": cell(row, "Testcase Title"),
-                    "description": cell(row, "Test Cases Description"),
+                    "field": cell(row, "Filed name", "Field name"),
+                    "title": title,
+                    "description": cell(
+                        row, "Test Case Description", "Test Cases Description"
+                    ),
                 }
             )
     finally:

@@ -43,6 +43,14 @@ import {
 } from "../../utils/excel/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
 import { runPythonForStdout } from "../../utils/pythonRunner";
+import {
+  isSimplifiedTemplateEnv,
+  SIMPLIFIED_BUYER_ELECTRONIC,
+  SIMPLIFIED_BUYER_NAME,
+  SIMPLIFIED_ELECTRONIC_SCHEME,
+  SIMPLIFIED_SELLER_NAMES,
+  SIMPLIFIED_SELLER_TIN_SLOTS,
+} from "./simplifiedTemplateContext";
 
 export type FieldValidationMatrixCase = {
   id: string;
@@ -402,9 +410,35 @@ export const OMAN_BUYER_ELECTRONIC = "om-receiver-dev";
 export const OMAN_ELECTRONIC_SCHEME =
   "Oman Value Added Tax Identification Number (VATIN)";
 
+/** Simplified template has no TRN column — worker identity is Peppol electronic + scheme. */
+function simplifiedTemplateWorkerSellerElectronic(): string {
+  return SIMPLIFIED_SELLER_TIN_SLOTS[0].toLowerCase();
+}
+
 export function applyOmanSellerBuyerIdentity(
   row: Record<string, string>
 ): Record<string, string> {
+  if (isSimplifiedTemplateEnv()) {
+    const sellerEl = simplifiedTemplateWorkerSellerElectronic();
+    const next = { ...row };
+    delete next["Seller VAT Identifier (TRN / TIN)"];
+    delete next["Buyer VAT identifier"];
+    return {
+      ...next,
+      "Seller name": SIMPLIFIED_SELLER_NAMES[0],
+      "Seller Name": SIMPLIFIED_SELLER_NAMES[0],
+      "Buyer name": SIMPLIFIED_BUYER_NAME,
+      "Buyer Name": SIMPLIFIED_BUYER_NAME,
+      "Seller electronic address": sellerEl,
+      "Seller Electronic Address": sellerEl,
+      "Buyer electronic address": SIMPLIFIED_BUYER_ELECTRONIC,
+      "Buyer Electronic Address": SIMPLIFIED_BUYER_ELECTRONIC,
+      "Seller electronic address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
+      "Seller Electronic Address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
+      "Buyer electronic address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
+      "Buyer Electronic Address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
+    };
+  }
   return {
     ...row,
     "Seller VAT Identifier (TRN / TIN)": OMAN_SELLER_VAT,
@@ -953,6 +987,26 @@ export function overlayProfileKey(section: string, matrixField: string): string 
 
 type BaseCacheEntry = { filePath: string; invoiceNumber: string };
 
+function templateHeaderOrNull(
+  headers: readonly string[],
+  header: string
+): string | null {
+  const want = normKey(header);
+  return headers.find((h) => normKey(h) === want) ?? null;
+}
+
+/** Skip Covoro-only identity columns when generating against SimplifiedTemplate. */
+function patchIdentityIfOnTemplate(
+  filePath: string,
+  headers: readonly string[],
+  header: string,
+  value: string
+): void {
+  const hit = templateHeaderOrNull(headers, header);
+  if (!hit) return;
+  patchInvoiceTextCellInFile(filePath, hit, value);
+}
+
 async function getOrCreateBaseWorkbook(
   section: string,
   matrixField: string,
@@ -968,34 +1022,41 @@ async function getOrCreateBaseWorkbook(
   );
 
   const generated = await generateInvoiceFromSubmitData(overlaid);
+  const headers = await getCachedInvoiceTemplateHeaders();
   // Force OM identity on base (writer/worker identity can leave buyer electronic without OM).
-  patchInvoiceTextCellInFile(
+  patchIdentityIfOnTemplate(
     generated.filePath,
+    headers,
     "Seller VAT Identifier (TRN / TIN)",
     OMAN_SELLER_VAT
   );
-  patchInvoiceTextCellInFile(
+  patchIdentityIfOnTemplate(
     generated.filePath,
+    headers,
     "Seller Electronic Address",
     OMAN_SELLER_ELECTRONIC
   );
-  patchInvoiceTextCellInFile(
+  patchIdentityIfOnTemplate(
     generated.filePath,
+    headers,
     "Seller Electronic Address Scheme",
     OMAN_ELECTRONIC_SCHEME
   );
-  patchInvoiceTextCellInFile(
+  patchIdentityIfOnTemplate(
     generated.filePath,
+    headers,
     "Buyer VAT Identifier",
     OMAN_BUYER_VAT
   );
-  patchInvoiceTextCellInFile(
+  patchIdentityIfOnTemplate(
     generated.filePath,
+    headers,
     "Buyer Electronic Address",
     OMAN_BUYER_ELECTRONIC
   );
-  patchInvoiceTextCellInFile(
+  patchIdentityIfOnTemplate(
     generated.filePath,
+    headers,
     "Buyer Electronic Address Scheme",
     OMAN_ELECTRONIC_SCHEME
   );

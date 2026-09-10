@@ -962,6 +962,32 @@ async function enableTaxRateMinMaxFields(
   await invoice.expectInputDisabled("item", "taxRateDtls[0].taxRate", false);
 }
 
+function isDeliverToCountrySubdivisionLengthField(rule: OmnUiFieldRule): boolean {
+  if (rule.section !== "shipping") return false;
+  const ids = [rule.inputId, ...(rule.altInputIds ?? [])];
+  return ids.includes("countrySubdivision") || ids.includes("deliverToCountrySubdivision");
+}
+
+/**
+ * Oman makes Deliver to country sub-division a CL-13 dropdown. Length tests
+ * (1–64 characters) need a non-Oman country so the control is free text.
+ */
+async function enableDeliverToCountrySubdivisionTextField(
+  invoice: OMN_UIInvoiceManualPage,
+  rule: OmnUiFieldRule
+): Promise<void> {
+  if (!isDeliverToCountrySubdivisionLengthField(rule)) return;
+  await invoice.selectAutocomplete("shipping", "country", UAE_COUNTRY_CODE, ["countryCode"]);
+  await invoice.dismissOpenDropdown();
+  await expect
+    .poll(
+      async () =>
+        invoice.readLiveControlKind("shipping", rule.inputId, rule.altInputIds ?? []),
+      { timeout: 15_000 }
+    )
+    .toBe("text");
+}
+
 export async function runOmnUiMinMaxCase(
   page: Page,
   entry: OmnUiEntry,
@@ -971,13 +997,23 @@ export async function runOmnUiMinMaxCase(
 ): Promise<void> {
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   // Fill every field in the section first, then overwrite the field under test.
-  await ensureSectionBaseline(invoice, rule.section, entry, new Set());
+  // Skip Oman subdivision + country so length tests do not type into a dropdown.
+  const excludeBaselineIds = isDeliverToCountrySubdivisionLengthField(rule)
+    ? new Set([
+        rule.inputId,
+        ...(rule.altInputIds ?? []),
+        "country",
+        "countryCode",
+      ])
+    : new Set<string>();
+  await ensureSectionBaseline(invoice, rule.section, entry, excludeBaselineIds);
   await enablePrecedingInvoiceMinMaxFields(invoice, rule);
   await enablePrepaymentMinMaxFields(invoice, rule, entry);
   await enableImportOfGoodsMinMaxFields(invoice, rule, entry, variant);
   await enableThirdPartyMinMaxFields(invoice, rule, entry, variant, txnContext);
   await enableExemptionReasonTextMinMaxFields(invoice, rule);
   await enableTaxRateMinMaxFields(invoice, rule, variant);
+  await enableDeliverToCountrySubdivisionTextField(invoice, rule);
 
   const value = omnUiMinMaxFieldValue(rule, lengthForVariant(rule, variant));
   const emptyCustomsOnFullTax = isEmptyCustomsDeclarationMinMax(rule, variant);

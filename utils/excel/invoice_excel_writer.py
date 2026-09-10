@@ -1981,26 +1981,32 @@ def _apply_parallel_worker_identity_to_row(
     self_billed = _is_self_billed_invoice_type(inv_type)
     deemed = t_txn == "deemed supply"
 
+    # Simplified template has no TRN — worker identity is electronic address + scheme only.
+    simplified = _is_simplified_template_env()
     counterparty_el = _counterparty_electronic_address()
     if self_billed:
         put("Seller electronic address", counterparty_el)
-        put("Seller VAT Identifier (TRN / TIN)", _counterparty_vat())
         put("Buyer electronic address", worker_el)
-        put("Buyer VAT identifier", worker_vat)
+        if not simplified:
+            put("Seller VAT Identifier (TRN / TIN)", _counterparty_vat())
+            put("Buyer VAT identifier", worker_vat)
     elif deemed:
         put("Seller electronic address", worker_el)
-        put("Seller VAT Identifier (TRN / TIN)", worker_vat)
         put("Buyer electronic address", counterparty_el)
-        # Keep Principle ID / legal registration aligned with patched seller TRN (avoids Submission Error after parallel TIN swap).
-        put("Principle ID", worker_vat)
-        put("Seller legal registration identifier", worker_vat)
+        if not simplified:
+            # Keep Principle ID / legal registration aligned with patched seller TRN
+            # (avoids Submission Error after parallel TIN swap).
+            put("Seller VAT Identifier (TRN / TIN)", worker_vat)
+            put("Principle ID", worker_vat)
+            put("Seller legal registration identifier", worker_vat)
     else:
         put("Seller electronic address", worker_el)
-        put("Seller VAT Identifier (TRN / TIN)", worker_vat)
         put("Buyer electronic address", counterparty_el)
-        put("Buyer VAT identifier", _counterparty_vat())
+        if not simplified:
+            put("Seller VAT Identifier (TRN / TIN)", worker_vat)
+            put("Buyer VAT identifier", _counterparty_vat())
 
-    if _is_simplified_template_env():
+    if simplified:
         slot = int(worker_index) % _PARALLEL_WORKER_TIN_SLOTS
         seller_name = _SIMPLIFIED_SELLER_NAMES[slot]
         if self_billed:

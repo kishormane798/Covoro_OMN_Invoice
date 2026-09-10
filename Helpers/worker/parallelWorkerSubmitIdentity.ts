@@ -151,7 +151,8 @@ function normalizeSubmitInvoiceType(value: unknown): string {
 
 /**
  * Mirror `invoice_excel_writer._apply_parallel_worker_identity_to_row` for UI submit rows.
- * Patches seller/buyer electronic address and VAT/TIN columns per worker slot.
+ * Patches seller/buyer electronic address per worker slot; Full Tax also patches VAT/TIN.
+ * Simplified template has no TRN — identity is electronic address + scheme only.
  * Party swap is Invoice Type Code only (Self-billed invoice / Self billed credit note).
  */
 export function applyParallelWorkerIdentityToSubmitRow(
@@ -165,6 +166,7 @@ export function applyParallelWorkerIdentityToSubmitRow(
   const workerVat = workerVatIdentifierForParallelIndex(workerIndex);
   const workerEl = omanElectronicAddressFromWorkerTin(workerVat);
   const counterpartyEl = getCounterpartyElectronicAddress();
+  const simplified = isSimplifiedTemplateEnv();
 
   const txnType = normalizeSubmitInvoiceType(data["Invoice Transaction Type Code"]);
   const selfBilled = isSelfBilledInvoiceType(data["Invoice Type Code"]);
@@ -174,23 +176,34 @@ export function applyParallelWorkerIdentityToSubmitRow(
 
   if (selfBilled) {
     next["Seller electronic address"] = counterpartyEl;
-    next["Seller VAT Identifier (TRN / TIN)"] = getCounterpartyVatIdentifier();
     next["Buyer electronic address"] = workerEl;
-    next["Buyer VAT identifier"] = workerVat;
+    if (!simplified) {
+      next["Seller VAT Identifier (TRN / TIN)"] = getCounterpartyVatIdentifier();
+      next["Buyer VAT identifier"] = workerVat;
+    }
   } else if (deemed) {
     next["Seller electronic address"] = workerEl;
-    next["Seller VAT Identifier (TRN / TIN)"] = workerVat;
     next["Buyer electronic address"] = counterpartyEl;
-    next["Principle ID"] = workerVat;
-    next["Seller legal registration identifier"] = workerVat;
+    if (!simplified) {
+      next["Seller VAT Identifier (TRN / TIN)"] = workerVat;
+      next["Principle ID"] = workerVat;
+      next["Seller legal registration identifier"] = workerVat;
+    }
   } else {
     next["Seller electronic address"] = workerEl;
-    next["Seller VAT Identifier (TRN / TIN)"] = workerVat;
     next["Buyer electronic address"] = counterpartyEl;
-    next["Buyer VAT identifier"] = getCounterpartyVatIdentifier();
+    if (!simplified) {
+      next["Seller VAT Identifier (TRN / TIN)"] = workerVat;
+      next["Buyer VAT identifier"] = getCounterpartyVatIdentifier();
+    }
   }
 
-  if (isSimplifiedTemplateEnv()) {
+  if (simplified) {
+    delete next["Seller VAT Identifier (TRN / TIN)"];
+    delete next["Buyer VAT identifier"];
+    delete next["Principle ID"];
+    delete next["Seller legal registration identifier"];
+
     const sellerName =
       SIMPLIFIED_SELLER_NAMES[workerIndex % SIMPLIFIED_SELLER_NAMES.length];
     if (selfBilled) {
