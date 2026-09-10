@@ -13,9 +13,10 @@ description: Add Create Invoice UI tests (manual form, not Excel upload). Use wh
 ## Project and entry specs
 
 - UI specs run on Playwright project **`chromium-ui`** (see `playwright.config.ts`).
-- Specs:
+- Specs (one file per entry; CI splits at runtime with `OMN_UI_SPEC_PART=1|2|3`, max 200 tests):
   - Field min/max (no dropdowns) + formula: `OMN_UIInvoice_{Create,Edit,Copy}_Test.spec.ts`
   - Conditional (including dropdown-style; all Excel rows, one test each): `OMN_UIInvoice_Conditional_{Create,Edit,Copy}_Test.spec.ts`
+  - Loops live in `omnUiInvoiceSpecSupport.ts` + `testData/ui/omnUiInvoiceSpecParts.ts`. Do not add `_1/_2/_3` spec files.
 
 ```bash
 npm run test:ui
@@ -47,32 +48,15 @@ New UI interaction logic goes in the **page object**, not the spec. Specs call `
 
 ### 3. Spec pattern
 
-Same shape as Covoro Excel specs: `test.describe` + data loop + `test(\`title\`, …)` in the spec file.
+Same shape as Covoro Excel specs. One spec file per entry; CI sets `OMN_UI_SPEC_PART`:
 
 ```ts
-import { test } from "../../Src/baseTest";
-import { runOmnUiConditionalScenario } from "../../Helpers/ui/omnUiInvoiceHelper";
-import {
-  OMN_UI_SECTION_ORDER,
-  omnUiConditionalDisplayTitle,
-  omnUiConditionalScenariosFor,
-} from "../../testData/ui/omnUiInvoiceValidation";
+import { registerOmnUiConditionalSpec } from "./omnUiInvoiceSpecSupport";
 
-const ENTRY = "create" as const;
-
-test.describe("Create Invoice UI — conditional", () => {
-  test.describe.configure({ mode: "parallel" });
-  for (const section of OMN_UI_SECTION_ORDER) {
-    test.describe(`Create Invoice UI — ${section} conditional`, () => {
-      for (const scenario of omnUiConditionalScenariosFor(ENTRY, section)) {
-        test(omnUiConditionalDisplayTitle(ENTRY, scenario.title), async ({ page }, testInfo) => {
-          await runOmnUiConditionalScenario(page, ENTRY, scenario, testInfo.testId);
-        });
-      }
-    });
-  }
-});
+registerOmnUiConditionalSpec("create");
 ```
+
+Add cases in `omnUiInvoiceSpecParts.ts` / `omnUiInvoiceValidation.ts`. CI jobs cap at 200 tests via `OMN_UI_SPEC_PART`.
 
 ### 4. Test title format
 

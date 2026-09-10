@@ -2995,6 +2995,28 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
       expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,
     },
     {
+      ruleId: "IBR-069-OM",
+      title:
+        "Given Exempt VAT — When exemption text is provided without a code — Then the invoice should be rejected with an error. (IBR-069-OM)",
+      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      taxExemptionReasonCode: null,
+      taxExemptionReasonText: "Exempt supply under Oman VAT",
+      taxRate: null,
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-069-OM",
+      title:
+        "Given Zero rated VAT — When exemption text is provided without a code — Then the invoice should be rejected with an error. (IBR-069-OM)",
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxExemptionReasonCode: null,
+      taxExemptionReasonText: "Zero rated supply under Oman VAT",
+      taxRate: TAX_RATE_ZERO,
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,
+    },
+    {
       ruleId: "IBR-070-OM",
       title:
         "Given Not subject to VAT — When exemption reason is left empty — Then the invoice should be accepted. (IBR-070-OM)",

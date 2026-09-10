@@ -277,6 +277,14 @@ function invoiceTypeForTxnLabels(labels: readonly string[]): string {
   return OMN_UI_INVOICE_TYPE_COMMERCIAL;
 }
 
+function resolvedUiInvoiceType(scenario: OmnUiConditionalScenario): string | undefined {
+  if (scenario.invoiceTypeCode) return scenario.invoiceTypeCode;
+  if (!scenario.invoiceTransactionTypeCode) return undefined;
+  return invoiceTypeForTxnLabels(
+    splitOmanTxnMasterLabels(scenario.invoiceTransactionTypeCode)
+  );
+}
+
 async function selectDocumentTransactionTypes(
   invoice: OMN_UIInvoiceManualPage,
   txnCell: string | readonly string[],
@@ -1161,7 +1169,13 @@ export async function runOmnUiPartyIdentifierCompanionCase(
       OMN_UI_PARTY_IDENTIFIER_SCHEME,
       schemeRule.altInputIds
     );
-  } else {
+  } else if (
+    await invoice.readInputValue(
+      section,
+      schemeRule.inputId,
+      schemeRule.altInputIds
+    )
+  ) {
     await invoice.clearAutocomplete(
       section,
       schemeRule.inputId,
@@ -1175,7 +1189,13 @@ export async function runOmnUiPartyIdentifierCompanionCase(
       OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE,
       codeRule.altInputIds
     );
-  } else {
+  } else if (
+    await invoice.readInputValue(
+      section,
+      codeRule.inputId,
+      codeRule.altInputIds
+    )
+  ) {
     await invoice.clearAutocomplete(
       section,
       codeRule.inputId,
@@ -1623,7 +1643,15 @@ async function runOmnUiFormulaCatalogScenario(
     );
   } else if (row.kind === "formulaNonOmr") {
     await invoice.selectFirstNonOmrCurrency();
-    await invoice.selectAutocomplete(
+    await invoice.expectInputDisabled("document", "currExchangeRate", false);
+    const fx =
+      scenario.currencyRate === undefined || scenario.currencyRate === null
+        ? "3.67"
+        : String(scenario.currencyRate);
+    await writeText(invoice, entry, "document", "currExchangeRate", fx);
+    await writeAutocomplete(
+      invoice,
+      entry,
       "document",
       "taxAccountingCurrency",
       OMAN_CURRENCY_USD,
@@ -2426,7 +2454,13 @@ async function applyConditionalSectionFields(
   }
   if (section === "buyer") {
     await writeText(invoice, entry, "buyer", "buyerIdentifier", scenario.buyerIdentifier, ["identifier"]);
-    await writeText(invoice, entry, "buyer", "vatIdentifier", scenario.buyerVatIdentifier);
+    await writeText(
+      invoice,
+      entry,
+      "buyer",
+      "vatIdentifier",
+      await resolveBuyerVatWrite(invoice, scenario, scenario.buyerVatIdentifier)
+    );
     if (scenario.kind === "buyerIdentifierScheme") {
       await writeAutocomplete(
         invoice,
@@ -2478,6 +2512,26 @@ async function applyConditionalSectionFields(
   }
 }
 
+/**
+ * Self-billed invoice type (261/389) swaps parties: Buyer VATIN must be the
+ * logged-in worker TIN. Catalog samples use the counterparty VATIN, which the
+ * UI rejects as not associated with the selected VAT identifier.
+ */
+async function resolveBuyerVatWrite(
+  invoice: OMN_UIInvoiceManualPage,
+  scenario: OmnUiConditionalScenario,
+  value: string | undefined
+): Promise<string | undefined> {
+  if (value === undefined || isUiEmptyValue(value)) return value;
+  const invoiceType =
+    resolvedUiInvoiceType(scenario) ||
+    (await invoice.readInputValue("document", "invType"));
+  if (!isSelfBilledOnForm(invoiceType)) return value;
+  if (value !== getCounterpartyVatIdentifier()) return value;
+  return excelPartyIdentity(invoiceType, scenario.invoiceTransactionTypeCode)
+    .buyerVat;
+}
+
 async function applyCatalogControlWrites(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
@@ -2486,8 +2540,12 @@ async function applyCatalogControlWrites(
 ): Promise<void> {
   for (const write of scenario.catalogWrites ?? []) {
     if (write.section !== section) continue;
+    const catalogValue =
+      section === "buyer" && write.inputId === "vatIdentifier"
+        ? await resolveBuyerVatWrite(invoice, scenario, write.value ?? undefined)
+        : write.value;
     if (write.control === "autocompleteInput") {
-      const literal = excelFormulaToUiValue(write.value) ?? "";
+      const literal = excelFormulaToUiValue(catalogValue) ?? "";
       if (isUiEmptyValue(literal)) {
         await leaveOrClearEmpty(
           invoice,
@@ -2512,7 +2570,7 @@ async function applyCatalogControlWrites(
         entry,
         section,
         write.inputId,
-        write.value,
+        catalogValue,
         write.altInputIds
       );
     } else if (write.control === "date") {
@@ -2521,7 +2579,7 @@ async function applyCatalogControlWrites(
         entry,
         section,
         write.inputId,
-        write.value ?? undefined
+        catalogValue ?? undefined
       );
     } else {
       await writeText(
@@ -2529,7 +2587,7 @@ async function applyCatalogControlWrites(
         entry,
         section,
         write.inputId,
-        write.value ?? undefined,
+        catalogValue ?? undefined,
         write.altInputIds
       );
     }
@@ -2568,7 +2626,7 @@ export async function runOmnUiConditionalScenario(
       entry,
       excludeIdsForConditional(scenario, section),
       {
-        invoiceTypeCode: scenario.invoiceTypeCode,
+        invoiceTypeCode: resolvedUiInvoiceType(scenario),
         invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
       }
     );

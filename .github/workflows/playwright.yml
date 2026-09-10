@@ -2,12 +2,12 @@
 #   One clock start. Every suite runs the full spec (no Playwright --shard split).
 #   Morning 05:45 IST starts the full field suite.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
-#   starts the next suite: field → conditional → formula → UI create → UI conditional, then stops.
-#   Submit, UI edit, and UI copy stay Run workflow only — not after UI conditional, and not when chain is on.
-#   Submit is Run workflow only: pick covoro_submit_single or covoro_submit_multi.
-#   UI edit / UI copy are Run workflow only. UI create and UI conditional join the morning schedule wave only.
-#   Leave "chain" off for one-off field/formula/conditional/submit/UI runs.
-#   Chain on continues field→conditional→formula only; it never starts submit or UI.
+#   starts the next suite: field → conditional → formula →
+#   UI create 1–3 → UI conditional create 1–3 →
+#   UI edit 1–3 → UI conditional edit 1–3 →
+#   UI copy 1–3 → UI conditional copy 1–3, then stops.
+#   Submit stays Run workflow only.
+#   Leave "scheduled_wave" off for one-off manual runs.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
@@ -28,17 +28,26 @@ on:
           - covoro_conditional
           - covoro_submit_single
           - covoro_submit_multi
-          - covoro_ui_create
-          - covoro_ui_conditional_create
-          - covoro_ui_edit
-          - covoro_ui_copy
-      chain:
-        description: "Leave off for one-off runs. On = continue field→conditional→formula only. Never starts submit or UI."
-        required: false
-        type: boolean
-        default: false
+          - covoro_ui_create_1
+          - covoro_ui_create_2
+          - covoro_ui_create_3
+          - covoro_ui_conditional_create_1
+          - covoro_ui_conditional_create_2
+          - covoro_ui_conditional_create_3
+          - covoro_ui_edit_1
+          - covoro_ui_edit_2
+          - covoro_ui_edit_3
+          - covoro_ui_conditional_edit_1
+          - covoro_ui_conditional_edit_2
+          - covoro_ui_conditional_edit_3
+          - covoro_ui_copy_1
+          - covoro_ui_copy_2
+          - covoro_ui_copy_3
+          - covoro_ui_conditional_copy_1
+          - covoro_ui_conditional_copy_2
+          - covoro_ui_conditional_copy_3
       scheduled_wave:
-        description: "Internal. Set by the morning schedule queue. On = continue formula → UI create → UI conditional. Leave off for manual runs."
+        description: "Internal. Set by the morning schedule queue. On = continue formula → UI create 1–3 → UI conditional create 1–3 → UI edit 1–3 → UI conditional edit 1–3 → UI copy 1–3 → UI conditional copy 1–3. Leave off for manual runs."
         required: false
         type: boolean
         default: false
@@ -48,11 +57,8 @@ run-name: >-
       || github.event.inputs.suite == 'covoro_formula' && 'Formula validation'
       || github.event.inputs.suite == 'covoro_submit_single' && 'Submit single'
       || github.event.inputs.suite == 'covoro_submit_multi' && 'Submit multi-item'
-      || github.event.inputs.suite == 'covoro_ui_create' && 'UI create'
-      || github.event.inputs.suite == 'covoro_ui_conditional_create' && 'UI conditional create'
-      || github.event.inputs.suite == 'covoro_ui_edit' && 'UI edit'
-      || github.event.inputs.suite == 'covoro_ui_copy' && 'UI copy'
       || github.event.inputs.suite == 'covoro_conditional' && 'Conditional validation'
+      || startsWith(github.event.inputs.suite, 'covoro_ui_') && github.event.inputs.suite
       || 'Field validation' }}
 
 concurrency:
@@ -114,6 +120,7 @@ jobs:
       mode: ${{ steps.mode.outputs.mode }}
       spec: ${{ steps.plan.outputs.spec }}
       project: ${{ steps.plan.outputs.project }}
+      ui_spec_part: ${{ steps.plan.outputs.ui_spec_part }}
       shard_total: ${{ steps.plan.outputs.shard_total }}
       shard_indices: ${{ steps.plan.outputs.shard_indices }}
       shard_size: ${{ steps.plan.outputs.shard_size }}
@@ -247,11 +254,17 @@ jobs:
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-full.json
           PW_WORKERS: "5"
+          OMN_UI_SPEC_PART: ${{ needs.resolve.outputs.ui_spec_part }}
         run: |
           SPEC="${{ needs.resolve.outputs.spec }}"
           PROJECT="${{ needs.resolve.outputs.project }}"
+          PART="${{ needs.resolve.outputs.ui_spec_part }}"
           set -e
-          echo "Running full suite (no shard) on ${SPEC} --project=${PROJECT}"
+          if [ -n "$PART" ]; then
+            echo "Running ${SPEC} --project=${PROJECT} OMN_UI_SPEC_PART=${PART} (max 200 tests)"
+          else
+            echo "Running full suite (no shard) on ${SPEC} --project=${PROJECT}"
+          fi
           npx playwright test "$SPEC" --project="$PROJECT"
 
       - name: Report name (matches run name)
@@ -265,11 +278,25 @@ jobs:
             covoro_formula) LABEL="Formula validation" ;;
             covoro_submit_single) LABEL="Submit single" ;;
             covoro_submit_multi) LABEL="Submit multi-item" ;;
-            covoro_ui_create) LABEL="UI create" ;;
-            covoro_ui_conditional_create) LABEL="UI conditional create" ;;
-            covoro_ui_edit) LABEL="UI edit" ;;
-            covoro_ui_copy) LABEL="UI copy" ;;
             covoro_conditional) LABEL="Conditional validation" ;;
+            covoro_ui_create_1) LABEL="UI create 1" ;;
+            covoro_ui_create_2) LABEL="UI create 2" ;;
+            covoro_ui_create_3) LABEL="UI create 3" ;;
+            covoro_ui_conditional_create_1) LABEL="UI conditional create 1" ;;
+            covoro_ui_conditional_create_2) LABEL="UI conditional create 2" ;;
+            covoro_ui_conditional_create_3) LABEL="UI conditional create 3" ;;
+            covoro_ui_edit_1) LABEL="UI edit 1" ;;
+            covoro_ui_edit_2) LABEL="UI edit 2" ;;
+            covoro_ui_edit_3) LABEL="UI edit 3" ;;
+            covoro_ui_conditional_edit_1) LABEL="UI conditional edit 1" ;;
+            covoro_ui_conditional_edit_2) LABEL="UI conditional edit 2" ;;
+            covoro_ui_conditional_edit_3) LABEL="UI conditional edit 3" ;;
+            covoro_ui_copy_1) LABEL="UI copy 1" ;;
+            covoro_ui_copy_2) LABEL="UI copy 2" ;;
+            covoro_ui_copy_3) LABEL="UI copy 3" ;;
+            covoro_ui_conditional_copy_1) LABEL="UI conditional copy 1" ;;
+            covoro_ui_conditional_copy_2) LABEL="UI conditional copy 2" ;;
+            covoro_ui_conditional_copy_3) LABEL="UI conditional copy 3" ;;
             *) LABEL="Playwright ${MODE}" ;;
           esac
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
@@ -458,7 +485,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_SUITE: ${{ github.event.inputs.suite }}
-          INPUT_CHAIN: ${{ github.event.inputs.chain }}
           INPUT_SCHEDULED_WAVE: ${{ github.event.inputs.scheduled_wave }}
         shell: bash
         run: |
@@ -473,20 +499,14 @@ jobs:
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             SUITE="$INPUT_SUITE"
 
-            # Submit, UI edit, and UI copy never join any wave.
-            if [ "$SUITE" = "covoro_submit_single" ] || [ "$SUITE" = "covoro_submit_multi" ] || [ "$SUITE" = "covoro_ui_edit" ] || [ "$SUITE" = "covoro_ui_copy" ]; then
+            # Submit never joins the wave.
+            if [[ "$SUITE" == covoro_submit_* ]]; then
               echo "Manual-only suite $SUITE finished (full spec). Not chaining."
               exit 0
             fi
 
-            # UI create / UI conditional chain only on the morning scheduled wave.
-            if [ "$SUITE" = "covoro_ui_create" ] || [ "$SUITE" = "covoro_ui_conditional_create" ]; then
-              if [ "$SCHEDULED_WAVE" != "true" ]; then
-                echo "Manual-only suite $SUITE finished (full spec). Not chaining."
-                exit 0
-              fi
-            elif [ "${INPUT_CHAIN:-false}" != "true" ]; then
-              echo "Manual run without chain — not chaining."
+            if [ "$SCHEDULED_WAVE" != "true" ]; then
+              echo "Manual run without scheduled_wave — not chaining."
               exit 0
             fi
           else
@@ -503,18 +523,61 @@ jobs:
               NEXT_SUITE="covoro_formula"
               ;;
             covoro_formula)
-              if [ "$SCHEDULED_WAVE" = "true" ]; then
-                NEXT_SUITE="covoro_ui_create"
-              else
-                echo "Formula suite finished — wave complete. Submit and UI are not started (manual Run workflow only, even if chain is on)."
-                exit 0
-              fi
+              NEXT_SUITE="covoro_ui_create_1"
               ;;
-            covoro_ui_create)
-              NEXT_SUITE="covoro_ui_conditional_create"
+            covoro_ui_create_1)
+              NEXT_SUITE="covoro_ui_create_2"
               ;;
-            covoro_ui_conditional_create)
-              echo "UI conditional suite finished — scheduled wave complete."
+            covoro_ui_create_2)
+              NEXT_SUITE="covoro_ui_create_3"
+              ;;
+            covoro_ui_create_3)
+              NEXT_SUITE="covoro_ui_conditional_create_1"
+              ;;
+            covoro_ui_conditional_create_1)
+              NEXT_SUITE="covoro_ui_conditional_create_2"
+              ;;
+            covoro_ui_conditional_create_2)
+              NEXT_SUITE="covoro_ui_conditional_create_3"
+              ;;
+            covoro_ui_conditional_create_3)
+              NEXT_SUITE="covoro_ui_edit_1"
+              ;;
+            covoro_ui_edit_1)
+              NEXT_SUITE="covoro_ui_edit_2"
+              ;;
+            covoro_ui_edit_2)
+              NEXT_SUITE="covoro_ui_edit_3"
+              ;;
+            covoro_ui_edit_3)
+              NEXT_SUITE="covoro_ui_conditional_edit_1"
+              ;;
+            covoro_ui_conditional_edit_1)
+              NEXT_SUITE="covoro_ui_conditional_edit_2"
+              ;;
+            covoro_ui_conditional_edit_2)
+              NEXT_SUITE="covoro_ui_conditional_edit_3"
+              ;;
+            covoro_ui_conditional_edit_3)
+              NEXT_SUITE="covoro_ui_copy_1"
+              ;;
+            covoro_ui_copy_1)
+              NEXT_SUITE="covoro_ui_copy_2"
+              ;;
+            covoro_ui_copy_2)
+              NEXT_SUITE="covoro_ui_copy_3"
+              ;;
+            covoro_ui_copy_3)
+              NEXT_SUITE="covoro_ui_conditional_copy_1"
+              ;;
+            covoro_ui_conditional_copy_1)
+              NEXT_SUITE="covoro_ui_conditional_copy_2"
+              ;;
+            covoro_ui_conditional_copy_2)
+              NEXT_SUITE="covoro_ui_conditional_copy_3"
+              ;;
+            covoro_ui_conditional_copy_3)
+              echo "UI conditional copy 3 finished — scheduled wave complete."
               exit 0
               ;;
             *)
@@ -523,23 +586,9 @@ jobs:
               ;;
           esac
 
-          # Hard stop: never queue submit, UI edit, or UI copy.
-          # UI create / UI conditional are allowed only when this run is the scheduled wave.
-          if [ "$NEXT_SUITE" = "covoro_submit_single" ] || [ "$NEXT_SUITE" = "covoro_submit_multi" ] || [ "$NEXT_SUITE" = "covoro_ui_edit" ] || [ "$NEXT_SUITE" = "covoro_ui_copy" ]; then
-            echo "Submit/UI edit/copy are manual-only — refusing to queue $NEXT_SUITE after $SUITE."
-            exit 0
-          fi
-          if [[ "$NEXT_SUITE" == covoro_ui_* ]] && [ "$SCHEDULED_WAVE" != "true" ]; then
-            echo "UI is schedule-wave only — refusing to queue $NEXT_SUITE after $SUITE (manual chain does not start them)."
-            exit 0
-          fi
-
           echo "Queueing next: $NEXT_SUITE (full spec)"
-          DISPATCH_ARGS=( -f suite="$NEXT_SUITE" -f chain=true )
-          if [ "$SCHEDULED_WAVE" = "true" ]; then
-            DISPATCH_ARGS+=( -f scheduled_wave=true )
-          fi
           gh workflow run playwright.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref "$GITHUB_REF_NAME" \
-            "${DISPATCH_ARGS[@]}"
+            -f suite="$NEXT_SUITE" \
+            -f scheduled_wave=true

@@ -77,6 +77,7 @@ import {
   SELLER_ADDRESS_LINE_3_FIELD,
   SELLER_ADDRESS_REQUIRED_SCENARIOS,
   SELLER_CITY_FIELD,
+  SELLER_IDENTIFIER_FIELD,
   SELLER_IDENTIFIER_ICD_SCHEME_OMAN_VATIN,
   SELLER_POST_CODE_FIELD,
   SELLER_COUNTRY_RCM_SCENARIOS,
@@ -227,6 +228,10 @@ export const OMN_UI_SKIP = {
   partyIdentity: "Worker identity is covered by the party-identity UI cases.",
   twentyLine:
     "UI does not replay the 20-line sweep; two lines cover multi-line entry.",
+  conditionalCovered: (ruleId: string) =>
+    `Covered by Create Invoice UI — conditional (${ruleId}).`,
+  genuineExemptionReasonText:
+    "Genuine UI validation: Exempt/Zero-rated tax category requires Tax Exemption Reason text.",
 } as const;
 
 export type OmnUiCatalogKind =
@@ -284,8 +289,8 @@ export function omnUiCatalogRowsFor(
 export function omnUiCatalogDisplayTitle(entry: OmnUiEntry, row: OmnUiCatalogRow): string {
   if (entry === "create") return row.title;
   return row.title
-    .replaceAll("Then Save should succeed.", "Then Update should succeed.")
-    .replaceAll(" — Save should succeed.", " — Update should succeed.");
+    .replace(/Then Save should succeed\./g, "Then Update should succeed.")
+    .replace(/ — Save should succeed\./g, " — Update should succeed.");
 }
 
 export const OMN_UI_FIELD_CATALOG_GROUPS = [
@@ -497,8 +502,8 @@ const partyIdentifierCompanionRows: OmnUiCatalogRow[] =
         ? "Save should succeed"
         : "the form should show an error"
     }. (${scenario.identifierField})`,
-    mode: "run",
-    kind: "partyIdentifierCompanion",
+    mode: "run" as const,
+    kind: "partyIdentifierCompanion" as const,
     field: scenario.identifierField,
     expectsError: !scenario.shouldAccept,
     partyIdentifierScenario: scenario,
@@ -570,7 +575,8 @@ const exemptionCompanionRows: OmnUiCatalogRow[] = [
     group: "Tax exemption reason — code / text companion",
     title:
       "Exempt VAT with exemption text and no code — the form should show an error. (Tax exemption reason code)",
-    mode: "run",
+    mode: "skip",
+    skipReason: OMN_UI_SKIP.conditionalCovered("IBR-069-OM"),
     kind: "exemptionCompanion",
     field: TAX_EXEMPTION_REASON_CODE_FIELD,
     exemptionCode: "",
@@ -657,17 +663,17 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
     : uiTxnCellWithAllowedCompanions(source.invoiceTransactionTypeCode),
 }));
 
-const txnExclusionFormulaRows: OmnUiCatalogRow[] = txnExclusionFieldRows
-  .filter((row) => !row.expectsError)
-  .map((row) => ({
-    ...row,
+const txnExclusionFormulaRows: OmnUiCatalogRow[] = [
+  {
     group: OMN_UI_TXN_EXCLUSION_FORMULA_GROUP,
-    title: row.title.replace(
-      "When the form is saved",
-      "When calculated totals match"
-    ),
-    formulaScenario: invoiceFormulaTestData[0],
-  }));
+    title:
+      "Given Invoice transaction type exclusion — When calculated totals match — Then Save should succeed. (IBR-138-OM … IBR-149-OM)",
+    mode: "skip",
+    skipReason:
+      "Txn exclusion is covered by the field catalog; formula totals are not this rule.",
+    kind: "txnExclusion",
+  },
+];
 
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...issueDateRows,
@@ -756,7 +762,7 @@ const negativeFormulaRows: OmnUiCatalogRow[] = invoiceNegativeFormulaTestData.ma
       title: omnUiFormulaDisplayTitle("create", scenario.name, true),
       mode: noEditableControl ? "skip" : "run",
       ...(noEditableControl
-        ? { skipReason: OMN_UI_SKIP.noControl(scenario.errorField) }
+        ? { skipReason: OMN_UI_SKIP.noControl("Tax Rate") }
         : {}),
       kind: "formulaNegative",
       excelTitle: scenario.name,
@@ -954,41 +960,45 @@ const OMN_UI_CALCULATED_PENDING_GROUPS = new Set<string>([
 ]);
 
 export const OMN_UI_CONDITIONAL_PENDING_CATALOG: OmnUiCatalogRow[] = [
-  ...TAX_ACCOUNTING_CURRENCY_AMOUNT_SCENARIOS.map((scenario) => ({
-    group: "Tax accounting currency amount required (ibr-053)",
-    title: scenario.title,
-    mode: "skip" as const,
-    skipReason: OMN_UI_SKIP.calculated,
-    kind: "pending" as const,
-  })),
-  ...DOCUMENT_CHARGE_REASON_SCENARIOS.map((scenario) => ({
+  ...TAX_ACCOUNTING_CURRENCY_AMOUNT_SCENARIOS.map(
+    (scenario): OmnUiCatalogRow => ({
+      group: "Tax accounting currency amount required (ibr-053)",
+      title: scenario.title,
+      mode: "skip",
+      skipReason: OMN_UI_SKIP.calculated,
+      kind: "pending",
+    })
+  ),
+  ...DOCUMENT_CHARGE_REASON_SCENARIOS.map((scenario): OmnUiCatalogRow => ({
     group: "Document level charge reason code (IBR-042-OM)",
     title: scenario.title,
-    mode: "skip" as const,
+    mode: "skip",
     skipReason: OMN_UI_SKIP.noControl("Document level charge reason code"),
-    kind: "pending" as const,
+    kind: "pending",
   })),
-  ...VAT_RATE_FORMAT_SCENARIOS.map((scenario) => ({
+  ...VAT_RATE_FORMAT_SCENARIOS.map((scenario): OmnUiCatalogRow => ({
     group: "VAT rate numeric format (IBR-046-OM)",
     title: scenario.title,
-    mode: "skip" as const,
+    mode: "skip",
     skipReason: OMN_UI_SKIP.noControl("editable Tax Rate"),
-    kind: "pending" as const,
+    kind: "pending",
   })),
   ...OMN_UI_CONDITIONAL_PENDING_GROUPS.filter(
     (group) =>
       group !== "Tax accounting currency amount required (ibr-053)" &&
       group !== "VAT rate numeric format (IBR-046-OM)" &&
       group !== "Document level charge reason code (IBR-042-OM)"
-  ).map((group) => ({
-    group,
-    title: group,
-    mode: "skip",
-    skipReason: OMN_UI_CALCULATED_PENDING_GROUPS.has(group)
-      ? OMN_UI_SKIP.calculated
-      : OMN_UI_SKIP.noControl(`${group} runner`),
-    kind: "pending",
-  })),
+  ).map(
+    (group): OmnUiCatalogRow => ({
+      group,
+      title: group,
+      mode: "skip",
+      skipReason: OMN_UI_CALCULATED_PENDING_GROUPS.has(group)
+        ? OMN_UI_SKIP.calculated
+        : OMN_UI_SKIP.noControl(`${group} runner`),
+      kind: "pending",
+    })
+  ),
 ];
 
 export const OMN_UI_CONDITIONAL_SKIP_GROUPS = OMN_UI_CONDITIONAL_PENDING_GROUPS;
@@ -1510,6 +1520,26 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   fromExcel("Custom 5", "custom", "custom5", fieldValidationOptional),
 ];
 
+/** Length for these fields is covered by the companion-length catalog. */
+const OMN_UI_MIN_MAX_LENGTH_COVERED_BY_COMPANION = new Set<string>([
+  SELLER_IDENTIFIER_FIELD,
+  BUYER_IDENTIFIER_FIELD,
+]);
+
+/** Empty polarity is covered by IBR-010-OM / IBR-019-OM in Conditional. */
+const OMN_UI_MIN_MAX_EMPTY_COVERED_BY_CONDITIONAL = new Set<string>([
+  SELLER_ADDRESS_LINE_1_FIELD,
+  SELLER_ADDRESS_LINE_2_FIELD,
+  SELLER_ADDRESS_LINE_3_FIELD,
+  SELLER_CITY_FIELD,
+  SELLER_POST_CODE_FIELD,
+  BUYER_ADDRESS_LINE_1_FIELD,
+  BUYER_ADDRESS_LINE_2_FIELD,
+  BUYER_ADDRESS_LINE_3_FIELD,
+  BUYER_CITY_FIELD,
+  BUYER_POST_CODE_FIELD,
+]);
+
 export function omnUiFieldRulesForSection(section: OmnUiSection): OmnUiFieldRule[] {
   return OMN_UI_FIELD_RULES.filter(
     (rule) =>
@@ -1518,7 +1548,8 @@ export function omnUiFieldRulesForSection(section: OmnUiSection): OmnUiFieldRule
       !rule.excelPartyIdentity &&
       !rule.noEditableControl &&
       rule.kind !== "autocomplete" &&
-      rule.kind !== "date"
+      rule.kind !== "date" &&
+      !OMN_UI_MIN_MAX_LENGTH_COVERED_BY_COMPANION.has(rule.field)
   );
 }
 
@@ -1570,14 +1601,14 @@ export function omnUiMinMaxVariantsFor(
   return OMN_UI_MIN_MAX_VARIANTS;
 }
 
-/** Empty Third Party fields: Full Tax saves; Third-party invoice errors. */
+/** Empty Third Party fields: Full Tax saves; Third-party invoice errors live in IBR-015-OM. */
 export function omnUiMinMaxCasesFor(rule: OmnUiFieldRule): readonly OmnUiMinMaxCase[] {
   return omnUiMinMaxVariantsFor(rule).flatMap((variant) => {
+    if (variant === "belowMin" && OMN_UI_MIN_MAX_EMPTY_COVERED_BY_CONDITIONAL.has(rule.field)) {
+      return [];
+    }
     if (variant === "belowMin" && isThirdPartyEmptyOptionalField(rule)) {
-      return [
-        { variant, txnContext: "fullTax" },
-        { variant, txnContext: "thirdParty" },
-      ];
+      return [{ variant, txnContext: "fullTax" }];
     }
     return [{ variant }];
   });
@@ -2173,6 +2204,44 @@ function vatCategoryExemptionCompanion(taxCategory: string): string {
   return "";
 }
 
+/** Excel buildDocumentAllowanceChargeVatScenarioRow: line tax must match doc VAT category. */
+function uiLineTaxWritesForDocVat(
+  vatCategory: string | undefined
+): OmnUiConditionalControlWrite[] {
+  const itemCat = String(vatCategory ?? "").replace(/\s+/g, " ").trim();
+  if (!itemCat || itemCat === STANDARD_TAX_CATEGORY_CODE) return [];
+  const writes: OmnUiConditionalControlWrite[] = [
+    {
+      section: "item",
+      inputId: "taxRateDtls[0].taxCategory",
+      control: "autocomplete",
+      value: itemCat,
+    },
+  ];
+  const exemption = vatCategoryExemptionCompanion(itemCat);
+  if (exemption) {
+    writes.push({
+      section: "item",
+      inputId: "taxExemptionRsnType",
+      altInputIds: [
+        "taxRateDtls[0].exemptionReasonCode",
+        "taxExemptionReasonCode",
+      ],
+      control: "autocomplete",
+      value: exemption,
+    });
+  }
+  if (itemCat === ZERO_RATED_TAX_CATEGORY_CODE) {
+    writes.push({
+      section: "item",
+      inputId: "taxRateDtls[0].taxRate",
+      control: "text",
+      value: TAX_RATE_ZERO,
+    });
+  }
+  return writes;
+}
+
 function mapUiVatCategoryRate(
   list: readonly {
     ruleId: string;
@@ -2239,11 +2308,22 @@ const UI_BUYER_COUNTRY_IDS = ["country", "countryCode"] as const;
 const UI_SHIPPING_COUNTRY_IDS = ["country", "countryCode"] as const;
 
 const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
-  ...AMOUNT_DECIMAL_PRECISION_SCENARIOS.map((s) =>
-    catalogControlScenario(s, "item", "itemGrossPrice", [
+  ...AMOUNT_DECIMAL_PRECISION_SCENARIOS.map((s) => {
+    const row = catalogControlScenario(s, "item", "itemGrossPrice", [
       { section: "item", inputId: "itemGrossPrice", control: "text", value: s.itemGrossPrice },
-    ])
-  ),
+    ]);
+    const fraction = String(s.itemGrossPrice).split(".")[1] ?? "";
+    // Peppol IBR-DEC-03 allows 3 decimals; the Create form caps amounts at 2.
+    if (fraction.length <= 2) return row;
+    return {
+      ...row,
+      shouldError: true,
+      title: s.title.replace(
+        "Then the invoice should be accepted.",
+        "Then the invoice should be rejected with an error."
+      ),
+    };
+  }),
   ...ITEM_TYPE_REQUIRED_SCENARIOS.map((s) =>
     catalogControlScenario(s, "item", UI_ITEM_TYPE_IDS[0], [
       {
@@ -2396,8 +2476,8 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
     ], UI_SHIPPING_COUNTRY_IDS.slice(1))
   ),
-  ...EXPORT_SUPPORTING_DOCUMENT_SCENARIOS.map((s) =>
-    catalogControlScenario(s, "payment", "supportingDocRef", [
+  ...EXPORT_SUPPORTING_DOCUMENT_SCENARIOS.map((s) => ({
+    ...catalogControlScenario(s, "payment", "supportingDocRef", [
       {
         section: "item",
         inputId: "taxRateDtls[0].taxCategory",
@@ -2425,7 +2505,7 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
         value: s.supportingDocumentUuid,
       },
     ], ["supportingDocumentReference"])
-  ),
+  })),
   ...SELF_BILLED_BUYER_VAT_SCENARIOS.map((s) =>
     catalogControlScenario(s, "buyer", "vatIdentifier", [
       {
@@ -2476,7 +2556,8 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
     const reasonId = charge
       ? "docLevelCharges[0].exemptionRsn"
       : "docLevelAllowances[0].exemptionRsn";
-    return catalogControlScenario(s, "invoice", reasonId, [
+    const row = catalogControlScenario(s, "invoice", reasonId, [
+      ...uiLineTaxWritesForDocVat(s.vatCategory),
       { section: "invoice", inputId: amountId, control: "text", value: s.amount },
       { section: "invoice", inputId: categoryId, control: "autocomplete", value: s.vatCategory },
       {
@@ -2488,9 +2569,11 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
         value: s.exemptionReason,
       },
     ]);
+    return row;
   }),
   ...IBR_CL_05_DOC_ALLOWANCE_SCENARIOS.map((s) =>
     catalogControlScenario(s, "invoice", "docLevelAllowances[0].exemptionRsn", [
+      ...uiLineTaxWritesForDocVat(s.vatCategory),
       { section: "invoice", inputId: "docLevelAllowances[0].amount", control: "text", value: s.amount },
       {
         section: "invoice",
