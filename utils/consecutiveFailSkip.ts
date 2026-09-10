@@ -2,7 +2,7 @@ import { closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSyn
 
 export const CONSECUTIVE_FAIL_SKIP_FILE = "consecutive-fail-skip.json";
 export const CONSECUTIVE_FAIL_SKIP_LOCK = "consecutive-fail-skip.lock";
-export const CONSECUTIVE_FAIL_SKIP_THRESHOLD = 50;
+export const CONSECUTIVE_FAIL_SKIP_THRESHOLD = 15;
 export const CONSECUTIVE_FAIL_SKIP_MESSAGE =
   "Skipping because 50 tests failed in a row.";
 
