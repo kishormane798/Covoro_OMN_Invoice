@@ -13,10 +13,10 @@ description: Add Create Invoice UI tests (manual form, not Excel upload). Use wh
 ## Project and entry specs
 
 - UI specs run on Playwright project **`chromium-ui`** (see `playwright.config.ts`).
-- Specs (one file per entry; CI splits at runtime with `OMN_UI_SPEC_PART=1|2|3|4`, max 200 tests):
+- Specs (one file per entry; CI splits at runtime with `OMN_UI_SPEC_PART=1|2`, half / half):
   - Field min/max (no dropdowns) + formula: `OMN_UIInvoice_{Create,Edit,Copy}_Test.spec.ts`
   - Conditional (including dropdown-style; all Excel rows, one test each): `OMN_UIInvoice_Conditional_{Create,Edit,Copy}_Test.spec.ts`
-  - Loops live in `omnUiInvoiceSpecSupport.ts` + `testData/ui/omnUiInvoiceSpecParts.ts`. Do not add `_1/_2/_3/_4` spec files.
+  - Loops live in `omnUiInvoiceSpecSupport.ts` + `testData/ui/omnUiInvoiceSpecParts.ts`. Do not add `_1/_2` spec files.
 
 ```bash
 npm run test:ui
@@ -56,7 +56,7 @@ import { registerOmnUiConditionalSpec } from "./omnUiInvoiceSpecSupport";
 registerOmnUiConditionalSpec("create");
 ```
 
-Add cases in `omnUiInvoiceSpecParts.ts` / `omnUiInvoiceValidation.ts`. CI jobs cap at 200 tests via `OMN_UI_SPEC_PART`.
+Add cases in `omnUiInvoiceSpecParts.ts` / `omnUiInvoiceValidation.ts`. CI jobs split half / half via `OMN_UI_SPEC_PART`.
 
 ### 4. Test title format
 

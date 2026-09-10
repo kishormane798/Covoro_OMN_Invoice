@@ -24,19 +24,18 @@ import {
   type OmnUiMinMaxVariant,
 } from "./omnUiInvoiceValidation";
 
-/** CI sets `OMN_UI_SPEC_PART=1|2|3|4` so one spec file runs at most this many tests. */
-export const OMN_UI_SPEC_PART_MAX_TESTS = 200;
-export const OMN_UI_SPEC_PART_COUNT = 4;
-export type OmnUiSpecPart = 1 | 2 | 3 | 4;
+/** CI sets `OMN_UI_SPEC_PART=1|2` and splits the suite half / half. */
+export const OMN_UI_SPEC_PART_COUNT = 2;
+export type OmnUiSpecPart = 1 | 2;
 
-/** Unset = local/full run. CI numbered suites set 1–4. */
+/** Unset = local/full run. CI numbered suites set 1 or 2. */
 export function resolveOmnUiSpecPart(): OmnUiSpecPart | "all" {
   const raw = process.env.OMN_UI_SPEC_PART?.trim();
   if (!raw) return "all";
-  if (raw === "1" || raw === "2" || raw === "3" || raw === "4") {
+  if (raw === "1" || raw === "2") {
     return Number(raw) as OmnUiSpecPart;
   }
-  throw new Error(`OMN_UI_SPEC_PART must be 1–4 (got ${JSON.stringify(raw)}).`);
+  throw new Error(`OMN_UI_SPEC_PART must be 1 or 2 (got ${JSON.stringify(raw)}).`);
 }
 
 export type OmnUiFieldFormulaCase =
@@ -66,14 +65,9 @@ export function omnUiSpecPart<T>(
   part: OmnUiSpecPart | "all"
 ): T[] {
   if (part === "all") return [...items];
-  const ceiling = OMN_UI_SPEC_PART_COUNT * OMN_UI_SPEC_PART_MAX_TESTS;
-  if (items.length > ceiling) {
-    throw new Error(
-      `UI suite has ${items.length} tests; ${OMN_UI_SPEC_PART_COUNT} runtime splits × ${OMN_UI_SPEC_PART_MAX_TESTS} = ${ceiling}. Raise OMN_UI_SPEC_PART_COUNT.`
-    );
-  }
-  const start = (part - 1) * OMN_UI_SPEC_PART_MAX_TESTS;
-  return items.slice(start, start + OMN_UI_SPEC_PART_MAX_TESTS);
+  const mid = Math.ceil(items.length / OMN_UI_SPEC_PART_COUNT);
+  if (part === 1) return items.slice(0, mid);
+  return items.slice(mid);
 }
 
 function persistVerb(entry: OmnUiEntry): "Save" | "Update" {
