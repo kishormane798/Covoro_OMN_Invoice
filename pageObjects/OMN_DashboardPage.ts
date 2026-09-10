@@ -878,14 +878,23 @@ export class DashboardPage {
     ).toBeVisible();
   }
 
-    async expectCreateInvoiceEditModeLoaded(): Promise<void> {
-    await this.expectCreateInvoiceEditorLoaded();
+    /**
+   * Document is editable: `#invNum` + Save (Create/Copy) or Update (Edit after section Edit).
+   * Does not wait on Third Party / Item — Copy can paint Document before those sections.
+   */
+  async expectCreateInvoiceEditModeLoaded(): Promise<void> {
+    await expect(this.page.locator("main.invoice-content-container")).toBeVisible({
+      timeout: 30_000,
+    });
     const document = this.page.locator('section.invoice-content-section[data-id="1"]');
+    await expect(document).toBeVisible({ timeout: 30_000 });
     await expect(document.locator("#invNum")).toBeVisible({ timeout: 30_000 });
     const footer = document.locator(".form-action-footer, .form-footer");
     await expect(
-      footer.getByRole("button", { name: "Save" }).or(footer.getByRole("button", { name: "Update" }))
-    ).toBeVisible();
+      footer
+        .getByRole("button", { name: "Save", exact: true })
+        .or(footer.getByRole("button", { name: "Update", exact: true }))
+    ).toBeVisible({ timeout: 30_000 });
   }
 
     async expectViewInvoiceDetailsLoaded(): Promise<void> {

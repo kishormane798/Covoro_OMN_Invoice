@@ -18,6 +18,25 @@ export function isOmnUiPrefilledLineItemEntry(entry: OmnUiEntry): boolean {
   return entry === "edit" || entry === "copy";
 }
 
+/**
+ * After Options → Edit / Create Copy, assert Document is ready for typing.
+ *
+ * - Edit: lands read-only (section Edit, no #invNum). Click Document Edit → Update.
+ * - Copy: Document already editable with #invNum + Save (like Create).
+ */
+async function ensureDocumentEditableAfterReuse(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: Exclude<OmnUiEntry, "create">
+): Promise<void> {
+  if (entry === "edit") {
+    await invoice.dashboard.expectCreateInvoiceEditorLoaded();
+    if (!(await invoice.isSectionInEditMode("document", "edit"))) {
+      await invoice.openSectionForEdit("document", "edit");
+    }
+  }
+  await invoice.expectEditorVisible();
+}
+
 export async function openOmnUiInvoiceEditor(
   page: Page,
   entry: OmnUiEntry
@@ -37,7 +56,7 @@ export async function openOmnUiInvoiceEditor(
     }
     flowLog("OmnUiEdit", `Reusing dashboard invoice ${reusable.invoiceNumber}.`);
     await dashboard.openInvoiceEditOnRow(reusable.row);
-    await invoice.expectEditorVisible();
+    await ensureDocumentEditableAfterReuse(invoice, "edit");
     return invoice;
   }
 
@@ -49,6 +68,6 @@ export async function openOmnUiInvoiceEditor(
   }
   flowLog("OmnUiCopy", `Reusing dashboard invoice ${reusable.invoiceNumber}.`);
   await dashboard.openInvoiceCopyOnRow(reusable.row, "Yes");
-  await invoice.expectEditorVisible();
+  await ensureDocumentEditableAfterReuse(invoice, "copy");
   return invoice;
 }
