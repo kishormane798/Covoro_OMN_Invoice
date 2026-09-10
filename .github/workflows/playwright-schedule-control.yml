@@ -1,18 +1,19 @@
-# One-click pause/resume for IST-aligned cron slices in playwright.yml.
+# One-click Stop/Start for the next 05:45 IST morning queue in playwright.yml.
+# Stop does not cancel a suite that is already running and does not affect
+# one-off manual Playwright runs (scheduled_wave off).
 name: Oman E-Invoice — Schedule control
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Pause until manual resume stops all scheduled runs until you run Resume. Pause for 1 IST day skips today's slices only (auto-resumes next IST day)."
+        description: "Stop: do not start the next scheduled morning queue until Start. Start: allow the 05:45 IST queue again. Does not cancel a suite that is already running. Does not affect one-off manual Playwright runs."
         required: true
-        default: pause_until_manual_resume
+        default: stop
         type: choice
         options:
-          - pause_until_manual_resume
-          - pause_all_scheduled_for_today
-          - resume_scheduled_runs
+          - stop
+          - start
 
 run-name: ${{ format('Schedule control — {0}', inputs.action) }}
 
@@ -29,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Pause or resume scheduled Playwright runs
+      - name: Stop or start the next scheduled morning queue
         env:
           ACTION: ${{ inputs.action }}
         run: |
@@ -41,28 +42,17 @@ jobs:
           BRANCH="${GITHUB_REF_NAME}"
 
           case "$ACTION" in
-            pause_until_manual_resume)
+            stop)
               mkdir -p .github
               printf '%s\n' "manual" > "$FILE"
               git add "$FILE"
               if git diff --staged --quiet; then
-                echo "::notice::Already paused until manual resume (file unchanged)."
+                echo "::notice::Already paused until Start (file unchanged)."
                 exit 0
               fi
               git commit -m "chore(ci): pause Playwright cron runs until manual resume"
               ;;
-            pause_all_scheduled_for_today)
-              TODAY=$(TZ=Asia/Kolkata date +%Y-%m-%d)
-              mkdir -p .github
-              printf '%s\n' "$TODAY" > "$FILE"
-              git add "$FILE"
-              if git diff --staged --quiet; then
-                echo "::notice::Already paused for IST day $TODAY (file unchanged)."
-                exit 0
-              fi
-              git commit -m "chore(ci): pause Playwright cron runs for IST day ${TODAY}"
-              ;;
-            resume_scheduled_runs)
+            start)
               if [ ! -f "$FILE" ]; then
                 echo "::notice::No pause file — scheduled runs are not paused."
                 exit 0

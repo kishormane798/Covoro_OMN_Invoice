@@ -101,12 +101,12 @@ jobs:
             READ=$(echo "$READ" | xargs)
             if [ "$READ" = "manual" ]; then
               echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::Scheduled Playwright runs are paused until manual resume. Resume: Actions → Oman E-Invoice — Schedule control → resume_scheduled_runs."
+              echo "::notice::Scheduled Playwright runs are paused until Start. Resume: Actions → Oman E-Invoice — Schedule control → start."
               exit 0
             fi
             if [ "$READ" = "$TODAY_IST" ]; then
               echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::Scheduled Playwright runs are paused for IST date ${TODAY_IST} (1-day pause). Resume early: Actions → Oman E-Invoice — Schedule control → resume_scheduled_runs."
+              echo "::notice::Scheduled Playwright runs are paused for IST date ${TODAY_IST} (legacy 1-day pause). Resume early: Actions → Oman E-Invoice — Schedule control → start."
               exit 0
             fi
           fi
