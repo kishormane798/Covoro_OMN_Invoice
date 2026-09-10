@@ -228,10 +228,6 @@ export const OMN_UI_SKIP = {
   partyIdentity: "Worker identity is covered by the party-identity UI cases.",
   twentyLine:
     "UI does not replay the 20-line sweep; two lines cover multi-line entry.",
-  conditionalCovered: (ruleId: string) =>
-    `Covered by Create Invoice UI — conditional (${ruleId}).`,
-  genuineExemptionReasonText:
-    "Genuine UI validation: Exempt/Zero-rated tax category requires Tax Exemption Reason text.",
 } as const;
 
 export type OmnUiCatalogKind =
@@ -305,7 +301,6 @@ export const OMN_UI_FIELD_CATALOG_GROUPS = [
   "Dropdown — valid tax exemption reason (Zero rated)",
   "Dropdown — invalid values",
   "Dropdown — invalid tax exemption reason (charges/allowances companions)",
-  "Tax exemption reason — code / text companion",
   "Format / context fields — VATIN, UUID, rate, FX, profit margin",
   "Invoice transaction type exclusion (IBR-138-OM … IBR-149-OM)",
 ] as const;
@@ -559,36 +554,8 @@ const cl06Rows: OmnUiCatalogRow[] = [
   },
 ];
 
-const exemptionCompanionRows: OmnUiCatalogRow[] = [
-  {
-    group: "Tax exemption reason — code / text companion",
-    title:
-      "Exempt VAT with exemption code and no text — Save should succeed. (Tax exemption reason text)",
-    mode: "run",
-    kind: "exemptionCompanion",
-    field: TAX_EXEMPTION_REASON_TEXT_FIELD,
-    exemptionCode: TAX_EXEMPTION_REASON_SAMPLE,
-    exemptionText: "",
-    expectsError: false,
-  },
-  {
-    group: "Tax exemption reason — code / text companion",
-    title:
-      "Exempt VAT with exemption text and no code — the form should show an error. (Tax exemption reason code)",
-    mode: "skip",
-    skipReason: OMN_UI_SKIP.conditionalCovered("IBR-069-OM"),
-    kind: "exemptionCompanion",
-    field: TAX_EXEMPTION_REASON_CODE_FIELD,
-    exemptionCode: "",
-    exemptionText: "Exempt supply under Oman VAT",
-    expectsError: true,
-  },
-];
-
 const OMN_UI_TXN_EXCLUSION_GROUP =
   "Invoice transaction type exclusion (IBR-138-OM … IBR-149-OM)";
-const OMN_UI_TXN_EXCLUSION_FORMULA_GROUP =
-  "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)";
 
 type TxnExclusionSource = {
   title: string;
@@ -663,18 +630,6 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
     : uiTxnCellWithAllowedCompanions(source.invoiceTransactionTypeCode),
 }));
 
-const txnExclusionFormulaRows: OmnUiCatalogRow[] = [
-  {
-    group: OMN_UI_TXN_EXCLUSION_FORMULA_GROUP,
-    title:
-      "Given Invoice transaction type exclusion — When calculated totals match — Then Save should succeed. (IBR-138-OM … IBR-149-OM)",
-    mode: "skip",
-    skipReason:
-      "Txn exclusion is covered by the field catalog; formula totals are not this rule.",
-    kind: "txnExclusion",
-  },
-];
-
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...issueDateRows,
   ...partyIdentifierCompanionRows,
@@ -727,7 +682,6 @@ export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.noControl("exemption companion dropdown runner"),
     kind: "pending",
   },
-  ...exemptionCompanionRows,
   {
     group: "Format / context fields — VATIN, UUID, rate, FX, profit margin",
     title: "Format/context fields pending UI entry. (format)",
@@ -927,6 +881,18 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
   ...nonOmrFormulaRows,
   ...lineNetFormulaRows,
   ...twoLineFormulaRows,
+  ...txnExclusionFieldRows
+    .filter((row) => !row.expectsError)
+    .slice(0, 1)
+    .map((row) => ({
+      ...row,
+      group: "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)",
+      title: row.title.replace(
+        "When the form is saved",
+        "When calculated totals match"
+      ),
+      formulaScenario: invoiceFormulaTestData[0],
+    })),
   {
     group: "Multi-line (20 lines) — positive (OMR)",
     title:
@@ -935,7 +901,6 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
     skipReason: OMN_UI_SKIP.twentyLine,
     kind: "pending",
   },
-  ...txnExclusionFormulaRows,
 ];
 
 export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [
@@ -3215,6 +3180,7 @@ export const OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT = {
   excelField: "Invoice Total Tax Amount In Tax Accounting Currency",
   section: "invoice" as const,
   inputIds: [
+    "totalTaxAmtInTaxAccCurr",
     "invoiceTotalTaxAccountingCurrency",
     "taxAmtInAccCurr",
     "taxAmountInAccountingCurrency",

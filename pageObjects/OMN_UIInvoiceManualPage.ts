@@ -743,6 +743,58 @@ export class OMN_UIInvoiceManualPage {
     await commit.first().click();
   }
 
+  /** Snapshot labels: VAT Line Amount in OMR / Invoice Line Amount in OMR. */
+  async replaceLabeledItemText(label: string, value: string): Promise<void> {
+    const input = this.itemModal().getByRole("textbox", { name: label, exact: true });
+    if ((await input.count()) === 0) return;
+    await expect(input.first()).toBeVisible({ timeout: 15_000 });
+    await input.first().fill(value);
+  }
+
+  async readLabeledSectionValue(section: OmnUiSection, label: string): Promise<string> {
+    const root = this.scope(section);
+    const box = root.getByRole("textbox", { name: label, exact: true });
+    if ((await box.count()) > 0) {
+      return (await box.first().inputValue().catch(() => "")).trim();
+    }
+    const named = root.getByLabel(label, { exact: true });
+    if ((await named.count()) > 0) {
+      const typed = (await named.first().inputValue().catch(() => "")).trim();
+      if (typed) return typed;
+      return (await named.first().innerText().catch(() => "")).trim();
+    }
+    return "";
+  }
+
+  async selectLabeledCombobox(
+    section: OmnUiSection,
+    label: string,
+    option: string
+  ): Promise<void> {
+    const input = this.scope(section).getByRole("combobox", { name: label, exact: true }).first();
+    if ((await input.count()) === 0) return;
+    const current = (await input.inputValue().catch(() => "")).trim();
+    if (this.autocompleteValueMatches(current, option) || current.includes(option)) {
+      return;
+    }
+    if (!(await input.isEnabled().catch(() => false))) return;
+    await input.click();
+    await input.fill(option);
+    const listbox = this.page.locator('[role="listbox"]').last();
+    if (!(await listbox.isVisible().catch(() => false))) {
+      await input.press("ArrowDown");
+    }
+    await expect(listbox).toBeVisible({ timeout: 15_000 });
+    const choice = await this.autocompleteOption(listbox, option);
+    await expect(choice.first()).toBeVisible({ timeout: 15_000 });
+    try {
+      await choice.first().click({ timeout: 5_000 });
+    } catch {
+      await choice.first().click({ force: true, timeout: 5_000 });
+    }
+    await this.dismissOpenDropdown();
+  }
+
   async readFieldError(
     section: OmnUiSection,
     inputId: string,

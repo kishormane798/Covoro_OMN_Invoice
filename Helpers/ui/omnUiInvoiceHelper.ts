@@ -1505,6 +1505,36 @@ async function runOmnUiTxnExclusionCase(
     formula as InvoiceFormulaScenario,
     isOmnUiPrefilledLineItemEntry(entry)
   );
+  await invoice.openSectionForEdit("invoice", entry);
+  for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
+    if (
+      (key === "docCharges" || key === "docAllowances") &&
+      toNumber(formula[key], 0) === 0
+    ) {
+      continue;
+    }
+    await fillFormulaCandidate(invoice, "invoice", key, formula[key]);
+  }
+  if (toNumber(formula.docCharges, 0) !== 0) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "invoice",
+      "docLevelCharges[0].vatCategory",
+      OMN_UI_TAX_CATEGORY_STANDARD
+    );
+  }
+  if (toNumber(formula.docAllowances, 0) !== 0) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "invoice",
+      "docLevelAllowances[0].vatCategory",
+      OMN_UI_TAX_CATEGORY_STANDARD
+    );
+  }
+  await commitSection(invoice, "invoice", entry);
+  await invoice.expectSectionSavedReadOnly("invoice");
 }
 
 export async function runOmnUiFieldCatalogRow(
@@ -1582,6 +1612,9 @@ async function fillOmnUiFormulaItem(
   if (!(await invoice.readInputValue("item", "itemType"))) {
     await invoice.selectAutocomplete("item", "itemType", OMN_UI_ITEM_TYPE_GOODS);
   }
+  if (!(await invoice.readInputValue("item", "classificationIdentifier"))) {
+    await invoice.selectAutocomplete("item", "classificationIdentifier", OMN_UI_HS_CODE);
+  }
   if (!(await invoice.readInputValue("item", "unitOfMeasure"))) {
     await invoice.selectAutocomplete("item", "unitOfMeasure", OMN_UI_UNIT_OF_MEASURE);
   }
@@ -1595,8 +1628,19 @@ async function fillOmnUiFormulaItem(
   for (const key of OMN_UI_ITEM_FORMULA_KEYS) {
     await fillFormulaCandidate(invoice, "item", key, scenario[key]);
   }
+  if (scenario.currencyRate != null) {
+    const expected = omnUiExpectedTotals(scenario);
+    await invoice.replaceLabeledItemText(
+      "VAT Line Amount in OMR",
+      String(expected.vatLineAmount)
+    );
+    await invoice.replaceLabeledItemText(
+      "Invoice Line Amount in OMR",
+      String(expected.invoiceLineAmount)
+    );
+  }
   await invoice.clickItemCommit(entry);
-  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 }).catch(() => {});
+  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
 }
 
 async function expectAnyFormulaError(
@@ -1682,7 +1726,42 @@ async function runOmnUiFormulaCatalogScenario(
   }
   await invoice.openSectionForEdit("invoice", entry);
   for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
+    if (
+      (key === "docCharges" || key === "docAllowances") &&
+      toNumber(scenario[key], 0) === 0
+    ) {
+      continue;
+    }
     await fillFormulaCandidate(invoice, "invoice", key, scenario[key]);
+  }
+  if (toNumber(scenario.docCharges, 0) !== 0) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "invoice",
+      "docLevelCharges[0].vatCategory",
+      OMN_UI_TAX_CATEGORY_STANDARD
+    );
+  }
+  if (toNumber(scenario.docAllowances, 0) !== 0) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "invoice",
+      "docLevelAllowances[0].vatCategory",
+      OMN_UI_TAX_CATEGORY_STANDARD
+    );
+  }
+  if (row.kind === "formulaNonOmr") {
+    const ibt111 = await invoice.readInputValue(
+      "invoice",
+      "totalTaxAmtInTaxAccCurr",
+      [...OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT.inputIds]
+    );
+    expect(
+      ibt111,
+      `${OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT.excelField} should be visible and calculated`
+    ).not.toBe("");
   }
   await commitSection(invoice, "invoice", entry);
 
@@ -1692,14 +1771,13 @@ async function runOmnUiFormulaCatalogScenario(
     return;
   }
   const target =
-    row.kind === "formulaProfitMargin"
-      ? OMN_UI_PROFIT_MARGIN_TOTAL_DUE
-      : row.kind === "formulaNonOmr"
-        ? OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT
-        : undefined;
+    row.kind === "formulaProfitMargin" ? OMN_UI_PROFIT_MARGIN_TOTAL_DUE : undefined;
   if (target) {
-    const [inputId, ...altInputIds] = target.inputIds;
-    const value = await invoice.readInputValue(target.section, inputId, altInputIds);
+    const value = await invoice.readInputValue(
+      target.section,
+      target.inputIds[0],
+      target.inputIds.slice(1)
+    );
     expect(value, `${target.excelField} should be visible and calculated`).not.toBe("");
   }
   await invoice.expectSectionSavedReadOnly("invoice");
