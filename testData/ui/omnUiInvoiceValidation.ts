@@ -137,6 +137,7 @@ import {
   IBR_149_TXN_EXCLUSION_SCENARIOS,
   SELF_BILLED_OR_RCM_TXN_TYPES,
   btom001EnsureBaseTxnLabels,
+  btom001TxnPairForbidden,
   combineOmanTxnTypeDescriptions,
   splitOmanTxnMasterLabels,
   SUMMARY_INVOICE_PERIOD_SCENARIOS,
@@ -577,7 +578,17 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
   ...IBR_147_TXN_EXCLUSION_SCENARIOS,
   ...IBR_148_TXN_EXCLUSION_SCENARIOS,
   ...IBR_149_TXN_EXCLUSION_SCENARIOS,
-]).map((source) => ({
+])
+  // UI disables partners from the BTOM-001 matrix only. Skip PINT pairs the
+  // matrix still allows (e.g. Simplified ⊕ Special Zone — IBR-149-OM Excel only).
+  .filter((source) => {
+    if (!source.shouldError) return true;
+    const labels = splitOmanTxnMasterLabels(source.invoiceTransactionTypeCode);
+    if (labels.length < 2) return false;
+    const [applicable, ...forbidden] = labels;
+    return forbidden.every((partner) => btom001TxnPairForbidden(applicable!, partner));
+  })
+  .map((source) => ({
   group: OMN_UI_TXN_EXCLUSION_GROUP,
   title: source.title
     .replace(/ \| Invoice Type: .+? \((IBR-\d+-OM)\)$/, " ($1)")

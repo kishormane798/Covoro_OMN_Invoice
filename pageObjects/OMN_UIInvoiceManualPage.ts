@@ -511,6 +511,10 @@ export class OMN_UIInvoiceManualPage {
   /**
    * Invoice Transaction Type is a checkbox multi-select (`#invTxnType-listbox`).
    * Do not fill() the combobox — that leaves the value empty and Save fails.
+   * Always clear prefilled chips first (Copy/Edit default Full Tax, or leftovers
+   * after Invoice Type reselect) so Allowed/Not Allowed options match only the
+   * types we select next — otherwise Summary/Third-party stay enabled under Full Tax
+   * while Simplified Tax Invoice cases (IBR-149-OM) expect them disabled.
    */
   async selectTransactionTypes(labels: readonly string[]): Promise<void> {
     const wanted = [...new Set(labels.map((label) => label.trim()).filter(Boolean))];
@@ -522,6 +526,12 @@ export class OMN_UIInvoiceManualPage {
       input,
       "document #invTxnType should be enabled before selecting"
     ).toBeEnabled({ timeout: 15_000 });
+    const root = this.autocompleteRoot("document", input);
+    const autoClear = root.locator(".MuiAutocomplete-clearIndicator").first();
+    if ((await autoClear.count()) > 0 && (await autoClear.isVisible().catch(() => false))) {
+      await autoClear.click({ force: true }).catch(() => {});
+      await this.dismissOpenDropdown();
+    }
     const listbox = this.page.locator("#invTxnType-listbox");
     const openList = async () => {
       if (await listbox.isVisible().catch(() => false)) return;
@@ -612,22 +622,30 @@ export class OMN_UIInvoiceManualPage {
     const input = await this.resolveInput("document", "invTxnType");
     await expect(input).toBeVisible({ timeout: 15_000 });
     const listbox = this.page.locator("#invTxnType-listbox");
-    if (!(await listbox.isVisible().catch(() => false))) {
+    const openList = async () => {
+      if (await listbox.isVisible().catch(() => false)) return;
       await input.click();
       if (!(await listbox.isVisible().catch(() => false))) {
         await input.press("ArrowDown");
       }
-    }
-    await expect(listbox).toBeVisible({ timeout: 15_000 });
+      await expect(listbox).toBeVisible({ timeout: 15_000 });
+    };
+    await openList();
     for (const label of wanted) {
-      const choice = (await this.autocompleteOption(listbox, label)).first();
-      await expect(choice, `invTxnType option ${label} should be visible`).toBeVisible({
-        timeout: 15_000,
-      });
-      await expect(
-        choice,
-        `invTxnType option "${label}" should be disabled for this combination`
-      ).toHaveAttribute("aria-disabled", "true");
+      await expect
+        .poll(
+          async () => {
+            await openList();
+            const choice = (await this.autocompleteOption(listbox, label)).first();
+            if (!(await choice.isVisible().catch(() => false))) return null;
+            return choice.getAttribute("aria-disabled");
+          },
+          {
+            timeout: 15_000,
+            message: `invTxnType option "${label}" should be disabled for this combination`,
+          }
+        )
+        .toBe("true");
     }
     await this.dismissOpenDropdown();
   }
