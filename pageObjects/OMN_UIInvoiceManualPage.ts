@@ -7,6 +7,7 @@ import {
   isUiEmptyValue,
   isUiWhitespaceValue,
   OMN_UI_SECTION_DATA_ID,
+  OMN_UI_TXN_FULL_TAX,
   type OmnUiEntry,
   type OmnUiSection,
 } from "../testData/ui/omnUiInvoiceValidation";
@@ -576,9 +577,15 @@ export class OMN_UIInvoiceManualPage {
    * after Invoice Type reselect) so Allowed/Not Allowed options match only the
    * types we select next — otherwise Summary/Third-party stay enabled under Full Tax
    * while Simplified Tax Invoice cases (IBR-149-OM) expect them disabled.
+   * Simplified and Full Tax are mutually exclusive: never leave Full Tax checked
+   * when Simplified is in the wanted set (Copy often keeps Full Tax chips).
    */
   async selectTransactionTypes(labels: readonly string[]): Promise<void> {
-    const wanted = [...new Set(labels.map((label) => label.trim()).filter(Boolean))];
+    const unique = [...new Set(labels.map((label) => label.trim()).filter(Boolean))];
+    const wantsSimplified = unique.includes("Simplified Tax Invoice");
+    const wanted = wantsSimplified
+      ? unique.filter((label) => label !== OMN_UI_TXN_FULL_TAX)
+      : unique;
     if (wanted.length === 0) return;
     await this.expectLiveControlKind("document", "invTxnType", "autocomplete");
     const input = await this.resolveInput("document", "invTxnType");
@@ -589,7 +596,7 @@ export class OMN_UIInvoiceManualPage {
     ).toBeEnabled({ timeout: 15_000 });
     const root = this.autocompleteRoot("document", input);
     const autoClear = root.locator(".MuiAutocomplete-clearIndicator").first();
-    if ((await autoClear.count()) > 0 && (await autoClear.isVisible().catch(() => false))) {
+    if ((await autoClear.count()) > 0) {
       await autoClear.click({ force: true }).catch(() => {});
       await this.dismissOpenDropdown();
     }
@@ -603,6 +610,22 @@ export class OMN_UIInvoiceManualPage {
       await expect(listbox).toBeVisible({ timeout: 15_000 });
     };
     await openList();
+    if (wantsSimplified) {
+      const fullTax = (await this.autocompleteOption(listbox, OMN_UI_TXN_FULL_TAX)).first();
+      if (
+        (await fullTax.count()) > 0 &&
+        (await fullTax.getAttribute("aria-selected")) === "true"
+      ) {
+        const fullTaxText = fullTax.getByText(OMN_UI_TXN_FULL_TAX, { exact: true });
+        if ((await fullTaxText.count()) > 0) {
+          await fullTaxText.click({ timeout: 5_000 });
+        } else {
+          await fullTax.click({ timeout: 5_000 });
+        }
+        await this.dismissOpenDropdown();
+        await openList();
+      }
+    }
     for (const label of wanted) {
       await openList();
       const optionOf = async () => (await this.autocompleteOption(listbox, label)).first();
@@ -808,12 +831,17 @@ export class OMN_UIInvoiceManualPage {
   }
 
   /**
-   * Add-item dialog persist control. Label lives in `.btn-children` (not the
-   * button accessible name), inside `form.form-container .form-action-footer`.
+   * Item dialog persist control. Label lives in `.btn-children` (not always
+   * the button accessible name). Create and Copy are a new invoice (**Add**).
+   * Edit of an existing invoice uses **Update**. Copy may show either when
+   * the copied line is opened with the pencil.
    */
   private itemModalCommitButton(entry: OmnUiEntry): Locator {
-    const label = entry === "create" ? /^Add$/ : /^Update$/;
-    const footer = this.itemModal().locator("form.form-container .form-action-footer");
+    const label =
+      entry === "edit" ? /^Update$/ : entry === "copy" ? /^(Add|Update)$/ : /^Add$/;
+    const footer = this.itemModal().locator(
+      "form.form-container .form-action-footer, .form-action-footer, .modal-footer, .form-footer"
+    );
     return footer
       .locator("button.base-btn")
       .filter({ has: this.page.locator(".btn-children", { hasText: label }) })
