@@ -309,7 +309,27 @@ async function ensureDocumentBaseline(
   if (!excludeInputIds.has("invNum")) {
     const current = await invoice.readInputValue("document", "invNum");
     if (entry !== "edit" || !current) {
-      await invoice.replaceInput("document", "invNum", buildUniqueSubmitInvoiceNumber());
+      await invoice.fillInvoiceNumber(buildUniqueSubmitInvoiceNumber());
+    }
+  }
+  // Copy blanks Invoice Number and Invoice Issue Date. Both are required on Update.
+  // Create/Copy always set a date; Edit keeps a filled date.
+  if (
+    !excludeInputIds.has("invDate") &&
+    !excludeInputIds.has("issueDate") &&
+    !excludeInputIds.has("invIssueDate")
+  ) {
+    const currentDate = await invoice.readInputValue("document", "invDate", [
+      "issueDate",
+      "invIssueDate",
+    ]);
+    if (entry !== "edit" || !currentDate) {
+      await invoice.fillDate(
+        "document",
+        "invDate",
+        formatOmnUiIssueDateValue(new Date(), "yyyy-mm-dd"),
+        ["issueDate", "invIssueDate"]
+      );
     }
   }
   // Invoice type first so transaction-type options match the selected document.

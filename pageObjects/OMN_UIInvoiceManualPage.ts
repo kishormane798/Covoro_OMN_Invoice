@@ -11,8 +11,6 @@ import {
   type OmnUiSection,
 } from "../testData/ui/omnUiInvoiceValidation";
 
-const ITEM_MODAL = '[data-testid="modalBody"]';
-
 export class OMN_UIInvoiceManualPage {
   readonly dashboard: DashboardPage;
 
@@ -30,8 +28,21 @@ export class OMN_UIInvoiceManualPage {
     return this.section("document");
   }
 
+  /**
+   * Edit/Add Item dialog. Live DOM: `data-testid="modalBody"` wrapping
+   * `.add-item-modal-container` (not empty confirmation wrappers).
+   */
   itemModal(): Locator {
-    return this.page.locator(ITEM_MODAL);
+    return this.page.getByTestId("modalBody").filter({
+      has: this.page.locator(".add-item-modal-container"),
+    });
+  }
+
+  /** Pencil in the item table Action column (`role="presentation"`, not a named button). */
+  private itemRowEditIcon(row: Locator): Locator {
+    return row
+      .locator('[data-testid="action-container"] .action-icon')
+      .filter({ has: this.page.locator("svg#noun-edit-6984165") });
   }
 
   private scope(section: OmnUiSection): Locator {
@@ -162,6 +173,11 @@ export class OMN_UIInvoiceManualPage {
     await this.expectEditorVisible();
   }
 
+  /** Create and Copy are a new invoice (Save). Edit of an existing row uses Update. */
+  private persistButtonName(entry: OmnUiEntry): "Save" | "Update" {
+    return entry === "edit" ? "Update" : "Save";
+  }
+
   private sectionEditButton(section: OmnUiSection): Locator {
     const root = this.section(section);
     return root
@@ -172,7 +188,7 @@ export class OMN_UIInvoiceManualPage {
   }
 
   async isSectionInEditMode(section: OmnUiSection, entry: OmnUiEntry): Promise<boolean> {
-    const name = entry === "create" ? "Save" : "Update";
+    const name = this.persistButtonName(entry);
     return this.sectionFooter(section)
       .getByRole("button", { name, exact: true })
       .first()
@@ -197,7 +213,7 @@ export class OMN_UIInvoiceManualPage {
         await editBtn.click({ timeout: 8_000, force: true });
       }
     }
-    const persistName = entry === "create" ? "Save" : "Update";
+    const persistName = this.persistButtonName(entry);
     await expect(
       this.sectionFooter(section).getByRole("button", { name: persistName, exact: true }).first()
     ).toBeVisible({ timeout: 15_000 });
@@ -206,7 +222,7 @@ export class OMN_UIInvoiceManualPage {
   async clickSectionCommit(section: OmnUiSection, entry: OmnUiEntry = "create"): Promise<void> {
     await this.dismissOpenDropdown();
     const footer = this.sectionFooter(section);
-    const name = entry === "create" ? "Save" : "Update";
+    const name = this.persistButtonName(entry);
     const commit = footer.getByRole("button", { name, exact: true });
     await expect(commit.first()).toBeVisible({ timeout: 15_000 });
     await commit.first().click();
@@ -338,6 +354,18 @@ export class OMN_UIInvoiceManualPage {
     }
   }
 
+  async fillInvoiceNumber(value: string): Promise<void> {
+    const input = await this.resolveInput("document", "invNum");
+    await expect(input).toBeVisible({ timeout: 15_000 });
+    await input.click({ force: true });
+    await input.fill(value);
+    if ((await input.inputValue()).trim() !== value) {
+      await input.click({ force: true });
+      await input.pressSequentially(value, { delay: 15 });
+    }
+    await expect(input).toHaveValue(value, { timeout: 5_000 });
+  }
+
   async fillDate(
     section: OmnUiSection,
     inputId: string,
@@ -346,6 +374,39 @@ export class OMN_UIInvoiceManualPage {
   ): Promise<void> {
     await this.expectLiveControlKind(section, inputId, "date", altInputIds);
     const hidden = await this.resolveInput(section, inputId, altInputIds);
+    if (!isoDate) {
+      await hidden.evaluate((el, value) => {
+        const input = el as HTMLInputElement;
+        const descriptor = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value"
+        );
+        descriptor?.set?.call(input, value);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }, isoDate);
+      return;
+    }
+    const parts = isoDate.split("-");
+    const now = new Date();
+    const isToday =
+      parts.length === 3 &&
+      Number(parts[0]) === now.getFullYear() &&
+      Number(parts[1]) === now.getMonth() + 1 &&
+      Number(parts[2]) === now.getDate();
+    const root = this.fieldRoot(section, hidden);
+    // Issue date: open Choose date and click today (aria-current="date"). Typing YYYY-MM-DD does not stick.
+    if (isToday) {
+      const popper = this.page.locator(".MuiPickerPopper-root");
+      if (!(await popper.isVisible().catch(() => false))) {
+        await root.getByRole("button", { name: "Choose date", exact: true }).click();
+      }
+      const today = popper.locator("[aria-current='date']");
+      await expect(today).toBeVisible({ timeout: 15_000 });
+      await today.click();
+      await expect(popper).toBeHidden({ timeout: 15_000 });
+      return;
+    }
     await hidden.evaluate((el, value) => {
       const input = el as HTMLInputElement;
       const descriptor = Object.getOwnPropertyDescriptor(
@@ -731,19 +792,13 @@ export class OMN_UIInvoiceManualPage {
     const section = this.section("item");
     await expect(section).toBeVisible({ timeout: 15_000 });
     if (preferExistingRow) {
-      const editBtn = section.locator("table tbody tr").first().getByRole("button", { name: /edit/i });
-      if ((await editBtn.count()) > 0 && (await editBtn.first().isVisible().catch(() => false))) {
-        await editBtn.first().click();
-        await expect(this.itemModal()).toBeVisible({ timeout: 15_000 });
-        return;
-      }
       const row = section.locator("table tbody tr").first();
-      if ((await row.count()) > 0 && (await row.isVisible().catch(() => false))) {
-        await row.click();
-        if (await this.itemModal().isVisible().catch(() => false)) {
-          return;
-        }
-      }
+      await expect(row).toBeVisible({ timeout: 15_000 });
+      const editIcon = this.itemRowEditIcon(row);
+      await expect(editIcon).toBeVisible({ timeout: 15_000 });
+      await editIcon.click();
+      await expect(this.itemModal()).toBeVisible({ timeout: 15_000 });
+      return;
     }
     const add = section.getByRole("button", { name: "Add Item", exact: true });
     await expect(add).toBeVisible({ timeout: 15_000 });
@@ -752,13 +807,26 @@ export class OMN_UIInvoiceManualPage {
     await expect(this.itemModal()).toBeVisible({ timeout: 15_000 });
   }
 
+  /**
+   * Add-item dialog persist control. Label lives in `.btn-children` (not the
+   * button accessible name), inside `form.form-container .form-action-footer`.
+   */
+  private itemModalCommitButton(entry: OmnUiEntry): Locator {
+    const label = entry === "create" ? /^Add$/ : /^Update$/;
+    const footer = this.itemModal().locator("form.form-container .form-action-footer");
+    return footer
+      .locator("button.base-btn")
+      .filter({ has: this.page.locator(".btn-children", { hasText: label }) })
+      .or(footer.getByRole("button", { name: label }))
+      .first();
+  }
+
   async clickItemCommit(entry: OmnUiEntry = "create"): Promise<void> {
     await this.dismissOpenDropdown();
-    const footer = this.itemModal().locator(".modal-footer, .form-action-footer, .form-footer");
-    const name = entry === "create" ? /^Add$/ : /^Update$/;
-    const commit = footer.getByRole("button", { name });
-    await expect(commit.first()).toBeVisible({ timeout: 15_000 });
-    await commit.first().click();
+    const commit = this.itemModalCommitButton(entry);
+    await expect(commit).toBeVisible({ timeout: 15_000 });
+    await commit.scrollIntoViewIfNeeded();
+    await commit.click();
   }
 
   /** Snapshot labels: VAT Line Amount in OMR / Invoice Line Amount in OMR. */
@@ -850,7 +918,7 @@ export class OMN_UIInvoiceManualPage {
       return;
     }
     await expect(this.sectionReadOnly(section)).toHaveCount(0);
-    const name = entry === "create" ? "Save" : "Update";
+    const name = this.persistButtonName(entry);
     await expect(
       this.sectionFooter(section).getByRole("button", { name, exact: true })
     ).toBeVisible();
