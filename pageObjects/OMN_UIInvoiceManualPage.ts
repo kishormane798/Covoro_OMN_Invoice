@@ -30,6 +30,25 @@ export class OMN_UIInvoiceManualPage {
   }
 
   /**
+   * Invoice Transaction Type (`#invTxnType`). Listbox lives in a MUI Popper
+   * portal — do not scope it inside the document section. Every option checkbox
+   * reuses `data-testid="checkbox"`; never target that.
+   */
+  private readonly invTxnTypeCombobox = this.documentSection()
+    .getByRole("combobox", { name: /Invoice Transaction Type/ })
+    .or(this.documentSection().locator("#invTxnType"));
+
+  private readonly invTxnTypeListbox = this.page
+    .getByRole("listbox", { name: /Invoice Transaction Type/ })
+    .or(this.page.locator("#invTxnType-listbox"));
+
+  /** Live Edit/Copy chips sit in `.MuiAutocomplete-tag` next to `#invTxnType`. */
+  private readonly invTxnTypeRoot = this.documentSection()
+    .locator(".MuiAutocomplete-root")
+    .filter({ has: this.page.locator("#invTxnType") })
+    .first();
+
+  /**
    * Edit/Add Item dialog. Live DOM: `data-testid="modalBody"` wrapping
    * `.add-item-modal-container` (not empty confirmation wrappers).
    */
@@ -388,6 +407,8 @@ export class OMN_UIInvoiceManualPage {
       }, isoDate);
       return;
     }
+    const current = (await hidden.inputValue().catch(() => "")).trim();
+    if (current === isoDate) return;
     const parts = isoDate.split("-");
     const now = new Date();
     const isToday =
@@ -396,11 +417,14 @@ export class OMN_UIInvoiceManualPage {
       Number(parts[1]) === now.getMonth() + 1 &&
       Number(parts[2]) === now.getDate();
     const root = this.fieldRoot(section, hidden);
-    // Issue date: open Choose date and click today (aria-current="date"). Typing YYYY-MM-DD does not stick.
+    // Live Create: hidden `#invDate` is often already today. Calendar aria-label is
+    // "Choose date, selected date is Sep 11, 2026" — not exact "Choose date".
     if (isToday) {
       const popper = this.page.locator(".MuiPickerPopper-root");
       if (!(await popper.isVisible().catch(() => false))) {
-        await root.getByRole("button", { name: "Choose date", exact: true }).click();
+        await root.getByRole("button", { name: /Choose date/i }).click({
+          timeout: 15_000,
+        });
       }
       const today = popper.locator("[aria-current='date']");
       await expect(today).toBeVisible({ timeout: 15_000 });
@@ -572,13 +596,15 @@ export class OMN_UIInvoiceManualPage {
 
   /**
    * Invoice Transaction Type is a checkbox multi-select (`#invTxnType-listbox`).
-   * Do not fill() the combobox — that leaves the value empty and Save fails.
+   * Do not fill() the combobox — the input stays `value=""` and Save fails.
    * Always clear prefilled chips first (Copy/Edit default Full Tax, or leftovers
    * after Invoice Type reselect) so Allowed/Not Allowed options match only the
    * types we select next — otherwise Summary/Third-party stay enabled under Full Tax
    * while Simplified Tax Invoice cases (IBR-149-OM) expect them disabled.
    * Simplified and Full Tax are mutually exclusive: never leave Full Tax checked
    * when Simplified is in the wanted set (Copy often keeps Full Tax chips).
+   * Selected truth is `aria-selected` on the option, not `checked` on the inner
+   * checkbox (Simplified may show a visual check without `checked=""`).
    */
   async selectTransactionTypes(labels: readonly string[]): Promise<void> {
     const unique = [...new Set(labels.map((label) => label.trim()).filter(Boolean))];
@@ -588,28 +614,15 @@ export class OMN_UIInvoiceManualPage {
       : unique;
     if (wanted.length === 0) return;
     await this.expectLiveControlKind("document", "invTxnType", "autocomplete");
-    const input = await this.resolveInput("document", "invTxnType");
+    const input = this.invTxnTypeCombobox;
     await expect(input).toBeVisible({ timeout: 15_000 });
     await expect(
       input,
-      "document #invTxnType should be enabled before selecting"
+      "document Invoice Transaction Type combobox should be enabled before selecting"
     ).toBeEnabled({ timeout: 15_000 });
-    const root = this.autocompleteRoot("document", input);
-    const autoClear = root.locator(".MuiAutocomplete-clearIndicator").first();
-    if ((await autoClear.count()) > 0) {
-      await autoClear.click({ force: true }).catch(() => {});
-      await this.dismissOpenDropdown();
-    }
-    const listbox = this.page.locator("#invTxnType-listbox");
-    const openList = async () => {
-      if (await listbox.isVisible().catch(() => false)) return;
-      await input.click();
-      if (!(await listbox.isVisible().catch(() => false))) {
-        await input.press("ArrowDown");
-      }
-      await expect(listbox).toBeVisible({ timeout: 15_000 });
-    };
-    await openList();
+    await this.clearInvTxnTypeChips();
+    const listbox = this.invTxnTypeListbox;
+    await this.openInvTxnTypeListbox();
     if (wantsSimplified) {
       const fullTax = (await this.autocompleteOption(listbox, OMN_UI_TXN_FULL_TAX)).first();
       if (
@@ -623,11 +636,11 @@ export class OMN_UIInvoiceManualPage {
           await fullTax.click({ timeout: 5_000 });
         }
         await this.dismissOpenDropdown();
-        await openList();
+        await this.openInvTxnTypeListbox();
       }
     }
     for (const label of wanted) {
-      await openList();
+      await this.openInvTxnTypeListbox();
       const optionOf = async () => (await this.autocompleteOption(listbox, label)).first();
       let choice = await optionOf();
       await expect(choice, `invTxnType option ${label} should be visible`).toBeVisible({
@@ -638,7 +651,7 @@ export class OMN_UIInvoiceManualPage {
         await expect
           .poll(
             async () => {
-              await openList();
+              await this.openInvTxnTypeListbox();
               const row = await optionOf();
               return (await row.getAttribute("aria-disabled")) !== "true";
             },
@@ -649,7 +662,7 @@ export class OMN_UIInvoiceManualPage {
           )
           .toBe(true)
           .catch(async () => {
-            await openList();
+            await this.openInvTxnTypeListbox();
             const enabled = await listbox.getByRole("option").evaluateAll((nodes) =>
               nodes
                 .filter((node) => node.getAttribute("aria-disabled") !== "true")
@@ -681,7 +694,7 @@ export class OMN_UIInvoiceManualPage {
       await expect
         .poll(
           async () => {
-            await openList();
+            await this.openInvTxnTypeListbox();
             const row = await optionOf();
             return row.getAttribute("aria-selected");
           },
@@ -703,23 +716,14 @@ export class OMN_UIInvoiceManualPage {
     const wanted = [...new Set(labels.map((label) => label.trim()).filter(Boolean))];
     if (wanted.length === 0) return;
     await this.expectLiveControlKind("document", "invTxnType", "autocomplete");
-    const input = await this.resolveInput("document", "invTxnType");
-    await expect(input).toBeVisible({ timeout: 15_000 });
-    const listbox = this.page.locator("#invTxnType-listbox");
-    const openList = async () => {
-      if (await listbox.isVisible().catch(() => false)) return;
-      await input.click();
-      if (!(await listbox.isVisible().catch(() => false))) {
-        await input.press("ArrowDown");
-      }
-      await expect(listbox).toBeVisible({ timeout: 15_000 });
-    };
-    await openList();
+    await expect(this.invTxnTypeCombobox).toBeVisible({ timeout: 15_000 });
+    const listbox = this.invTxnTypeListbox;
+    await this.openInvTxnTypeListbox();
     for (const label of wanted) {
       await expect
         .poll(
           async () => {
-            await openList();
+            await this.openInvTxnTypeListbox();
             const choice = (await this.autocompleteOption(listbox, label)).first();
             if (!(await choice.isVisible().catch(() => false))) return null;
             return choice.getAttribute("aria-disabled");
@@ -732,6 +736,35 @@ export class OMN_UIInvoiceManualPage {
         .toBe("true");
     }
     await this.dismissOpenDropdown();
+  }
+
+  /**
+   * Edit/Copy keep chips (e.g. Full Tax + Self-billed). Clear-all first, then
+   * each chip delete icon, so the next select is only the wanted types.
+   */
+  private async clearInvTxnTypeChips(): Promise<void> {
+    const clearAll = this.invTxnTypeRoot.locator(".MuiAutocomplete-clearIndicator").first();
+    if (await clearAll.isVisible().catch(() => false)) {
+      await clearAll.click({ force: true, timeout: 5_000 }).catch(() => {});
+      await this.dismissOpenDropdown();
+    }
+    const chips = this.invTxnTypeRoot.locator(".MuiAutocomplete-tag");
+    for (let i = 0; i < 20; i++) {
+      const chip = chips.first();
+      if ((await chip.count()) === 0) break;
+      if (!(await chip.isVisible().catch(() => false))) break;
+      await chip.locator(".MuiChip-deleteIcon").click({ force: true, timeout: 5_000 }).catch(() => {});
+      await this.dismissOpenDropdown();
+    }
+  }
+
+  private async openInvTxnTypeListbox(): Promise<void> {
+    if (await this.invTxnTypeListbox.isVisible().catch(() => false)) return;
+    await this.invTxnTypeCombobox.click();
+    if (!(await this.invTxnTypeListbox.isVisible().catch(() => false))) {
+      await this.invTxnTypeCombobox.press("ArrowDown");
+    }
+    await expect(this.invTxnTypeListbox).toBeVisible({ timeout: 15_000 });
   }
 
   async selectAutocompleteById(inputId: string, option: string | RegExp): Promise<void> {

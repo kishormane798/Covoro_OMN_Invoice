@@ -313,7 +313,7 @@ async function ensureDocumentBaseline(
     }
   }
   // Copy blanks Invoice Number and Invoice Issue Date. Both are required on Update.
-  // Create/Copy always set a date; Edit keeps a filled date.
+  // Create/Copy always set today. Edit keeps a date only if it is within 15 days.
   if (
     !excludeInputIds.has("invDate") &&
     !excludeInputIds.has("issueDate") &&
@@ -323,7 +323,14 @@ async function ensureDocumentBaseline(
       "issueDate",
       "invIssueDate",
     ]);
-    if (entry !== "edit" || !currentDate) {
+    // Edit keeps a filled date, but the product rejects Issue Date older than
+    // 15 days. Refresh those so Invoice Number / other document Saves are not
+    // blocked by a stale copied invoice date.
+    if (
+      entry !== "edit" ||
+      !currentDate ||
+      isOmnUiIssueDateOlderThanAllowed(currentDate)
+    ) {
       await invoice.fillDate(
         "document",
         "invDate",
@@ -436,6 +443,67 @@ async function ensurePartyBaseline(
   }
   if (!excludeInputIds.has("postCode") && !excludeInputIds.has("postalCode")) {
     await fillIfEmpty(invoice, section, "postCode", "100", ["postalCode"]);
+  }
+}
+
+type PartyClearField = {
+  id: string;
+  alts?: readonly string[];
+  kind: "text" | "autocomplete";
+};
+
+function partyClearFields(section: "seller" | "buyer"): PartyClearField[] {
+  const vatAlts = section === "seller" ? ["sellerVatIdentifier"] : [];
+  const electronicAlts =
+    section === "seller" ? ["sellerElectronicAddress"] : ["buyerElectronicAddress"];
+  return [
+    { id: "name", alts: section === "seller" ? ["sellerName"] : [], kind: "text" },
+    { id: "vatIdentifier", alts: vatAlts, kind: "text" },
+    { id: "electronicAddress", alts: electronicAlts, kind: "text" },
+    { id: "address1", alts: ["address"], kind: "text" },
+    { id: "address2", kind: "text" },
+    { id: "address3", kind: "text" },
+    { id: "city", kind: "text" },
+    { id: "postCode", alts: ["postalCode"], kind: "text" },
+    { id: "peppolSchemeIdentifier", kind: "autocomplete" },
+    { id: "country", alts: ["countryCode"], kind: "autocomplete" },
+  ];
+}
+
+async function clearPartySection(
+  invoice: OMN_UIInvoiceManualPage,
+  section: "seller" | "buyer"
+): Promise<void> {
+  for (const field of partyClearFields(section)) {
+    const alts = field.alts ?? [];
+    if (await invoice.isInputDisabled(section, field.id, alts)) continue;
+    const current = await invoice.readInputValue(section, field.id, alts);
+    if (!current) continue;
+    if (field.kind === "autocomplete") {
+      await invoice.clearAutocomplete(section, field.id, alts).catch(() => {});
+    } else {
+      await invoice.clearInput(section, field.id, alts).catch(() => {});
+    }
+    if (section === "buyer") await invoice.dismissOpenDropdown();
+  }
+}
+
+/**
+ * Self-billed Invoice Type swaps parties (buyer = worker TRN). Edit/Copy still
+ * hold Commercial seller=worker values; fillIfEmpty will not replace them.
+ */
+async function resetSelfBilledParties(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  knownTypes: { invoiceTypeCode?: string; invoiceTransactionTypeCode?: string }
+): Promise<void> {
+  if (!isSelfBilledOnForm(knownTypes.invoiceTypeCode)) return;
+  for (const section of ["seller", "buyer"] as const) {
+    await invoice.openSectionForEdit(section, entry);
+    await clearPartySection(invoice, section);
+    await ensurePartyBaseline(invoice, section, new Set(), knownTypes);
+    await commitSection(invoice, section, entry);
+    await invoice.expectSectionSavedReadOnly(section);
   }
 }
 
@@ -654,6 +722,17 @@ async function ensureSectionBaseline(
       };
       await invoice.clickSectionCommit("document", entry);
       await invoice.expectSectionSavedReadOnly("document");
+    }
+    const typeCode =
+      knownTypes?.invoiceTypeCode ||
+      (await invoice.readInputValue("document", "invType"));
+    if (isSelfBilledOnForm(typeCode)) {
+      await resetSelfBilledParties(invoice, entry, {
+        invoiceTypeCode: typeCode,
+        invoiceTransactionTypeCode:
+          knownTypes?.invoiceTransactionTypeCode ||
+          (await invoice.readInputValue("document", "invTxnType")),
+      });
     }
     if (section === "invoice") {
       await addAndCommitBaselineItem(invoice, entry);
@@ -1092,6 +1171,30 @@ export async function runOmnUiMinMaxCase(
     expect(message, `did not expect a field error on ${rule.field}`).toBeFalsy();
     await invoice.expectSectionSavedReadOnly(rule.section);
   }
+}
+
+function parseOmnUiIssueDate(raw: string): Date | null {
+  const text = raw.trim();
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+  if (ymd) {
+    return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+  }
+  const dmy = /^(\d{2})-(\d{2})-(\d{4})/.exec(text);
+  if (dmy) {
+    return new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+  }
+  return null;
+}
+
+/** Product: "Date cannot be older than 15 days." */
+function isOmnUiIssueDateOlderThanAllowed(raw: string, maxAgeDays = 15): boolean {
+  const parsed = parseOmnUiIssueDate(raw);
+  if (!parsed) return true;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  parsed.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((today.getTime() - parsed.getTime()) / 86_400_000);
+  return diffDays > maxAgeDays;
 }
 
 function formatOmnUiIssueDateValue(
@@ -1887,6 +1990,7 @@ export async function runOmnUiExcelPartyIdentityCase(
   );
   await invoice.clickSectionCommit("document", entry);
   await invoice.expectSectionSavedReadOnly("document");
+  await resetSelfBilledParties(invoice, entry, knownTypes);
 
   await invoice.openSectionForEdit(identityCase.section, entry);
   await ensurePartyBaseline(invoice, identityCase.section, new Set(), knownTypes);
@@ -2767,6 +2871,14 @@ export async function runOmnUiConditionalScenario(
     await applyConditionalSectionFields(invoice, entry, scenario, section);
     await applyCatalogControlWrites(invoice, entry, scenario, section);
     await commitSection(invoice, section, entry);
+    if (section === "document") {
+      await resetSelfBilledParties(invoice, entry, {
+        invoiceTypeCode:
+          resolvedUiInvoiceType(scenario) ||
+          (await invoice.readInputValue("document", "invType")),
+        invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
+      });
+    }
     // Save the section under test before later sections. Add Item takes
     // Document out of edit mode, so a Save after the item modal times out
     // (footer Save is gone — only Edit remains).
