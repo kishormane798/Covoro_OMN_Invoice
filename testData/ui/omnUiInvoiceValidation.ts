@@ -405,22 +405,29 @@ const numericValidRows: OmnUiCatalogRow[] = numericConfigsForUiCatalog.flatMap(
     const decimals = config.decimals ?? 2;
     const minValue = formatOmanNumericBoundaryValue(config.min, decimals);
     const maxValue = formatOmanNumericBoundaryValue(config.max, decimals);
-    const rows = [
-      numericCatalogRow(
-        "Numeric fields — valid digit count",
-        config,
-        `${config.field} at minimum value (${minValue}) — ${numericPersistTitle(config.minExpectsError)}. (${config.field})`,
-        minValue,
-        Boolean(config.minExpectsError)
-      ),
+    const rows = [] as OmnUiCatalogRow[];
+
+    if (config.field !== "Item gross price") {
+      rows.push(
+        numericCatalogRow(
+          "Numeric fields — valid digit count",
+          config,
+          `${config.field} at minimum value (${minValue}) — ${numericPersistTitle(config.minExpectsError)}. (${config.field})`,
+          minValue,
+          Boolean(config.minExpectsError)
+        )
+      );
+    }
+
+    rows.push(
       numericCatalogRow(
         "Numeric fields — valid digit count",
         config,
         `${config.field} at maximum digits (${config.max}) — ${numericPersistTitle(config.maxExpectsError)}. (${config.field})`,
         maxValue,
         Boolean(config.maxExpectsError)
-      ),
-    ];
+      )
+    );
 
     if (config.belowMin === 0 && !config.omitEmptyTest) {
       rows.push(

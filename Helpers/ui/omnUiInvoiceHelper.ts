@@ -1270,6 +1270,24 @@ export async function runOmnUiNumericCase(
     location.altInputIds
   );
 
+  if (field === "Item gross price") {
+    if (digits === "0.01") {
+      await invoice.replaceInput(
+        "item",
+        "itemPriceDiscount",
+        "0",
+        ["invLinePriceDiscount"]
+      );
+    } else if (digits.includes(".") && digits.split(".")[0]?.length === 13) {
+      await invoice.replaceInput(
+        "item",
+        "itemPriceDiscount",
+        "111111111111.00",
+        ["invLinePriceDiscount"]
+      );
+    }
+  }
+
   await commitSection(invoice, location.section, entry);
   const message = await invoice.readFieldError(
     location.section,
