@@ -1790,11 +1790,11 @@ async function fillOmnUiFormulaItem(
   if (scenario.currencyRate != null) {
     const expected = omnUiExpectedTotals(scenario);
     await invoice.replaceLabeledItemText(
-      "VAT Line Amount in OMR",
+      "Line Item VAT Amount",
       String(expected.vatLineAmount)
     );
     await invoice.replaceLabeledItemText(
-      "Invoice Line Amount in OMR",
+      "Total Amount Including VAT",
       String(expected.invoiceLineAmount)
     );
   }

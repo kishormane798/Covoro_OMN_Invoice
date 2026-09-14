@@ -58,11 +58,9 @@ export class OMN_UIInvoiceManualPage {
     });
   }
 
-  /** Pencil in the item table Action column (`role="presentation"`, not a named button). */
+  /** Pencil in the item table Action column. In the current grid markup the edit action is the second `.action-icon` span in the action container, and the SVG no longer exposes a stable `id`. */
   private itemRowEditIcon(row: Locator): Locator {
-    return row
-      .locator('[data-testid="action-container"] .action-icon')
-      .filter({ has: this.page.locator("svg#noun-edit-6984165") });
+    return row.locator('[data-testid="action-container"] .action-icon').nth(1);
   }
 
   private scope(section: OmnUiSection): Locator {
@@ -890,7 +888,7 @@ export class OMN_UIInvoiceManualPage {
     await commit.click();
   }
 
-  /** Snapshot labels: VAT Line Amount in OMR / Invoice Line Amount in OMR. */
+  /** Snapshot labels: Line Item VAT Amount / Total Amount Including VAT. */
   async replaceLabeledItemText(label: string, value: string): Promise<void> {
     const input = this.itemModal().getByRole("textbox", { name: label, exact: true });
     if ((await input.count()) === 0) return;
