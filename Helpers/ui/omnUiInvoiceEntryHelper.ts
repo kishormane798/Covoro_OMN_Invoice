@@ -11,6 +11,8 @@ import {
 import { OMN_UIInvoiceManualPage } from "../../pageObjects/OMN_UIInvoiceManualPage";
 import { flowLog } from "../diagnosticLog";
 import type { OmnUiEntry } from "../../testData/ui/omnUiInvoiceValidation";
+import { invoiceData } from "../../testData/FieldValidations/SubmitInvoice";
+import { runSubmitInvoiceUploadSanityCase } from "../excel/submitInvoiceCaseHelper";
 
 const COPY_REUSE_POLL_TIMEOUT_MS = 20_000;
 
@@ -37,6 +39,40 @@ async function ensureDocumentEditableAfterReuse(
   await invoice.expectEditorVisible();
 }
 
+async function findReusableInvoiceWithValidUploadFallback(
+  page: Page,
+  entry: Exclude<OmnUiEntry, "create">,
+  statuses: readonly string[],
+  pollTimeoutMs: number = COPY_REUSE_POLL_TIMEOUT_MS
+) {
+  const invoice = new OMN_UIInvoiceManualPage(page);
+  const dashboard = invoice.dashboard;
+
+  const reusable = await dashboard.findReusableInvoiceRow(statuses, {
+    pollTimeoutMs,
+  });
+  if (reusable) {
+    return reusable;
+  }
+
+  const baselineRow = invoiceData[0] as Record<string, string>;
+  flowLog(
+    entry === "copy" ? "OmnUiCopy" : "OmnUiEdit",
+    `No reusable dashboard invoice for ${entry}; uploading a valid baseline invoice and retrying.`
+  );
+
+  const { invoiceNumber } = await runSubmitInvoiceUploadSanityCase(page, baselineRow);
+
+  flowLog(
+    entry === "copy" ? "OmnUiCopy" : "OmnUiEdit",
+    `Uploaded valid baseline invoice ${invoiceNumber}; retrying dashboard reuse for ${entry}.`
+  );
+
+  return dashboard.findReusableInvoiceRow(statuses, {
+    pollTimeoutMs,
+  });
+}
+
 export async function openOmnUiInvoiceEditor(
   page: Page,
   entry: OmnUiEntry
@@ -50,7 +86,11 @@ export async function openOmnUiInvoiceEditor(
   }
 
   if (entry === "edit") {
-    const reusable = await dashboard.findReusableInvoiceRow(EDIT_REUSE_INVOICE_STATUSES);
+    const reusable = await findReusableInvoiceWithValidUploadFallback(
+      page,
+      "edit",
+      EDIT_REUSE_INVOICE_STATUSES
+    );
     if (!reusable) {
       test.skip(true, "No dashboard invoice in Error / Ready to Submit for Edit UI");
     }
@@ -60,9 +100,12 @@ export async function openOmnUiInvoiceEditor(
     return invoice;
   }
 
-  const reusable = await dashboard.findReusableInvoiceRow(COPY_REUSE_INVOICE_STATUSES, {
-    pollTimeoutMs: COPY_REUSE_POLL_TIMEOUT_MS,
-  });
+  const reusable = await findReusableInvoiceWithValidUploadFallback(
+    page,
+    "copy",
+    COPY_REUSE_INVOICE_STATUSES,
+    COPY_REUSE_POLL_TIMEOUT_MS
+  );
   if (!reusable) {
     test.skip(true, "No dashboard invoice in Delivered / Ready to Submit for Copy UI");
   }
