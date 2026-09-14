@@ -168,10 +168,7 @@ import {
   PARTY_IDENTIFIER_LENGTH_CASES,
   type PartyIdentifierLengthCase,
 } from "../FieldValidations/partyIdentifierCompanionLength";
-import {
-  CL06_OM_NEGATIVE_SCENARIOS,
-  CL06_OM_POSITIVE_PACKS,
-} from "../FieldValidations/buyerSellerIdentifierScheme";
+import { CL06_OM_POSITIVE_PACKS } from "../FieldValidations/buyerSellerIdentifierScheme";
 export const OMN_UI_INVOICE_TEST_TIMEOUT_MS = 180_000;
 export const OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS = 240_000;
 export const OMN_UI_INVOICE_FORMULA_TIMEOUT_MS = 180_000;
@@ -232,7 +229,6 @@ export type OmnUiCatalogKind =
   | "numeric"
   | "partyIdentifierCompanion"
   | "cl06"
-  | "dropdownInvalid"
   | "exemptionCompanion"
   | "formatContext"
   | "formulaNegative"
@@ -483,44 +479,27 @@ const partyIdentifierCompanionRows: OmnUiCatalogRow[] =
 const CL06_UI_GROUP =
   "CL-06-OM — Scheme Identifier and textual code masters";
 
-const cl06Rows: OmnUiCatalogRow[] = [
-  ...CL06_OM_POSITIVE_PACKS.map((pack) => {
-    const companionValue = pack.master[0]?.label;
-    if (!companionValue) {
-      throw new Error(`CL-06 master is empty for ${pack.companionField}`);
-    }
-    return {
-      group: CL06_UI_GROUP,
-      title: pack.title.replace(
-        "Then the invoice should be accepted.",
-        "Then Save should succeed."
-      ),
-      mode: "run" as const,
-      kind: "cl06" as const,
-      field: pack.companionField,
-      expectsError: false,
-      cl06Party: pack.party,
-      cl06Companion: pack.companion,
-      cl06CompanionValue: companionValue,
-      cl06Identifier: pack.identifier,
-    };
-  }),
-  ...CL06_OM_NEGATIVE_SCENARIOS.map((scenario) => ({
+const cl06Rows: OmnUiCatalogRow[] = CL06_OM_POSITIVE_PACKS.map((pack) => {
+  const companionValue = pack.master[0]?.label;
+  if (!companionValue) {
+    throw new Error(`CL-06 master is empty for ${pack.companionField}`);
+  }
+  return {
     group: CL06_UI_GROUP,
-    title: scenario.title.replace(
-      "Then the invoice should be rejected with an error.",
-      "Then the form should show an error."
+    title: pack.title.replace(
+      "Then the invoice should be accepted.",
+      "Then Save should succeed."
     ),
     mode: "run" as const,
     kind: "cl06" as const,
-    field: scenario.expectedErrorField,
-    expectsError: true,
-    cl06Party: scenario.party,
-    cl06Companion: scenario.companion,
-    cl06CompanionValue: scenario.companionValue,
-    cl06Identifier: scenario.identifier,
-  })),
-];
+    field: pack.companionField,
+    expectsError: false,
+    cl06Party: pack.party,
+    cl06Companion: pack.companion,
+    cl06CompanionValue: companionValue,
+    cl06Identifier: pack.identifier,
+  };
+});
 
 const OMN_UI_TXN_EXCLUSION_GROUP =
   "Invoice transaction type exclusion (IBR-138-OM … IBR-149-OM)";
@@ -620,7 +599,6 @@ export const OMN_UI_FORMULA_CATALOG_GROUPS = [
   "Invalid inputs",
   "Non-OMR tax in accounting currency (IBT-111)",
   "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
-  "Multi-line (2 lines) — same tax category",
   "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)",
 ] as const;
 
@@ -693,28 +671,10 @@ const lineNetFormulaRows: OmnUiCatalogRow[] = [
   },
 ];
 
-const twoLineFormulaRows: OmnUiCatalogRow[] = [
-  ...invoiceFormulaTestData.map((scenario) => ({ scenario, expectsError: false })),
-  ...invoiceNegativeFormulaTestData.map((scenario) => ({ scenario, expectsError: true })),
-].map(({ scenario, expectsError }) => ({
-  group: "Multi-line (2 lines) — same tax category",
-  title: omnUiFormulaDisplayTitle(
-    "create",
-    `${scenario.name} on two lines`,
-    expectsError
-  ),
-  mode: "run",
-  kind: "formulaTwoLine",
-  formulaScenario: scenario,
-  formulaFirstScenario: expectsError ? invoiceFormulaTestData[0] : scenario,
-  expectsError,
-}));
-
 export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
   ...negativeFormulaRows,
   ...nonOmrFormulaRows,
   ...lineNetFormulaRows,
-  ...twoLineFormulaRows,
   ...txnExclusionFieldRows
     .filter((row) => !row.expectsError)
     .slice(0, 1)

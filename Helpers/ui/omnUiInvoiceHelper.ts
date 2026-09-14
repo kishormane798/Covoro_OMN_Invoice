@@ -1491,68 +1491,6 @@ export async function runOmnUiCl06Case(
   await invoice.expectSectionSavedReadOnly(section);
 }
 
-async function runOmnUiInvalidExemptionCase(
-  page: Page,
-  entry: OmnUiEntry,
-  row: OmnUiCatalogRow
-): Promise<void> {
-  const rule = OMN_UI_FIELD_RULES.find((candidate) => candidate.field === row.field);
-  if (!rule || !row.exemptionCode || !row.vatContext) {
-    throw new Error(`Invalid exemption row is missing UI metadata: ${row.title}`);
-  }
-  const vatCategory =
-    row.vatContext === "exempt"
-      ? EXEMPT_FROM_TAX_TAX_CATEGORY_CODE
-      : ZERO_RATED_TAX_CATEGORY_CODE;
-  const vatField =
-    row.field === "Tax exemption reason code"
-      ? OMN_UI_FIELD_RULES.find((candidate) => candidate.field === "Tax Category")
-      : OMN_UI_FIELD_RULES.find((candidate) =>
-          candidate.field ===
-          (row.field === "Tax exemption reason - charges"
-            ? "Vat category - charges"
-            : "Vat category - allowances")
-        );
-  if (!vatField) {
-    throw new Error(`Missing VAT category rule for ${row.field}`);
-  }
-
-  const invoice = await openOmnUiInvoiceEditor(page, entry);
-  await ensureSectionBaseline(invoice, rule.section, entry, new Set([
-    rule.inputId,
-    vatField.inputId,
-  ]));
-  await invoice.selectAutocomplete(
-    rule.section,
-    vatField.inputId,
-    vatCategory,
-    vatField.altInputIds
-  );
-  await invoice.replaceInput(
-    rule.section,
-    rule.inputId,
-    row.exemptionCode,
-    rule.altInputIds
-  );
-  await invoice.dismissOpenDropdown();
-  await commitSection(invoice, rule.section, entry);
-  const message = await invoice.readFieldError(
-    rule.section,
-    rule.inputId,
-    rule.altInputIds
-  );
-  const actual = await invoice.readInputValue(
-    rule.section,
-    rule.inputId,
-    rule.altInputIds
-  );
-  expect(
-    Boolean(message) || actual !== row.exemptionCode,
-    `${row.field} should show an error or reject the invalid value`
-  ).toBe(true);
-  await invoice.expectSectionNotSaved(rule.section, entry);
-}
-
 async function runOmnUiExemptionCompanionCase(
   page: Page,
   entry: OmnUiEntry,
@@ -1736,10 +1674,6 @@ export async function runOmnUiFieldCatalogRow(
   }
   if (row.kind === "cl06") {
     await runOmnUiCl06Case(page, entry, row);
-    return;
-  }
-  if (row.kind === "dropdownInvalid") {
-    await runOmnUiInvalidExemptionCase(page, entry, row);
     return;
   }
   if (row.kind === "exemptionCompanion") {

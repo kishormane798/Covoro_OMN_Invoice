@@ -2,7 +2,7 @@
  * Python bridge for Excel writers and validators (`utils/excel/invoice_excel_writer.py`, etc.).
  * Tries platform launchers in order (`py` / `python3` / `python`) with a 45s timeout.
  */
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 
 const PYTHON_COMMANDS =
   // Windows: `py` often wraps `python` and leaving both in the list causes duplicate
@@ -10,8 +10,17 @@ const PYTHON_COMMANDS =
   process.platform === "win32" ? ["python"] : ["python3", "python"];
 const DEFAULT_PYTHON_TIMEOUT_MS = 45_000;
 
-function quoteArgs(script: string, args: string[]): string {
-  return [script, ...args].map((arg) => `"${arg}"`).join(" ");
+function runPythonCommand(
+  command: string,
+  script: string,
+  args: string[],
+  timeoutMs: number
+): { status: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string; error?: Error } {
+  return spawnSync(command, [script, ...args], {
+    encoding: "utf8",
+    timeout: timeoutMs,
+    windowsHide: true,
+  });
 }
 
 export function runPythonForStdout(
@@ -19,29 +28,28 @@ export function runPythonForStdout(
   args: string[],
   timeoutMs: number = DEFAULT_PYTHON_TIMEOUT_MS
 ): string {
-  const fullArgs = quoteArgs(script, args);
   let lastError = "Python execution failed";
 
   for (const cmd of PYTHON_COMMANDS) {
-    try {
-      return execSync(`${cmd} ${fullArgs}`, {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: timeoutMs,
-      });
-    } catch (error: unknown) {
-      const timedOut =
-        error &&
-        typeof error === "object" &&
-        "signal" in error &&
-        (error as { signal?: string }).signal === "SIGTERM";
-      const stderr =
-        error && typeof error === "object" && "stderr" in error
-          ? String((error as { stderr?: string }).stderr || "")
-          : String(error);
-      lastError = timedOut
-        ? `${cmd} timed out after ${timeoutMs}ms: ${stderr}`.trim()
-        : `${cmd} failed: ${stderr}`.trim();
+    const result = runPythonCommand(cmd, script, args, timeoutMs);
+
+    if (result.stdout !== undefined && result.stdout !== null) {
+      const trimmed = result.stdout.trim();
+      if (result.status === 0) {
+        return trimmed;
+      }
+      const stderr = (result.stderr || "").trim();
+      lastError = `${cmd} failed: ${stderr || result.error?.message || "unknown error"}`.trim();
+      continue;
+    }
+
+    const stderr = (result.stderr || "").trim();
+    if (result.error && result.error.message) {
+      lastError = `${cmd} failed: ${result.error.message}`;
+    } else if (result.signal) {
+      lastError = `${cmd} terminated with signal ${result.signal}`;
+    } else {
+      lastError = `${cmd} failed: ${stderr || "unknown error"}`;
     }
   }
 
@@ -50,24 +58,17 @@ export function runPythonForStdout(
 
 /** Returns `null` on exit 0; otherwise the stderr / error text for assertions. */
 export function runPythonForStatus(script: string, args: string[]): string | null {
-  const fullArgs = quoteArgs(script, args);
   let lastError = "Python execution failed";
 
   for (const cmd of PYTHON_COMMANDS) {
-    try {
-      execSync(`${cmd} ${fullArgs}`, {
-        stdio: "pipe",
-        encoding: "utf8",
-        timeout: DEFAULT_PYTHON_TIMEOUT_MS,
-      });
+    const result = runPythonCommand(cmd, script, args, DEFAULT_PYTHON_TIMEOUT_MS);
+
+    if (result.status === 0) {
       return null;
-    } catch (error: unknown) {
-      const stderr =
-        error && typeof error === "object" && "stderr" in error
-          ? String((error as { stderr?: string }).stderr || "")
-          : String(error);
-      lastError = `${cmd} failed: ${stderr}`.trim();
     }
+
+    const stderr = (result.stderr || "").trim();
+    lastError = `${cmd} failed: ${stderr || result.error?.message || "unknown error"}`.trim();
   }
 
   return lastError;
