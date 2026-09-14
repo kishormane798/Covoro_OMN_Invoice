@@ -3,7 +3,8 @@
  * Edit and Copy reuse an on-dashboard row (DashboardPage). They do not call or
  * modify Excel helpers / utils.
  */
-import { test, type Page } from "../../Src/baseTest";
+import type { Page } from "@playwright/test";
+import { test } from "../../Src/baseTest";
 import {
   COPY_REUSE_INVOICE_STATUSES,
   EDIT_REUSE_INVOICE_STATUSES,
@@ -93,6 +94,7 @@ export async function openOmnUiInvoiceEditor(
     );
     if (!reusable) {
       test.skip(true, "No dashboard invoice in Error / Ready to Submit for Edit UI");
+      throw new Error("Unreachable: reusable invoice missing after skip.");
     }
     flowLog("OmnUiEdit", `Reusing dashboard invoice ${reusable.invoiceNumber}.`);
     await dashboard.openInvoiceEditOnRow(reusable.row);
@@ -108,6 +110,7 @@ export async function openOmnUiInvoiceEditor(
   );
   if (!reusable) {
     test.skip(true, "No dashboard invoice in Delivered / Ready to Submit for Copy UI");
+    throw new Error("Unreachable: reusable invoice missing after skip.");
   }
   flowLog("OmnUiCopy", `Reusing dashboard invoice ${reusable.invoiceNumber}.`);
   await dashboard.openInvoiceCopyOnRow(reusable.row, "Yes");
