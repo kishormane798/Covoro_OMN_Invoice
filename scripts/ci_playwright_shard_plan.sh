@@ -26,6 +26,21 @@ case "$MODE" in
   covoro_submit_multi)
     SPEC="tests/OMN_SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts"
     ;;
+  simplified_field)
+    SPEC="tests/OMN_FieldValidation_SimplifiedTemplate_Test.spec.ts"
+    ;;
+  simplified_conditional)
+    SPEC="tests/OMN_ConditionalValidation_SimplifiedTemplate_Test.spec.ts"
+    ;;
+  simplified_formula)
+    SPEC="tests/OMN_FormulaValidation_SimplifiedTemplate_Test.spec.ts"
+    ;;
+  simplified_submit_single)
+    SPEC="tests/OMN_SubmitInvoice_SimplifiedTemplate_Test.spec.ts"
+    ;;
+  simplified_submit_multi)
+    SPEC="tests/OMN_SubmitInvoice_MultiItem_SimplifiedTemplate_Test.spec.ts"
+    ;;
   covoro_ui_create_[12])
     SPEC="tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts"
     PROJECT="chromium-ui"

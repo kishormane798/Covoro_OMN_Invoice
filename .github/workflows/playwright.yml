@@ -1,8 +1,9 @@
 # Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
 #   One clock start. Every suite runs the full spec (no Playwright --shard split).
-#   Morning 05:45 IST starts the full field suite.
+#   Morning 05:45 IST starts the full Covoro field suite.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
-#   starts the next suite: field → conditional → formula →
+#   starts the next suite: Covoro field → Covoro conditional → Covoro formula →
+#   Simplified field → Simplified conditional → Simplified formula →
 #   UI create 1–2 → UI conditional create 1–2 →
 #   UI edit 1–2 → UI conditional edit 1–2 →
 #   UI copy 1–2 → UI conditional copy 1–2, then stops.
@@ -28,6 +29,11 @@ on:
           - covoro_conditional
           - covoro_submit_single
           - covoro_submit_multi
+          - simplified_field
+          - simplified_formula
+          - simplified_conditional
+          - simplified_submit_single
+          - simplified_submit_multi
           - covoro_ui_create_1
           - covoro_ui_create_2
           - covoro_ui_conditional_create_1
@@ -52,6 +58,11 @@ run-name: >-
       || github.event.inputs.suite == 'covoro_submit_single' && 'Submit single'
       || github.event.inputs.suite == 'covoro_submit_multi' && 'Submit multi-item'
       || github.event.inputs.suite == 'covoro_conditional' && 'Conditional validation'
+      || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
+      || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
+      || github.event.inputs.suite == 'simplified_submit_single' && 'Simplified submit single'
+      || github.event.inputs.suite == 'simplified_submit_multi' && 'Simplified submit multi-item'
+      || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'
       || startsWith(github.event.inputs.suite, 'covoro_ui_') && github.event.inputs.suite
       || 'Field validation' }}
 
@@ -273,6 +284,11 @@ jobs:
             covoro_submit_single) LABEL="Submit single" ;;
             covoro_submit_multi) LABEL="Submit multi-item" ;;
             covoro_conditional) LABEL="Conditional validation" ;;
+            simplified_field) LABEL="Simplified field validation" ;;
+            simplified_formula) LABEL="Simplified formula validation" ;;
+            simplified_submit_single) LABEL="Simplified submit single" ;;
+            simplified_submit_multi) LABEL="Simplified submit multi-item" ;;
+            simplified_conditional) LABEL="Simplified conditional validation" ;;
             covoro_ui_create_1) LABEL="UI create 1" ;;
             covoro_ui_create_2) LABEL="UI create 2" ;;
             covoro_ui_conditional_create_1) LABEL="UI conditional create 1" ;;
@@ -511,6 +527,15 @@ jobs:
               NEXT_SUITE="covoro_formula"
               ;;
             covoro_formula)
+              NEXT_SUITE="simplified_field"
+              ;;
+            simplified_field)
+              NEXT_SUITE="simplified_conditional"
+              ;;
+            simplified_conditional)
+              NEXT_SUITE="simplified_formula"
+              ;;
+            simplified_formula)
               NEXT_SUITE="covoro_ui_create_1"
               ;;
             covoro_ui_create_1)
