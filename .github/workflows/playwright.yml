@@ -1,12 +1,9 @@
 # Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
 #   One clock start. Every suite runs the full spec (no Playwright --shard split).
-#   Morning 05:45 IST starts the full Covoro field suite.
+#   Morning 05:45 IST starts the full Simplified field suite.
 #   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
-#   starts the next suite: Covoro field → Covoro conditional → Covoro formula →
-#   Simplified field → Simplified conditional → Simplified formula →
-#   UI create 1–2 → UI conditional create 1–2 →
-#   UI edit 1–2 → UI conditional edit 1–2 →
-#   UI copy 1–2 → UI conditional copy 1–2, then stops.
+#   starts the next suite: Simplified field → Simplified conditional →
+#   Simplified formula → UI copy 1–2 → UI conditional copy 1–2, then stops.
 #   Submit stays Run workflow only.
 #   Leave "scheduled_wave" off for one-off manual runs.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -14,12 +11,12 @@ name: Oman E-Invoice — Playwright
 
 on:
   schedule:
-    - cron: "15 0 * * 1-5" # 05:45 IST — start morning wave (full field suite)
+    - cron: "15 0 * * 1-5" # 05:45 IST — start morning wave (Simplified field suite)
 
   workflow_dispatch:
     inputs:
       suite:
-        description: "Covoro automation suite to run (full spec, no shard)."
+        description: "Automation suite to run (full spec, no shard)."
         required: true
         default: "covoro_field"
         type: choice
@@ -47,7 +44,7 @@ on:
           - covoro_ui_conditional_copy_1
           - covoro_ui_conditional_copy_2
       scheduled_wave:
-        description: "Internal. Set by the morning schedule queue. On = continue formula → UI create 1–2 → UI conditional create 1–2 → UI edit 1–2 → UI conditional edit 1–2 → UI copy 1–2 → UI conditional copy 1–2. Leave off for manual runs."
+        description: "Internal. Set by the morning schedule queue. On = continue Simplified formula → UI copy 1–2 → UI conditional copy 1–2. Leave off for manual runs."
         required: false
         type: boolean
         default: false
@@ -137,13 +134,13 @@ jobs:
         id: mode
         shell: bash
         run: |
-          MODE="covoro_field"
+          MODE="simplified_field"
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MODE="${{ github.event.inputs.suite }}"
           elif [ "${{ github.event_name }}" = "schedule" ]; then
-            # Morning clock start (05:45 IST) begins the wave with the full field suite.
-            MODE="covoro_field"
+            # Morning clock start (05:45 IST) begins the wave with the full Simplified field suite.
+            MODE="simplified_field"
           fi
 
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
@@ -255,7 +252,7 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
 
-      - name: Run Playwright — Covoro field / formula / conditional / submit / UI
+      - name: Run Playwright — Simplified / Covoro manual / UI
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-full.json
           PW_WORKERS: "5"
@@ -498,7 +495,7 @@ jobs:
           SCHEDULED_WAVE="${INPUT_SCHEDULED_WAVE:-false}"
 
           if [ "$EVENT_NAME" = "schedule" ]; then
-            SUITE="covoro_field"
+            SUITE="simplified_field"
             SCHEDULED_WAVE="true"
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             SUITE="$INPUT_SUITE"
@@ -520,15 +517,6 @@ jobs:
 
           NEXT_SUITE=""
           case "$SUITE" in
-            covoro_field)
-              NEXT_SUITE="covoro_conditional"
-              ;;
-            covoro_conditional)
-              NEXT_SUITE="covoro_formula"
-              ;;
-            covoro_formula)
-              NEXT_SUITE="simplified_field"
-              ;;
             simplified_field)
               NEXT_SUITE="simplified_conditional"
               ;;
@@ -536,28 +524,7 @@ jobs:
               NEXT_SUITE="simplified_formula"
               ;;
             simplified_formula)
-              NEXT_SUITE="covoro_ui_create_1"
-              ;;
-            covoro_ui_create_1)
-              NEXT_SUITE="covoro_ui_create_2"
-              ;;
-            covoro_ui_create_2)
-              NEXT_SUITE="covoro_ui_conditional_create_1"
-              ;;
-            covoro_ui_conditional_create_1)
-              NEXT_SUITE="covoro_ui_conditional_create_2"
-              ;;
-            covoro_ui_conditional_create_2)
-              NEXT_SUITE="covoro_ui_edit_1"
-              ;;
-            covoro_ui_edit_1)
-              NEXT_SUITE="covoro_ui_edit_2"
-              ;;
-            covoro_ui_edit_2)
-              NEXT_SUITE="covoro_ui_conditional_edit_1"
-              ;;
-            covoro_ui_conditional_edit_1)
-              NEXT_SUITE="covoro_ui_conditional_edit_2"
+              NEXT_SUITE="covoro_ui_copy_1"
               ;;
             covoro_ui_conditional_edit_2)
               NEXT_SUITE="covoro_ui_copy_1"

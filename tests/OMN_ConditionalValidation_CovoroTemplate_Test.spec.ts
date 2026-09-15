@@ -1039,6 +1039,19 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
         );
       }
     });
+
+    for (const scenario of FV.BUYER_ADDRESS_NOT_REQUIRED_CONTROL_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData =
+          ConditionalRows.buildBuyerAddressRequiredScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.BUYER_ADDRESS_LINE_1_FIELD,
+          scenario.shouldError
+        );
+      });
+    }
   });
 
   test.describe("Deliver To address all-or-nothing (IBR-040-OM)", () => {

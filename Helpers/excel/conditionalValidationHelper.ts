@@ -2521,6 +2521,15 @@ function applyIbr019TxnDependents(
     next = applySpecialZoneCountrySubdivisions(next);
   }
 
+  if (txn === FV.TXN_ECOMMERCE_TRANSACTION) {
+    next = applyOmanDeliveryOverlay(next, "domestic");
+  }
+
+  if (txn === FV.TXN_PREPAYMENT_INVOICE) {
+    next[FV.PREPAYMENT_INVOICE_NUMBER_FIELD] = "PRE-OMN-001";
+    next[FV.PREPAYMENT_INVOICE_UUID_FIELD] = "prepay-uuid-oman-001";
+  }
+
   return next;
 }
 

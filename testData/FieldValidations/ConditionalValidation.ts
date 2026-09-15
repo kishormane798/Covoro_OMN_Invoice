@@ -6504,6 +6504,30 @@ export const BUYER_ADDRESS_REQUIRED_SCENARIOS: BuyerAddressRequiredScenario[] = 
   ...expandIbr019EmptyBuyerAddressAcrossTxnTypes(),
 ];
 
+/** IBR-019-OM controls: these txn types must not require buyer postal address. */
+export const IBR_019_OM_NOT_APPLICABLE_TXN_TYPES = [
+  TXN_SIMPLIFIED_TAX_INVOICE,
+  TXN_CONTINUOUS_SUPPLY,
+  TXN_DEEMED_SUPPLY_INVOICE,
+  TXN_ECOMMERCE_TRANSACTION,
+  TXN_PREPAYMENT_INVOICE,
+] as const;
+
+export const BUYER_ADDRESS_NOT_REQUIRED_CONTROL_SCENARIOS: BuyerAddressRequiredScenario[] =
+  IBR_019_OM_NOT_APPLICABLE_TXN_TYPES.map((invoiceTransactionTypeCode) => ({
+    ruleId: "IBR-019-OM",
+    title: `Given ${invoiceTransactionTypeCode} — When the buyer address is empty — Then the invoice should be accepted because IBR-019-OM does not apply. (IBR-019-OM control)`,
+    invoiceTransactionTypeCode,
+    ...BUYER_ADDRESS_COMPLETE,
+    addressLine1: "",
+    addressLine2: "",
+    addressLine3: "",
+    city: "",
+    postCode: "",
+    shouldError: false,
+    expectedErrorField: BUYER_ADDRESS_LINE_1_FIELD,
+  }));
+
 // ---------------------------------------------------------------------------
 // deliverToAddressRequired (IBR-040-OM)
 // ---------------------------------------------------------------------------
