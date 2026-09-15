@@ -191,8 +191,12 @@ export class OMN_UIInvoiceManualPage {
     await this.expectEditorVisible();
   }
 
-  /** Create and Copy are a new invoice (Save). Edit of an existing row uses Update. */
-  private persistButtonName(entry: OmnUiEntry): "Save" | "Update" {
+  /**
+   * Section persist label. Document/Seller/…: Create+Copy → Save, Edit → Update.
+   * Item Details table footer is always Save (Create / Edit / Copy).
+   */
+  private persistButtonName(entry: OmnUiEntry, section?: OmnUiSection): "Save" | "Update" {
+    if (section === "item") return "Save";
     return entry === "edit" ? "Update" : "Save";
   }
 
@@ -206,7 +210,7 @@ export class OMN_UIInvoiceManualPage {
   }
 
   async isSectionInEditMode(section: OmnUiSection, entry: OmnUiEntry): Promise<boolean> {
-    const name = this.persistButtonName(entry);
+    const name = this.persistButtonName(entry, section);
     return this.sectionFooter(section)
       .getByRole("button", { name, exact: true })
       .first()
@@ -231,7 +235,7 @@ export class OMN_UIInvoiceManualPage {
         await editBtn.click({ timeout: 8_000, force: true });
       }
     }
-    const persistName = this.persistButtonName(entry);
+    const persistName = this.persistButtonName(entry, section);
     await expect(
       this.sectionFooter(section).getByRole("button", { name: persistName, exact: true }).first()
     ).toBeVisible({ timeout: 15_000 });
@@ -240,7 +244,7 @@ export class OMN_UIInvoiceManualPage {
   async clickSectionCommit(section: OmnUiSection, entry: OmnUiEntry = "create"): Promise<void> {
     await this.dismissOpenDropdown();
     const footer = this.sectionFooter(section);
-    const name = this.persistButtonName(entry);
+    const name = this.persistButtonName(entry, section);
     const commit = footer.getByRole("button", { name, exact: true });
     await expect(commit.first()).toBeVisible({ timeout: 15_000 });
     await commit.first().click();
@@ -977,7 +981,7 @@ export class OMN_UIInvoiceManualPage {
       return;
     }
     await expect(this.sectionReadOnly(section)).toHaveCount(0);
-    const name = this.persistButtonName(entry);
+    const name = this.persistButtonName(entry, section);
     await expect(
       this.sectionFooter(section).getByRole("button", { name, exact: true })
     ).toBeVisible();

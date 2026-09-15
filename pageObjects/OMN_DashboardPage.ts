@@ -116,6 +116,45 @@ export class DashboardPage {
   private goToEInvoicingButton = () =>
     this.page.getByRole("button", { name: /go to e-invoicing/i });
 
+  /**
+   * What's-new dialog on business dashboard. Live DOM: `[data-testid="modalBody"]`
+   * with heading **Latest Update**, count (`1 of 2`), Previous/Next, and **Cancel**.
+   * Shown on dashboard paint, but not every session — callers must treat absence as success.
+   */
+  private latestUpdateModal(): Locator {
+    return this.page
+      .getByTestId("modalBody")
+      .filter({
+        has: this.page.getByRole("heading", { name: "Latest Update", exact: true }),
+      })
+      .first();
+  }
+
+  /**
+   * Click **Cancel** when Latest Update is visible. `waitMs` only used when it is not
+   * already on screen (async paint). Does not target other `modalBody` dialogs.
+   */
+  private async dismissLatestUpdateModalIfPresent(opts?: { waitMs?: number }): Promise<void> {
+    const modal = this.latestUpdateModal();
+    if (!(await modal.isVisible().catch(() => false))) {
+      const waitMs = opts?.waitMs ?? 0;
+      if (waitMs <= 0) return;
+      const shown = await modal
+        .waitFor({ state: "visible", timeout: waitMs })
+        .then(() => true)
+        .catch(() => false);
+      if (!shown) return;
+    }
+
+    const cancel = modal.getByRole("button", { name: "Cancel", exact: true });
+    try {
+      await cancel.click({ timeout: 5_000 });
+    } catch {
+      await modal.getByTestId("modalCloseButton").click({ timeout: 5_000 }).catch(() => {});
+    }
+    await modal.waitFor({ state: "hidden", timeout: 10_000 }).catch(() => {});
+  }
+
   private buildAppUrl(pathname: string): string {
     const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
     return `${resolveBaseUrl()}${normalizedPath}`;
@@ -573,6 +612,7 @@ export class DashboardPage {
   /** Always click Go to E-Invoicing (ordered locators, then role fallback; legacy View Dashboard).
    *  Relaunches business-dashboard once when the entry button is still disabled during subscription hydration. */
   private async clickEInvoiceDashboardEntry(maxWaitMs = 45_000): Promise<void> {
+    await this.dismissLatestUpdateModalIfPresent();
     const timeout = Math.min(maxWaitMs, 25_000);
     const relaunchDashboardAndRestoreTin = async () => {
       await this.page.goto(this.buildAppUrl("/business-dashboard"), {
@@ -580,6 +620,7 @@ export class DashboardPage {
       });
       await this.page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
       await this.waitForDashboardStability(12_000);
+      await this.dismissLatestUpdateModalIfPresent({ waitMs: 2_500 });
       const tinToRestore = pageContextBusinessTin.get(this.page);
       if (tinToRestore) {
         await this.selectBusinessCardByTin(tinToRestore);
@@ -811,7 +852,9 @@ export class DashboardPage {
     }
 
     await this.waitForDashboardStability(12_000);
+    await this.dismissLatestUpdateModalIfPresent({ waitMs: 2_500 });
     await this.refreshIfDashboardBlank();
+    await this.dismissLatestUpdateModalIfPresent();
 
     if (tinToSelect) {
       await this.selectBusinessCardByTin(tinToSelect);

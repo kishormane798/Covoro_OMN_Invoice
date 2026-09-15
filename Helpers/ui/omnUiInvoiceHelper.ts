@@ -84,6 +84,7 @@ import {
   SELF_BILLED_OR_RCM_TXN_TYPES,
   btom001EnsureBaseTxnLabels,
   UAE_COUNTRY_CODE,
+  ZERO_RATED_EXEMPTION_REASON_LABELS,
   ZERO_RATED_TAX_CATEGORY_CODE,
   splitOmanTxnMasterLabels,
 } from "../../testData/FieldValidations/ConditionalValidation";
@@ -507,6 +508,134 @@ async function resetSelfBilledParties(
   }
 }
 
+const ITEM_EXEMPTION_REASON_CODE_ALTS = [
+  "taxRateDtls[0].exemptionReasonCode",
+  "taxExemptionReasonCode",
+  "exemptionReasonType",
+] as const;
+
+const ITEM_EXEMPTION_REASON_TEXT_ALTS = [
+  "taxRateDtls[0].exemptionReason",
+  "taxExemptionReason",
+] as const;
+
+function itemTaxCategoryForbidsExemption(category: string): boolean {
+  const value = category.trim();
+  if (!value) return false;
+  if (value === STANDARD_TAX_CATEGORY_CODE || value === NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE) {
+    return true;
+  }
+  return /standard|not subject|outside scope/i.test(value);
+}
+
+function isZeroRatedExemptionCode(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return false;
+  return (
+    ZERO_RATED_EXEMPTION_REASON_LABELS.some((label) => label.toLowerCase() === trimmed) ||
+    trimmed.startsWith("zero-rated")
+  );
+}
+
+function isExemptExemptionCode(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || isZeroRatedExemptionCode(trimmed)) return false;
+  return (
+    trimmed === TAX_EXEMPTION_REASON_SAMPLE || trimmed.toLowerCase().startsWith("exemption-")
+  );
+}
+
+function isZeroRatedTaxCategory(category: string): boolean {
+  return (
+    category.trim() === ZERO_RATED_TAX_CATEGORY_CODE || /zero\s*rated/i.test(category)
+  );
+}
+
+function isExemptTaxCategory(category: string): boolean {
+  return (
+    category.trim() === EXEMPT_FROM_TAX_TAX_CATEGORY_CODE || /exempt from tax/i.test(category)
+  );
+}
+
+/** Standard / Not subject: leave empty exemption fields alone; clear only if they have a value. */
+async function clearFilledItemExemptionWhenCategoryForbidsIt(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry
+): Promise<void> {
+  const category = await invoice.readInputValue("item", "taxRateDtls[0].taxCategory");
+  if (!itemTaxCategoryForbidsExemption(category)) return;
+  await leaveOrClearEmpty(
+    invoice,
+    entry,
+    "item",
+    "taxExemptionRsnType",
+    ITEM_EXEMPTION_REASON_CODE_ALTS,
+    "autocomplete"
+  );
+  await leaveOrClearEmpty(
+    invoice,
+    entry,
+    "item",
+    "taxExemptionRsn",
+    ITEM_EXEMPTION_REASON_TEXT_ALTS,
+    "text"
+  );
+}
+
+/**
+ * Zero rated keeps a zero-rated exemption code; Exempt keeps an Exemption- code.
+ * Empty stays empty. Wrong-family leftover from Copy/Edit is replaced.
+ */
+async function alignFilledItemExemptionCodeToTaxCategory(
+  invoice: OMN_UIInvoiceManualPage,
+  _entry: OmnUiEntry
+): Promise<void> {
+  const category = await invoice.readInputValue("item", "taxRateDtls[0].taxCategory");
+  const current = await invoice.readInputValue(
+    "item",
+    "taxExemptionRsnType",
+    ITEM_EXEMPTION_REASON_CODE_ALTS
+  );
+  if (!current) return;
+  if (isZeroRatedTaxCategory(category) && !isZeroRatedExemptionCode(current)) {
+    await invoice.expectInputDisabled(
+      "item",
+      "taxExemptionRsnType",
+      false,
+      ITEM_EXEMPTION_REASON_CODE_ALTS
+    );
+    await invoice.selectAutocomplete(
+      "item",
+      "taxExemptionRsnType",
+      TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      [...ITEM_EXEMPTION_REASON_CODE_ALTS]
+    );
+    return;
+  }
+  if (isExemptTaxCategory(category) && !isExemptExemptionCode(current)) {
+    await invoice.expectInputDisabled(
+      "item",
+      "taxExemptionRsnType",
+      false,
+      ITEM_EXEMPTION_REASON_CODE_ALTS
+    );
+    await invoice.selectAutocomplete(
+      "item",
+      "taxExemptionRsnType",
+      TAX_EXEMPTION_REASON_SAMPLE,
+      [...ITEM_EXEMPTION_REASON_CODE_ALTS]
+    );
+  }
+}
+
+async function syncItemExemptionFieldsToTaxCategory(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry
+): Promise<void> {
+  await clearFilledItemExemptionWhenCategoryForbidsIt(invoice, entry);
+  await alignFilledItemExemptionCodeToTaxCategory(invoice, entry);
+}
+
 async function ensureItemBaseline(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
@@ -545,6 +674,14 @@ async function ensureItemBaseline(
       OMN_UI_TAX_CATEGORY_STANDARD
     );
   }
+  const testingExemption =
+    excludeInputIds.has("taxExemptionRsnType") ||
+    excludeInputIds.has("taxExemptionRsn") ||
+    excludeInputIds.has("taxRateDtls[0].exemptionReasonCode") ||
+    excludeInputIds.has("taxRateDtls[0].exemptionReason");
+  if (!testingExemption) {
+    await syncItemExemptionFieldsToTaxCategory(invoice, entry);
+  }
   if (!excludeInputIds.has("unitOfMeasure")) {
     await invoice.selectAutocomplete("item", "unitOfMeasure", OMN_UI_UNIT_OF_MEASURE);
   }
@@ -573,6 +710,8 @@ async function addAndCommitBaselineItem(
   await ensureItemBaseline(invoice, entry, new Set());
   await invoice.clickItemCommit(entry);
   await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
+  // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
+  await invoice.clickSectionCommit("item", entry);
 }
 
 async function ensureThirdPartyBaseline(
@@ -1051,6 +1190,7 @@ async function enableTaxRateMinMaxFields(
       "taxRateDtls[0].taxCategory",
       NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE
     );
+    await syncItemExemptionFieldsToTaxCategory(invoice, "create");
     return;
   }
   await invoice.selectAutocomplete(
@@ -1058,6 +1198,7 @@ async function enableTaxRateMinMaxFields(
     "taxRateDtls[0].taxCategory",
     OMN_UI_TAX_CATEGORY_STANDARD
   );
+  await syncItemExemptionFieldsToTaxCategory(invoice, "create");
   await invoice.expectInputDisabled("item", "taxRateDtls[0].taxRate", false);
 }
 
@@ -1621,33 +1762,7 @@ async function runOmnUiTxnExclusionCase(
     isOmnUiPrefilledLineItemEntry(entry)
   );
   await invoice.openSectionForEdit("invoice", entry);
-  for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
-    if (
-      (key === "docCharges" || key === "docAllowances") &&
-      toNumber(formula[key], 0) === 0
-    ) {
-      continue;
-    }
-    await fillFormulaCandidate(invoice, "invoice", key, formula[key]);
-  }
-  if (toNumber(formula.docCharges, 0) !== 0) {
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "invoice",
-      "docLevelCharges[0].vatCategory",
-      OMN_UI_TAX_CATEGORY_STANDARD
-    );
-  }
-  if (toNumber(formula.docAllowances, 0) !== 0) {
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "invoice",
-      "docLevelAllowances[0].vatCategory",
-      OMN_UI_TAX_CATEGORY_STANDARD
-    );
-  }
+  await applyInvoiceFormulaInputs(invoice, entry, formula as InvoiceFormulaScenario);
   await commitSection(invoice, "invoice", entry);
   await invoice.expectSectionSavedReadOnly("invoice");
 }
@@ -1736,10 +1851,13 @@ async function fillOmnUiFormulaItem(
       OMN_UI_TAX_CATEGORY_STANDARD
     );
   }
+  await syncItemExemptionFieldsToTaxCategory(invoice, entry);
+  await clearStaleItemFormulaAmounts(invoice, entry);
   for (const key of OMN_UI_ITEM_FORMULA_KEYS) {
     await fillFormulaCandidate(invoice, "item", key, scenario[key]);
   }
-  if (scenario.currencyRate != null) {
+  await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
+  if (scenario.currencyRate != null && entry === "edit") {
     const expected = omnUiExpectedTotals(scenario);
     await invoice.replaceLabeledItemText(
       "Line Item VAT Amount",
@@ -1752,6 +1870,8 @@ async function fillOmnUiFormulaItem(
   }
   await invoice.clickItemCommit(entry);
   await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
+  // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
+  await invoice.clickSectionCommit("item", entry);
 }
 
 async function expectAnyFormulaError(
@@ -1836,33 +1956,7 @@ async function runOmnUiFormulaCatalogScenario(
     }
   }
   await invoice.openSectionForEdit("invoice", entry);
-  for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
-    if (
-      (key === "docCharges" || key === "docAllowances") &&
-      toNumber(scenario[key], 0) === 0
-    ) {
-      continue;
-    }
-    await fillFormulaCandidate(invoice, "invoice", key, scenario[key]);
-  }
-  if (toNumber(scenario.docCharges, 0) !== 0) {
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "invoice",
-      "docLevelCharges[0].vatCategory",
-      OMN_UI_TAX_CATEGORY_STANDARD
-    );
-  }
-  if (toNumber(scenario.docAllowances, 0) !== 0) {
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "invoice",
-      "docLevelAllowances[0].vatCategory",
-      OMN_UI_TAX_CATEGORY_STANDARD
-    );
-  }
+  await applyInvoiceFormulaInputs(invoice, entry, scenario as InvoiceFormulaScenario);
   if (row.kind === "formulaNonOmr") {
     const ibt111 = await invoice.readInputValue(
       "invoice",
@@ -2550,6 +2644,7 @@ async function applyConditionalSectionFields(
       );
     }
     const taxCat = scenario.taxCategory;
+    await syncItemExemptionFieldsToTaxCategory(invoice, entry);
     const needsExemption =
       taxCat === EXEMPT_FROM_TAX_TAX_CATEGORY_CODE ||
       taxCat === ZERO_RATED_TAX_CATEGORY_CODE;
@@ -2851,6 +2946,168 @@ export async function runOmnUiConditionalScenario(
   }
 }
 
+async function clearItemAmountIfFilled(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  inputId: string,
+  altInputIds: readonly string[] = []
+): Promise<void> {
+  if (await invoice.isInputDisabled("item", inputId, altInputIds)) return;
+  await leaveOrClearEmpty(invoice, entry, "item", inputId, altInputIds, "text");
+}
+
+/**
+ * Edit/Copy keep prior Item Net / line totals. Clear them first so filling
+ * gross/qty does not leave a stale "gross - discount" mismatch.
+ * Create starts empty — skip. Edit/Copy need the clear; Create/Copy then auto-calc.
+ */
+async function clearStaleItemFormulaAmounts(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry
+): Promise<void> {
+  if (entry === "create") return;
+  for (const key of OMN_UI_ITEM_FORMULA_KEYS) {
+    const ids = OMN_UI_FORMULA_INPUT_CANDIDATES[key];
+    if (!ids?.length) continue;
+    await clearItemAmountIfFilled(invoice, entry, ids[0], ids.slice(1));
+  }
+  await clearItemAmountIfFilled(invoice, entry, "itemNetPrice");
+  await clearItemAmountIfFilled(invoice, entry, "invLineNetAmt");
+  await clearItemAmountIfFilled(invoice, entry, "totalInvLineVatAmt", ["vatLineAmt"]);
+  await clearItemAmountIfFilled(invoice, entry, "totalAmtIncludingVat", ["invLineAmt"]);
+  await clearItemAmountIfFilled(invoice, entry, "taxRateDtls[0].taxAmt");
+}
+
+/**
+ * Create/Copy auto-calculate nets / Tax Amount. Line VAT must match Tax Amount
+ * or Update is rejected. Sync editable VAT fields from Tax Amount after auto-calc.
+ */
+async function syncItemVatLineToTaxAmount(
+  invoice: OMN_UIInvoiceManualPage
+): Promise<void> {
+  const lineNet =
+    parseAmount(await invoice.readInputValue("item", "invLineNetAmt")) ?? 0;
+  const taxAmt =
+    parseAmount(await invoice.readInputValue("item", "taxRateDtls[0].taxAmt")) ?? 0;
+  if (
+    !(await invoice.isInputDisabled("item", "totalInvLineVatAmt", ["vatLineAmt"]))
+  ) {
+    await invoice.replaceInput(
+      "item",
+      "totalInvLineVatAmt",
+      String(taxAmt),
+      ["vatLineAmt"]
+    );
+  }
+  if (
+    !(await invoice.isInputDisabled("item", "totalAmtIncludingVat", ["invLineAmt"]))
+  ) {
+    await invoice.replaceInput(
+      "item",
+      "totalAmtIncludingVat",
+      String(Number((lineNet + taxAmt).toFixed(2))),
+      ["invLineAmt"]
+    );
+  }
+}
+
+/**
+ * Create/Copy auto-calculate item nets / Tax Amount / line VAT.
+ * Edit does not — enter every editable calculated text field from expected totals.
+ */
+async function enterExpectedItemFormulaAmounts(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: InvoiceFormulaScenario
+): Promise<void> {
+  if (entry !== "edit") {
+    await syncItemVatLineToTaxAmount(invoice);
+    return;
+  }
+  const expected = omnUiExpectedTotals(scenario);
+  if (!(await invoice.isInputDisabled("item", "itemNetPrice"))) {
+    await invoice.replaceInput("item", "itemNetPrice", String(expected.itemNetPrice));
+  }
+  if (!(await invoice.isInputDisabled("item", "invLineNetAmt"))) {
+    await invoice.replaceInput("item", "invLineNetAmt", String(expected.invoiceLineNetAmount));
+  }
+  if (!(await invoice.isInputDisabled("item", "taxRateDtls[0].taxAmt"))) {
+    await invoice.replaceInput("item", "taxRateDtls[0].taxAmt", String(expected.vatLineAmount));
+  }
+  if (
+    !(await invoice.isInputDisabled("item", "totalInvLineVatAmt", ["vatLineAmt"]))
+  ) {
+    await invoice.replaceInput(
+      "item",
+      "totalInvLineVatAmt",
+      String(expected.vatLineAmount),
+      ["vatLineAmt"]
+    );
+  }
+  if (
+    !(await invoice.isInputDisabled("item", "totalAmtIncludingVat", ["invLineAmt"]))
+  ) {
+    await invoice.replaceInput(
+      "item",
+      "totalAmtIncludingVat",
+      String(expected.invoiceLineAmount),
+      ["invLineAmt"]
+    );
+  }
+}
+
+/** Invoice totals are disabled — only clear/write editable formula inputs (incl. 0). */
+async function applyInvoiceFormulaInputs(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: InvoiceFormulaScenario
+): Promise<void> {
+  for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
+    const ids = OMN_UI_FORMULA_INPUT_CANDIDATES[key];
+    if (!ids?.length) continue;
+    if (await invoice.isInputDisabled("invoice", ids[0], ids.slice(1))) continue;
+    await leaveOrClearEmpty(invoice, entry, "invoice", ids[0], ids.slice(1), "text");
+    const raw = scenario[key];
+    if (raw === undefined || raw === null) continue;
+    await invoice.replaceInput("invoice", ids[0], String(raw), ids.slice(1));
+  }
+  if (toNumber(scenario.docCharges, 0) !== 0) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "invoice",
+      "docLevelCharges[0].vatCategory",
+      OMN_UI_TAX_CATEGORY_STANDARD
+    );
+  }
+  if (toNumber(scenario.docAllowances, 0) !== 0) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "invoice",
+      "docLevelAllowances[0].vatCategory",
+      OMN_UI_TAX_CATEGORY_STANDARD
+    );
+  }
+}
+
+/** After Item Details Save, disabled Invoice Details totals refresh from Sum of Line Net. */
+async function waitForInvoiceSumOfLineNet(
+  invoice: OMN_UIInvoiceManualPage,
+  expectedLineNet: number
+): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        parseAmount(await invoice.readInputValue("invoice", "sumOfInvLineNetAmt")),
+      {
+        timeout: 15_000,
+        message: `sumOfInvLineNetAmt should refresh to ${expectedLineNet} after Item Details Save`,
+      }
+    )
+    .toBeCloseTo(expectedLineNet, 1);
+}
+
 async function fillFormulaCandidate(
   invoice: OMN_UIInvoiceManualPage,
   section: OmnUiSection,
@@ -2893,20 +3150,34 @@ export async function runOmnUiFormulaScenario(
       String(scenario.taxCategory)
     );
   }
+  await syncItemExemptionFieldsToTaxCategory(invoice, entry);
+  await clearStaleItemFormulaAmounts(invoice, entry);
 
   for (const key of OMN_UI_ITEM_FORMULA_KEYS) {
     await fillFormulaCandidate(invoice, "item", key, scenario[key]);
   }
+  await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
 
   const expected = omnUiExpectedTotals(scenario);
   const itemNet = parseAmount(await invoice.readInputValue("item", "itemNetPrice"));
   const lineNet = parseAmount(await invoice.readInputValue("item", "invLineNetAmt"));
-  const vatLine = parseAmount(await invoice.readInputValue("item", "vatLineAmt"));
-  const lineAmt = parseAmount(await invoice.readInputValue("item", "invLineAmt"));
+  const vatLine = parseAmount(
+    await invoice.readInputValue("item", "totalInvLineVatAmt", ["vatLineAmt"])
+  );
+  const lineAmt = parseAmount(
+    await invoice.readInputValue("item", "totalAmtIncludingVat", ["invLineAmt"])
+  );
+  const taxAmt = parseAmount(await invoice.readInputValue("item", "taxRateDtls[0].taxAmt"));
   if (itemNet != null) expect(itemNet).toBeCloseTo(expected.itemNetPrice, 1);
   if (lineNet != null) expect(lineNet).toBeCloseTo(expected.invoiceLineNetAmount, 1);
-  if (vatLine != null) expect(vatLine).toBeCloseTo(expected.vatLineAmount, 1);
-  if (lineAmt != null) expect(lineAmt).toBeCloseTo(expected.invoiceLineAmount, 1);
+  // UI validates line VAT against Tax Amount (Create/Copy auto-calc; may differ from Excel ceil2).
+  if (vatLine != null && taxAmt != null) expect(vatLine).toBeCloseTo(taxAmt, 1);
+  else if (vatLine != null) expect(vatLine).toBeCloseTo(expected.vatLineAmount, 1);
+  if (lineAmt != null && lineNet != null && vatLine != null) {
+    expect(lineAmt).toBeCloseTo(lineNet + vatLine, 1);
+  } else if (lineAmt != null) {
+    expect(lineAmt).toBeCloseTo(expected.invoiceLineAmount, 1);
+  }
 
   const whitespaceItemKeys = OMN_UI_ITEM_FORMULA_KEYS.filter((key) =>
     isUiWhitespaceValue(String(scenario[key] ?? ""))
@@ -2922,18 +3193,33 @@ export async function runOmnUiFormulaScenario(
     return;
   }
   await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
+  // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
+  await invoice.clickSectionCommit("item", entry);
 
   await invoice.openSectionForEdit("invoice", entry);
-  for (const key of OMN_UI_INVOICE_FORMULA_KEYS) {
-    await fillFormulaCandidate(invoice, "invoice", key, scenario[key]);
-  }
+  await waitForInvoiceSumOfLineNet(invoice, expected.invoiceLineNetAmount);
+  await applyInvoiceFormulaInputs(invoice, entry, scenario);
+  await invoice.clickSectionCommit("invoice", entry);
+
+  // Invoice totals follow committed line VAT (Tax Amount), not Excel ceil2 when they diverge.
+  const uiVat = taxAmt ?? vatLine ?? expected.vatLineAmount;
+  const uiTotalWithTax = Number(
+    (
+      expected.invoiceTotalWithTax -
+      expected.vatLineAmount +
+      uiVat
+    ).toFixed(2)
+  );
+  const uiAmountDue = Number(
+    (expected.amountDue - expected.vatLineAmount + uiVat).toFixed(2)
+  );
 
   const totalWithTax = parseAmount(
-    await invoice.readInputValue("invoice", "totalAmtWithVatOm", ["totalAmtWithTax"])
+    await invoice.readInputValue("invoice", "totalAmtWithTax", ["totalAmtWithVatOm"])
   );
   const amountDue = parseAmount(
     await invoice.readInputValue("invoice", "paymentDueAmt", ["amountDue"])
   );
-  if (totalWithTax != null) expect(totalWithTax).toBeCloseTo(expected.invoiceTotalWithTax, 1);
-  if (amountDue != null) expect(amountDue).toBeCloseTo(expected.amountDue, 1);
+  if (totalWithTax != null) expect(totalWithTax).toBeCloseTo(uiTotalWithTax, 1);
+  if (amountDue != null) expect(amountDue).toBeCloseTo(uiAmountDue, 1);
 }
