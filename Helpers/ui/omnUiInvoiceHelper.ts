@@ -2272,6 +2272,7 @@ function excludeIdsForConditional(
       ids.add("identifier");
     }
     if (scenario.sellerIdentifierTextualCode !== undefined) {
+      ids.add("identifierTextualCode");
       ids.add("identifierCode");
       ids.add("textualCode");
       ids.add("sellerIdentifierCode");
@@ -2296,6 +2297,7 @@ function excludeIdsForConditional(
       ids.add("buyerSchemeIdentifier");
     }
     if (scenario.buyerIdentifierTextualCode !== undefined) {
+      ids.add("identifierTextualCode");
       ids.add("identifierCode");
       ids.add("textualCode");
       ids.add("buyerIdentifierCode");
@@ -2755,9 +2757,9 @@ async function applyConditionalSectionFields(
         invoice,
         entry,
         "seller",
-        "identifierCode",
+        "identifierTextualCode",
         scenario.sellerIdentifierTextualCode,
-        ["textualCode", "sellerIdentifierCode"]
+        ["identifierCode", "textualCode", "sellerIdentifierCode"]
       );
       await writeAutocomplete(
         invoice,
@@ -2798,9 +2800,9 @@ async function applyConditionalSectionFields(
         invoice,
         entry,
         "buyer",
-        "identifierCode",
+        "identifierTextualCode",
         scenario.buyerIdentifierTextualCode,
-        ["textualCode", "buyerIdentifierCode"]
+        ["identifierCode", "textualCode", "buyerIdentifierCode"]
       );
       await writeAutocomplete(
         invoice,

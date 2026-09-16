@@ -976,8 +976,8 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   dropdownRule("Seller identifier - Scheme identifier", "seller", "schemeIdentifier", {
     altInputIds: ["sellerSchemeIdentifier"],
   }),
-  dropdownRule("Seller Identifier (textual code)", "seller", "identifierCode", {
-    altInputIds: ["textualCode", "sellerIdentifierCode"],
+  dropdownRule("Seller Identifier (textual code)", "seller", "identifierTextualCode", {
+    altInputIds: ["identifierCode", "textualCode", "sellerIdentifierCode"],
   }),
   fromExcel("Seller address line 1", "seller", "address1", fieldValidationMandatory, {
     altInputIds: ["address", "sellerAddressLine1"],
@@ -1034,8 +1034,8 @@ export const OMN_UI_FIELD_RULES: OmnUiFieldRule[] = [
   dropdownRule("Scheme identifier", "buyer", "schemeIdentifier", {
     altInputIds: ["buyerSchemeIdentifier"],
   }),
-  dropdownRule("Buyer Identifier (textual code)", "buyer", "identifierCode", {
-    altInputIds: ["textualCode", "buyerIdentifierCode"],
+  dropdownRule("Buyer Identifier (textual code)", "buyer", "identifierTextualCode", {
+    altInputIds: ["identifierCode", "textualCode", "buyerIdentifierCode"],
   }),
   fromExcel("Buyer address line 1", "buyer", "address1", fieldValidationMandatory, {
     altInputIds: ["address"],
@@ -1635,8 +1635,8 @@ const CV_FIELD_LOC: Record<string, CvFieldLoc> = {
   },
   [BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD]: {
     section: "buyer",
-    inputId: "identifierCode",
-    altInputIds: ["textualCode", "buyerIdentifierCode"],
+    inputId: "identifierTextualCode",
+    altInputIds: ["identifierCode", "textualCode", "buyerIdentifierCode"],
   },
   [BUYER_ADDRESS_LINE_1_FIELD]: { section: "buyer", inputId: "address1", altInputIds: ["address"] },
   [BUYER_ADDRESS_LINE_2_FIELD]: { section: "buyer", inputId: "address2" },
@@ -1729,6 +1729,7 @@ export const OMN_UI_DROPDOWN_ASSERT_IDS = new Set([
   "schemeIdentifier",
   "sellerSchemeIdentifier",
   "buyerSchemeIdentifier",
+  "identifierTextualCode",
   "identifierCode",
   "textualCode",
   "sellerIdentifierCode",
@@ -2381,8 +2382,8 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
       {
         section: "seller",
-        inputId: "identifierCode",
-        altInputIds: ["textualCode", "sellerIdentifierCode"],
+        inputId: "identifierTextualCode",
+        altInputIds: ["identifierCode", "textualCode", "sellerIdentifierCode"],
         control: "autocomplete",
         value: s.sellerIdentifierTextualCode,
       },
@@ -2415,8 +2416,8 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
       {
         section: "seller",
-        inputId: "identifierCode",
-        altInputIds: ["textualCode", "sellerIdentifierCode"],
+        inputId: "identifierTextualCode",
+        altInputIds: ["identifierCode", "textualCode", "sellerIdentifierCode"],
         control: "autocomplete",
         value: s.sellerCompanion === "code"
           ? OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE
@@ -2480,7 +2481,7 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
     const section = seller ? "seller" as const : "buyer" as const;
     const identifierId = seller ? "sellerIdentifier" : "buyerIdentifier";
     const schemeId = seller ? "schemeIdentifier" : "schemeIdentifier";
-    const codeId = "identifierCode";
+    const codeId = "identifierTextualCode";
     return catalogControlScenario(s, section, identifierId, [
       { section, inputId: identifierId, altInputIds: ["identifier"], control: "text", value: s.identifier },
       {
@@ -2495,7 +2496,11 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       {
         section,
         inputId: codeId,
-        altInputIds: ["textualCode", seller ? "sellerIdentifierCode" : "buyerIdentifierCode"],
+        altInputIds: [
+          "identifierCode",
+          "textualCode",
+          seller ? "sellerIdentifierCode" : "buyerIdentifierCode",
+        ],
         control: "autocomplete",
         value: s.companion === "code" || s.companion === "both"
           ? OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE

@@ -316,13 +316,16 @@ export class OMN_UIInvoiceManualPage {
         await editBtn.click({ timeout: 8_000, force: true });
       }
     }
-    // Collapsed groups omit companion ids (e.g. #identifierCode) from the DOM on Copy/Edit.
-    const collapsed = root.locator(
-      "button.collapsable-toggle-btn[aria-expanded='false']"
-    );
-    const collapsedCount = await collapsed.count();
-    for (let i = 0; i < collapsedCount; i++) {
-      await collapsed.nth(i).click({ timeout: 5_000 }).catch(() => {});
+    // Party companion ids (#identifierTextualCode / scheme) sit under collapsed groups on Copy.
+    // Do not expand Document/Invoice/etc. — that surfaces empty required fields and blocks Save.
+    if (section === "seller" || section === "buyer") {
+      const collapsed = root.locator(
+        "button.collapsable-toggle-btn[aria-expanded='false']"
+      );
+      const collapsedCount = await collapsed.count();
+      for (let i = 0; i < collapsedCount; i++) {
+        await collapsed.nth(i).click({ timeout: 5_000 }).catch(() => {});
+      }
     }
     const persistName = this.persistButtonName(entry, section);
     await expect(
@@ -1104,10 +1107,8 @@ export class OMN_UIInvoiceManualPage {
       await expect(this.itemModal()).toBeHidden({ timeout: 15_000 });
       return;
     }
-    // Prefer read-only values; Edit button also means the section committed.
-    await expect(
-      this.sectionReadOnly(section).or(this.sectionEditButton(section))
-    ).toBeVisible({ timeout: 15_000 });
+    // Do not .or(Edit): when Save succeeds both Edit and read-only exist → strict mode violation.
+    await expect(this.sectionReadOnly(section)).toBeVisible({ timeout: 15_000 });
   }
 
   /** Invalid Save/Update keeps the section in edit mode with the field error. */
