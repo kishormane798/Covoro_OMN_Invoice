@@ -70,7 +70,14 @@ import {
   TAX_EXEMPTION_REASON_TEXT_SAMPLE,
   TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
   TAX_RATE_ZERO,
+  IBR_003_VALID_BUYER_VATIN,
+  IBR_003_VALID_THIRD_PARTY_VATIN,
+  OMAN_COUNTRY_CODE,
+  SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+  SPECIAL_ZONE_LICENSE_SCHEME,
   TXN_CONTINUOUS_SUPPLY,
+  TXN_ECOMMERCE_TRANSACTION,
+  TXN_EXPORT_INVOICE,
   TXN_FULL_TAX_INVOICE,
   TXN_IMPORT_OF_GOODS,
   TXN_IMPORT_OF_SERVICES_RCM,
@@ -79,8 +86,10 @@ import {
   TXN_PROFIT_MARGIN_SELF_INVOICE,
   TXN_SELF_BILLED_INVOICE,
   TXN_SIMPLIFIED_TAX_INVOICE,
+  TXN_SPECIAL_ZONE_SUPPLIES,
   TXN_SUMMARY_INVOICE,
   TXN_THIRD_PARTY_INVOICE,
+  CN_DN_SELF_BILLED_INVOICE_TYPES,
   SELF_BILLED_OR_RCM_TXN_TYPES,
   btom001EnsureBaseTxnLabels,
   UAE_COUNTRY_CODE,
@@ -499,10 +508,28 @@ async function resetSelfBilledParties(
   knownTypes: { invoiceTypeCode?: string; invoiceTransactionTypeCode?: string }
 ): Promise<void> {
   if (!isSelfBilledOnForm(knownTypes.invoiceTypeCode)) return;
+  const has = (label: string) =>
+    splitOmanTxnMasterLabels(knownTypes.invoiceTransactionTypeCode ?? "").includes(label);
+  const companionScenario: OmnUiConditionalScenario = {
+    title: "self-billed party reset",
+    section: "document",
+    kind: "catalogControl",
+    shouldError: false,
+    assertInputId: "invNum",
+    invoiceTransactionTypeCode: knownTypes.invoiceTransactionTypeCode,
+  };
   for (const section of ["seller", "buyer"] as const) {
     await invoice.openSectionForEdit(section, entry);
     await clearPartySection(invoice, section);
     await ensurePartyBaseline(invoice, section, new Set(), knownTypes);
+    await applyPartyIdentifierTxnCompanions(
+      invoice,
+      entry,
+      companionScenario,
+      section,
+      has
+    );
+    await applyExcelTxnSectionCompanions(invoice, entry, companionScenario, section);
     await commitSection(invoice, section, entry);
     await invoice.expectSectionSavedReadOnly(section);
   }
@@ -1759,6 +1786,20 @@ async function runOmnUiTxnExclusionCase(
       invoiceTransactionTypeCode: txn,
     });
   }
+  await applyCreditNoteDocumentCompanions(
+    invoice,
+    entry,
+    {
+      title: row.title,
+      section: "document",
+      kind: "catalogControl",
+      shouldError: false,
+      assertInputId: "invTxnType",
+      invoiceTypeCode: row.invoiceTypeCode,
+      invoiceTransactionTypeCode: txnCell,
+    },
+    row.invoiceTypeCode
+  );
   await invoice.clickSectionCommit("document", entry);
   await invoice.expectSectionSavedReadOnly("document");
   if (!fillFormula) return;
@@ -2172,6 +2213,27 @@ function extraSectionsForKind(kind: OmnUiConditionalScenario["kind"]): OmnUiSect
   }
 }
 
+/** Excel `applyTxnExclusionCompanions` — extra UI sections for that txn mix. */
+function extraSectionsForTxn(txn?: string): OmnUiSection[] {
+  const labels = splitOmanTxnMasterLabels(txn ?? "");
+  const extra: OmnUiSection[] = [];
+  const has = (label: string) => labels.includes(label);
+  if (has(TXN_THIRD_PARTY_INVOICE)) extra.push("thirdParty");
+  // Excel applyPartyIdentifiersByTxnType (IBR-007 / IBR-152 / IBR-153).
+  if (
+    has(TXN_IMPORT_OF_SERVICES_RCM) ||
+    has(TXN_SPECIAL_ZONE_SUPPLIES) ||
+    has(TXN_IMPORT_OF_GOODS) ||
+    has(TXN_PROFIT_MARGIN_SELF_INVOICE)
+  ) {
+    extra.push("seller", "buyer");
+  }
+  if (has(TXN_ECOMMERCE_TRANSACTION) || has(TXN_EXPORT_INVOICE)) extra.push("shipping");
+  if (has(TXN_PREPAYMENT_INVOICE)) extra.push("payment");
+  if (has(TXN_PROFIT_MARGIN_INVOICE)) extra.push("invoice");
+  return extra;
+}
+
 /**
  * Sections this conditional must fill, in OMN_UI_SECTION_ORDER. Document is
  * always first. Item and extra party/totals sections are included when needed,
@@ -2181,6 +2243,9 @@ function extraSectionsForKind(kind: OmnUiConditionalScenario["kind"]): OmnUiSect
 function sectionsForConditional(scenario: OmnUiConditionalScenario): OmnUiSection[] {
   const needed = new Set<OmnUiSection>(["document", "item"]);
   for (const section of extraSectionsForKind(scenario.kind)) {
+    needed.add(section);
+  }
+  for (const section of extraSectionsForTxn(scenario.invoiceTransactionTypeCode)) {
     needed.add(section);
   }
   for (const write of scenario.catalogWrites ?? []) {
@@ -2404,6 +2469,35 @@ async function leaveOrClearEmpty(
   await invoice.clearInput(section, inputId, altInputIds);
 }
 
+function isCountrySubdivisionInput(
+  inputId: string,
+  altInputIds: readonly string[] = []
+): boolean {
+  return [inputId, ...altInputIds].some((id) => /countrySubdivision/i.test(id));
+}
+
+/**
+ * Excel CL-13 master labels end with a period. The Create Invoice combobox
+ * options do not: Al Mazunah Free Zone, Mainland Oman, Other, Sohar Free Zone,
+ * Special Economic Zone at Duqm, Salalah Free Zone.
+ */
+function toOmnUiCountrySubdivisionLabel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const withoutPeriod = trimmed.replace(/\.+$/, "");
+  switch (withoutPeriod) {
+    case "Al Mazunah Free Zone":
+    case "Mainland Oman":
+    case "Other":
+    case "Sohar Free Zone":
+    case "Special Economic Zone at Duqm":
+    case "Salalah Free Zone":
+      return withoutPeriod;
+    default:
+      return trimmed;
+  }
+}
+
 async function writeText(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
@@ -2432,7 +2526,10 @@ async function writeAutocomplete(
 ): Promise<void> {
   if (value === undefined) return;
   if (await invoice.isInputDisabled(section, inputId, altInputIds)) return;
-  const literal = excelFormulaToUiValue(value) ?? "";
+  let literal = excelFormulaToUiValue(value) ?? "";
+  if (isCountrySubdivisionInput(inputId, altInputIds)) {
+    literal = toOmnUiCountrySubdivisionLabel(literal);
+  }
   if (isUiEmptyValue(literal)) {
     await leaveOrClearEmpty(invoice, entry, section, inputId, altInputIds, "autocomplete");
     return;
@@ -2476,8 +2573,10 @@ async function fillAddressBlock(
   await writeText(invoice, entry, section, "address3", scenario.addressLine3);
   await writeText(invoice, entry, section, "city", scenario.city);
   await writeText(invoice, entry, section, "postCode", scenario.postCode, ["postalCode"]);
-  await writeText(invoice, entry, section, "countrySubdivision", scenario.countrySubdivision, [
+  await writeAutocomplete(invoice, entry, section, "countrySubdivision", scenario.countrySubdivision, [
     "deliverToCountrySubdivision",
+    "buyerCountrySubdivision",
+    "sellerCountrySubdivision",
   ]);
   await writeAutocomplete(invoice, entry, section, "country", scenario.countryCode, ["countryCode"]);
 }
@@ -2511,11 +2610,12 @@ async function applyTxnDocumentCompanions(
   entry: OmnUiEntry,
   scenario: OmnUiConditionalScenario
 ): Promise<void> {
-  const txn = scenario.invoiceTransactionTypeCode;
-  if (!txn) return;
+  const labels = splitOmanTxnMasterLabels(scenario.invoiceTransactionTypeCode ?? "");
+  if (labels.length === 0) return;
+  const has = (label: string) => labels.includes(label);
 
   if (
-    (txn === TXN_SUMMARY_INVOICE || txn === TXN_CONTINUOUS_SUPPLY) &&
+    (has(TXN_SUMMARY_INVOICE) || has(TXN_CONTINUOUS_SUPPLY)) &&
     scenario.periodStart === undefined &&
     scenario.periodEnd === undefined
   ) {
@@ -2523,22 +2623,129 @@ async function applyTxnDocumentCompanions(
     await writeDate(invoice, entry, "document", "invEndDate", "2026-01-31");
   }
 
-  if (txn === TXN_PROFIT_MARGIN_INVOICE && scenario.precedingInvoiceReference === undefined) {
+  if (has(TXN_PROFIT_MARGIN_INVOICE) && scenario.precedingInvoiceReference === undefined) {
     await writeText(invoice, entry, "document", OMN_UI_PRECEDING_REF_ID, "PREV-OMN-001");
     await writeDate(invoice, entry, "document", OMN_UI_PRECEDING_DATE_ID, "2026-06-01");
     await writeText(invoice, entry, "document", OMN_UI_PRECEDING_UUID_ID, PRECEDING_INVOICE_UUID_SAMPLE);
   }
 
-  if (txn === TXN_IMPORT_OF_GOODS) {
+  if (has(TXN_IMPORT_OF_GOODS)) {
     if (scenario.importDate === undefined) {
       await writeDate(invoice, entry, "document", "importDate", "2026-01-10");
     }
     if (scenario.customsDeclarationNumber === undefined) {
-      await writeText(invoice, entry, "document", "customsDeclarationNumber", "CD-12345");
+      await writeText(invoice, entry, "document", "customsDeclarationNumber", "CD-COND-001");
     }
     if (scenario.incoterms === undefined) {
       await writeAutocomplete(invoice, entry, "document", "incoterms", "Free On Board");
     }
+  }
+}
+
+function invoiceTypeRequiresCreditNoteCompanions(invoiceTypeCode?: string): boolean {
+  const value = String(invoiceTypeCode ?? "").trim();
+  if (!value) return false;
+  if ((CN_DN_SELF_BILLED_INVOICE_TYPES as readonly string[]).includes(value)) {
+    return true;
+  }
+  const n = value.toLowerCase().replace(/-/g, " ");
+  return n.includes("credit note") || n.includes("debit note");
+}
+
+/**
+ * Credit note / Debit note / Self billed credit note require reason + preceding
+ * invoice ref/UUID/date. IBR-020-OM and other self-billed rows do not set those
+ * fields; leave them empty only when the scenario explicitly does.
+ */
+async function applyCreditNoteDocumentCompanions(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario,
+  invoiceType?: string
+): Promise<void> {
+  const formType = await invoice.readInputValue("document", "invType");
+  if (
+    !invoiceTypeRequiresCreditNoteCompanions(invoiceType) &&
+    !invoiceTypeRequiresCreditNoteCompanions(scenario.invoiceTypeCode) &&
+    !invoiceTypeRequiresCreditNoteCompanions(formType)
+  ) {
+    return;
+  }
+  if (scenario.creditNoteReasonCode === undefined) {
+    const current = await invoice.readInputValue("document", "creditNoteRsn");
+    if (!current) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "document",
+        "creditNoteRsn",
+        CREDIT_DEBIT_REASON_SAMPLE
+      );
+    }
+  }
+  if (scenario.precedingInvoiceReference === undefined) {
+    const current = await invoice.readInputValue("document", OMN_UI_PRECEDING_REF_ID);
+    if (!current) {
+      await writeText(invoice, entry, "document", OMN_UI_PRECEDING_REF_ID, "INV-PREV-MM");
+    }
+  }
+  if (scenario.precedingInvoiceIssueDate === undefined) {
+    const current = await invoice.readInputValue("document", OMN_UI_PRECEDING_DATE_ID);
+    if (!current) {
+      await writeDate(invoice, entry, "document", OMN_UI_PRECEDING_DATE_ID, "2026-01-15");
+    }
+  }
+  if (scenario.precedingInvoiceUuid === undefined) {
+    const current = await invoice.readInputValue("document", OMN_UI_PRECEDING_UUID_ID);
+    if (!current) {
+      await writeText(
+        invoice,
+        entry,
+        "document",
+        OMN_UI_PRECEDING_UUID_ID,
+        PRECEDING_INVOICE_UUID_SAMPLE
+      );
+    }
+  }
+}
+
+function isSelfBilledInvoiceTypeOnly(invoiceTypeCode?: string): boolean {
+  const n = String(invoiceTypeCode ?? "")
+    .toLowerCase()
+    .replace(/-/g, " ");
+  return n.includes("self billed invoice") && !n.includes("credit");
+}
+
+/** Excel applySelfBilledDocumentInvoiceType(389): clear CN fields unless profit-margin txn keeps preceding. */
+async function clearCreditNoteDocumentCompanionsForSelfBilledInvoice(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario,
+  invoiceType?: string
+): Promise<void> {
+  const formType = await invoice.readInputValue("document", "invType");
+  if (
+    !isSelfBilledInvoiceTypeOnly(invoiceType) &&
+    !isSelfBilledInvoiceTypeOnly(scenario.invoiceTypeCode) &&
+    !isSelfBilledInvoiceTypeOnly(formType)
+  ) {
+    return;
+  }
+  if (invoiceTypeRequiresCreditNoteCompanions(formType)) return;
+  const keepPreceding = splitOmanTxnMasterLabels(
+    scenario.invoiceTransactionTypeCode ?? ""
+  ).includes(TXN_PROFIT_MARGIN_INVOICE);
+  if (scenario.creditNoteReasonCode === undefined) {
+    await leaveOrClearEmpty(invoice, entry, "document", "creditNoteRsn", [], "autocomplete");
+  }
+  if (!keepPreceding && scenario.precedingInvoiceReference === undefined) {
+    await leaveOrClearEmpty(invoice, entry, "document", OMN_UI_PRECEDING_REF_ID, [], "text");
+  }
+  if (!keepPreceding && scenario.precedingInvoiceIssueDate === undefined) {
+    await leaveOrClearEmpty(invoice, entry, "document", OMN_UI_PRECEDING_DATE_ID, [], "date");
+  }
+  if (!keepPreceding && scenario.precedingInvoiceUuid === undefined) {
+    await leaveOrClearEmpty(invoice, entry, "document", OMN_UI_PRECEDING_UUID_ID, [], "text");
   }
 }
 
@@ -2551,21 +2758,330 @@ function txnCellIncludesProfitMargin(txn?: string): boolean {
   );
 }
 
-/** Excel CL-11-OM companion: Profit Margin / Self-Invoice cannot save without item type. */
+/** Excel applyTxnExclusionCompanions + applyIbr081TxnCompanions — item fields. */
 async function applyTxnItemCompanions(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
   scenario: OmnUiConditionalScenario
 ): Promise<void> {
-  if (!txnCellIncludesProfitMargin(scenario.invoiceTransactionTypeCode)) return;
-  await writeAutocomplete(
-    invoice,
-    entry,
-    "item",
-    "profitMarginItemType",
-    PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
-    ["profitMarginItemTypeCode"]
-  );
+  const labels = splitOmanTxnMasterLabels(scenario.invoiceTransactionTypeCode ?? "");
+  const has = (label: string) => labels.includes(label);
+  if (txnCellIncludesProfitMargin(scenario.invoiceTransactionTypeCode)) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "item",
+      "profitMarginItemType",
+      PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
+      ["profitMarginItemTypeCode"]
+    );
+  }
+  if (has(TXN_IMPORT_OF_GOODS) && scenario.itemCountryOfOrigin === undefined) {
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "item",
+      "originCountry",
+      UAE_COUNTRY_CODE,
+      ["itemCountryOfOrigin", "countryOfOrigin"]
+    );
+  }
+  if (has(TXN_PROFIT_MARGIN_SELF_INVOICE) && scenario.taxCategory === undefined) {
+    await invoice.selectAutocomplete(
+      "item",
+      "taxRateDtls[0].taxCategory",
+      NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE
+    );
+    await syncItemExemptionFieldsToTaxCategory(invoice, entry);
+  }
+  if (has(TXN_EXPORT_INVOICE) && scenario.taxCategory === undefined) {
+    const exportExemption =
+      ZERO_RATED_EXEMPTION_REASON_LABELS.find((label) =>
+        label.includes("Direct Export of Goods")
+      ) ?? TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    await invoice.selectAutocomplete(
+      "item",
+      "taxRateDtls[0].taxCategory",
+      ZERO_RATED_TAX_CATEGORY_CODE
+    );
+    await syncItemExemptionFieldsToTaxCategory(invoice, entry);
+    if (scenario.taxExemptionReasonCode === undefined) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "item",
+        "taxExemptionRsnType",
+        exportExemption,
+        ["taxRateDtls[0].exemptionReasonCode", "exemptionReasonType", "taxExemptionReasonCode"]
+      );
+    }
+    await writeAutocomplete(invoice, entry, "item", "itemType", OMN_UI_ITEM_TYPE_GOODS);
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "item",
+      "classificationIdentifier",
+      OMN_UI_HS_CODE
+    );
+  }
+}
+
+type TxnLabelHas = (label: string) => boolean;
+
+/**
+ * Excel `applyPartyIdentifiersByTxnType`: IBR-007-OM seller scheme+identifier,
+ * IBR-152-OM Special Zone buyer license, IBR-153-OM Import of Goods customs ID.
+ * Scenario fields overwrite afterward in applyConditionalSectionFields.
+ */
+async function applyPartyIdentifierTxnCompanions(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario,
+  section: "seller" | "buyer",
+  has: TxnLabelHas
+): Promise<void> {
+  const ibr007Seller =
+    has(TXN_IMPORT_OF_GOODS) ||
+    has(TXN_IMPORT_OF_SERVICES_RCM) ||
+    has(TXN_PROFIT_MARGIN_SELF_INVOICE) ||
+    has(TXN_SPECIAL_ZONE_SUPPLIES);
+  if (section === "seller") {
+    if (!ibr007Seller) return;
+    // IBR-007-OM: IBT-029 + IBT-029-1 (scheme). Identifier first — scheme stays
+    // disabled until the identifier has a value. Textual code alone is not Allowed.
+    const identifierAlts = ["identifier"] as const;
+    const schemeAlts = ["sellerSchemeIdentifier"] as const;
+    if (scenario.sellerIdentifier === undefined) {
+      await expect
+        .poll(
+          async () =>
+            !(await invoice.isInputDisabled("seller", "sellerIdentifier", identifierAlts)),
+          { timeout: 15_000 }
+        )
+        .toBe(true);
+      await writeText(
+        invoice,
+        entry,
+        "seller",
+        "sellerIdentifier",
+        has(TXN_SPECIAL_ZONE_SUPPLIES) ? "SZ-SELLER-001" : "OM-SELLER-001",
+        identifierAlts
+      );
+    }
+    await expect
+      .poll(
+        async () =>
+          !(await invoice.isInputDisabled("seller", "schemeIdentifier", schemeAlts)),
+        { timeout: 15_000 }
+      )
+      .toBe(true);
+    await writeAutocomplete(
+      invoice,
+      entry,
+      "seller",
+      "schemeIdentifier",
+      OMN_UI_PARTY_IDENTIFIER_SCHEME,
+      schemeAlts
+    );
+    if (has(TXN_SPECIAL_ZONE_SUPPLIES) && scenario.sellerIdentifierTextualCode === undefined) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "seller",
+        "identifierTextualCode",
+        SPECIAL_ZONE_LICENSE_SCHEME,
+        ["identifierCode", "textualCode", "sellerIdentifierCode"]
+      );
+    }
+    return;
+  }
+  const buyerIdUnset =
+    scenario.buyerIdentifier === undefined &&
+    scenario.buyerIdentifierScheme === undefined &&
+    scenario.buyerIdentifierTextualCode === undefined;
+  if (has(TXN_SPECIAL_ZONE_SUPPLIES)) {
+    if (scenario.buyerIdentifierScheme === undefined) {
+      await leaveOrClearEmpty(
+        invoice,
+        entry,
+        "buyer",
+        "schemeIdentifier",
+        ["buyerSchemeIdentifier"],
+        "autocomplete"
+      );
+    }
+    if (scenario.buyerIdentifierTextualCode === undefined) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "buyer",
+        "identifierTextualCode",
+        SPECIAL_ZONE_LICENSE_SCHEME,
+        ["identifierCode", "textualCode", "buyerIdentifierCode"]
+      );
+    }
+    if (scenario.buyerIdentifier === undefined) {
+      await writeText(invoice, entry, "buyer", "buyerIdentifier", "SZ-BUYER-001", [
+        "identifier",
+      ]);
+    }
+    return;
+  }
+  if (has(TXN_IMPORT_OF_GOODS)) {
+    if (scenario.buyerIdentifierScheme === undefined) {
+      await leaveOrClearEmpty(
+        invoice,
+        entry,
+        "buyer",
+        "schemeIdentifier",
+        ["buyerSchemeIdentifier"],
+        "autocomplete"
+      );
+    }
+    if (scenario.buyerIdentifierTextualCode === undefined) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "buyer",
+        "identifierTextualCode",
+        "Importer Customs ID",
+        ["identifierCode", "textualCode", "buyerIdentifierCode"]
+      );
+    }
+    if (scenario.buyerIdentifier === undefined) {
+      await writeText(invoice, entry, "buyer", "buyerIdentifier", "IMP-CUST-001", [
+        "identifier",
+      ]);
+    }
+    return;
+  }
+  if (
+    buyerIdUnset &&
+    (has(TXN_IMPORT_OF_SERVICES_RCM) || has(TXN_PROFIT_MARGIN_SELF_INVOICE))
+  ) {
+    await leaveOrClearEmpty(
+      invoice,
+      entry,
+      "buyer",
+      "schemeIdentifier",
+      ["buyerSchemeIdentifier"],
+      "autocomplete"
+    );
+    await leaveOrClearEmpty(
+      invoice,
+      entry,
+      "buyer",
+      "identifierTextualCode",
+      ["identifierCode", "textualCode", "buyerIdentifierCode"],
+      "autocomplete"
+    );
+    await leaveOrClearEmpty(invoice, entry, "buyer", "buyerIdentifier", ["identifier"], "text");
+  }
+}
+
+/** Excel party / delivery / prepayment overlays for the section being saved. */
+async function applyExcelTxnSectionCompanions(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario,
+  section: OmnUiSection
+): Promise<void> {
+  const labels = splitOmanTxnMasterLabels(scenario.invoiceTransactionTypeCode ?? "");
+  const has = (label: string) => labels.includes(label);
+  if (section === "seller") {
+    // IBR-160-OM: Import of Services (RCM) only — seller country must not be OM.
+    // Do not key off scenario.countryCode (IBR-019 uses that for buyer Oman).
+    if (has(TXN_IMPORT_OF_SERVICES_RCM)) {
+      await writeAutocomplete(invoice, entry, "seller", "country", UAE_COUNTRY_CODE, ["countryCode"]);
+    }
+    if (has(TXN_SPECIAL_ZONE_SUPPLIES) && scenario.sellerCountrySubdivision === undefined) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "seller",
+        "countrySubdivision",
+        SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+        ["sellerCountrySubdivision"]
+      );
+    }
+    await applyPartyIdentifierTxnCompanions(invoice, entry, scenario, "seller", has);
+    return;
+  }
+  if (section === "buyer") {
+    if (has(TXN_IMPORT_OF_SERVICES_RCM) && scenario.countryCode === undefined) {
+      await writeAutocomplete(invoice, entry, "buyer", "country", OMAN_COUNTRY_CODE, ["countryCode"]);
+      if (scenario.buyerVatIdentifier === undefined) {
+        await writeText(invoice, entry, "buyer", "vatIdentifier", IBR_003_VALID_BUYER_VATIN);
+      }
+    }
+    if (has(TXN_SPECIAL_ZONE_SUPPLIES) && scenario.buyerCountrySubdivision === undefined) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "buyer",
+        "countrySubdivision",
+        SPECIAL_ZONE_COUNTRY_SUBDIVISION_CL13,
+        ["buyerCountrySubdivision"]
+      );
+    }
+    await applyPartyIdentifierTxnCompanions(invoice, entry, scenario, "buyer", has);
+    return;
+  }
+  if (section === "thirdParty" && has(TXN_THIRD_PARTY_INVOICE)) {
+    if (scenario.thirdPartyName === undefined) {
+      await fillIfEmpty(invoice, "thirdParty", "name", "Oman Third Party LLC");
+    }
+    if (scenario.thirdPartyVatin === undefined) {
+      await fillIfEmpty(invoice, "thirdParty", "vatIdentifier", IBR_003_VALID_THIRD_PARTY_VATIN);
+    }
+    return;
+  }
+  if (section === "shipping") {
+    if (has(TXN_EXPORT_INVOICE) && scenario.countryCode === undefined && scenario.addressLine1 === undefined) {
+      await fillIfEmpty(invoice, "shipping", "name", "Export Consignee", ["deliverToPartyName"]);
+      await fillIfEmpty(invoice, "shipping", "address1", "Export Street 1", [
+        "address",
+        "deliverToAddressLine1",
+      ]);
+      await fillIfEmpty(invoice, "shipping", "city", "Dubai", ["deliverToCity"]);
+      await fillIfEmpty(invoice, "shipping", "postCode", "00000", ["postalCode", "deliverToPostCode"]);
+      await writeAutocomplete(invoice, entry, "shipping", "country", UAE_COUNTRY_CODE, ["countryCode"]);
+    }
+    if (has(TXN_ECOMMERCE_TRANSACTION) && scenario.countryCode === undefined && scenario.addressLine1 === undefined) {
+      await fillIfEmpty(invoice, "shipping", "name", "Oman Delivery Partner", ["deliverToPartyName"]);
+      await fillIfEmpty(invoice, "shipping", "address1", "Warehouse 9", [
+        "address",
+        "deliverToAddressLine1",
+      ]);
+      await fillIfEmpty(invoice, "shipping", "city", "Muscat", ["deliverToCity"]);
+      await writeAutocomplete(invoice, entry, "shipping", "country", OMAN_COUNTRY_CODE, ["countryCode"]);
+    }
+    return;
+  }
+  if (section === "invoice" && has(TXN_PROFIT_MARGIN_INVOICE)) {
+    await fillIfEmpty(
+      invoice,
+      "invoice",
+      OMN_UI_PROFIT_MARGIN_TOTAL_DUE.inputIds[0],
+      "1000",
+      OMN_UI_PROFIT_MARGIN_TOTAL_DUE.inputIds.slice(1)
+    );
+    return;
+  }
+  if (section === "payment" && has(TXN_PREPAYMENT_INVOICE)) {
+    if (scenario.prepaymentInvoiceNumber === undefined) {
+      await writeText(invoice, entry, "payment", "prepaymentInvoiceNum", "PRE-OMN-001", [
+        "prepaymentInvNum",
+        "prepaymentInvoiceNumber",
+      ]);
+    }
+    if (scenario.prepaymentInvoiceUuid === undefined) {
+      await writeText(invoice, entry, "payment", "prepaymentInvoiceUuid", "prepay-uuid-oman-001", [
+        "prepaymentUuid",
+        "prepaymentInvoiceUUID",
+      ]);
+    }
+  }
 }
 
 async function applyConditionalSectionFields(
@@ -2574,13 +3090,16 @@ async function applyConditionalSectionFields(
   scenario: OmnUiConditionalScenario,
   section: OmnUiSection
 ): Promise<void> {
+  if (section !== "document" && section !== "item") {
+    await applyExcelTxnSectionCompanions(invoice, entry, scenario, section);
+  }
   if (section === "document") {
     const txn =
       scenario.invoiceTransactionTypeCode ||
       (scenario.kind === "prepaymentPaidAmount" ? TXN_PREPAYMENT_INVOICE : undefined);
     const invoiceType =
-      scenario.invoiceTypeCode ||
-      (txn === TXN_SELF_BILLED_INVOICE ? OMN_UI_INVOICE_TYPE_SELF_BILLED : undefined) ||
+      resolvedUiInvoiceType(scenario) ||
+      (txn ? invoiceTypeForTxnLabels(splitOmanTxnMasterLabels(txn)) : undefined) ||
       (scenario.kind === "prepaymentPaidAmount" ? OMN_UI_INVOICE_TYPE_COMMERCIAL : undefined);
     if (txn) {
       await invoice.expectInputDisabled("document", "invTxnType", false);
@@ -2599,6 +3118,13 @@ async function applyConditionalSectionFields(
     }
     await expectPrecedingInvoiceEnablement(invoice, scenario);
     await applyTxnDocumentCompanions(invoice, entry, scenario);
+    await applyCreditNoteDocumentCompanions(invoice, entry, scenario, invoiceType);
+    await clearCreditNoteDocumentCompanionsForSelfBilledInvoice(
+      invoice,
+      entry,
+      scenario,
+      invoiceType
+    );
     if (scenario.expectDisabled) {
       await invoice.expectInputDisabled(
         "document",
@@ -2740,7 +3266,11 @@ async function applyConditionalSectionFields(
     return;
   }
   if (section === "seller") {
-    if (scenario.invoiceTransactionTypeCode === TXN_IMPORT_OF_SERVICES_RCM) {
+    if (
+      splitOmanTxnMasterLabels(scenario.invoiceTransactionTypeCode ?? "").includes(
+        TXN_IMPORT_OF_SERVICES_RCM
+      )
+    ) {
       await writeAutocomplete(invoice, entry, "seller", "country", UAE_COUNTRY_CODE, ["countryCode"]);
     }
     await writeText(invoice, entry, "seller", "vatIdentifier", scenario.sellerVatIdentifier, [
