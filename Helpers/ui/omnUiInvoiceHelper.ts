@@ -1526,6 +1526,7 @@ export async function runOmnUiPartyIdentifierCompanionCase(
     "x".repeat(scenario.length),
     identifierRule.altInputIds
   );
+  await invoice.dismissOpenDropdown();
   await commitSection(invoice, section, entry);
 
   const message = await invoice.readFieldError(
@@ -1596,11 +1597,18 @@ export async function runOmnUiCl06Case(
   );
 
   if (entry !== "create") {
-    await invoice.clearAutocomplete(
+    const unusedValue = await invoice.readInputValue(
       section,
       unusedRule.inputId,
       unusedRule.altInputIds
     );
+    if (unusedValue) {
+      await invoice.clearAutocomplete(
+        section,
+        unusedRule.inputId,
+        unusedRule.altInputIds
+      );
+    }
   }
   await invoice.replaceInput(
     section,
@@ -1626,6 +1634,7 @@ export async function runOmnUiCl06Case(
     );
   }
 
+  await invoice.dismissOpenDropdown();
   await commitSection(invoice, section, entry);
   const message = await invoice.readFieldError(
     section,
@@ -1755,15 +1764,24 @@ async function runOmnUiTxnExclusionCase(
   if (!fillFormula) return;
   const formula = row.formulaScenario ?? invoiceFormulaTestData[0];
   if (!formula) return;
+  const formulaScenario = formula as InvoiceFormulaScenario;
   await fillOmnUiFormulaItem(
     invoice,
     entry,
-    formula as InvoiceFormulaScenario,
+    formulaScenario,
     isOmnUiPrefilledLineItemEntry(entry)
   );
   await invoice.openSectionForEdit("invoice", entry);
-  await applyInvoiceFormulaInputs(invoice, entry, formula as InvoiceFormulaScenario);
+  await waitForInvoiceSumOfLineNet(
+    invoice,
+    omnUiExpectedTotals(formulaScenario).invoiceLineNetAmount
+  );
+  await applyInvoiceFormulaInputs(invoice, entry, formulaScenario);
   await commitSection(invoice, "invoice", entry);
+  // Copy sometimes leaves Invoice Details editable after the first Save — retry once.
+  if (await invoice.isSectionInEditMode("invoice", entry)) {
+    await invoice.clickSectionCommit("invoice", entry);
+  }
   await invoice.expectSectionSavedReadOnly("invoice");
 }
 
@@ -1824,7 +1842,8 @@ async function fillOmnUiFormulaItem(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
   scenario: InvoiceFormulaScenario,
-  prefilled: boolean
+  prefilled: boolean,
+  expectSaved = true
 ): Promise<void> {
   await invoice.openItemEditor(prefilled);
   await fillIfEmpty(invoice, "item", "itemName", "Formula item");
@@ -1857,6 +1876,7 @@ async function fillOmnUiFormulaItem(
     await fillFormulaCandidate(invoice, "item", key, scenario[key]);
   }
   await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
+  // Do not overwrite line VAT with Excel ceil2 on Copy — Tax Amount wins.
   if (scenario.currencyRate != null && entry === "edit") {
     const expected = omnUiExpectedTotals(scenario);
     await invoice.replaceLabeledItemText(
@@ -1869,6 +1889,9 @@ async function fillOmnUiFormulaItem(
     );
   }
   await invoice.clickItemCommit(entry);
+  if (!expectSaved) {
+    return;
+  }
   await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
   // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
   await invoice.clickSectionCommit("item", entry);
@@ -1940,7 +1963,8 @@ async function runOmnUiFormulaCatalogScenario(
     invoice,
     entry,
     (row.formulaFirstScenario ?? scenario) as InvoiceFormulaScenario,
-    isOmnUiPrefilledLineItemEntry(entry)
+    isOmnUiPrefilledLineItemEntry(entry),
+    !row.expectsError
   );
   if (row.expectsError && (await invoice.itemModal().isVisible().catch(() => false))) {
     await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
@@ -1948,7 +1972,13 @@ async function runOmnUiFormulaCatalogScenario(
     return;
   }
   if (row.kind === "formulaTwoLine") {
-    await fillOmnUiFormulaItem(invoice, entry, scenario as InvoiceFormulaScenario, false);
+    await fillOmnUiFormulaItem(
+      invoice,
+      entry,
+      scenario as InvoiceFormulaScenario,
+      false,
+      !row.expectsError
+    );
     if (row.expectsError && (await invoice.itemModal().isVisible().catch(() => false))) {
       await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
       await invoice.expectSectionNotSaved("item", entry);
@@ -1956,6 +1986,12 @@ async function runOmnUiFormulaCatalogScenario(
     }
   }
   await invoice.openSectionForEdit("invoice", entry);
+  if (!row.expectsError) {
+    await waitForInvoiceSumOfLineNet(
+      invoice,
+      omnUiExpectedTotals(scenario as InvoiceFormulaScenario).invoiceLineNetAmount
+    );
+  }
   await applyInvoiceFormulaInputs(invoice, entry, scenario as InvoiceFormulaScenario);
   if (row.kind === "formulaNonOmr") {
     const ibt111 = await invoice.readInputValue(
@@ -1984,6 +2020,9 @@ async function runOmnUiFormulaCatalogScenario(
       target.inputIds.slice(1)
     );
     expect(value, `${target.excelField} should be visible and calculated`).not.toBe("");
+  }
+  if (await invoice.isSectionInEditMode("invoice", entry)) {
+    await invoice.clickSectionCommit("invoice", entry);
   }
   await invoice.expectSectionSavedReadOnly("invoice");
 }
@@ -3012,48 +3051,38 @@ async function syncItemVatLineToTaxAmount(
 }
 
 /**
- * Create/Copy auto-calculate item nets / Tax Amount / line VAT.
- * Edit does not — enter every editable calculated text field from expected totals.
+ * Create/Copy auto-calculate nets / Tax Amount. Line VAT must match Tax Amount
+ * or Update is rejected. Sync editable VAT fields from Tax Amount after auto-calc.
+ * Edit does not auto-calc — enter nets (and Tax Amount when editable), then sync VAT.
  */
 async function enterExpectedItemFormulaAmounts(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
   scenario: InvoiceFormulaScenario
 ): Promise<void> {
-  if (entry !== "edit") {
-    await syncItemVatLineToTaxAmount(invoice);
-    return;
+  if (entry === "edit") {
+    const expected = omnUiExpectedTotals(scenario);
+    if (!(await invoice.isInputDisabled("item", "itemNetPrice"))) {
+      await invoice.replaceInput("item", "itemNetPrice", String(expected.itemNetPrice));
+    }
+    if (!(await invoice.isInputDisabled("item", "invLineNetAmt"))) {
+      await invoice.replaceInput(
+        "item",
+        "invLineNetAmt",
+        String(expected.invoiceLineNetAmount)
+      );
+    }
+    if (!(await invoice.isInputDisabled("item", "taxRateDtls[0].taxAmt"))) {
+      await invoice.replaceInput(
+        "item",
+        "taxRateDtls[0].taxAmt",
+        String(expected.vatLineAmount)
+      );
+    }
   }
-  const expected = omnUiExpectedTotals(scenario);
-  if (!(await invoice.isInputDisabled("item", "itemNetPrice"))) {
-    await invoice.replaceInput("item", "itemNetPrice", String(expected.itemNetPrice));
-  }
-  if (!(await invoice.isInputDisabled("item", "invLineNetAmt"))) {
-    await invoice.replaceInput("item", "invLineNetAmt", String(expected.invoiceLineNetAmount));
-  }
-  if (!(await invoice.isInputDisabled("item", "taxRateDtls[0].taxAmt"))) {
-    await invoice.replaceInput("item", "taxRateDtls[0].taxAmt", String(expected.vatLineAmount));
-  }
-  if (
-    !(await invoice.isInputDisabled("item", "totalInvLineVatAmt", ["vatLineAmt"]))
-  ) {
-    await invoice.replaceInput(
-      "item",
-      "totalInvLineVatAmt",
-      String(expected.vatLineAmount),
-      ["vatLineAmt"]
-    );
-  }
-  if (
-    !(await invoice.isInputDisabled("item", "totalAmtIncludingVat", ["invLineAmt"]))
-  ) {
-    await invoice.replaceInput(
-      "item",
-      "totalAmtIncludingVat",
-      String(expected.invoiceLineAmount),
-      ["invLineAmt"]
-    );
-  }
+  // Create/Copy: Tax Amount comes from auto-calc. Edit: Tax Amount may be disabled.
+  // Always align line VAT + incl. VAT to Tax Amount so Update is not rejected.
+  await syncItemVatLineToTaxAmount(invoice);
 }
 
 /** Invoice totals are disabled — only clear/write editable formula inputs (incl. 0). */

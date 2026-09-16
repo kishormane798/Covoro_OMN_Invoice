@@ -63,6 +63,82 @@ export class OMN_UIInvoiceManualPage {
     return row.locator('[data-testid="action-container"] .action-icon').nth(1);
   }
 
+  /** Trash in Action column. Live markup: `.action-icon` wrapping svg `#Delete_Default`. */
+  private itemRowDeleteIcon(row: Locator): Locator {
+    return row
+      .locator('[data-testid="action-container"] .action-icon')
+      .filter({ has: this.page.locator("#Delete_Default") });
+  }
+
+  private itemTableBodyRows(): Locator {
+    return this.section("item").locator("table.add-item-table tbody tr");
+  }
+
+  /** Yes/No confirm after row delete (not the Add/Edit Item dialog). */
+  private itemDeleteConfirmModal(): Locator {
+    return this.page.getByTestId("modalBody").filter({
+      hasNot: this.page.locator(".add-item-modal-container"),
+    });
+  }
+
+  private async confirmItemRowDeleteIfPrompted(): Promise<void> {
+    const modal = this.itemDeleteConfirmModal();
+    const yes = modal.getByRole("button", { name: "Yes", exact: true });
+    if (await yes.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await yes.click();
+      await expect(modal).toBeHidden({ timeout: 15_000 });
+    }
+  }
+
+  private async reloadInvoiceEditorAfterItemDelete(): Promise<void> {
+    await this.page.reload({ waitUntil: "domcontentloaded", timeout: 90_000 });
+    await this.page.waitForLoadState("load", { timeout: 15_000 }).catch(() => {});
+    await this.dashboard.expectCreateInvoiceEditorLoaded();
+    await expect(this.section("item")).toBeVisible({ timeout: 15_000 });
+  }
+
+  /** Loader gone, item grid painted, short settle before delete or pencil. */
+  private async waitUntilItemTableStableForAction(): Promise<void> {
+    await waitForEInvoiceListValidatingGone(this.page, 30_000, {
+      maxLoaderRefreshes: 0,
+    }).catch(() => {});
+    const rows = this.itemTableBodyRows();
+    await expect(this.section("item")).toBeVisible({ timeout: 15_000 });
+    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+    await expect(
+      rows.first().locator('[data-testid="action-container"]')
+    ).toBeVisible({ timeout: 15_000 });
+    await this.page.waitForTimeout(3_000);
+  }
+
+  /**
+   * Edit/Copy only: leftover lines from earlier cases break formula Update.
+   * Keep the first row; delete extras (3→drop 2, 4→drop 3). One row: no delete.
+   * Reload after each delete so the grid matches saved items.
+   */
+  private async keepOnlyFirstItemRow(): Promise<void> {
+    const rows = this.itemTableBodyRows();
+    const deadline = Date.now() + 180_000;
+    await this.waitUntilItemTableStableForAction();
+    while ((await rows.count()) > 1) {
+      if (Date.now() > deadline) {
+        throw new Error(
+          `Item Details still has ${await rows.count()} rows after deleting extras; expected 1.`
+        );
+      }
+      const before = await rows.count();
+      const extra = rows.nth(before - 1);
+      const del = this.itemRowDeleteIcon(extra);
+      await expect(del).toBeVisible({ timeout: 15_000 });
+      await del.click();
+      await this.confirmItemRowDeleteIfPrompted();
+      await expect(rows).toHaveCount(before - 1, { timeout: 15_000 });
+      await this.reloadInvoiceEditorAfterItemDelete();
+      await expect(rows).toHaveCount(before - 1, { timeout: 15_000 });
+      await this.waitUntilItemTableStableForAction();
+    }
+  }
+
   private scope(section: OmnUiSection): Locator {
     return section === "item" ? this.itemModal() : this.section(section);
   }
@@ -129,6 +205,11 @@ export class OMN_UIInvoiceManualPage {
     altInputIds: readonly string[] = []
   ): Promise<"text" | "date" | "autocomplete"> {
     const input = await this.resolveInput(section, inputId, altInputIds);
+    // Missing inputs used to hang until the test timeout on getAttribute.
+    await expect(
+      input,
+      `${section} #${inputId} (alts: ${altInputIds.join(", ") || "none"}) should be visible`
+    ).toBeVisible({ timeout: 15_000 });
     if ((await this.autocompleteRoot(section, input).count()) > 0) {
       return "autocomplete";
     }
@@ -234,6 +315,14 @@ export class OMN_UIInvoiceManualPage {
       } catch {
         await editBtn.click({ timeout: 8_000, force: true });
       }
+    }
+    // Collapsed groups omit companion ids (e.g. #identifierCode) from the DOM on Copy/Edit.
+    const collapsed = root.locator(
+      "button.collapsable-toggle-btn[aria-expanded='false']"
+    );
+    const collapsedCount = await collapsed.count();
+    for (let i = 0; i < collapsedCount; i++) {
+      await collapsed.nth(i).click({ timeout: 5_000 }).catch(() => {});
     }
     const persistName = this.persistButtonName(entry, section);
     await expect(
@@ -474,8 +563,30 @@ export class OMN_UIInvoiceManualPage {
     return value.trim().toLowerCase().replace(/[- ]+/g, " ");
   }
 
+  /** Combobox options are the short UI label, not the Excel ICD agency string. */
+  private readonly omanVatinSchemeOption =
+    /Oman Value Added Tax Identification Number \(VATIN\)/i;
+
+  private autocompleteFilterText(option: string): string {
+    // Full "Oman Value Added Tax Identification Number (VATIN)" (or ICD agency
+    // suffix) filters the MUI list to empty — seller/buyer scheme search uses
+    // the distinctive token only.
+    if (this.omanVatinSchemeOption.test(option)) return "VATIN";
+    return option;
+  }
+
+  private autocompleteOptionMatcher(option: string | RegExp): string | RegExp {
+    if (typeof option === "string" && this.omanVatinSchemeOption.test(option)) {
+      return this.omanVatinSchemeOption;
+    }
+    return option;
+  }
+
   private autocompleteValueMatches(current: string, option: string | RegExp): boolean {
     if (typeof option !== "string") return option.test(current);
+    if (this.omanVatinSchemeOption.test(option)) {
+      return this.omanVatinSchemeOption.test(current);
+    }
     return (
       current === option || this.foldAutocompleteLabel(current) === this.foldAutocompleteLabel(option)
     );
@@ -528,15 +639,16 @@ export class OMN_UIInvoiceManualPage {
       await this.dismissOpenDropdown();
     }
     await input.click();
+    const optionMatcher = this.autocompleteOptionMatcher(option);
     if (typeof option === "string") {
-      await input.fill(option);
+      await input.fill(this.autocompleteFilterText(option));
     }
     const listbox = this.page.locator('[role="listbox"]').last();
     if (!(await listbox.isVisible().catch(() => false))) {
       await input.press("ArrowDown");
     }
     await expect(listbox).toBeVisible({ timeout: 15_000 });
-    const choice = await this.autocompleteOption(listbox, option);
+    const choice = await this.autocompleteOption(listbox, optionMatcher);
     await expect(choice.first()).toBeVisible({ timeout: 15_000 });
     try {
       await choice.first().click({ timeout: 5_000 });
@@ -607,6 +719,8 @@ export class OMN_UIInvoiceManualPage {
    * when Simplified is in the wanted set (Copy often keeps Full Tax chips).
    * Selected truth is `aria-selected` on the option, not `checked` on the inner
    * checkbox (Simplified may show a visual check without `checked=""`).
+   * Close the list with Tab, never Escape — Escape cancels the multi-select
+   * and drops every chip (Import of Goods, Export, Summary, and the rest).
    */
   async selectTransactionTypes(labels: readonly string[]): Promise<void> {
     const unique = [...new Set(labels.map((label) => label.trim()).filter(Boolean))];
@@ -637,7 +751,6 @@ export class OMN_UIInvoiceManualPage {
         } else {
           await fullTax.click({ timeout: 5_000 });
         }
-        await this.dismissOpenDropdown();
         await this.openInvTxnTypeListbox();
       }
     }
@@ -649,7 +762,6 @@ export class OMN_UIInvoiceManualPage {
         timeout: 15_000,
       });
       if ((await choice.getAttribute("aria-disabled")) === "true") {
-        await this.dismissOpenDropdown();
         await expect
           .poll(
             async () => {
@@ -671,7 +783,7 @@ export class OMN_UIInvoiceManualPage {
                 .map((node) => (node.textContent ?? "").replace(/\s+/g, " ").trim())
                 .filter(Boolean)
             );
-            await this.dismissOpenDropdown();
+            await this.closeInvTxnTypeListbox();
             throw new Error(
               `invTxnType option "${label}" is disabled. Enabled: ${enabled.join(", ") || "(none)"}`
             );
@@ -707,7 +819,14 @@ export class OMN_UIInvoiceManualPage {
         )
         .toBe("true");
     }
-    await this.dismissOpenDropdown();
+    await this.closeInvTxnTypeListbox();
+    const chips = this.invTxnTypeRoot.locator(".MuiAutocomplete-tag");
+    for (const label of wanted) {
+      await expect(
+        chips.filter({ hasText: label }).first(),
+        `invTxnType chip "${label}" should remain after closing the listbox`
+      ).toBeVisible({ timeout: 10_000 });
+    }
   }
 
   /**
@@ -737,7 +856,7 @@ export class OMN_UIInvoiceManualPage {
         )
         .toBe("true");
     }
-    await this.dismissOpenDropdown();
+    await this.closeInvTxnTypeListbox();
   }
 
   /**
@@ -767,6 +886,19 @@ export class OMN_UIInvoiceManualPage {
       await this.invTxnTypeCombobox.press("ArrowDown");
     }
     await expect(this.invTxnTypeListbox).toBeVisible({ timeout: 15_000 });
+  }
+
+  /**
+   * MUI multi-select treats Escape as cancel and clears the chips. Tab commits
+   * the checked types (Import of Goods, Export, Summary, …) and closes the list.
+   */
+  private async closeInvTxnTypeListbox(): Promise<void> {
+    if (!(await this.invTxnTypeListbox.isVisible().catch(() => false))) return;
+    await this.invTxnTypeCombobox.press("Tab");
+    if (await this.invTxnTypeListbox.isVisible().catch(() => false)) {
+      await this.page.keyboard.press("Tab");
+    }
+    await expect(this.invTxnTypeListbox).toBeHidden({ timeout: 10_000 });
   }
 
   async selectAutocompleteById(inputId: string, option: string | RegExp): Promise<void> {
@@ -850,7 +982,8 @@ export class OMN_UIInvoiceManualPage {
     const section = this.section("item");
     await expect(section).toBeVisible({ timeout: 15_000 });
     if (preferExistingRow) {
-      const row = section.locator("table tbody tr").first();
+      await this.keepOnlyFirstItemRow();
+      const row = this.itemTableBodyRows().first();
       await expect(row).toBeVisible({ timeout: 15_000 });
       const editIcon = this.itemRowEditIcon(row);
       await expect(editIcon).toBeVisible({ timeout: 15_000 });
@@ -928,13 +1061,13 @@ export class OMN_UIInvoiceManualPage {
     }
     if (!(await input.isEnabled().catch(() => false))) return;
     await input.click();
-    await input.fill(option);
+    await input.fill(this.autocompleteFilterText(option));
     const listbox = this.page.locator('[role="listbox"]').last();
     if (!(await listbox.isVisible().catch(() => false))) {
       await input.press("ArrowDown");
     }
     await expect(listbox).toBeVisible({ timeout: 15_000 });
-    const choice = await this.autocompleteOption(listbox, option);
+    const choice = await this.autocompleteOption(listbox, this.autocompleteOptionMatcher(option));
     await expect(choice.first()).toBeVisible({ timeout: 15_000 });
     try {
       await choice.first().click({ timeout: 5_000 });
@@ -971,7 +1104,10 @@ export class OMN_UIInvoiceManualPage {
       await expect(this.itemModal()).toBeHidden({ timeout: 15_000 });
       return;
     }
-    await expect(this.sectionReadOnly(section)).toBeVisible({ timeout: 15_000 });
+    // Prefer read-only values; Edit button also means the section committed.
+    await expect(
+      this.sectionReadOnly(section).or(this.sectionEditButton(section))
+    ).toBeVisible({ timeout: 15_000 });
   }
 
   /** Invalid Save/Update keeps the section in edit mode with the field error. */

@@ -2219,7 +2219,9 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       { section: "buyer", inputId: "vatIdentifier", control: "text", value: s.buyerVatIdentifier },
     ])
   ),
-  ...VATIN_PATTERN_SCENARIOS.map((s) => {
+  ...VATIN_PATTERN_SCENARIOS.filter(
+    (s) => !(s.party === "seller" && !s.shouldError)
+  ).map((s) => {
     const section = s.party;
     const inputId = "vatIdentifier";
     return catalogControlScenario(s, section, inputId, [

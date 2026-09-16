@@ -1185,7 +1185,7 @@ export type GoodsClassificationScenario = OmanConditionalScenario & {
 };
 
 export type ImportOfGoodsScenario = OmanConditionalScenario & {
-  /** Defaults to Import of Goods (IBR-085-OM). Full Tax isolates Import date pairing. */
+  /** Defaults to Import of Goods (IBR-085-OM). */
   invoiceTransactionTypeCode?: string;
   itemCountryOfOrigin: string;
   importDate: string;
@@ -3816,7 +3816,7 @@ export const HS_CODE_FROM_ROP_LIST_SCENARIOS: GoodsClassificationScenario[] = [
 /** IBR-084-OM / IBR-085-OM: Import of Goods requires origin + import details.
  * Other-txn control is dropdown-style: one workbook per Master BTOM-001
  * label except Import of Goods (IBR-084 origin empty → accepted; IBR-085
- * IBG-33-OM empty → accepted). Full Tax + Import date pairing is separate.
+ * IBG-33-OM empty → accepted).
  */
 export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
   {
@@ -3905,7 +3905,7 @@ export const IMPORT_OF_GOODS_SCENARIOS: ImportOfGoodsScenario[] = [
     ruleId: "IBR-085-OM",
     title:
       "Given Import of Goods with an import date — When customs declaration number is left empty — Then the invoice should be rejected with an error. (IBR-085-OM)",
-    invoiceTransactionTypeCode: TXN_FULL_TAX_INVOICE,
+    invoiceTransactionTypeCode: TXN_IMPORT_OF_GOODS,
     itemCountryOfOrigin: "India",
     importDate: "2026-01-10",
     customsDeclarationNumber: "",
