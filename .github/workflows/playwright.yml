@@ -1,67 +1,36 @@
-# Schedule (Mon–Fri, Asia/Kolkata IST = UTC+5:30 → cron uses UTC):
-#   One clock start. Every suite runs the full spec (no Playwright --shard split).
-#   Morning 05:45 IST starts the full Simplified field suite.
-#   After that run finishes (pass, fail, cancel, or timeout), the queue-next job
-#   starts the next suite: Simplified field → Simplified conditional →
-#   Simplified formula → UI copy 1–2 → UI conditional copy 1–2, then stops.
-#   Submit stays Run workflow only.
-#   Leave "scheduled_wave" off for one-off manual runs.
+# Manual Run workflow only (no cron). One suite per dispatch, full spec (no Playwright --shard).
+# Dropdown: Simplified Excel (field / formula / conditional / submit) + Copy Invoice UI only.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
 on:
-  schedule:
-    - cron: "15 0 * * 1-5" # 05:45 IST — start morning wave (Simplified field suite)
-
   workflow_dispatch:
     inputs:
       suite:
         description: "Automation suite to run (full spec, no shard)."
         required: true
-        default: "covoro_field"
+        default: "simplified_field"
         type: choice
         options:
-          - covoro_field
-          - covoro_formula
-          - covoro_conditional
-          - covoro_submit_single
-          - covoro_submit_multi
           - simplified_field
           - simplified_formula
           - simplified_conditional
           - simplified_submit_single
           - simplified_submit_multi
-          - covoro_ui_create_1
-          - covoro_ui_create_2
-          - covoro_ui_conditional_create_1
-          - covoro_ui_conditional_create_2
-          - covoro_ui_edit_1
-          - covoro_ui_edit_2
-          - covoro_ui_conditional_edit_1
-          - covoro_ui_conditional_edit_2
           - covoro_ui_copy_1
           - covoro_ui_copy_2
           - covoro_ui_conditional_copy_1
           - covoro_ui_conditional_copy_2
-      scheduled_wave:
-        description: "Internal. Set by the morning schedule queue. On = continue Simplified formula → UI copy 1–2 → UI conditional copy 1–2. Leave off for manual runs."
-        required: false
-        type: boolean
-        default: false
 
 run-name: >-
-  ${{ github.event_name != 'workflow_dispatch' && 'Field validation'
-      || github.event.inputs.suite == 'covoro_formula' && 'Formula validation'
-      || github.event.inputs.suite == 'covoro_submit_single' && 'Submit single'
-      || github.event.inputs.suite == 'covoro_submit_multi' && 'Submit multi-item'
-      || github.event.inputs.suite == 'covoro_conditional' && 'Conditional validation'
-      || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
+  ${{ github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
       || github.event.inputs.suite == 'simplified_submit_single' && 'Simplified submit single'
       || github.event.inputs.suite == 'simplified_submit_multi' && 'Simplified submit multi-item'
       || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'
-      || startsWith(github.event.inputs.suite, 'covoro_ui_') && github.event.inputs.suite
-      || 'Field validation' }}
+      || startsWith(github.event.inputs.suite, 'covoro_ui_copy') && github.event.inputs.suite
+      || startsWith(github.event.inputs.suite, 'covoro_ui_conditional_copy') && github.event.inputs.suite
+      || 'Simplified field validation' }}
 
 concurrency:
   group: omn-e-invoice-playwright
@@ -69,7 +38,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -81,42 +49,7 @@ env:
   UAE_EINVOICE_SELLER_TIN_SLOTS: "OM1108202600,OM1108202601,OM1108202602,OM1108202603,OM1108202604"
 
 jobs:
-  should_run:
-    runs-on: ubuntu-latest
-    outputs:
-      skip: ${{ steps.gate.outputs.skip }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Gate scheduled runs if paused (manual or 1 IST day)
-        id: gate
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          TODAY_IST=$(TZ=Asia/Kolkata date +%Y-%m-%d)
-          FILE=".github/PLAYWRIGHT_SKIP_SCHEDULE_UNTIL"
-          if [ -f "$FILE" ]; then
-            READ=$(head -1 "$FILE" | tr -d '\r')
-            READ=$(echo "$READ" | xargs)
-            if [ "$READ" = "manual" ]; then
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::Scheduled Playwright runs are paused until Start. Resume: Actions → Oman E-Invoice — Schedule control → start."
-              exit 0
-            fi
-            if [ "$READ" = "$TODAY_IST" ]; then
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::Scheduled Playwright runs are paused for IST date ${TODAY_IST} (legacy 1-day pause). Resume early: Actions → Oman E-Invoice — Schedule control → start."
-              exit 0
-            fi
-          fi
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-
   resolve:
-    needs: should_run
-    if: needs.should_run.outputs.skip != 'true'
     runs-on: ubuntu-latest
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
@@ -130,19 +63,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Resolve suite (schedule · manual dropdown)
+      - name: Resolve suite (manual dropdown)
         id: mode
         shell: bash
         run: |
-          MODE="simplified_field"
-
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            MODE="${{ github.event.inputs.suite }}"
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
-            # Morning clock start (05:45 IST) begins the wave with the full Simplified field suite.
-            MODE="simplified_field"
-          fi
-
+          MODE="${{ github.event.inputs.suite }}"
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "Running MODE=$MODE (full spec, no shard)"
 
@@ -154,8 +79,7 @@ jobs:
             "${{ steps.mode.outputs.mode }}"
 
   test:
-    needs: [should_run, resolve]
-    if: needs.should_run.outputs.skip != 'true'
+    needs: resolve
     name: test (${{ needs.resolve.outputs.mode }})
     timeout-minutes: ${{ fromJSON(needs.resolve.outputs.job_timeout_minutes) }}
     runs-on: ubuntu-latest
@@ -276,24 +200,11 @@ jobs:
         run: |
           MODE="${{ needs.resolve.outputs.mode }}"
           case "$MODE" in
-            covoro_field) LABEL="Field validation" ;;
-            covoro_formula) LABEL="Formula validation" ;;
-            covoro_submit_single) LABEL="Submit single" ;;
-            covoro_submit_multi) LABEL="Submit multi-item" ;;
-            covoro_conditional) LABEL="Conditional validation" ;;
             simplified_field) LABEL="Simplified field validation" ;;
             simplified_formula) LABEL="Simplified formula validation" ;;
             simplified_submit_single) LABEL="Simplified submit single" ;;
             simplified_submit_multi) LABEL="Simplified submit multi-item" ;;
             simplified_conditional) LABEL="Simplified conditional validation" ;;
-            covoro_ui_create_1) LABEL="UI create 1" ;;
-            covoro_ui_create_2) LABEL="UI create 2" ;;
-            covoro_ui_conditional_create_1) LABEL="UI conditional create 1" ;;
-            covoro_ui_conditional_create_2) LABEL="UI conditional create 2" ;;
-            covoro_ui_edit_1) LABEL="UI edit 1" ;;
-            covoro_ui_edit_2) LABEL="UI edit 2" ;;
-            covoro_ui_conditional_edit_1) LABEL="UI conditional edit 1" ;;
-            covoro_ui_conditional_edit_2) LABEL="UI conditional edit 2" ;;
             covoro_ui_copy_1) LABEL="UI copy 1" ;;
             covoro_ui_copy_2) LABEL="UI copy 2" ;;
             covoro_ui_conditional_copy_1) LABEL="UI conditional copy 1" ;;
@@ -470,87 +381,3 @@ jobs:
             </table>
             <p style="margin-top:16px;font-family:Segoe UI,Arial,sans-serif;font-size:14px;">Overall: <strong>${{ steps.summary.outputs.overall }}</strong></p>
             <p style="margin-top:24px;color:#64748b;font-size:13px;font-family:Segoe UI,Arial,sans-serif;">— Oman E-Invoice Automation · GitHub Actions</p>
-
-  # Dispatch the next suite in this same workflow (one path — do not also chain from a test step).
-  # if: always() covers pass/fail/cancel/timeout; a same-workflow job is less reliable on
-  # full-run cancel than the old workflow_run trigger. Concurrency queues the dispatched run
-  # until this run fully ends.
-  queue-next:
-    needs: [should_run, resolve, test]
-    if: always() && needs.should_run.outputs.skip != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Queue next suite after this run finishes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_SUITE: ${{ github.event.inputs.suite }}
-          INPUT_SCHEDULED_WAVE: ${{ github.event.inputs.scheduled_wave }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SUITE=""
-          SCHEDULED_WAVE="${INPUT_SCHEDULED_WAVE:-false}"
-
-          if [ "$EVENT_NAME" = "schedule" ]; then
-            SUITE="simplified_field"
-            SCHEDULED_WAVE="true"
-          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            SUITE="$INPUT_SUITE"
-
-            # Submit never joins the wave.
-            if [[ "$SUITE" == covoro_submit_* ]]; then
-              echo "Manual-only suite $SUITE finished (full spec). Not chaining."
-              exit 0
-            fi
-
-            if [ "$SCHEDULED_WAVE" != "true" ]; then
-              echo "Manual run without scheduled_wave — not chaining."
-              exit 0
-            fi
-          else
-            echo "Unexpected event $EVENT_NAME — not chaining."
-            exit 0
-          fi
-
-          NEXT_SUITE=""
-          case "$SUITE" in
-            simplified_field)
-              NEXT_SUITE="simplified_conditional"
-              ;;
-            simplified_conditional)
-              NEXT_SUITE="simplified_formula"
-              ;;
-            simplified_formula)
-              NEXT_SUITE="covoro_ui_copy_1"
-              ;;
-            covoro_ui_conditional_edit_2)
-              NEXT_SUITE="covoro_ui_copy_1"
-              ;;
-            covoro_ui_copy_1)
-              NEXT_SUITE="covoro_ui_copy_2"
-              ;;
-            covoro_ui_copy_2)
-              NEXT_SUITE="covoro_ui_conditional_copy_1"
-              ;;
-            covoro_ui_conditional_copy_1)
-              NEXT_SUITE="covoro_ui_conditional_copy_2"
-              ;;
-            covoro_ui_conditional_copy_2)
-              echo "UI conditional copy 2 finished — scheduled wave complete."
-              exit 0
-              ;;
-            *)
-              echo "::warning::No next suite after $SUITE — stopping."
-              exit 0
-              ;;
-          esac
-
-          echo "Queueing next: $NEXT_SUITE (full spec)"
-          gh workflow run playwright.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref "$GITHUB_REF_NAME" \
-            -f suite="$NEXT_SUITE" \
-            -f scheduled_wave=true
