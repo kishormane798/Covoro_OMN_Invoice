@@ -35,6 +35,7 @@ import {
   applyInvoiceCalculationsToFile,
 } from "../../utils/excel/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
+import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
 import { runPythonForStdout } from "../../utils/pythonRunner";
 
 export type ConditionalMatrixCase = {
@@ -1471,11 +1472,18 @@ async function getOrCreateConditionalBase(
   if (hit && fs.existsSync(hit.filePath)) return hit;
 
   const generated = await generateInvoiceFromSubmitData(overlaid);
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    "Seller VAT Identifier (TRN / TIN)",
-    OMAN_SELLER_VAT
-  );
+  if (!isSimplifiedTemplateEnv()) {
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      "Seller VAT Identifier (TRN / TIN)",
+      OMAN_SELLER_VAT
+    );
+    patchInvoiceTextCellInFile(
+      generated.filePath,
+      "Buyer VAT Identifier",
+      OMAN_BUYER_VAT
+    );
+  }
   patchInvoiceTextCellInFile(
     generated.filePath,
     "Seller Electronic Address",
@@ -1485,11 +1493,6 @@ async function getOrCreateConditionalBase(
     generated.filePath,
     "Seller Electronic Address Scheme",
     OMAN_ELECTRONIC_SCHEME
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    "Buyer VAT Identifier",
-    OMAN_BUYER_VAT
   );
   patchInvoiceTextCellInFile(
     generated.filePath,

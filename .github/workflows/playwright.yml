@@ -1,9 +1,12 @@
-# Manual Run workflow only (no cron). One suite per dispatch, full spec (no Playwright --shard).
-# Dropdown: Simplified Excel (field / formula / conditional / submit) + Copy Invoice UI only.
+# Cron 05:45 IST chains Simplified Excel then Copy Invoice UI.
+# Manual Run: one suite (scheduled_wave off). queue-next continues the wave when scheduled_wave is on.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
 on:
+  schedule:
+    # 05:45 Asia/Kolkata = 00:15 UTC
+    - cron: "15 0 * * *"
   workflow_dispatch:
     inputs:
       suite:
@@ -21,9 +24,15 @@ on:
           - covoro_ui_copy_2
           - covoro_ui_conditional_copy_1
           - covoro_ui_conditional_copy_2
+      scheduled_wave:
+        description: "Chain the next Simplified/Copy suite after this job (cron and queue-next). Leave off for a one-off manual run."
+        type: boolean
+        required: false
+        default: false
 
 run-name: >-
-  ${{ github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
+  ${{ github.event_name == 'schedule' && 'Scheduled Simplified field validation'
+      || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
       || github.event.inputs.suite == 'simplified_submit_single' && 'Simplified submit single'
       || github.event.inputs.suite == 'simplified_submit_multi' && 'Simplified submit multi-item'
@@ -38,6 +47,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -49,7 +59,49 @@ env:
   UAE_EINVOICE_SELLER_TIN_SLOTS: "OM1108202600,OM1108202601,OM1108202602,OM1108202603,OM1108202604"
 
 jobs:
+  should_run:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Gate scheduled wave (pause file)
+        id: gate
+        shell: bash
+        run: |
+          WAVE=false
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            WAVE=true
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.scheduled_wave }}" = "true" ]; then
+            WAVE=true
+          fi
+          if [ "$WAVE" != "true" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          FILE=".github/PLAYWRIGHT_SKIP_SCHEDULE_UNTIL"
+          TODAY_IST="$(TZ=Asia/Kolkata date +%Y-%m-%d)"
+          if [ ! -f "$FILE" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          READ="$(tr -d '\r\n' < "$FILE" | head -c 64)"
+          if [ "$READ" = "manual" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Scheduled Playwright runs are paused until Start. Resume: Actions → Oman E-Invoice — Schedule control → start."
+            exit 0
+          fi
+          if [ "$READ" = "$TODAY_IST" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Scheduled Playwright runs are paused for IST date ${TODAY_IST} (legacy 1-day pause). Resume early: Actions → Oman E-Invoice — Schedule control → start."
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
   resolve:
+    needs: should_run
+    if: needs.should_run.outputs.skip != 'true'
     runs-on: ubuntu-latest
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
@@ -68,6 +120,9 @@ jobs:
         shell: bash
         run: |
           MODE="${{ github.event.inputs.suite }}"
+          if [ "${{ github.event_name }}" = "schedule" ] || [ -z "$MODE" ]; then
+            MODE="simplified_field"
+          fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "Running MODE=$MODE (full spec, no shard)"
 
@@ -381,3 +436,55 @@ jobs:
             </table>
             <p style="margin-top:16px;font-family:Segoe UI,Arial,sans-serif;font-size:14px;">Overall: <strong>${{ steps.summary.outputs.overall }}</strong></p>
             <p style="margin-top:24px;color:#64748b;font-size:13px;font-family:Segoe UI,Arial,sans-serif;">— Oman E-Invoice Automation · GitHub Actions</p>
+
+  queue-next:
+    needs: [should_run, resolve, test]
+    if: |
+      always()
+      && needs.should_run.outputs.skip != 'true'
+      && needs.resolve.result == 'success'
+      && needs.test.result != 'cancelled'
+      && (github.event_name == 'schedule' || github.event.inputs.scheduled_wave == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch next Simplified / Copy suite
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ needs.resolve.outputs.mode }}
+          REF: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUITES=(
+            simplified_field
+            simplified_formula
+            simplified_conditional
+            simplified_submit_single
+            simplified_submit_multi
+            covoro_ui_copy_1
+            covoro_ui_copy_2
+            covoro_ui_conditional_copy_1
+            covoro_ui_conditional_copy_2
+          )
+          NEXT=""
+          for i in "${!SUITES[@]}"; do
+            if [ "${SUITES[$i]}" = "$CURRENT" ]; then
+              n=$((i + 1))
+              if [ "$n" -lt "${#SUITES[@]}" ]; then
+                NEXT="${SUITES[$n]}"
+              fi
+              break
+            fi
+          done
+          if [ -z "$NEXT" ]; then
+            echo "Scheduled wave complete after ${CURRENT}."
+            exit 0
+          fi
+          echo "queue-next: ${CURRENT} → ${NEXT} (ref ${REF})"
+          gh workflow run "Oman E-Invoice — Playwright" --ref "$REF" \
+            -f suite="$NEXT" \
+            -f scheduled_wave=true
+

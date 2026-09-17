@@ -28,6 +28,7 @@ import {
   OMAN_BUYER_VAT,
 } from "./fieldValidationExcelPackHelper";
 import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
+import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
 import {
   taxExemptionReasonExemptValidTestData,
   taxExemptionReasonZeroRatedValidTestData,
@@ -693,6 +694,22 @@ const FORMULA_CAMEL_TO_HEADER: Record<string, string> = {
 const BUYER_VAT_FIELD = "Buyer VAT identifier";
 const BUYER_EL_FIELD = "Buyer electronic address";
 
+/** Full Tax stamps Buyer VAT after generate; Simplified has no TRN column. */
+function patchBuyerIdentityAfterGenerate(
+  filePath: string,
+  dataRow = INVOICE_TEMPLATE_DATA_ROW
+): void {
+  if (!isSimplifiedTemplateEnv()) {
+    patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT, dataRow);
+  }
+  patchInvoiceTextCellInFile(
+    filePath,
+    BUYER_EL_FIELD,
+    OMAN_BUYER_ELECTRONIC,
+    dataRow
+  );
+}
+
 function asStringRow(row: Record<string, string | null>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(row)) {
@@ -765,7 +782,9 @@ export function buildFormulaSubmitRow(
     ? applyParallelWorkerIdentityToSubmitRow(withTxn)
     : withTxn;
   if (applyWorkerIdentity) {
-    identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+    if (!isSimplifiedTemplateEnv()) {
+      identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
+    }
     identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
   }
   // Re-apply formula inputs after identity so discount/qty/rate feed generate totals.
@@ -783,8 +802,7 @@ async function generateFormulaWorkbook(
 ): Promise<{ filePath: string; invoiceNumber: string }> {
   if (lineCount !== 2) {
     const generated = await generateInvoiceFromSubmitData(buildFormulaSubmitRow(row, mode));
-    patchInvoiceTextCellInFile(generated.filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
-    patchInvoiceTextCellInFile(generated.filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+    patchBuyerIdentityAfterGenerate(generated.filePath);
     return generated;
   }
 
@@ -797,28 +815,9 @@ async function generateFormulaWorkbook(
     buildFormulaSubmitRow(line1, mode),
     buildFormulaSubmitRow(line2, mode),
   ]);
-  patchInvoiceTextCellInFile(
+  patchBuyerIdentityAfterGenerate(generated.filePath, INVOICE_TEMPLATE_DATA_ROW);
+  patchBuyerIdentityAfterGenerate(
     generated.filePath,
-    BUYER_VAT_FIELD,
-    OMAN_BUYER_VAT,
-    INVOICE_TEMPLATE_DATA_ROW
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    BUYER_EL_FIELD,
-    OMAN_BUYER_ELECTRONIC,
-    INVOICE_TEMPLATE_DATA_ROW
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    BUYER_VAT_FIELD,
-    OMAN_BUYER_VAT,
-    INVOICE_TEMPLATE_DATA_ROW + 1
-  );
-  patchInvoiceTextCellInFile(
-    generated.filePath,
-    BUYER_EL_FIELD,
-    OMAN_BUYER_ELECTRONIC,
     INVOICE_TEMPLATE_DATA_ROW + 1
   );
   return generated;
@@ -1200,8 +1199,7 @@ export async function runAlignedIbrpE08OmScenario(
   const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(
     submitRow
   );
-  patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
-  patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+  patchBuyerIdentityAfterGenerate(filePath);
 
   if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     clearSimplifiedTxnCompanions(filePath);
@@ -1464,8 +1462,7 @@ export async function runAlignedIbrpO08OmScenario(
   const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(
     submitRow
   );
-  patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
-  patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+  patchBuyerIdentityAfterGenerate(filePath);
 
   if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     clearSimplifiedTxnCompanions(filePath);
@@ -1838,8 +1835,7 @@ export async function runAlignedIbrpZ08OmScenario(
   const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(
     submitRow
   );
-  patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
-  patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+  patchBuyerIdentityAfterGenerate(filePath);
 
   if (txn === FV.TXN_SIMPLIFIED_TAX_INVOICE) {
     clearSimplifiedTxnCompanions(filePath);
@@ -2151,18 +2147,9 @@ async function generateTwentyLineFormulaWorkbook(
   const rows = buildTwentyLineFormulaSubmitRows(kind);
   const generated = await generateInvoiceFromSubmitRows(rows);
   for (let i = 0; i < FORMULA_TWENTY_LINE_COUNT; i++) {
-    const excelRow = INVOICE_TEMPLATE_DATA_ROW + i;
-    patchInvoiceTextCellInFile(
+    patchBuyerIdentityAfterGenerate(
       generated.filePath,
-      BUYER_VAT_FIELD,
-      OMAN_BUYER_VAT,
-      excelRow
-    );
-    patchInvoiceTextCellInFile(
-      generated.filePath,
-      BUYER_EL_FIELD,
-      OMAN_BUYER_ELECTRONIC,
-      excelRow
+      INVOICE_TEMPLATE_DATA_ROW + i
     );
   }
   return generated;
