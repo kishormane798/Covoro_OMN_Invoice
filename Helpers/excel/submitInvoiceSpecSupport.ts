@@ -28,9 +28,10 @@ const NON_SELF_BILLED_TYPE_COUNT =
 // Invoice Transaction Type Code, so partner-combination rules cannot fire.
 export const SUBMIT_EXPECTED_CASE_COUNT =
   NON_SELF_BILLED_TYPE_COUNT *
-    (SUBMIT_TXN_TYPES_ALL_TAX_CATS.length * 4 + 1) +
-  FV.SELF_BILLED_DOCUMENT_INVOICE_TYPES.length *
-    (SELF_BILLED_TXN_TYPES_ALL_TAX_CATS.length * 4 + 1);
+    (SUBMIT_TXN_TYPES_ALL_TAX_CATS.length * 4 + 1);
+  // Self-billed invoice / Self billed credit note not run in submit:
+  // + FV.SELF_BILLED_DOCUMENT_INVOICE_TYPES.length *
+  //   (SELF_BILLED_TXN_TYPES_ALL_TAX_CATS.length * 4 + 1);
 
 /** Multi-item: profit-margin self-invoice is single-item only. */
 export const SUBMIT_MULTI_ITEM_TXN_TYPES = FV.OMAN_TXN_TYPES.filter(
@@ -43,6 +44,7 @@ export const SELF_BILLED_MULTI_ITEM_TXN_TYPES =
   );
 
 export const SUBMIT_MULTI_ITEM_EXPECTED_CASE_COUNT =
-  NON_SELF_BILLED_TYPE_COUNT * SUBMIT_MULTI_ITEM_TXN_TYPES.length +
-  FV.SELF_BILLED_DOCUMENT_INVOICE_TYPES.length *
-    SELF_BILLED_MULTI_ITEM_TXN_TYPES.length;
+  NON_SELF_BILLED_TYPE_COUNT * SUBMIT_MULTI_ITEM_TXN_TYPES.length;
+  // Self-billed invoice / Self billed credit note not run in submit:
+  // + FV.SELF_BILLED_DOCUMENT_INVOICE_TYPES.length *
+  //   SELF_BILLED_MULTI_ITEM_TXN_TYPES.length;

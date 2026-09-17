@@ -1328,7 +1328,7 @@ export class DashboardPage {
 
     private isSubmitFlowDeliveryComplete(normalizedStatus: string): boolean {
     return (
-      normalizedStatus === "delivered" ||
+      normalizedStatus === "delivered to (c5 & c4)" ||
       normalizedStatus === "delivered to c5" ||
       normalizedStatus === "delivered to c3"
     );
@@ -1368,7 +1368,7 @@ export class DashboardPage {
     while (!this.isSubmitFlowDeliveryComplete(status)) {
       if (Date.now() >= deadline) {
         throw new Error(
-          `Invoice ${invoiceNumber} did not reach Delivered / Delivered to C5 / Delivered to C3 within ${timeoutMs}ms. Last dashboard status: "${status}". ` +
+          `Invoice ${invoiceNumber} did not reach Delivered to (C5 & C4) / Delivered to C5 / Delivered to C3 within ${timeoutMs}ms. Last dashboard status: "${status}". ` +
             `Stuck states usually mean backend/processing delay or a status label mismatch (check UI vs normalizeStatusText).`
         );
       }

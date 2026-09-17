@@ -55,6 +55,38 @@ export function isCreditOrDebitInvoiceType(invoiceTypeCode: string): boolean {
   return n.includes("credit note") || n.includes("debit note");
 }
 
+/** Skip invoice types Self-billed invoice and Self billed credit note only (keep Self-billed Invoice txn). */
+export function shouldSkipSubmitSelfBilledCase(invoiceTypeCode: string): boolean {
+  return isSelfBilledInvoiceType(invoiceTypeCode);
+}
+
+const SUBMIT_PARTY_IDENTIFIER_SAMPLE = "OM-PARTY-001";
+const SUBMIT_PARTY_TEXTUAL_CODE = "Commercial Registration";
+
+/** Fill seller/buyer identifier, textual code, and CL-13 subdivision on every submit row. */
+function applySubmitDefaultPartyFields(
+  row: Record<string, string | null>
+): Record<string, string | null> {
+  const next: Record<string, string | null> = { ...row };
+  const mainland = FV.MAINLAND_OMAN_COUNTRY_SUBDIVISION_CL13;
+
+  next[FV.SELLER_IDENTIFIER_FIELD] =
+    next[FV.SELLER_IDENTIFIER_FIELD] || SUBMIT_PARTY_IDENTIFIER_SAMPLE;
+  next[FV.BUYER_IDENTIFIER_FIELD] =
+    next[FV.BUYER_IDENTIFIER_FIELD] || SUBMIT_PARTY_IDENTIFIER_SAMPLE;
+  next[FV.SELLER_COUNTRY_SUBDIVISION_CODE_FIELD] =
+    next[FV.SELLER_COUNTRY_SUBDIVISION_CODE_FIELD] || mainland;
+  next[FV.BUYER_COUNTRY_SUBDIVISION_CODE_FIELD] =
+    next[FV.BUYER_COUNTRY_SUBDIVISION_CODE_FIELD] || mainland;
+
+  next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
+    next[FV.SELLER_IDENTIFIER_TEXTUAL_CODE_FIELD] || SUBMIT_PARTY_TEXTUAL_CODE;
+  next[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] =
+    next[FV.BUYER_IDENTIFIER_TEXTUAL_CODE_FIELD] || SUBMIT_PARTY_TEXTUAL_CODE;
+
+  return next;
+}
+
 type LineDef = {
   lineId: string;
   itemType: string;
@@ -112,7 +144,7 @@ function applySubmitTxnExtras(
     ...row,
     [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: txn,
     [FV.INVOICE_CURRENCY_CODE_FIELD]: FV.OMAN_CURRENCY_OMR,
-    [FV.SOURCE_CURRENCY_CODE_FIELD]: FV.OMAN_CURRENCY_OMR,
+    [FV.SOURCE_CURRENCY_CODE_FIELD]: "",
     [FV.EXCHANGE_RATE_FIELD]: "",
   };
 
@@ -189,8 +221,8 @@ function applySubmitTxnExtras(
       next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
   }
 
-  return applySpecialZonePositiveCompanions(
-    applyPartyIdentifiersByTxnType(next)
+  return applySubmitDefaultPartyFields(
+    applySpecialZonePositiveCompanions(applyPartyIdentifiersByTxnType(next))
   );
 }
 
@@ -275,6 +307,9 @@ export function buildOmanMultiItemSubmitCases(): MultiItemSubmitInvoiceCase[] {
     for (const txnEntry of invoiceTransactionTypeValidTestData) {
       const invoiceTypeCode = typeEntry.label;
       const txn = txnEntry.label;
+      if (shouldSkipSubmitSelfBilledCase(invoiceTypeCode)) {
+        continue;
+      }
       // IBR-086-OM: Profit Margin Self-Invoice MUST be tax category O on
       // every line — skip this txn from the mixed 4-category matrix.
       if (txn === FV.TXN_PROFIT_MARGIN_SELF_INVOICE) {

@@ -22,7 +22,7 @@ import {
   invoiceTypeCodeValidTestData,
   invoiceTransactionTypeValidTestData,
 } from "../Master/Master.omnCore";
-import { buildOmanSubmitDocumentRow } from "./SubmitInvoiceMultiItem";
+import { buildOmanSubmitDocumentRow, shouldSkipSubmitSelfBilledCase } from "./SubmitInvoiceMultiItem";
 
 type GoodsTaxDef = {
   taxCategory: string;
@@ -86,6 +86,9 @@ export function buildOmanSingleItemSubmitRows(): Record<string, string>[] {
     for (const txnEntry of invoiceTransactionTypeValidTestData) {
       const invoiceTypeCode = typeEntry.label;
       const txn = txnEntry.label;
+      if (shouldSkipSubmitSelfBilledCase(invoiceTypeCode)) {
+        continue;
+      }
       // IBR-177-OM: 261/389 may only use Self-billed / RCM / PM-Self / Import of Goods.
       if (!FV.isIbr177CompatibleInvoiceTxnPair(invoiceTypeCode, txn)) {
         continue;

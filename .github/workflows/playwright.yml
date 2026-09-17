@@ -1,5 +1,5 @@
-# Cron 05:45 IST chains Simplified Excel then Copy Invoice UI.
-# Manual Run: one suite (scheduled_wave off). queue-next continues the wave when scheduled_wave is on.
+# Cron 05:45 IST chains Simplified Excel then Copy Invoice UI (incl. Conditional Copy).
+# Covoro Excel, UI Create, and UI Edit: Manual Run only (scheduled_wave off).
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
@@ -24,8 +24,21 @@ on:
           - covoro_ui_copy_2
           - covoro_ui_conditional_copy_1
           - covoro_ui_conditional_copy_2
+          - covoro_field
+          - covoro_formula
+          - covoro_conditional
+          - covoro_submit_single
+          - covoro_submit_multi
+          - covoro_ui_create_1
+          - covoro_ui_create_2
+          - covoro_ui_conditional_create_1
+          - covoro_ui_conditional_create_2
+          - covoro_ui_edit_1
+          - covoro_ui_edit_2
+          - covoro_ui_conditional_edit_1
+          - covoro_ui_conditional_edit_2
       scheduled_wave:
-        description: "Chain the next Simplified/Copy suite after this job (cron and queue-next). Leave off for a one-off manual run."
+        description: "Chain the next Simplified Excel or Copy Invoice UI suite after this job (cron and queue-next). Leave off for a one-off manual run (Covoro Excel, UI Create, UI Edit)."
         type: boolean
         required: false
         default: false
@@ -37,8 +50,12 @@ run-name: >-
       || github.event.inputs.suite == 'simplified_submit_single' && 'Simplified submit single'
       || github.event.inputs.suite == 'simplified_submit_multi' && 'Simplified submit multi-item'
       || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'
-      || startsWith(github.event.inputs.suite, 'covoro_ui_copy') && github.event.inputs.suite
-      || startsWith(github.event.inputs.suite, 'covoro_ui_conditional_copy') && github.event.inputs.suite
+      || github.event.inputs.suite == 'covoro_field' && 'Covoro field validation'
+      || github.event.inputs.suite == 'covoro_formula' && 'Covoro formula validation'
+      || github.event.inputs.suite == 'covoro_conditional' && 'Covoro conditional validation'
+      || github.event.inputs.suite == 'covoro_submit_single' && 'Covoro submit single'
+      || github.event.inputs.suite == 'covoro_submit_multi' && 'Covoro submit multi-item'
+      || startsWith(github.event.inputs.suite, 'covoro_ui_') && github.event.inputs.suite
       || 'Simplified field validation' }}
 
 concurrency:
@@ -260,10 +277,23 @@ jobs:
             simplified_submit_single) LABEL="Simplified submit single" ;;
             simplified_submit_multi) LABEL="Simplified submit multi-item" ;;
             simplified_conditional) LABEL="Simplified conditional validation" ;;
+            covoro_field) LABEL="Covoro field validation" ;;
+            covoro_formula) LABEL="Covoro formula validation" ;;
+            covoro_conditional) LABEL="Covoro conditional validation" ;;
+            covoro_submit_single) LABEL="Covoro submit single" ;;
+            covoro_submit_multi) LABEL="Covoro submit multi-item" ;;
             covoro_ui_copy_1) LABEL="UI copy 1" ;;
             covoro_ui_copy_2) LABEL="UI copy 2" ;;
             covoro_ui_conditional_copy_1) LABEL="UI conditional copy 1" ;;
             covoro_ui_conditional_copy_2) LABEL="UI conditional copy 2" ;;
+            covoro_ui_create_1) LABEL="UI create 1" ;;
+            covoro_ui_create_2) LABEL="UI create 2" ;;
+            covoro_ui_conditional_create_1) LABEL="UI conditional create 1" ;;
+            covoro_ui_conditional_create_2) LABEL="UI conditional create 2" ;;
+            covoro_ui_edit_1) LABEL="UI edit 1" ;;
+            covoro_ui_edit_2) LABEL="UI edit 2" ;;
+            covoro_ui_conditional_edit_1) LABEL="UI conditional edit 1" ;;
+            covoro_ui_conditional_edit_2) LABEL="UI conditional edit 2" ;;
             *) LABEL="Playwright ${MODE}" ;;
           esac
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
@@ -453,6 +483,7 @@ jobs:
       - name: Dispatch next Simplified / Copy suite
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           CURRENT: ${{ needs.resolve.outputs.mode }}
           REF: ${{ github.ref_name }}
         shell: bash
@@ -484,7 +515,8 @@ jobs:
             exit 0
           fi
           echo "queue-next: ${CURRENT} → ${NEXT} (ref ${REF})"
-          gh workflow run "Oman E-Invoice — Playwright" --ref "$REF" \
+          # No checkout on this job — gh must not infer the repo from git.
+          gh workflow run playwright.yml --repo "$GH_REPO" --ref "$REF" \
             -f suite="$NEXT" \
             -f scheduled_wave=true
 
