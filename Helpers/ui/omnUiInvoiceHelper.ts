@@ -1146,6 +1146,33 @@ async function fillItemAttributeMinMaxCompanion(
   await invoice.replaceInput("item", companion.inputId, companion.value, companion.altInputIds);
 }
 
+const INVOICED_QTY_INPUT_IDS = ["invoiceQty", "invoicedQty", "invQty"] as const;
+const PRICE_BASE_QTY_INPUT_IDS = ["priceBaseQty", "itemPriceBaseQty"] as const;
+
+/** Keep invoiced qty and price base qty equal so line net stays in range. */
+function quantityMinMaxCompanion(
+  rule: OmnUiFieldRule
+): { inputId: string; altInputIds: readonly string[] } | null {
+  const ids = [rule.inputId, ...(rule.altInputIds ?? [])];
+  if (ids.some((id) => (INVOICED_QTY_INPUT_IDS as readonly string[]).includes(id))) {
+    return { inputId: "priceBaseQty", altInputIds: ["itemPriceBaseQty"] };
+  }
+  if (ids.some((id) => (PRICE_BASE_QTY_INPUT_IDS as readonly string[]).includes(id))) {
+    return { inputId: "invoiceQty", altInputIds: ["invoicedQty", "invQty"] };
+  }
+  return null;
+}
+
+async function fillQuantityMinMaxCompanion(
+  invoice: OMN_UIInvoiceManualPage,
+  rule: OmnUiFieldRule,
+  fieldValue: string
+): Promise<void> {
+  const companion = quantityMinMaxCompanion(rule);
+  if (!companion || isUiEmptyValue(fieldValue)) return;
+  await invoice.replaceInput("item", companion.inputId, fieldValue, companion.altInputIds);
+}
+
 function isTaxExemptionReasonTextField(rule: OmnUiFieldRule): boolean {
   return (
     rule.inputId === "taxExemptionRsn" ||
@@ -1328,6 +1355,7 @@ export async function runOmnUiMinMaxCase(
     await writeMinMaxField();
   }
   await fillItemAttributeMinMaxCompanion(invoice, entry, rule, value);
+  await fillQuantityMinMaxCompanion(invoice, rule, value);
   await commitSection(invoice, rule.section, entry);
 
   const expectsError = omnUiMinMaxExpectsError(rule, variant, txnContext);
@@ -1422,7 +1450,8 @@ export async function runOmnUiNumericCase(
   entry: OmnUiEntry,
   field: string,
   digits: string,
-  expectsError: boolean
+  expectsError: boolean,
+  companionField?: string
 ): Promise<void> {
   const location = omnUiNumericFieldLocation(field);
   if (!location) {
@@ -1431,6 +1460,18 @@ export async function runOmnUiNumericCase(
 
   const invoice = await openOmnUiInvoiceEditor(page, entry);
   await ensureSectionBaseline(invoice, location.section, entry, new Set());
+  if (companionField && digits) {
+    const companion = omnUiNumericFieldLocation(companionField);
+    if (!companion) {
+      throw new Error(`No editable UI numeric control for companion ${companionField}`);
+    }
+    await invoice.replaceInput(
+      companion.section,
+      companion.inputId,
+      digits,
+      companion.altInputIds
+    );
+  }
   await invoice.replaceInput(
     location.section,
     location.inputId,
@@ -1447,10 +1488,13 @@ export async function runOmnUiNumericCase(
         ["invLinePriceDiscount"]
       );
     } else if (digits.includes(".") && digits.split(".")[0]?.length === 13) {
+      // 12-digit max valid discount (13-digit discount is expected to error).
+      // Net = 1111111111111 − 999999999999 = 111111111112 (12 digits);
+      // Total Amount Including VAT at 5% stays 12 digits and under maxlength 17.
       await invoice.replaceInput(
         "item",
         "itemPriceDiscount",
-        "111111111111.000",
+        "999999999999.000",
         ["invLinePriceDiscount"]
       );
     }
@@ -1847,7 +1891,8 @@ export async function runOmnUiFieldCatalogRow(
       entry,
       row.field,
       row.numericValue,
-      Boolean(row.expectsError)
+      Boolean(row.expectsError),
+      row.numericCompanionField
     );
     return;
   }

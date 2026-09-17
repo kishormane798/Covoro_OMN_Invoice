@@ -248,6 +248,8 @@ export type OmnUiCatalogRow = {
   field?: string;
   excelTitle?: string;
   numericValue?: string;
+  /** Same digits on the paired quantity so line net stays in range. */
+  numericCompanionField?: string;
   expectsError?: boolean;
   partyIdentifierScenario?: PartyIdentifierLengthCase;
   cl06Party?: "buyer" | "seller";
@@ -372,6 +374,11 @@ function numericCatalogMode(
   return { mode: "run" };
 }
 
+const QUANTITY_NUMERIC_COMPANION: Record<string, string> = {
+  "Invoiced quantity": "Item price base quantity",
+  "Item price base quantity": "Invoiced quantity",
+};
+
 function numericCatalogRow(
   group: "Numeric fields — valid digit count" | "Numeric fields — invalid digit count",
   config: NumericConfig,
@@ -379,6 +386,10 @@ function numericCatalogRow(
   numericValue: string,
   expectsError: boolean
 ): OmnUiCatalogRow {
+  const numericCompanionField =
+    numericValue && !expectsError
+      ? QUANTITY_NUMERIC_COMPANION[config.field]
+      : undefined;
   return {
     group,
     title,
@@ -387,6 +398,7 @@ function numericCatalogRow(
     field: config.field,
     numericValue,
     expectsError,
+    ...(numericCompanionField ? { numericCompanionField } : {}),
   };
 }
 
