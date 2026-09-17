@@ -14,7 +14,7 @@ export type FieldLengthRule = {
 
 /** Digit/decimal amount rules: min/max are total digit counts (integer part); see `decimals`. */
 export type FieldNumericRule = FieldLengthRule & {
-  /** Decimal places allowed (Oman amount fields use 2; exchange rate uses 6–7). */
+  /** Decimal places allowed (Oman amount fields use 3; exchange rate uses 6–7). */
   decimals?: number;
   /**
    * Isolated minimum-value patch fails Peppol formula (wrong calculation).
@@ -76,10 +76,10 @@ export function formulaNumericRelatedErrorFields(targetField: string): string[] 
   return [...new Set([targetField, ...FORMULA_OUTPUT_NUMERIC_FIELDS])];
 }
 
-/** Smallest positive Oman amount/qty for boundary tests (0.01 @ 2 dp, 0.0000001 @ 7 dp). */
+/** Smallest positive Oman amount/qty for boundary tests (0.001 @ 3 dp, 0.0000001 @ 7 dp). */
 export function formatOmanNumericBoundaryValue(
   digitCount: number,
-  decimals = 2
+  decimals = 3
 ): string {
   if (digitCount <= 0) return "";
   if (digitCount === 1 && decimals > 0) {
@@ -177,7 +177,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 10,
     belowMin: 0,
     aboveMax: 11,
-    decimals: 2,
+    decimals: 3,
     emptyExpectsError: true,
   },
   {
@@ -186,7 +186,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     emptyExpectsError: true,
   },
   {
@@ -195,7 +195,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     maxExpectsError: true,
   },
   {
@@ -204,7 +204,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -215,17 +215,17 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 10,
     belowMin: 0,
     aboveMax: 11,
-    decimals: 2,
+    decimals: 3,
     emptyExpectsError: true,
   },
-  { field: "Invoice line charge amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
+  { field: "Invoice line charge amount", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 3 },
   {
     field: "Invoice line allowance amount",
     min: 1,
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     maxExpectsError: true,
   },
   {
@@ -234,7 +234,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -245,7 +245,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     // Empty presence → Conditional IBR-038-OM (Full Tax / Simplified matrix).
@@ -258,7 +258,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -269,7 +269,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -280,7 +280,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
   },
@@ -290,7 +290,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
   },
@@ -300,7 +300,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -311,7 +311,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -322,7 +322,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -333,8 +333,8 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
-    // Min 0.01 is accepted when IBR-058-OM companions (prepayment number + UUID) are filled.
+    decimals: 3,
+    // Min 0.001 is accepted when IBR-058-OM companions (prepayment number + UUID) are filled.
     maxExpectsError: true,
   },
   {
@@ -343,7 +343,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     // Optional empty/positive stay in Field; negative rounding → Conditional IBR-137-OM.
   },
 
@@ -353,7 +353,7 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
     minExpectsError: true,
     maxExpectsError: true,
     emptyExpectsError: true,
@@ -364,9 +364,9 @@ export const fieldValidationNumeric: FieldNumericRule[] = [
     max: 13,
     belowMin: 0,
     aboveMax: 14,
-    decimals: 2,
+    decimals: 3,
   },
-  { field: "Total amount due (profit margin)", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 2 },
+  { field: "Total amount due (profit margin)", min: 1, max: 13, belowMin: 0, aboveMax: 14, decimals: 3 },
 ];
 
 export type InvoiceFormulaScenario = {
@@ -403,11 +403,11 @@ export type InvoiceFormulaScenario = {
 export const invoiceFormulaScenarios: InvoiceFormulaScenario[] = [
 {
 expect: "success",
-name: "Base Minimum values",
-itemPriceBaseQty:0.01,
-itemGrossPrice:0.01,
+name: "Base Minimum values (0.001)",
+itemPriceBaseQty:0.001,
+itemGrossPrice:0.001,
 itemPriceDiscount:0,
-invoicedQty:0.01,
+invoicedQty:0.001,
 lineCharge:0,
 lineAllowance:0,
 taxRate:5,
@@ -433,11 +433,11 @@ roundingAmount:0
 },
 {
 expect: "success",
-name: "min Quantity",
-itemPriceBaseQty:0.01,
+name: "min Quantity (0.001)",
+itemPriceBaseQty:0.001,
 itemGrossPrice:1000,
 itemPriceDiscount:1,
-invoicedQty:0.01,
+invoicedQty:0.001,
 lineCharge:0,
 lineAllowance:0,
 taxRate:5,
@@ -480,7 +480,7 @@ roundingAmount:0
 },
 {
 expect: "success",
-name: "Positive Rounding",
+name: "Positive Rounding (0.501)",
 itemPriceBaseQty:1,
 itemGrossPrice:1000,
 itemPriceDiscount:1,
@@ -491,12 +491,12 @@ taxRate:5,
 docCharges:0,
 docAllowances:0,
 paidAmount:0,
-roundingAmount:0.50
+roundingAmount:0.501
 },
 {
 expect: "success",
-name: "Valid Base Quantity",
-itemPriceBaseQty: 1.65,
+name: "Valid Base Quantity (1.651)",
+itemPriceBaseQty: 1.651,
 itemGrossPrice: 1000,
 itemPriceDiscount: 1,
 invoicedQty: 10,
@@ -511,9 +511,9 @@ roundingAmount: 0
 
 {
 expect: "success",
-name: "Valid Gross Price",
+name: "Valid Gross Price (9999.831)",
 itemPriceBaseQty: 1,
-itemGrossPrice: 9999.83,
+itemGrossPrice: 9999.831,
 itemPriceDiscount: 1,
 invoicedQty: 10,
 lineCharge: 0,
@@ -527,11 +527,11 @@ roundingAmount: 0
 
 {
 expect: "success",
-name: "Valid Quantity",
+name: "Valid Quantity (1.651)",
 itemPriceBaseQty: 1,
 itemGrossPrice: 1000,
 itemPriceDiscount: 1,
-invoicedQty: 1.65,
+invoicedQty: 1.651,
 lineCharge: 0,
 lineAllowance: 0,
 taxRate: 5,
@@ -594,9 +594,9 @@ roundingAmount: 0
 },
 {
   expect: "success",
-  name: "Item net price with zero discount",
+  name: "Item net price with zero discount (250.551)",
   itemPriceBaseQty: 1,
-  itemGrossPrice: 250.55,
+  itemGrossPrice: 250.551,
   itemPriceDiscount: 0,
   invoicedQty: 2,
   lineCharge: 0,
@@ -709,7 +709,7 @@ roundingAmount: 0
 },
 {
   expect: "success",
-  name: "Amount due for payment with paid and rounding",
+  name: "Amount due for payment with paid and rounding (0.501)",
   itemPriceBaseQty: 1,
   itemGrossPrice: 1000,
   itemPriceDiscount: 0,
@@ -720,7 +720,7 @@ roundingAmount: 0
   docCharges: 0,
   docAllowances: 0,
   paidAmount: 100,
-  roundingAmount: 0.5,
+  roundingAmount: 0.501,
 },
 
 /* ---- Conditional FORMULA gaps (Excel-testable) ---- */
@@ -898,7 +898,7 @@ export const defaultInvoiceData = {
   itemPriceBaseQty: 1,
   itemGrossPrice: 1000,
   itemPriceDiscount: 1,
-  invoicedQty: 1.65,
+  invoicedQty: 1.651,
   lineCharge: 0,
   lineAllowance: 0,
   docCharges: 0,

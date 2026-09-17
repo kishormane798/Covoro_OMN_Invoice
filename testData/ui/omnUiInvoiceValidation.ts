@@ -402,7 +402,7 @@ const numericConfigsForUiCatalog = numericFieldConfigs.filter(
 
 const numericValidRows: OmnUiCatalogRow[] = numericConfigsForUiCatalog.flatMap(
   (config) => {
-    const decimals = config.decimals ?? 2;
+    const decimals = config.decimals ?? 3;
     const minValue = formatOmanNumericBoundaryValue(config.min, decimals);
     const maxValue = formatOmanNumericBoundaryValue(config.max, decimals);
     const rows = [] as OmnUiCatalogRow[];
@@ -463,7 +463,7 @@ const numericInvalidRows: OmnUiCatalogRow[] = numericConfigsForUiCatalog.map(
       "Numeric fields — invalid digit count",
       config,
       `${config.field} of ${config.aboveMax} digits — the form should show an error. (${config.field})`,
-      formatOmanNumericBoundaryValue(config.aboveMax, config.decimals ?? 2),
+      formatOmanNumericBoundaryValue(config.aboveMax, config.decimals ?? 3),
       true
     )
 );
@@ -2008,22 +2008,11 @@ const UI_BUYER_COUNTRY_IDS = ["country", "countryCode"] as const;
 const UI_SHIPPING_COUNTRY_IDS = ["country", "countryCode"] as const;
 
 const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
-  ...AMOUNT_DECIMAL_PRECISION_SCENARIOS.map((s) => {
-    const row = catalogControlScenario(s, "item", "itemGrossPrice", [
+  ...AMOUNT_DECIMAL_PRECISION_SCENARIOS.map((s) =>
+    catalogControlScenario(s, "item", "itemGrossPrice", [
       { section: "item", inputId: "itemGrossPrice", control: "text", value: s.itemGrossPrice },
-    ]);
-    const fraction = String(s.itemGrossPrice).split(".")[1] ?? "";
-    // Peppol IBR-DEC-03 allows 3 decimals; the Create form caps amounts at 2.
-    if (fraction.length <= 2) return row;
-    return {
-      ...row,
-      shouldError: true,
-      title: s.title.replace(
-        "Then the invoice should be accepted.",
-        "Then the invoice should be rejected with an error."
-      ),
-    };
-  }),
+    ])
+  ),
   ...ITEM_TYPE_REQUIRED_SCENARIOS.map((s) =>
     catalogControlScenario(s, "item", UI_ITEM_TYPE_IDS[0], [
       {

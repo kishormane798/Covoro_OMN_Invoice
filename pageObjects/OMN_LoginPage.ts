@@ -141,7 +141,7 @@ export class LoginPage {
         // Match goto(): do not wait for window `load` (analytics/fonts can hang and skip the suite).
         await this.page.goto(`${root}/login`, {
             waitUntil: 'domcontentloaded',
-            timeout: 30_000,
+            timeout: 90_000,
         });
         await this.waitForLoginFormReady();
         await this.submitCredentialsAndReachDashboard(email, password, 60_000, 30_000);

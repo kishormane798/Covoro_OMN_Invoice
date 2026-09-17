@@ -16,6 +16,14 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const STORAGE_STATE_FILE = path.join(REPO_ROOT, 'storageState.json');
 const SESSION_STORAGE_FILE = path.join(REPO_ROOT, 'sessionStorage.json');
 
+/** Headed locally so /login can reach DOMContentLoaded; CI stays headless. */
+function resolveGlobalSetupHeadless(): boolean {
+  const raw = process.env.PW_HEADED?.trim().toLowerCase();
+  if (raw === "1" || raw === "true") return false;
+  if (raw === "0" || raw === "false") return true;
+  return Boolean(process.env.CI);
+}
+
 function deleteAuthSnapshots(): void {
   for (const file of [STORAGE_STATE_FILE, SESSION_STORAGE_FILE]) {
     if (existsSync(file)) {
@@ -71,15 +79,19 @@ async function globalSetup(config: FullConfig) {
   }
 
   // Bundled Playwright Chromium often never reaches DOMContentLoaded on
-  // https://devom.covoro.ai (30s skip). Installed Chrome matches manual login.
+  // https://devom.covoro.ai. Installed Chrome matches manual login.
+  // Local runs use headed Chrome (headless goto times out at 30s and rewrites
+  // site-unavailable.json). CI stays headless unless PW_HEADED=1.
+  const headless = resolveGlobalSetupHeadless();
+  console.log(`[global-setup] launching Chrome headless=${headless}`);
   let browser;
   try {
     browser = await chromium.launch({
       channel: "chrome",
-      headless: true,
+      headless,
     });
   } catch {
-    browser = await chromium.launch();
+    browser = await chromium.launch({ headless });
   }
   try {
     const page = await browser.newPage({ ignoreHTTPSErrors: true });

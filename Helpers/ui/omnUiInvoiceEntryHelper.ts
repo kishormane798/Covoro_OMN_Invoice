@@ -1,7 +1,7 @@
 /**
  * Create / Edit / Copy entry for Oman UI invoice tests.
- * Edit and Copy reuse an on-dashboard row (DashboardPage). They do not call or
- * modify Excel helpers / utils.
+ * Each Playwright worker uploads two valid baseline invoices (Excel) for
+ * Edit/Copy, then reuses dashboard rows. Create never uploads.
  */
 import type { Page } from "@playwright/test";
 import { test } from "../../Src/baseTest";
@@ -16,6 +16,10 @@ import { invoiceData } from "../../testData/FieldValidations/SubmitInvoice";
 import { runSubmitInvoiceUploadSanityCase } from "../excel/submitInvoiceCaseHelper";
 
 const COPY_REUSE_POLL_TIMEOUT_MS = 20_000;
+const WORKER_SEED_UPLOAD_LIMIT = 2;
+
+/** Per worker process: first two Edit/Copy opens upload Excel, then reuse. */
+let workerSeedUploadsDone = 0;
 
 export function isOmnUiPrefilledLineItemEntry(entry: OmnUiEntry): boolean {
   return entry === "edit" || entry === "copy";
@@ -40,6 +44,39 @@ async function ensureDocumentEditableAfterReuse(
   await invoice.expectEditorVisible();
 }
 
+function entryLog(entry: Exclude<OmnUiEntry, "create">): "OmnUiCopy" | "OmnUiEdit" {
+  return entry === "copy" ? "OmnUiCopy" : "OmnUiEdit";
+}
+
+async function uploadBaselineInvoice(
+  page: Page,
+  entry: Exclude<OmnUiEntry, "create">
+): Promise<string> {
+  const baselineRow = invoiceData[0] as Record<string, string>;
+  const { invoiceNumber } = await runSubmitInvoiceUploadSanityCase(
+    page,
+    baselineRow
+  );
+  flowLog(entryLog(entry), `Uploaded valid baseline invoice ${invoiceNumber}.`);
+  return invoiceNumber;
+}
+
+async function openEditorFromInvoiceNumber(
+  page: Page,
+  entry: Exclude<OmnUiEntry, "create">,
+  invoiceNumber: string
+): Promise<OMN_UIInvoiceManualPage> {
+  const invoice = new OMN_UIInvoiceManualPage(page);
+  await invoice.dashboard.refreshDashboardForInvoiceTable(invoiceNumber);
+  if (entry === "edit") {
+    await invoice.dashboard.openInvoiceEdit(invoiceNumber);
+  } else {
+    await invoice.dashboard.openInvoiceCopy(invoiceNumber, "Yes");
+  }
+  await ensureDocumentEditableAfterReuse(invoice, entry);
+  return invoice;
+}
+
 async function findReusableInvoiceWithValidUploadFallback(
   page: Page,
   entry: Exclude<OmnUiEntry, "create">,
@@ -56,16 +93,15 @@ async function findReusableInvoiceWithValidUploadFallback(
     return reusable;
   }
 
-  const baselineRow = invoiceData[0] as Record<string, string>;
   flowLog(
-    entry === "copy" ? "OmnUiCopy" : "OmnUiEdit",
+    entryLog(entry),
     `No reusable dashboard invoice for ${entry}; uploading a valid baseline invoice and retrying.`
   );
 
-  const { invoiceNumber } = await runSubmitInvoiceUploadSanityCase(page, baselineRow);
+  const invoiceNumber = await uploadBaselineInvoice(page, entry);
 
   flowLog(
-    entry === "copy" ? "OmnUiCopy" : "OmnUiEdit",
+    entryLog(entry),
     `Uploaded valid baseline invoice ${invoiceNumber}; retrying dashboard reuse for ${entry}.`
   );
 
@@ -84,6 +120,17 @@ export async function openOmnUiInvoiceEditor(
   if (entry === "create") {
     await invoice.openCreate();
     return invoice;
+  }
+
+  if (workerSeedUploadsDone < WORKER_SEED_UPLOAD_LIMIT) {
+    const seedIndex = workerSeedUploadsDone + 1;
+    flowLog(
+      entryLog(entry),
+      `Worker seed upload ${seedIndex}/${WORKER_SEED_UPLOAD_LIMIT} for ${entry}.`
+    );
+    const invoiceNumber = await uploadBaselineInvoice(page, entry);
+    workerSeedUploadsDone += 1;
+    return openEditorFromInvoiceNumber(page, entry, invoiceNumber);
   }
 
   if (entry === "edit") {

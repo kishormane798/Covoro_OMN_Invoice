@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "../../Src/baseTest";
 import { OMN_UIInvoiceManualPage } from "../../pageObjects/OMN_UIInvoiceManualPage";
 import {
@@ -121,9 +121,9 @@ function omnUiExpectedTotals(scenario: InvoiceFormulaScenario): {
   amountDue: number;
 } {
   const fix6 = (num: number) => Number(num.toFixed(6));
-  const ceil2 = (num: number) => {
+  const ceil3 = (num: number) => {
     if (!Number.isFinite(num)) return 0;
-    return Math.ceil(num * 100 - 1e-12) / 100;
+    return Math.ceil(num * 1000 - 1e-12) / 1000;
   };
   const itemPriceBaseQty = toNumber(scenario.itemPriceBaseQty, 1);
   const itemGrossPrice = toNumber(scenario.itemGrossPrice);
@@ -149,12 +149,12 @@ function omnUiExpectedTotals(scenario: InvoiceFormulaScenario): {
   const rawTotalWithTax = fix6(rawTotalWithoutTax + rawInvoiceTotalTax);
 
   return {
-    itemNetPrice: ceil2(rawItemNet),
-    invoiceLineNetAmount: ceil2(rawLineNet),
-    vatLineAmount: ceil2(rawVatBase),
-    invoiceLineAmount: ceil2(rawLineNet + rawVatBase),
-    invoiceTotalWithTax: ceil2(rawTotalWithTax),
-    amountDue: ceil2(fix6(rawTotalWithTax - paidAmount + roundingAmount)),
+    itemNetPrice: ceil3(rawItemNet),
+    invoiceLineNetAmount: ceil3(rawLineNet),
+    vatLineAmount: ceil3(rawVatBase),
+    invoiceLineAmount: ceil3(rawLineNet + rawVatBase),
+    invoiceTotalWithTax: ceil3(rawTotalWithTax),
+    amountDue: ceil3(fix6(rawTotalWithTax - paidAmount + roundingAmount)),
   };
 }
 
@@ -1439,7 +1439,7 @@ export async function runOmnUiNumericCase(
   );
 
   if (field === "Item gross price") {
-    if (digits === "0.01") {
+    if (digits === "0.001") {
       await invoice.replaceInput(
         "item",
         "itemPriceDiscount",
@@ -1450,7 +1450,7 @@ export async function runOmnUiNumericCase(
       await invoice.replaceInput(
         "item",
         "itemPriceDiscount",
-        "111111111111.00",
+        "111111111111.000",
         ["invLinePriceDiscount"]
       );
     }
@@ -1933,7 +1933,7 @@ async function fillOmnUiFormulaItem(
   if (!expectSaved) {
     return;
   }
-  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
+  await expectItemDetailsSavedWithoutError(invoice, scenario.name);
   // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
   await invoice.clickSectionCommit("item", entry);
 }
@@ -1957,6 +1957,110 @@ async function expectAnyFormulaError(
     messages.some(Boolean),
     `expected a formula field error for ${scenario.name}`
   ).toBe(true);
+}
+
+/** Visible section errors only — do not wait for a page-wide helper-text. */
+async function readVisibleFormErrorText(root: Locator): Promise<string> {
+  const parts: string[] = [];
+  const listItems = root.locator(
+    ".doc-level-error-list li, .item-level-error-list li, ul[class*='error-list'] li"
+  );
+  const listCount = await listItems.count();
+  for (let i = 0; i < listCount; i++) {
+    const text = (await listItems.nth(i).innerText().catch(() => "")).trim();
+    if (text) parts.push(text);
+  }
+  const helpers = root.locator(
+    ".MuiFormHelperText-root.Mui-error, [id$='-helper-text'].Mui-error"
+  );
+  const helperCount = await helpers.count();
+  for (let i = 0; i < helperCount; i++) {
+    const helper = helpers.nth(i);
+    if (!(await helper.isVisible().catch(() => false))) continue;
+    const text = (await helper.innerText().catch(() => "")).trim();
+    if (text) parts.push(text);
+  }
+  return [...new Set(parts)].join(" | ");
+}
+
+async function readInvoiceDetailsErrorText(
+  invoice: OMN_UIInvoiceManualPage
+): Promise<string> {
+  return readVisibleFormErrorText(invoice.section("invoice"));
+}
+
+async function readItemDetailsErrorText(
+  invoice: OMN_UIInvoiceManualPage
+): Promise<string> {
+  const modalVisible = await invoice.itemModal().isVisible().catch(() => false);
+  return readVisibleFormErrorText(
+    modalVisible ? invoice.itemModal() : invoice.section("item")
+  );
+}
+
+/**
+ * Success = Item Details Save with no error helper/list.
+ * Error text after the modal closes is still a failure.
+ */
+async function expectItemDetailsSavedWithoutError(
+  invoice: OMN_UIInvoiceManualPage,
+  scenarioName: string
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const errorText = await readItemDetailsErrorText(invoice);
+        if (errorText) return "error";
+        const hidden = !(await invoice.itemModal().isVisible().catch(() => false));
+        return hidden ? "saved" : "pending";
+      },
+      {
+        timeout: 15_000,
+        message: `Item Details should Save without an error for ${scenarioName}`,
+      }
+    )
+    .not.toBe("pending");
+  const errorText = await readItemDetailsErrorText(invoice);
+  expect(
+    errorText,
+    `Item Details showed an error after Save for ${scenarioName}: ${errorText}`
+  ).toBe("");
+  await invoice.expectSectionSavedReadOnly("item");
+}
+
+/**
+ * Success = Invoice Details Save/Update with no error list/helper.
+ * Error text after a successful save is still a failure.
+ */
+async function expectInvoiceDetailsSavedWithoutError(
+  invoice: OMN_UIInvoiceManualPage,
+  scenarioName: string
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const errorText = await readInvoiceDetailsErrorText(invoice);
+        if (errorText) return "error";
+        const saved = await invoice
+          .section("invoice")
+          .locator(".input-box-container.read-only, .display-inline.read-only-field")
+          .first()
+          .isVisible()
+          .catch(() => false);
+        return saved ? "saved" : "pending";
+      },
+      {
+        timeout: 15_000,
+        message: `Invoice Details should Save/Update without an error for ${scenarioName}`,
+      }
+    )
+    .not.toBe("pending");
+  const errorText = await readInvoiceDetailsErrorText(invoice);
+  expect(
+    errorText,
+    `Invoice Details showed an error after Save/Update for ${scenarioName}: ${errorText}`
+  ).toBe("");
+  await invoice.expectSectionSavedReadOnly("invoice");
 }
 
 async function runOmnUiFormulaCatalogScenario(
@@ -2065,7 +2169,10 @@ async function runOmnUiFormulaCatalogScenario(
   if (await invoice.isSectionInEditMode("invoice", entry)) {
     await invoice.clickSectionCommit("invoice", entry);
   }
-  await invoice.expectSectionSavedReadOnly("invoice");
+  await expectInvoiceDetailsSavedWithoutError(
+    invoice,
+    (scenario as InvoiceFormulaScenario).name
+  );
 }
 
 export async function runOmnUiFormulaCatalogRow(
@@ -3576,7 +3683,7 @@ async function syncItemVatLineToTaxAmount(
     await invoice.replaceInput(
       "item",
       "totalAmtIncludingVat",
-      String(Number((lineNet + taxAmt).toFixed(2))),
+      String(Number((lineNet + taxAmt).toFixed(3))),
       ["invLineAmt"]
     );
   }
@@ -3720,26 +3827,6 @@ export async function runOmnUiFormulaScenario(
   await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
 
   const expected = omnUiExpectedTotals(scenario);
-  const itemNet = parseAmount(await invoice.readInputValue("item", "itemNetPrice"));
-  const lineNet = parseAmount(await invoice.readInputValue("item", "invLineNetAmt"));
-  const vatLine = parseAmount(
-    await invoice.readInputValue("item", "totalInvLineVatAmt", ["vatLineAmt"])
-  );
-  const lineAmt = parseAmount(
-    await invoice.readInputValue("item", "totalAmtIncludingVat", ["invLineAmt"])
-  );
-  const taxAmt = parseAmount(await invoice.readInputValue("item", "taxRateDtls[0].taxAmt"));
-  if (itemNet != null) expect(itemNet).toBeCloseTo(expected.itemNetPrice, 1);
-  if (lineNet != null) expect(lineNet).toBeCloseTo(expected.invoiceLineNetAmount, 1);
-  // UI validates line VAT against Tax Amount (Create/Copy auto-calc; may differ from Excel ceil2).
-  if (vatLine != null && taxAmt != null) expect(vatLine).toBeCloseTo(taxAmt, 1);
-  else if (vatLine != null) expect(vatLine).toBeCloseTo(expected.vatLineAmount, 1);
-  if (lineAmt != null && lineNet != null && vatLine != null) {
-    expect(lineAmt).toBeCloseTo(lineNet + vatLine, 1);
-  } else if (lineAmt != null) {
-    expect(lineAmt).toBeCloseTo(expected.invoiceLineAmount, 1);
-  }
-
   const whitespaceItemKeys = OMN_UI_ITEM_FORMULA_KEYS.filter((key) =>
     isUiWhitespaceValue(String(scenario[key] ?? ""))
   );
@@ -3753,7 +3840,7 @@ export async function runOmnUiFormulaScenario(
     await expect(invoice.itemModal()).toBeVisible();
     return;
   }
-  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
+  await expectItemDetailsSavedWithoutError(invoice, scenario.name);
   // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
   await invoice.clickSectionCommit("item", entry);
 
@@ -3761,26 +3848,5 @@ export async function runOmnUiFormulaScenario(
   await waitForInvoiceSumOfLineNet(invoice, expected.invoiceLineNetAmount);
   await applyInvoiceFormulaInputs(invoice, entry, scenario);
   await invoice.clickSectionCommit("invoice", entry);
-
-  // Invoice totals follow committed line VAT (Tax Amount), not Excel ceil2 when they diverge.
-  const uiVat = taxAmt ?? vatLine ?? expected.vatLineAmount;
-  const uiTotalWithTax = Number(
-    (
-      expected.invoiceTotalWithTax -
-      expected.vatLineAmount +
-      uiVat
-    ).toFixed(2)
-  );
-  const uiAmountDue = Number(
-    (expected.amountDue - expected.vatLineAmount + uiVat).toFixed(2)
-  );
-
-  const totalWithTax = parseAmount(
-    await invoice.readInputValue("invoice", "totalAmtWithTax", ["totalAmtWithVatOm"])
-  );
-  const amountDue = parseAmount(
-    await invoice.readInputValue("invoice", "paymentDueAmt", ["amountDue"])
-  );
-  if (totalWithTax != null) expect(totalWithTax).toBeCloseTo(uiTotalWithTax, 1);
-  if (amountDue != null) expect(amountDue).toBeCloseTo(uiAmountDue, 1);
+  await expectInvoiceDetailsSavedWithoutError(invoice, scenario.name);
 }

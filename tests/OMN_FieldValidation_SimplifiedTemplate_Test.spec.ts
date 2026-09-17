@@ -339,7 +339,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
       };
 
       for (const config of numericFieldConfigsOnSimplified) {
-        test(`${config.field} at minimum value (${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)}) ${titleOutcome(config.minExpectsError)}. (${config.field})`, async ({ page }) => {
+        test(`${config.field} at minimum value (${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 3)}) ${titleOutcome(config.minExpectsError)}. (${config.field})`, async ({ page }) => {
           await runNumericBoundary(page, config, config.min, config.minExpectsError);
         });
 
@@ -354,7 +354,7 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         }
 
         if (config.allowsNegative) {
-          const negativeValue = `-${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 2)}`;
+          const negativeValue = `-${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 3)}`;
           test(`${config.field} with negative value (${negativeValue}) should be accepted. (${config.field})`, async ({ page }) => {
             const { filePath } = await generateOmanSeededFieldExcel(config.field, negativeValue);
             await uploadAndVerifyFieldAccepted(page, filePath);
