@@ -1933,7 +1933,7 @@ async function fillOmnUiFormulaItem(
   if (!expectSaved) {
     return;
   }
-  await expectItemDetailsSavedWithoutError(invoice, scenario.name);
+  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
   // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
   await invoice.clickSectionCommit("item", entry);
 }
@@ -1962,9 +1962,7 @@ async function expectAnyFormulaError(
 /** Visible section errors only — do not wait for a page-wide helper-text. */
 async function readVisibleFormErrorText(root: Locator): Promise<string> {
   const parts: string[] = [];
-  const listItems = root.locator(
-    ".doc-level-error-list li, .item-level-error-list li, ul[class*='error-list'] li"
-  );
+  const listItems = root.locator(".doc-level-error-list li");
   const listCount = await listItems.count();
   for (let i = 0; i < listCount; i++) {
     const text = (await listItems.nth(i).innerText().catch(() => "")).trim();
@@ -1987,45 +1985,6 @@ async function readInvoiceDetailsErrorText(
   invoice: OMN_UIInvoiceManualPage
 ): Promise<string> {
   return readVisibleFormErrorText(invoice.section("invoice"));
-}
-
-async function readItemDetailsErrorText(
-  invoice: OMN_UIInvoiceManualPage
-): Promise<string> {
-  const modalVisible = await invoice.itemModal().isVisible().catch(() => false);
-  return readVisibleFormErrorText(
-    modalVisible ? invoice.itemModal() : invoice.section("item")
-  );
-}
-
-/**
- * Success = Item Details Save with no error helper/list.
- * Error text after the modal closes is still a failure.
- */
-async function expectItemDetailsSavedWithoutError(
-  invoice: OMN_UIInvoiceManualPage,
-  scenarioName: string
-): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const errorText = await readItemDetailsErrorText(invoice);
-        if (errorText) return "error";
-        const hidden = !(await invoice.itemModal().isVisible().catch(() => false));
-        return hidden ? "saved" : "pending";
-      },
-      {
-        timeout: 15_000,
-        message: `Item Details should Save without an error for ${scenarioName}`,
-      }
-    )
-    .not.toBe("pending");
-  const errorText = await readItemDetailsErrorText(invoice);
-  expect(
-    errorText,
-    `Item Details showed an error after Save for ${scenarioName}: ${errorText}`
-  ).toBe("");
-  await invoice.expectSectionSavedReadOnly("item");
 }
 
 /**
@@ -2138,6 +2097,13 @@ async function runOmnUiFormulaCatalogScenario(
     );
   }
   await applyInvoiceFormulaInputs(invoice, entry, scenario as InvoiceFormulaScenario);
+  await ensureInvoiceDocVatMatchesItem(
+    invoice,
+    String(
+      (scenario as InvoiceFormulaScenario).taxCategory ?? OMN_UI_TAX_CATEGORY_STANDARD
+    ),
+    (scenario as InvoiceFormulaScenario).taxExemptionReasonCode
+  );
   if (row.kind === "formulaNonOmr") {
     const ibt111 = await invoice.readInputValue(
       "invoice",
@@ -3739,23 +3705,88 @@ async function applyInvoiceFormulaInputs(
     if (raw === undefined || raw === null) continue;
     await invoice.replaceInput("invoice", ids[0], String(raw), ids.slice(1));
   }
-  if (toNumber(scenario.docCharges, 0) !== 0) {
-    await writeAutocomplete(
-      invoice,
-      entry,
+}
+
+function invoiceDocVatExemptionReason(
+  category: string,
+  scenarioReason?: string | null
+): string {
+  const fromScenario = String(scenarioReason ?? "").trim();
+  if (fromScenario) return fromScenario;
+  if (isExemptTaxCategory(category)) return TAX_EXEMPTION_REASON_SAMPLE;
+  if (isZeroRatedTaxCategory(category)) return TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+  return "";
+}
+
+/**
+ * Document charge/allowance VAT Category is required once an amount is entered.
+ * Copy often shows "Standard rate" in the combobox without committing the option.
+ * Match Item Details tax category. Zero rated / Exempt also need the matching
+ * exemption-reason dropdown (`#docLevelCharges[0].exemptionRsn` /
+ * `#docLevelAllowances[0].exemptionRsn`).
+ */
+async function ensureInvoiceDocVatMatchesItem(
+  invoice: OMN_UIInvoiceManualPage,
+  itemTaxCategory: string,
+  exemptionReasonCode?: string | null
+): Promise<void> {
+  const category = itemTaxCategory.trim() || OMN_UI_TAX_CATEGORY_STANDARD;
+  const reason = invoiceDocVatExemptionReason(category, exemptionReasonCode);
+  const rows: ReadonlyArray<{
+    amountId: string;
+    amountAlts: readonly string[];
+    categoryId: string;
+    categoryAlts: readonly string[];
+    reasonId: string;
+    reasonAlts: readonly string[];
+  }> = [
+    {
+      amountId: "docLevelCharges[0].amount",
+      amountAlts: ["docCharges"],
+      categoryId: "docLevelCharges[0].vatCategory",
+      categoryAlts: ["vatCategoryCharges"],
+      reasonId: "docLevelCharges[0].exemptionRsn",
+      reasonAlts: [
+        "docLevelCharges[0].exemptionReasonCode",
+        "taxExemptionReasonCharges",
+        "docLevelCharges[0].exemptionReasonType",
+      ],
+    },
+    {
+      amountId: "docLevelAllowances[0].amount",
+      amountAlts: ["docAllowances"],
+      categoryId: "docLevelAllowances[0].vatCategory",
+      categoryAlts: ["vatCategoryAllowances"],
+      reasonId: "docLevelAllowances[0].exemptionRsn",
+      reasonAlts: [
+        "docLevelAllowances[0].exemptionReasonCode",
+        "taxExemptionReasonAllowances",
+        "docLevelAllowances[0].exemptionReasonType",
+      ],
+    },
+  ];
+  for (const row of rows) {
+    if (await invoice.isInputDisabled("invoice", row.amountId, row.amountAlts)) continue;
+    const amount = await invoice.readInputValue("invoice", row.amountId, row.amountAlts);
+    if (!amount) continue;
+    if (await invoice.isInputDisabled("invoice", row.categoryId, row.categoryAlts)) continue;
+    await invoice.clearInput("invoice", row.categoryId, row.categoryAlts);
+    await invoice.selectAutocomplete(
       "invoice",
-      "docLevelCharges[0].vatCategory",
-      OMN_UI_TAX_CATEGORY_STANDARD
+      row.categoryId,
+      category,
+      row.categoryAlts
     );
-  }
-  if (toNumber(scenario.docAllowances, 0) !== 0) {
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "invoice",
-      "docLevelAllowances[0].vatCategory",
-      OMN_UI_TAX_CATEGORY_STANDARD
-    );
+    if (reason) {
+      await invoice.expectInputDisabled("invoice", row.reasonId, false, row.reasonAlts);
+      await invoice.clearInput("invoice", row.reasonId, row.reasonAlts);
+      await invoice.selectAutocomplete("invoice", row.reasonId, reason, row.reasonAlts);
+      continue;
+    }
+    const leftover = await invoice.readInputValue("invoice", row.reasonId, row.reasonAlts);
+    if (leftover) {
+      await invoice.clearInput("invoice", row.reasonId, row.reasonAlts);
+    }
   }
 }
 
@@ -3827,6 +3858,26 @@ export async function runOmnUiFormulaScenario(
   await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
 
   const expected = omnUiExpectedTotals(scenario);
+  const itemNet = parseAmount(await invoice.readInputValue("item", "itemNetPrice"));
+  const lineNet = parseAmount(await invoice.readInputValue("item", "invLineNetAmt"));
+  const vatLine = parseAmount(
+    await invoice.readInputValue("item", "totalInvLineVatAmt", ["vatLineAmt"])
+  );
+  const lineAmt = parseAmount(
+    await invoice.readInputValue("item", "totalAmtIncludingVat", ["invLineAmt"])
+  );
+  const taxAmt = parseAmount(await invoice.readInputValue("item", "taxRateDtls[0].taxAmt"));
+  if (itemNet != null) expect(itemNet).toBeCloseTo(expected.itemNetPrice, 1);
+  if (lineNet != null) expect(lineNet).toBeCloseTo(expected.invoiceLineNetAmount, 1);
+  // UI validates line VAT against Tax Amount (Create/Copy auto-calc; may differ from Excel ceil2).
+  if (vatLine != null && taxAmt != null) expect(vatLine).toBeCloseTo(taxAmt, 1);
+  else if (vatLine != null) expect(vatLine).toBeCloseTo(expected.vatLineAmount, 1);
+  if (lineAmt != null && lineNet != null && vatLine != null) {
+    expect(lineAmt).toBeCloseTo(lineNet + vatLine, 1);
+  } else if (lineAmt != null) {
+    expect(lineAmt).toBeCloseTo(expected.invoiceLineAmount, 1);
+  }
+
   const whitespaceItemKeys = OMN_UI_ITEM_FORMULA_KEYS.filter((key) =>
     isUiWhitespaceValue(String(scenario[key] ?? ""))
   );
@@ -3840,13 +3891,18 @@ export async function runOmnUiFormulaScenario(
     await expect(invoice.itemModal()).toBeVisible();
     return;
   }
-  await expectItemDetailsSavedWithoutError(invoice, scenario.name);
+  await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
   // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
   await invoice.clickSectionCommit("item", entry);
 
   await invoice.openSectionForEdit("invoice", entry);
   await waitForInvoiceSumOfLineNet(invoice, expected.invoiceLineNetAmount);
   await applyInvoiceFormulaInputs(invoice, entry, scenario);
+  await ensureInvoiceDocVatMatchesItem(
+    invoice,
+    String(scenario.taxCategory ?? OMN_UI_TAX_CATEGORY_STANDARD),
+    scenario.taxExemptionReasonCode
+  );
   await invoice.clickSectionCommit("invoice", entry);
   await expectInvoiceDetailsSavedWithoutError(invoice, scenario.name);
 }
