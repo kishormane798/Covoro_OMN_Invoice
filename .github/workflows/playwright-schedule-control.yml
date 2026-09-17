@@ -1,0 +1,69 @@
+# One-click Stop/Start for the next 05:45 IST morning queue in playwright.yml.
+# Stop does not cancel a suite that is already running and does not affect
+# one-off manual Playwright runs (scheduled_wave off).
+name: Oman E-Invoice — Schedule control
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Stop: do not start the next scheduled morning queue until Start. Start: allow the 05:45 IST queue again. Does not cancel a suite that is already running. Does not affect one-off manual Playwright runs."
+        required: true
+        default: stop
+        type: choice
+        options:
+          - stop
+          - start
+
+run-name: ${{ format('Schedule control — {0}', inputs.action) }}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: omn-e-invoice-schedule-control
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Stop or start the next scheduled morning queue
+        env:
+          ACTION: ${{ inputs.action }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          FILE=".github/PLAYWRIGHT_SKIP_SCHEDULE_UNTIL"
+          BRANCH="${GITHUB_REF_NAME}"
+
+          case "$ACTION" in
+            stop)
+              mkdir -p .github
+              printf '%s\n' "manual" > "$FILE"
+              git add "$FILE"
+              if git diff --staged --quiet; then
+                echo "::notice::Already paused until Start (file unchanged)."
+                exit 0
+              fi
+              git commit -m "chore(ci): pause Playwright cron runs until manual resume"
+              ;;
+            start)
+              if [ ! -f "$FILE" ]; then
+                echo "::notice::No pause file — scheduled runs are not paused."
+                exit 0
+              fi
+              git rm "$FILE"
+              git commit -m "chore(ci): resume Playwright scheduled runs"
+              ;;
+            *)
+              echo "::error::Unknown action: $ACTION"
+              exit 1
+              ;;
+          esac
+
+          git push origin "HEAD:${BRANCH}"
