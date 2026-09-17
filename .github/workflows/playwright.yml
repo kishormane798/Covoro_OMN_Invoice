@@ -20,23 +20,17 @@ on:
           - simplified_conditional
           - simplified_submit_single
           - simplified_submit_multi
-          - covoro_ui_copy_1
-          - covoro_ui_copy_2
-          - covoro_ui_conditional_copy_1
-          - covoro_ui_conditional_copy_2
+          - covoro_ui_copy
+          - covoro_ui_conditional_copy
           - covoro_field
           - covoro_formula
           - covoro_conditional
           - covoro_submit_single
           - covoro_submit_multi
-          - covoro_ui_create_1
-          - covoro_ui_create_2
-          - covoro_ui_conditional_create_1
-          - covoro_ui_conditional_create_2
-          - covoro_ui_edit_1
-          - covoro_ui_edit_2
-          - covoro_ui_conditional_edit_1
-          - covoro_ui_conditional_edit_2
+          - covoro_ui_create
+          - covoro_ui_conditional_create
+          - covoro_ui_edit
+          - covoro_ui_conditional_edit
       scheduled_wave:
         description: "Chain the next Simplified Excel or Copy Invoice UI suite after this job (cron and queue-next). Leave off for a one-off manual run (Covoro Excel, UI Create, UI Edit)."
         type: boolean
@@ -124,7 +118,6 @@ jobs:
       mode: ${{ steps.mode.outputs.mode }}
       spec: ${{ steps.plan.outputs.spec }}
       project: ${{ steps.plan.outputs.project }}
-      ui_spec_part: ${{ steps.plan.outputs.ui_spec_part }}
       shard_total: ${{ steps.plan.outputs.shard_total }}
       shard_indices: ${{ steps.plan.outputs.shard_indices }}
       shard_size: ${{ steps.plan.outputs.shard_size }}
@@ -252,17 +245,11 @@ jobs:
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results-full.json
           PW_WORKERS: "5"
-          OMN_UI_SPEC_PART: ${{ needs.resolve.outputs.ui_spec_part }}
         run: |
           SPEC="${{ needs.resolve.outputs.spec }}"
           PROJECT="${{ needs.resolve.outputs.project }}"
-          PART="${{ needs.resolve.outputs.ui_spec_part }}"
           set -e
-          if [ -n "$PART" ]; then
-            echo "Running ${SPEC} --project=${PROJECT} OMN_UI_SPEC_PART=${PART} (half / half)"
-          else
-            echo "Running full suite (no shard) on ${SPEC} --project=${PROJECT}"
-          fi
+          echo "Running full suite (no shard) on ${SPEC} --project=${PROJECT}"
           npx playwright test "$SPEC" --project="$PROJECT"
 
       - name: Report name (matches run name)
@@ -282,18 +269,12 @@ jobs:
             covoro_conditional) LABEL="Covoro conditional validation" ;;
             covoro_submit_single) LABEL="Covoro submit single" ;;
             covoro_submit_multi) LABEL="Covoro submit multi-item" ;;
-            covoro_ui_copy_1) LABEL="UI copy 1" ;;
-            covoro_ui_copy_2) LABEL="UI copy 2" ;;
-            covoro_ui_conditional_copy_1) LABEL="UI conditional copy 1" ;;
-            covoro_ui_conditional_copy_2) LABEL="UI conditional copy 2" ;;
-            covoro_ui_create_1) LABEL="UI create 1" ;;
-            covoro_ui_create_2) LABEL="UI create 2" ;;
-            covoro_ui_conditional_create_1) LABEL="UI conditional create 1" ;;
-            covoro_ui_conditional_create_2) LABEL="UI conditional create 2" ;;
-            covoro_ui_edit_1) LABEL="UI edit 1" ;;
-            covoro_ui_edit_2) LABEL="UI edit 2" ;;
-            covoro_ui_conditional_edit_1) LABEL="UI conditional edit 1" ;;
-            covoro_ui_conditional_edit_2) LABEL="UI conditional edit 2" ;;
+            covoro_ui_copy) LABEL="UI copy" ;;
+            covoro_ui_conditional_copy) LABEL="UI conditional copy" ;;
+            covoro_ui_create) LABEL="UI create" ;;
+            covoro_ui_conditional_create) LABEL="UI conditional create" ;;
+            covoro_ui_edit) LABEL="UI edit" ;;
+            covoro_ui_conditional_edit) LABEL="UI conditional edit" ;;
             *) LABEL="Playwright ${MODE}" ;;
           esac
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
@@ -495,10 +476,8 @@ jobs:
             simplified_conditional
             simplified_submit_single
             simplified_submit_multi
-            covoro_ui_copy_1
-            covoro_ui_copy_2
-            covoro_ui_conditional_copy_1
-            covoro_ui_conditional_copy_2
+            covoro_ui_copy
+            covoro_ui_conditional_copy
           )
           NEXT=""
           for i in "${!SUITES[@]}"; do

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Resolve which Covoro spec CI should run. All suites run as one full job (no Playwright --shard).
-# UI numbered suites reuse the same spec file and set OMN_UI_SPEC_PART (half / half).
+# UI suites run the full spec (no OMN_UI_SPEC_PART split). Legacy *_1 / *_2 names still map to the same spec.
 # Usage: ci_playwright_shard_plan.sh <mode> [ignored_shard_filter]
 set -euo pipefail
 
@@ -8,7 +8,6 @@ MODE="${1:?mode required}"
 
 PROJECT="chromium"
 SPEC=""
-UI_SPEC_PART=""
 
 case "$MODE" in
   covoro_field)
@@ -41,35 +40,29 @@ case "$MODE" in
   simplified_submit_multi)
     SPEC="tests/OMN_SubmitInvoice_MultiItem_SimplifiedTemplate_Test.spec.ts"
     ;;
-  covoro_ui_create_[12])
+  covoro_ui_create|covoro_ui_create_[12])
     SPEC="tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts"
     PROJECT="chromium-ui"
-    UI_SPEC_PART="${MODE##*_}"
     ;;
-  covoro_ui_conditional_create_[12])
+  covoro_ui_conditional_create|covoro_ui_conditional_create_[12])
     SPEC="tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.ts"
     PROJECT="chromium-ui"
-    UI_SPEC_PART="${MODE##*_}"
     ;;
-  covoro_ui_edit_[12])
+  covoro_ui_edit|covoro_ui_edit_[12])
     SPEC="tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts"
     PROJECT="chromium-ui"
-    UI_SPEC_PART="${MODE##*_}"
     ;;
-  covoro_ui_conditional_edit_[12])
+  covoro_ui_conditional_edit|covoro_ui_conditional_edit_[12])
     SPEC="tests/KISHOR_UI/OMN_UIInvoice_Conditional_Edit_Test.spec.ts"
     PROJECT="chromium-ui"
-    UI_SPEC_PART="${MODE##*_}"
     ;;
-  covoro_ui_copy_[12])
+  covoro_ui_copy|covoro_ui_copy_[12])
     SPEC="tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts"
     PROJECT="chromium-ui"
-    UI_SPEC_PART="${MODE##*_}"
     ;;
-  covoro_ui_conditional_copy_[12])
+  covoro_ui_conditional_copy|covoro_ui_conditional_copy_[12])
     SPEC="tests/KISHOR_UI/OMN_UIInvoice_Conditional_Copy_Test.spec.ts"
     PROJECT="chromium-ui"
-    UI_SPEC_PART="${MODE##*_}"
     ;;
   *)
     echo "::error::Unknown suite MODE='$MODE'"
@@ -86,15 +79,10 @@ JOB_TIMEOUT_MINUTES="${PW_CI_FULL_SUITE_TIMEOUT_MINUTES:-240}"
   echo "mode=$MODE"
   echo "spec=$SPEC"
   echo "project=$PROJECT"
-  echo "ui_spec_part=$UI_SPEC_PART"
   echo "shard_total=$SHARD_TOTAL"
   echo "shard_indices=$SHARD_INDICES"
   echo "shard_size=$SHARD_SIZE"
   echo "job_timeout_minutes=$JOB_TIMEOUT_MINUTES"
 } >> "${GITHUB_OUTPUT:?}"
 
-if [ -n "$UI_SPEC_PART" ]; then
-  echo "Suite $MODE → spec $SPEC part ${UI_SPEC_PART}/2, project $PROJECT, timeout ${JOB_TIMEOUT_MINUTES}m"
-else
-  echo "Suite $MODE → spec $SPEC, project $PROJECT, full suite (no shard), timeout ${JOB_TIMEOUT_MINUTES}m"
-fi
+echo "Suite $MODE → spec $SPEC, project $PROJECT, full suite (no shard), timeout ${JOB_TIMEOUT_MINUTES}m"

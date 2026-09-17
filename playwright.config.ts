@@ -2,7 +2,7 @@
  * Playwright project defaults for UAE E-Invoice automation.
  *
  * UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under project `chromium-ui`; other tests use `chromium`.
- * Video is off for Excel/`chromium`. UI/`chromium-ui` keeps video on failure (`retain-on-failure`). Trace is off.
+ * Video is off. Trace is off.
  *
  * Workers: default is 5 so Worker 1…5 maps to TIN 1779700001…5 (`TEST_PARALLEL_INDEX` 0…4). When `CI=true`, default is 1 unless
  * `PW_WORKERS` is set. Override: `PW_WORKERS=1 npx playwright test` or `--workers=1`.
@@ -87,7 +87,7 @@ export default defineConfig({
     {
       name: 'chromium-ui',
       testMatch: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/],
-      use: { ...devices['Desktop Chrome'], channel: 'chrome', video: 'retain-on-failure' },
+      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     },
   ],
 });
