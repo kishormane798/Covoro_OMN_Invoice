@@ -61,24 +61,57 @@ async function isOnAuthenticatedDashboard(page: Page): Promise<boolean> {
     return hasPersistedAuthSession(page);
 }
 
+function isOnBusinessDashboard(page: Page): boolean {
+    const url = page.url();
+    return url.includes('business-dashboard') && !url.includes('/login');
+}
+
+/** SPA often never fires `load` / stalls `domcontentloaded` (~1 min). Commit + bounded wait. */
+const DASHBOARD_GOTO_TIMEOUT_MS = 20_000;
+
+async function settleDashboardDocument(page: Page): Promise<void> {
+    await page.waitForLoadState('domcontentloaded', { timeout: 8_000 }).catch(() => {});
+    await page.waitForLoadState('load', { timeout: 6_000 }).catch(() => {});
+    await page.waitForTimeout(400);
+}
+
+async function gotoBusinessDashboard(page: Page): Promise<void> {
+    await page.goto(buildAppUrl('/business-dashboard'), {
+        waitUntil: 'commit',
+        timeout: DASHBOARD_GOTO_TIMEOUT_MS,
+    });
+    await page
+        .waitForURL(/business-dashboard/, { timeout: DASHBOARD_GOTO_TIMEOUT_MS })
+        .catch(() => {});
+    await settleDashboardDocument(page);
+}
+
 /** Avoid a second `goto` when baseTest already opened business-dashboard (SPA navigation race). */
 async function ensureLoggedIn(page: Page): Promise<void> {
-    const dashboardUrl = buildAppUrl('/business-dashboard');
-
-    const settle = async (): Promise<void> => {
-        await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {});
-        await page.waitForTimeout(400);
-    };
-
-    if (page.url().includes('business-dashboard') && !page.url().includes('/login')) {
-        await settle();
+    if (isOnBusinessDashboard(page)) {
+        await settleDashboardDocument(page);
+        if (await isOnAuthenticatedDashboard(page)) {
+            return;
+        }
+        await page
+            .waitForFunction(
+                () => {
+                    try {
+                        return window.sessionStorage.getItem('persist:root') != null;
+                    } catch {
+                        return false;
+                    }
+                },
+                undefined,
+                { timeout: 8_000 }
+            )
+            .catch(() => {});
         if (await isOnAuthenticatedDashboard(page)) {
             return;
         }
     }
 
-    await page.goto(dashboardUrl, { waitUntil: 'domcontentloaded' });
-    await settle();
+    await gotoBusinessDashboard(page);
     if (await isOnAuthenticatedDashboard(page)) {
         return;
     }
@@ -106,10 +139,7 @@ async function navigateToUpload(
 
     if (await dashboardPage.isTinMissingBannerVisible()) {
       flowLog("UploadHelper", "TIN header missing — relaunching business-dashboard and retrying.");
-      const dashboardUrl = buildAppUrl('/business-dashboard');
-      await page.goto(dashboardUrl, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {});
-      await page.waitForTimeout(400);
+      await gotoBusinessDashboard(page);
       await dashboardPage.openDashboard(dashboardOpenOpts);
     }
 

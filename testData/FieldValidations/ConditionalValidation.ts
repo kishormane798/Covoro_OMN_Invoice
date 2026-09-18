@@ -2949,6 +2949,7 @@ export const VAT_BREAKDOWN_RATE_REQUIRED_SCENARIOS: VatCategoryTaxRateScenario[]
 // ---------------------------------------------------------------------------
 /**
  * IBR-069-OM: E or Z breakdown/line must have exemption reason code.
+ * IBR-CL-05-OM / IBR-CL-10-OM (item): reason type must match Exempt / Zero rated.
  * IBR-070-OM: O must NOT have exemption reason code.
  * ALIGNED-IBRP-S-10-OM: S must not have IBT-121 code or IBT-120 text.
  */
@@ -3012,6 +3013,26 @@ export const VAT_EXEMPTION_REASON_CONDITIONAL_SCENARIOS: VatExemptionReasonScena
       taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
       taxExemptionReasonCode: null,
       taxExemptionReasonText: "Zero rated supply under Oman VAT",
+      taxRate: TAX_RATE_ZERO,
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-CL-05-OM",
+      title:
+        "Given Exempt VAT — When a Zero-rated exemption reason type is used — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
+      taxCategory: EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
+      taxRate: null,
+      shouldError: true,
+      expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,
+    },
+    {
+      ruleId: "IBR-CL-10-OM",
+      title:
+        "Given Zero rated VAT — When an Exempt exemption reason type is used — Then the invoice should be rejected with an error. (IBR-CL-10-OM)",
+      taxCategory: ZERO_RATED_TAX_CATEGORY_CODE,
+      taxExemptionReasonCode: TAX_EXEMPTION_REASON_SAMPLE,
       taxRate: TAX_RATE_ZERO,
       shouldError: true,
       expectedErrorField: TAX_EXEMPTION_REASON_CODE_FIELD,

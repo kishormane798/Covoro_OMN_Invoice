@@ -2,7 +2,7 @@
  * Playwright project defaults for UAE E-Invoice automation.
  *
  * UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under project `chromium-ui`; other tests use `chromium`.
- * Video is off. Trace is off.
+ * Video is retained on failure. Trace is off.
  *
  * Workers: default is 5 so Worker 1…5 maps to TIN 1779700001…5 (`TEST_PARALLEL_INDEX` 0…4). When `CI=true`, default is 1 unless
  * `PW_WORKERS` is set. Override: `PW_WORKERS=1 npx playwright test` or `--workers=1`.
@@ -44,7 +44,7 @@ export default defineConfig({
   // Never fail-fast by default; allow the full suite to run.
   maxFailures: 0,
   forbidOnly: !!process.env.CI,
-  retries: 1,
+  retries: 0,
   workers: resolveWorkerCount(),
   outputDir: 'test-results/',
   reporter: [
@@ -72,7 +72,7 @@ export default defineConfig({
   use: {
     baseURL: resolvedBaseUrl,
     screenshot: 'only-on-failure',
-    video: 'off',
+    video: 'retain-on-failure',
     trace: 'off',
     storageState: 'storageState.json',
   },

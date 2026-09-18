@@ -308,6 +308,7 @@ async function selectDocumentTransactionTypes(
   // Always click-commit Invoice Type. fill() can make inputValue look right
   // while the form still gates txn checkboxes from the previous type.
   await invoice.selectInvoiceType(invoiceType);
+  // BTOM-001: Full Tax or Simplified first, then companions (RCM, Import, Summary, …).
   await invoice.selectTransactionTypes(btom001EnsureBaseTxnLabels(wanted));
 }
 
@@ -2660,7 +2661,33 @@ async function writeAutocomplete(
     await selectDocumentTransactionTypes(invoice, literal);
     return;
   }
+  if (await shouldTypeItemExemptionReasonMismatch(invoice, section, inputId, altInputIds, literal)) {
+    await invoice.replaceInput(section, inputId, literal, altInputIds);
+    await invoice.dismissOpenDropdown();
+    return;
+  }
   await invoice.selectAutocomplete(section, inputId, literal, altInputIds);
+}
+
+/** Wrong-family IBT-121 is not in the #taxExemptionRsnType list for that tax category. */
+async function shouldTypeItemExemptionReasonMismatch(
+  invoice: OMN_UIInvoiceManualPage,
+  section: OmnUiSection,
+  inputId: string,
+  altInputIds: readonly string[],
+  literal: string
+): Promise<boolean> {
+  if (section !== "item") return false;
+  const isReasonType =
+    inputId === "taxExemptionRsnType" ||
+    altInputIds.includes("taxExemptionRsnType") ||
+    altInputIds.includes("exemptionReasonType");
+  if (!isReasonType) return false;
+  const category = await invoice.readInputValue("item", "taxRateDtls[0].taxCategory");
+  return (
+    (isZeroRatedTaxCategory(category) && isExemptExemptionCode(literal)) ||
+    (isExemptTaxCategory(category) && isZeroRatedExemptionCode(literal))
+  );
 }
 
 async function writeDate(
@@ -2760,20 +2787,39 @@ async function applyTxnDocumentCompanions(
   }
 }
 
+function foldInvoiceTypeLabel(invoiceTypeCode?: string): string {
+  return String(invoiceTypeCode ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+/** UI: reason is allowed only for Credit note, Debit note, Self billed credit note. */
 function invoiceTypeRequiresCreditNoteCompanions(invoiceTypeCode?: string): boolean {
-  const value = String(invoiceTypeCode ?? "").trim();
-  if (!value) return false;
-  if ((CN_DN_SELF_BILLED_INVOICE_TYPES as readonly string[]).includes(value)) {
-    return true;
-  }
-  const n = value.toLowerCase().replace(/-/g, " ");
-  return n.includes("credit note") || n.includes("debit note");
+  const n = foldInvoiceTypeLabel(invoiceTypeCode);
+  if (!n) return false;
+  return (CN_DN_SELF_BILLED_INVOICE_TYPES as readonly string[]).some(
+    (label) => foldInvoiceTypeLabel(label) === n
+  );
+}
+
+function creditNoteCompanionsRequired(
+  invoiceType?: string,
+  scenarioType?: string,
+  formType?: string
+): boolean {
+  return (
+    invoiceTypeRequiresCreditNoteCompanions(invoiceType) ||
+    invoiceTypeRequiresCreditNoteCompanions(scenarioType) ||
+    invoiceTypeRequiresCreditNoteCompanions(formType)
+  );
 }
 
 /**
  * Credit note / Debit note / Self billed credit note require reason + preceding
- * invoice ref/UUID/date. IBR-020-OM and other self-billed rows do not set those
- * fields; leave them empty only when the scenario explicitly does.
+ * invoice ref/UUID/date. Other types (including "Debit note related to…") must
+ * leave reason empty — Copy/Edit can keep a leftover value.
  */
 async function applyCreditNoteDocumentCompanions(
   invoice: OMN_UIInvoiceManualPage,
@@ -2782,11 +2828,10 @@ async function applyCreditNoteDocumentCompanions(
   invoiceType?: string
 ): Promise<void> {
   const formType = await invoice.readInputValue("document", "invType");
-  if (
-    !invoiceTypeRequiresCreditNoteCompanions(invoiceType) &&
-    !invoiceTypeRequiresCreditNoteCompanions(scenario.invoiceTypeCode) &&
-    !invoiceTypeRequiresCreditNoteCompanions(formType)
-  ) {
+  if (!creditNoteCompanionsRequired(invoiceType, scenario.invoiceTypeCode, formType)) {
+    if (scenario.creditNoteReasonCode === undefined) {
+      await leaveOrClearEmpty(invoice, entry, "document", "creditNoteRsn", [], "autocomplete");
+    }
     return;
   }
   if (scenario.creditNoteReasonCode === undefined) {
@@ -3264,7 +3309,18 @@ async function applyConditionalSectionFields(
       await invoice.expectInputDisabled("document", "currExchangeRate", false);
       await writeText(invoice, entry, "document", "currExchangeRate", scenario.exchangeRate);
     }
-    await writeAutocomplete(invoice, entry, "document", "creditNoteRsn", scenario.creditNoteReasonCode);
+    if (
+      creditNoteCompanionsRequired(invoiceType, scenario.invoiceTypeCode) ||
+      scenario.creditNoteReasonCode !== undefined
+    ) {
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "document",
+        "creditNoteRsn",
+        scenario.creditNoteReasonCode
+      );
+    }
     await writeText(
       invoice,
       entry,
