@@ -64,27 +64,27 @@ const SUITES = {
     displayName: 'UI — Create Invoice',
     mode: 'scheduled',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceCreation_Manual_Test.spec.ts'],
   },
   ui_edit_invoice: {
     displayName: 'UI — Edit Invoice',
     mode: 'scheduled',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceEdit_Manual_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceEdit_Manual_Test.spec.ts'],
   },
   ui_copy_invoice: {
     displayName: 'UI — Copy Invoice',
     mode: 'scheduled',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceCopy_Manual_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceCopy_Manual_Test.spec.ts'],
   },
   ui_submit_invoice: {
     displayName: 'UI — Submit Invoice',
     mode: 'scheduled',
     project: 'chromium-ui',
     specs: [
-      'tests/KISHOR_UI/OMN_UISubmitInvoice_Test.spec.ts',
-      'tests/KISHOR_UI/OMN_UISubmitInvoice_MultiItem_Test.spec.ts',
+      'tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_Test.spec.ts',
+      'tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_MultiItem_Test.spec.ts',
     ],
   },
   ui_attachment_download: {
@@ -92,8 +92,8 @@ const SUITES = {
     mode: 'scheduled',
     project: 'chromium-ui',
     specs: [
-      'tests/KISHOR_UI/OMN_UIInvoiceEdit_Attachment_Test.spec.ts',
-      'tests/KISHOR_UI/OMN_UIInvoiceFileDownload_Test.spec.ts',
+      'tests/OMAN_UI_SPEC/OMN_UIInvoiceEdit_Attachment_Test.spec.ts',
+      'tests/OMAN_UI_SPEC/OMN_UIInvoiceFileDownload_Test.spec.ts',
     ],
   },
 
@@ -122,13 +122,13 @@ const SUITES = {
     displayName: 'UI — All Specs',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/*.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/*.spec.ts'],
   },
   ui_master: {
     displayName: 'UI — Master Buyer & Item',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIMaster_BuyerAndItem_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIMaster_BuyerAndItem_Test.spec.ts'],
   },
 
   // Individual specs (manual)
@@ -172,49 +172,49 @@ const SUITES = {
     displayName: 'UI Create Invoice',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceCreation_Manual_Test.spec.ts'],
   },
   spec_ui_edit_invoice: {
     displayName: 'UI Edit Invoice',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceEdit_Manual_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceEdit_Manual_Test.spec.ts'],
   },
   spec_ui_copy_invoice: {
     displayName: 'UI Copy Invoice',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceCopy_Manual_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceCopy_Manual_Test.spec.ts'],
   },
   spec_ui_master: {
     displayName: 'UI Master Buyer & Item',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIMaster_BuyerAndItem_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIMaster_BuyerAndItem_Test.spec.ts'],
   },
   spec_ui_submit: {
     displayName: 'UI Submit Invoice',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UISubmitInvoice_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_Test.spec.ts'],
   },
   spec_ui_submit_multi: {
     displayName: 'UI Submit Multi-Item',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UISubmitInvoice_MultiItem_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_MultiItem_Test.spec.ts'],
   },
   spec_ui_attachment: {
     displayName: 'UI Attachment',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceEdit_Attachment_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceEdit_Attachment_Test.spec.ts'],
   },
   spec_ui_file_download: {
     displayName: 'UI File Download',
     mode: 'manual',
     project: 'chromium-ui',
-    specs: ['tests/KISHOR_UI/OMN_UIInvoiceFileDownload_Test.spec.ts'],
+    specs: ['tests/OMAN_UI_SPEC/OMN_UIInvoiceFileDownload_Test.spec.ts'],
   },
 };
 

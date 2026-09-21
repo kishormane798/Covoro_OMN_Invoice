@@ -14,7 +14,7 @@
 
 - Do not run Playwright, Python, npm, tsx, or the catalog generator until the user says **run** / **execute** / **go ahead and run**.
 - Do not commit unless the user explicitly asks.
-- No new Playwright spec files. Do not edit `tests/KISHOR_UI/OMN_UIInvoice_*_Copy_Test.spec.ts`.
+- No new Playwright spec files. Do not edit `tests/OMAN_UI_SPEC/OMN_UIInvoice_*_Copy_Test.spec.ts`.
 - Preceding-invoice conditionals stay Create-only.
 - No per-case `TC-*.xlsx` packs. Do not add the Copy identity case as a catalog row.
 - Output path is gitignored: `testcase/copy_invoice/EINV_OMAN_Copy_FullMatrix.xlsx`.

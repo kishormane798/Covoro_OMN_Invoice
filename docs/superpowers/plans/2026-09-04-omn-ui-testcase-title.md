@@ -15,7 +15,7 @@
 - Forbidden in title body: `Excel upload`, `Covoro`, `error file`, pipe `|`, `→`, bare `field error` after an arrow, IBT numbers
 - Field name or rule id stays at the end in parentheses
 - Do not unroll loop-generated tests into string literals; do not add a new `uiTestTitle` module
-- Do not edit `tests/KISHOR_UI/*.spec.ts`, `ConditionalValidation.ts`, page objects, or `runOmnUi*` behavior
+- Do not edit `tests/OMAN_UI_SPEC/*.spec.ts`, `ConditionalValidation.ts`, page objects, or `runOmnUi*` behavior
 - Do not change `describe()` headings
 - One approved batch: the files listed below
 - Do not commit unless the user explicitly asks
@@ -30,7 +30,7 @@
 | `.cursor/skills/add-ui-invoice-test/SKILL.md` | Stop teaching the old pipe format |
 | `docs/superpowers/specs/2026-09-04-omn-ui-testcase-title-design.md` | Mark Approved after implementation |
 
-Callers of the builders: only `Helpers/ui/omnUiInvoiceSpec.ts` (which the six KISHOR_UI specs import). GitNexus was not ready at plan time; grep confirms no other TS callers.
+Callers of the builders: only `Helpers/ui/omnUiInvoiceSpec.ts` (which the six OMAN_UI_SPEC specs import). GitNexus was not ready at plan time; grep confirms no other TS callers.
 
 ---
 
@@ -160,7 +160,7 @@ Expected examples:
 
 **Interfaces:**
 - Consumes: `omnUiTestTitle`, `omnUiMinMaxWhatEntered`, `omnUiFormulaTestTitle`, `omnUiExcelPartyIdentityTitle`, `omnUiConditionalDisplayTitle`, `omnUiNavigationTestTitle` from Task 1
-- Produces: Playwright test names for all six KISHOR_UI specs (no spec file edits)
+- Produces: Playwright test names for all six OMAN_UI_SPEC specs (no spec file edits)
 
 - [ ] **Step 1: Update imports**
 

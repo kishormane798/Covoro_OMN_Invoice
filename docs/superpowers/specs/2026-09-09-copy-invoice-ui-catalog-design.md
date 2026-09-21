@@ -29,10 +29,10 @@ Two independent tracks:
 
 | Suite | Spec | Data / helper |
 |---|---|---|
-| Field min/max | `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts` | `omnUiFieldRulesForSection` + `runOmnUiMinMaxCase` |
+| Field min/max | `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts` | `omnUiFieldRulesForSection` + `runOmnUiMinMaxCase` |
 | Field catalog | same | `OMN_UI_FIELD_CATALOG` + `runOmnUiFieldCatalogRow` |
 | Formula | same | `OMN_UI_FORMULA_SCENARIOS` + `OMN_UI_FORMULA_CATALOG` |
-| Conditional | `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | `omnUiConditionalScenariosFor("copy", section)` + `runOmnUiConditionalScenario` |
+| Conditional | `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | `omnUiConditionalScenariosFor("copy", section)` + `runOmnUiConditionalScenario` |
 
 Each of those cases still: reuse a dashboard row → Options → Create Copy → Yes → change the field(s) under test → Update (Create uses Save; Copy uses Update).
 

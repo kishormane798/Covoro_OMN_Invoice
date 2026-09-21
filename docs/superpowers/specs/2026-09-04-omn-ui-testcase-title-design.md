@@ -16,12 +16,12 @@ Assertions, locators, helpers, and Excel upload titles do not change.
 
 | Spec | Shape |
 |---|---|
-| `tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts` | describe + min/max, formula, identity loops (`create`, Save) |
-| `tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts` | same (`edit`, Update) |
-| `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts` | same (`copy`, Update) |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.ts` | describe + conditional loops (`create`) |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Edit_Test.spec.ts` | same (`edit`) |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | same (`copy`) |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts` | describe + min/max, formula, identity loops (`create`, Save) |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts` | same (`edit`, Update) |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts` | same (`copy`, Update) |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Create_Test.spec.ts` | describe + conditional loops (`create`) |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Edit_Test.spec.ts` | same (`edit`) |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | same (`copy`) |
 
 Those files contain `test.describe` + data loops + `test(\`title\`, …)` like Covoro Excel specs. Shared `runOmnUi*` helpers stay in `Helpers/ui/`.
 
@@ -96,7 +96,7 @@ Opening the editor should show the invoice form.
 | File | Change |
 |---|---|
 | `testData/ui/omnUiInvoiceValidation.ts` | Scenario data, `omnUiMinMaxWhatEntered`, `omnUiConditionalDisplayTitle` |
-| `tests/KISHOR_UI/OMN_UIInvoice_*_Test.spec.ts` | Covoro-style `test.describe` / loops / title template strings |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_*_Test.spec.ts` | Covoro-style `test.describe` / loops / title template strings |
 | `.cursor/skills/add-ui-invoice-test/SKILL.md` | Replace the pipe title snippet with this recipe so new UI cases do not regress. |
 
 ## Non-goals

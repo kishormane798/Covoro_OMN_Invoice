@@ -14,7 +14,7 @@ Replace the leftover **UAE** Excel-upload submit dataset with an **Oman** multi-
 - Forcing item type to match transaction type (Import of Goods / RCM keep mixed 2+2 lines; failures are accepted)
 - Rewriting `kishorsubmit` / `sanitysubmit` into the new Oman suite
 - Changing `runSubmitInvoiceMultiItemCase` unless a row-shape bug appears
-- UI Create Invoice submit (`tests/KISHOR_UI/`)
+- UI Create Invoice submit (`tests/OMAN_UI_SPEC/`)
 
 ## Matrix
 

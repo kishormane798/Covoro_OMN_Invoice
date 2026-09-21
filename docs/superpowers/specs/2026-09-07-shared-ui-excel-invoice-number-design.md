@@ -58,12 +58,12 @@ Excel generate / submit pipelines already call `buildUniqueSubmitInvoiceNumber()
    - Remove `uniqueKey` from internal and exported helper signatures. It is unused once the Excel generator owns uniqueness.
 
 2. Six UI specs — drop the last `testInfo.testId` argument (TypeScript excess-arg error if exports lose `uniqueKey`):
-   - `tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts`
-   - `tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts`
-   - `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts`
-   - `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.ts`
-   - `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Edit_Test.spec.ts`
-   - `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Copy_Test.spec.ts`
+   - `tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts`
+   - `tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts`
+   - `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts`
+   - `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Create_Test.spec.ts`
+   - `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Edit_Test.spec.ts`
+   - `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Copy_Test.spec.ts`
 
 3. Invoice Issue Date specs — replace `FV.buildDynamicInvoiceNumber(scenario.invoicePrefix)` with `buildUniqueSubmitInvoiceNumber()`:
    - `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts`

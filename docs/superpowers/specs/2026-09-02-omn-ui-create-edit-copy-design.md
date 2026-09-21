@@ -9,7 +9,7 @@ Manual Create Invoice UI coverage for field (min/max), conditional, and formula 
 
 ## Approach
 
-New files under `testData/ui/`, `pageObjects/` (`OMN_UIInvoiceManualPage.ts`), `Helpers/ui/`, and `tests/KISHOR_UI/`. Reuse live `DashboardPage` (open dashboard, Create Invoice, Edit, Copy, validation helper text). Locators are scoped to `section[data-id]` or `[data-testid="modalBody"]`.
+New files under `testData/ui/`, `pageObjects/` (`OMN_UIInvoiceManualPage.ts`), `Helpers/ui/`, and `tests/OMAN_UI_SPEC/`. Reuse live `DashboardPage` (open dashboard, Create Invoice, Edit, Copy, validation helper text). Locators are scoped to `section[data-id]` or `[data-testid="modalBody"]`.
 
 Helpers take `{ entry: "create" | "edit" | "copy" }`. Specs (one concern each):
 

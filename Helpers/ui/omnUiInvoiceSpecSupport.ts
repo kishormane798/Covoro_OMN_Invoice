@@ -7,8 +7,8 @@ import {
   runOmnUiFormulaCatalogRow,
   runOmnUiFormulaScenario,
   runOmnUiMinMaxCase,
-} from "../../Helpers/ui/omnUiInvoiceHelper";
-import { openOmnUiInvoiceEditor } from "../../Helpers/ui/omnUiInvoiceEntryHelper";
+} from "./omnUiInvoiceHelper";
+import { openOmnUiInvoiceEditor } from "./omnUiInvoiceEntryHelper";
 import { OMN_UIInvoiceManualPage } from "../../pageObjects/OMN_UIInvoiceManualPage";
 import {
   OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS,

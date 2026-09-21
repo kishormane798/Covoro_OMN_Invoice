@@ -88,7 +88,7 @@ await runUiInvoiceCreationFormulaScenario(page, scenario);
 
 ```bash
 npm run test:ui
-npx playwright test tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts --grep "Formula"
+npx playwright test tests/OMAN_UI_SPEC/OMN_UIInvoiceCreation_Manual_Test.spec.ts --grep "Formula"
 ```
 
 ## Tax / rounding notes

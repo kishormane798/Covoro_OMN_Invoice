@@ -26,7 +26,7 @@ Every active Excel field, formula, and conditional row appears in the Oman Creat
 3. Create uses **Save**. Edit and Copy use **Update**.
 4. Specs stay thin data loops. No `uiTestTitle` helper.
 5. Do not modify `Helpers/excel/**`, `utils/excel/**`, or the Excel specs.
-6. `tests/KISHOR_UI/OMN_UIInvoice_Attachment_Test.spec.ts` is out of scope.
+6. `tests/OMAN_UI_SPEC/OMN_UIInvoice_Attachment_Test.spec.ts` is out of scope.
 7. Commented-out Excel `describe` blocks (txn mutual-exclusion) stay out until those Excel loops are uncommented.
 8. One Excel `describe` group per agent turn after the title pass. GitNexus `impact` before editing a symbol. Do not run Playwright until the user says **run**.
 
@@ -34,12 +34,12 @@ Every active Excel field, formula, and conditional row appears in the Oman Creat
 
 | Spec | Concern | Entry |
 |---|---|---|
-| `tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts` | field + formula | create |
-| `tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts` | field + formula | edit |
-| `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts` | field + formula | copy |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.ts` | conditional | create |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Edit_Test.spec.ts` | conditional | edit |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | conditional | copy |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts` | field + formula | create |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts` | field + formula | edit |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts` | field + formula | copy |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Create_Test.spec.ts` | conditional | create |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Edit_Test.spec.ts` | conditional | edit |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | conditional | copy |
 
 ## Catalog shape
 

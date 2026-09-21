@@ -85,7 +85,7 @@ pip install -r requirements.txt
 ```bash
 npx playwright test <spec> --grep "fragment" --project=chromium
 # UI:
-npx playwright test tests/KISHOR_UI/OMN_UIInvoiceCreation_Manual_Test.spec.ts --project=chromium-ui --grep "fragment"
+npx playwright test tests/OMAN_UI_SPEC/OMN_UIInvoiceCreation_Manual_Test.spec.ts --project=chromium-ui --grep "fragment"
 ```
 
 Use `--headed` or `--debug` for local reproduction.

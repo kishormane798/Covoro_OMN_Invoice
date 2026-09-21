@@ -27,7 +27,7 @@
 | File | Role |
 |------|------|
 | `Helpers/ui/omnUiInvoiceHelper.ts` | Fill `invNum` with shared generator; remove `uniqueKey` |
-| Six `tests/KISHOR_UI/OMN_UIInvoice_*_Test.spec.ts` | Stop passing `testInfo.testId` |
+| Six `tests/OMAN_UI_SPEC/OMN_UIInvoice_*_Test.spec.ts` | Stop passing `testInfo.testId` |
 | `tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts` | Issue Date unique # via shared generator |
 | `tests/OMN_FieldValidation_SimplifiedTemplate_Test.spec.ts` | Same |
 
@@ -149,12 +149,12 @@ Wait for the user to say **run**. Ready check: helper compiles in the editor (no
 ### Task 2: UI specs stop passing Playwright testId
 
 **Files:**
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts`
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts`
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts`
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.ts`
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Edit_Test.spec.ts`
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Copy_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Create_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Edit_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Copy_Test.spec.ts`
 
 **Interfaces:**
 - Consumes: Task 1 exported `runOmnUi*` signatures without `uniqueKey`
@@ -199,7 +199,7 @@ test(
 
 - [ ] **Step 3: Confirm no leftover testId wiring**
 
-`grep testInfo.testId tests/KISHOR_UI` must return no matches. Opening-editor tests that already use `async ({ page })` stay unchanged.
+`grep testInfo.testId tests/OMAN_UI_SPEC` must return no matches. Opening-editor tests that already use `async ({ page })` stay unchanged.
 
 - [ ] **Step 4: Do not run tests yet**
 
@@ -250,7 +250,7 @@ Leave `generateOmanIssueDateExcel(invoiceNumber, scenario.issueDateValue, scenar
 When the user says **run**, suggested checks (do not start them in this plan):
 
 ```bash
-npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts --project=chromium-ui --grep "Opening the editor"
+npx playwright test tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts --project=chromium-ui --grep "Opening the editor"
 npx playwright test tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts --grep "Invoice Issue Date in correct YYYY-MM-DD"
 ```
 

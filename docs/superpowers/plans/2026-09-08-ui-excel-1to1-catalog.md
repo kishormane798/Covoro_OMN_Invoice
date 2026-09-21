@@ -15,7 +15,7 @@
 - Create uses **Save**. Edit and Copy use **Update**.
 - Specs stay thin data loops. No `uiTestTitle` helper.
 - Do not modify `Helpers/excel/**`, `utils/excel/**`, or the Excel specs.
-- `tests/KISHOR_UI/OMN_UIInvoice_Attachment_Test.spec.ts` is out of scope.
+- `tests/OMAN_UI_SPEC/OMN_UIInvoice_Attachment_Test.spec.ts` is out of scope.
 - Commented-out Excel `describe` blocks (txn mutual-exclusion IBR-138–149) stay out.
 - Do not replay full HS / UOM / currency master lists on the form.
 - Do **not** convert Excel **Dropdown — invalid values** or **Format / context fields — VATIN, UUID, rate, FX, profit margin**. Those stay `mode: "skip"`. Task 12 stays cancelled. Convert **Dropdown — invalid tax exemption reason (charges/allowances companions)** (user restored).
@@ -28,12 +28,12 @@
 | File | Responsibility |
 |---|---|
 | `testData/ui/omnUiInvoiceValidation.ts` | Title builders, catalog types, field/formula/conditional catalog rows |
-| `tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts` | Create field + formula loops |
-| `tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts` | Edit field + formula loops |
-| `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts` | Copy field + formula loops |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.ts` | Create conditional loops |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Edit_Test.spec.ts` | Edit conditional loops |
-| `tests/KISHOR_UI/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | Copy conditional loops |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts` | Create field + formula loops |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts` | Edit field + formula loops |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts` | Copy field + formula loops |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Create_Test.spec.ts` | Create conditional loops |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Edit_Test.spec.ts` | Edit conditional loops |
+| `tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Copy_Test.spec.ts` | Copy conditional loops |
 | `Helpers/ui/omnUiInvoiceHelper.ts` | `runOmnUi*` select/type runners |
 | `pageObjects/OMN_UIInvoiceManualPage.ts` | Locators only, after snapshot/MCP |
 | `docs/superpowers/specs/2026-09-08-ui-excel-1to1-catalog-design.md` | Approved spec (already committed) |
@@ -127,9 +127,9 @@ Wait until the user says **run**. This task is types only.
 
 **Files:**
 - Modify: `testData/ui/omnUiInvoiceValidation.ts` (`omnUiMinMaxWhatEntered` ~686–702, `omnUiConditionalDisplayTitle` ~1668–1683)
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts` (min/max + formula `test(` titles)
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts` (same)
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts` (same)
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts` (min/max + formula `test(` titles)
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts` (same)
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts` (same)
 
 **Interfaces:**
 - Consumes: `OmnUiEntry`, `OmnUiMinMaxVariant`, `OmnUiFieldRule`, `omnUiMinMaxExpectsError`
@@ -241,7 +241,7 @@ Import `omnUiMinMaxDisplayTitle` and `omnUiFormulaDisplayTitle`. Remove the inli
 - [ ] **Step 4: Verify titles (only after the user says run)**
 
 ```bash
-npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts --list
+npx playwright test tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts --list
 ```
 
 Expected: min/max names like `Invoice Number at minimum length (1 character) — Save should succeed. (Invoice Number)`; formula names like `Given Base Minimum values — When calculated totals match — Then Save should succeed. (Base Minimum values)`. No `Excel upload`, pipes, or `error file`.
@@ -252,9 +252,9 @@ Expected: min/max names like `Invoice Number at minimum length (1 character) —
 
 **Files:**
 - Modify: `testData/ui/omnUiInvoiceValidation.ts` (add `OMN_UI_FIELD_CATALOG_GROUPS` + `OMN_UI_FIELD_CATALOG`)
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts`
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Edit_Test.spec.ts`
-- Modify: `tests/KISHOR_UI/OMN_UIInvoice_Copy_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts`
+- Modify: `tests/OMAN_UI_SPEC/OMN_UIInvoice_Copy_Test.spec.ts`
 - Modify: `Helpers/ui/omnUiInvoiceHelper.ts` (add `runOmnUiFieldCatalogRow` that throws if `kind !== "pending"` and mode is run; skip is handled in the spec)
 
 **Interfaces:**
@@ -430,7 +430,7 @@ Edit/Copy: same with their `ENTRY`. Import `OMN_UI_FIELD_CATALOG_GROUPS`, `OMN_U
 - [ ] **Step 4: List tests only after the user says run**
 
 ```bash
-npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts --list
+npx playwright test tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts --list
 ```
 
 Expected: each `OMN_UI_FIELD_CATALOG_GROUPS` name appears; skipped tests still listed.
@@ -699,7 +699,7 @@ if (row.kind === "issueDate") {
 - [ ] **Step 4: Run only after the user says run**
 
 ```bash
-npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Create_Test.spec.ts --grep "Invoice Issue Date"
+npx playwright test tests/OMAN_UI_SPEC/OMN_UIInvoice_Create_Test.spec.ts --grep "Invoice Issue Date"
 ```
 
 ---
@@ -880,7 +880,7 @@ Each of these turns must:
 - [ ] **After each turn, run only if the user says run:**
 
 ```bash
-npx playwright test tests/KISHOR_UI/OMN_UIInvoice_Conditional_Create_Test.spec.ts --grep "{ruleId}"
+npx playwright test tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Create_Test.spec.ts --grep "{ruleId}"
 ```
 
 ---

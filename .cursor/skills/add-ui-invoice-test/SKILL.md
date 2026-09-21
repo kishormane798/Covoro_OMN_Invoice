@@ -16,7 +16,7 @@ description: Add Create Invoice UI tests (manual form, not Excel upload). Use wh
 - Specs (one file per entry; CI splits at runtime with `OMN_UI_SPEC_PART=1|2`, half / half):
   - Field min/max (no dropdowns) + formula: `OMN_UIInvoice_{Create,Edit,Copy}_Test.spec.ts`
   - Conditional (including dropdown-style; all Excel rows, one test each): `OMN_UIInvoice_Conditional_{Create,Edit,Copy}_Test.spec.ts`
-  - Loops live in `omnUiInvoiceSpecSupport.ts` + `testData/ui/omnUiInvoiceSpecParts.ts`. Do not add `_1/_2` spec files.
+  - Loops live in `Helpers/ui/omnUiInvoiceSpecSupport.ts` + `testData/ui/omnUiInvoiceSpecParts.ts`. Do not add `_1/_2` spec files.
 
 ```bash
 npm run test:ui
@@ -28,7 +28,7 @@ npm run test:ui
 |---------|----------|
 | Locators & UI actions | `pageObjects/OMN_UIInvoiceManualPage.ts` |
 | Flow orchestration | `Helpers/ui/omnUiInvoiceHelper.ts`, `omnUiInvoiceEntryHelper.ts` |
-| Specs (describe, loops, titles) | `tests/KISHOR_UI/OMN_UIInvoice_*_Test.spec.ts` |
+| Specs (describe, loops, titles) | `tests/OMAN_UI_SPEC/OMN_UIInvoice_*_Test.spec.ts` (loops in `Helpers/ui/omnUiInvoiceSpecSupport.ts`) |
 | Min/max + mapped conditionals | `testData/ui/omnUiInvoiceValidation.ts` |
 | Conditional rules source | `testData/FieldValidations/ConditionalValidation.ts` |
 
@@ -51,7 +51,7 @@ New UI interaction logic goes in the **page object**, not the spec. Specs call `
 Same shape as Covoro Excel specs. One spec file per entry; CI sets `OMN_UI_SPEC_PART`:
 
 ```ts
-import { registerOmnUiConditionalSpec } from "./omnUiInvoiceSpecSupport";
+import { registerOmnUiConditionalSpec } from "../../Helpers/ui/omnUiInvoiceSpecSupport";
 
 registerOmnUiConditionalSpec("create");
 ```
