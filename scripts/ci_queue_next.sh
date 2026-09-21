@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Resolve the next Playwright suite for CI queue-next.
 # Usage: ci_queue_next.sh <CURRENT> <WAVE>
-# WAVE=true: cron / Copy with scheduled_wave — Copy → Conditional Copy → Simplified field → formula → conditional.
+# WAVE=true: cron / Copy with scheduled_wave — Copy → Conditional Copy → Edit → Simplified field → formula → conditional.
 # Otherwise: family pair only (Create/Edit/Covoro/Simplified/Copy pair). Submit and unknown → empty next.
 set -euo pipefail
 
@@ -13,7 +13,8 @@ DISPATCH_WAVE="false"
 cron_next() {
   case "$1" in
     covoro_ui_copy) echo "covoro_ui_conditional_copy" ;;
-    covoro_ui_conditional_copy) echo "simplified_field" ;;
+    covoro_ui_conditional_copy) echo "covoro_ui_edit" ;;
+    covoro_ui_edit) echo "simplified_field" ;;
     simplified_field) echo "simplified_formula" ;;
     simplified_formula) echo "simplified_conditional" ;;
     *) echo "" ;;

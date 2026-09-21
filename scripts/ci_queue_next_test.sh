@@ -20,7 +20,8 @@ expect() {
 }
 
 expect covoro_ui_copy true covoro_ui_conditional_copy true
-expect covoro_ui_conditional_copy true simplified_field true
+expect covoro_ui_conditional_copy true covoro_ui_edit true
+expect covoro_ui_edit true simplified_field true
 expect simplified_field true simplified_formula true
 expect simplified_formula true simplified_conditional true
 expect simplified_conditional true "" false
@@ -30,7 +31,6 @@ expect covoro_ui_create false covoro_ui_conditional_create false
 expect covoro_ui_create true covoro_ui_conditional_create false
 expect covoro_ui_conditional_create false "" false
 expect covoro_ui_edit false covoro_ui_conditional_edit false
-expect covoro_ui_edit true covoro_ui_conditional_edit false
 expect covoro_field false covoro_formula false
 expect covoro_formula false covoro_conditional false
 expect covoro_conditional false "" false
