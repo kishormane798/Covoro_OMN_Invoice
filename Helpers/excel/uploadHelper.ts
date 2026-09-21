@@ -66,13 +66,23 @@ function isOnBusinessDashboard(page: Page): boolean {
     return url.includes('business-dashboard') && !url.includes('/login');
 }
 
-/** SPA often never fires `load` / stalls `domcontentloaded` (~1 min). Commit + bounded wait. */
+/** Navigation budget only. Do not wait for document `load` — this SPA often never fires it (~1 min blank). */
 const DASHBOARD_GOTO_TIMEOUT_MS = 20_000;
 
 async function settleDashboardDocument(page: Page): Promise<void> {
-    await page.waitForLoadState('domcontentloaded', { timeout: 8_000 }).catch(() => {});
-    await page.waitForLoadState('load', { timeout: 6_000 }).catch(() => {});
-    await page.waitForTimeout(400);
+    await page
+        .waitForFunction(
+            () => {
+                try {
+                    return window.sessionStorage.getItem('persist:root') != null;
+                } catch {
+                    return false;
+                }
+            },
+            undefined,
+            { timeout: 5_000 }
+        )
+        .catch(() => {});
 }
 
 async function gotoBusinessDashboard(page: Page): Promise<void> {
@@ -80,9 +90,14 @@ async function gotoBusinessDashboard(page: Page): Promise<void> {
         waitUntil: 'commit',
         timeout: DASHBOARD_GOTO_TIMEOUT_MS,
     });
-    await page
-        .waitForURL(/business-dashboard/, { timeout: DASHBOARD_GOTO_TIMEOUT_MS })
-        .catch(() => {});
+    if (!page.url().includes('business-dashboard')) {
+        await page
+            .waitForURL(/business-dashboard/, {
+                timeout: DASHBOARD_GOTO_TIMEOUT_MS,
+                waitUntil: 'commit',
+            })
+            .catch(() => {});
+    }
     await settleDashboardDocument(page);
 }
 

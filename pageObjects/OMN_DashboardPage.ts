@@ -616,11 +616,11 @@ export class DashboardPage {
     const timeout = Math.min(maxWaitMs, 25_000);
     const relaunchDashboardAndRestoreTin = async () => {
       await this.page.goto(this.buildAppUrl("/business-dashboard"), {
-        waitUntil: "domcontentloaded",
+        waitUntil: "commit",
+        timeout: 20_000,
       });
-      await this.page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
-      await this.waitForDashboardStability(12_000);
-      await this.dismissLatestUpdateModalIfPresent({ waitMs: 2_500 });
+      await this.waitForDashboardStability(90_000);
+      await this.dismissLatestUpdateModalIfPresent({ waitMs: 800 });
       const tinToRestore = pageContextBusinessTin.get(this.page);
       if (tinToRestore) {
         await this.selectBusinessCardByTin(tinToRestore);
@@ -676,9 +676,18 @@ export class DashboardPage {
     this.page.getByTestId("product-header").filter({ hasText: "My Business" }).first();
 
   private async waitForDashboardStability(timeoutMs = 10_000) {
-    await this.page.waitForLoadState("domcontentloaded", { timeout: timeoutMs }).catch(() => {});
-    await this.page.waitForLoadState("load", { timeout: timeoutMs }).catch(() => {});
-    await this.page.waitForTimeout(300);
+    await this.dashboardReadyLocator()
+      .first()
+      .waitFor({ state: "visible", timeout: timeoutMs })
+      .catch(() => {});
+  }
+
+  /** Upload shell, My Business header, or Go to E-Invoicing / View Dashboard. */
+  private dashboardReadyLocator(): Locator {
+    return this.uploadInvoiceTrigger()
+      .or(this.productHeader())
+      .or(this.goToEInvoicingButton())
+      .or(this.page.getByRole("button", { name: /view dashboard/i }));
   }
 
     private async isDashboardShellVisible(): Promise<boolean> {
@@ -712,25 +721,15 @@ export class DashboardPage {
 
     private async refreshIfDashboardBlank() {
     if (await this.isDashboardShellVisible()) return;
-
-    const looksBlank = await this.evaluateBlankDashboard();
-    if (!looksBlank) return;
-
-    await this.page.waitForTimeout(1000);
-    if (await this.isDashboardShellVisible()) return;
-    const stillBlank = await this.evaluateBlankDashboard();
-    if (!stillBlank) return;
+    if (!(await this.evaluateBlankDashboard())) return;
 
     const dashboardUrl = this.buildAppUrl("/business-dashboard");
-    await this.page.reload({ waitUntil: "domcontentloaded" });
-    await this.waitForDashboardStability(12_000);
-    await this.page.waitForTimeout(600);
+    await this.page.reload({ waitUntil: "commit", timeout: 20_000 });
+    await this.waitForDashboardStability(90_000);
     if (await this.isDashboardShellVisible()) return;
 
-    await this.page.goto(dashboardUrl, { waitUntil: "domcontentloaded" });
-    await this.page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(400);
-    await this.waitForDashboardStability(12_000);
+    await this.page.goto(dashboardUrl, { waitUntil: "commit", timeout: 20_000 });
+    await this.waitForDashboardStability(90_000);
   }
 
   /**
@@ -845,14 +844,13 @@ export class DashboardPage {
 
     if (!this.isBusinessDashboardPath()) {
       await this.page.goto(this.buildAppUrl("/business-dashboard"), {
-        waitUntil: "domcontentloaded",
+        waitUntil: "commit",
+        timeout: 20_000,
       });
-      await this.page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
-      await this.page.waitForTimeout(400);
     }
 
-    await this.waitForDashboardStability(12_000);
-    await this.dismissLatestUpdateModalIfPresent({ waitMs: 2_500 });
+    await this.waitForDashboardStability(90_000);
+    await this.dismissLatestUpdateModalIfPresent({ waitMs: 800 });
     await this.refreshIfDashboardBlank();
     await this.dismissLatestUpdateModalIfPresent();
 
