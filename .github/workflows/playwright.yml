@@ -1,5 +1,6 @@
-# Cron 05:45 IST chains Simplified Excel then Copy Invoice UI (incl. Conditional Copy).
-# Covoro Excel, UI Create, and UI Edit: Manual Run only (scheduled_wave off).
+# Cron 05:45 IST: Copy UI → Conditional Copy → Simplified field → formula → conditional.
+# Manual Run: Create → Conditional Create; Edit → Conditional Edit; Covoro field → formula → conditional
+# (same for Simplified Excel). Copy without scheduled_wave stops after Conditional Copy.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
 name: Oman E-Invoice — Playwright
 
@@ -12,16 +13,14 @@ on:
       suite:
         description: "Automation suite to run (full spec, no shard)."
         required: true
-        default: "simplified_field"
+        default: "covoro_ui_copy"
         type: choice
         options:
+          - covoro_ui_copy
+          - covoro_ui_conditional_copy
           - simplified_field
           - simplified_formula
           - simplified_conditional
-          - simplified_submit_single
-          - simplified_submit_multi
-          - covoro_ui_copy
-          - covoro_ui_conditional_copy
           - covoro_field
           - covoro_formula
           - covoro_conditional
@@ -32,17 +31,15 @@ on:
           - covoro_ui_edit
           - covoro_ui_conditional_edit
       scheduled_wave:
-        description: "Chain the next Simplified Excel or Copy Invoice UI suite after this job (cron and queue-next). Leave off for a one-off manual run (Covoro Excel, UI Create, UI Edit)."
+        description: "On Copy: continue into Simplified Excel after Conditional Copy (cron does this). Leave off for Copy pair only. Create/Edit/Covoro/Simplified always chain their own family."
         type: boolean
         required: false
         default: false
 
 run-name: >-
-  ${{ github.event_name == 'schedule' && 'Scheduled Simplified field validation'
+  ${{ github.event_name == 'schedule' && 'Scheduled Copy then Simplified'
       || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
-      || github.event.inputs.suite == 'simplified_submit_single' && 'Simplified submit single'
-      || github.event.inputs.suite == 'simplified_submit_multi' && 'Simplified submit multi-item'
       || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'
       || github.event.inputs.suite == 'covoro_field' && 'Covoro field validation'
       || github.event.inputs.suite == 'covoro_formula' && 'Covoro formula validation'
@@ -50,7 +47,7 @@ run-name: >-
       || github.event.inputs.suite == 'covoro_submit_single' && 'Covoro submit single'
       || github.event.inputs.suite == 'covoro_submit_multi' && 'Covoro submit multi-item'
       || startsWith(github.event.inputs.suite, 'covoro_ui_') && github.event.inputs.suite
-      || 'Simplified field validation' }}
+      || 'Copy Invoice UI' }}
 
 concurrency:
   group: omn-e-invoice-playwright
@@ -131,7 +128,7 @@ jobs:
         run: |
           MODE="${{ github.event.inputs.suite }}"
           if [ "${{ github.event_name }}" = "schedule" ] || [ -z "$MODE" ]; then
-            MODE="simplified_field"
+            MODE="covoro_ui_copy"
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "Running MODE=$MODE (full spec, no shard)"
@@ -455,47 +452,36 @@ jobs:
       && needs.should_run.outputs.skip != 'true'
       && needs.resolve.result == 'success'
       && needs.test.result != 'cancelled'
-      && (github.event_name == 'schedule' || github.event.inputs.scheduled_wave == 'true')
     runs-on: ubuntu-latest
     permissions:
       actions: write
       contents: read
     steps:
-      - name: Dispatch next Simplified / Copy suite
+      - uses: actions/checkout@v5
+      - name: Dispatch next suite
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           CURRENT: ${{ needs.resolve.outputs.mode }}
           REF: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_WAVE: ${{ github.event.inputs.scheduled_wave }}
         shell: bash
         run: |
           set -euo pipefail
-          SUITES=(
-            simplified_field
-            simplified_formula
-            simplified_conditional
-            simplified_submit_single
-            simplified_submit_multi
-            covoro_ui_copy
-            covoro_ui_conditional_copy
-          )
-          NEXT=""
-          for i in "${!SUITES[@]}"; do
-            if [ "${SUITES[$i]}" = "$CURRENT" ]; then
-              n=$((i + 1))
-              if [ "$n" -lt "${#SUITES[@]}" ]; then
-                NEXT="${SUITES[$n]}"
-              fi
-              break
-            fi
-          done
+          WAVE=false
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$INPUT_WAVE" = "true" ]; then
+            WAVE=true
+          fi
+          MAP="$(bash scripts/ci_queue_next.sh "$CURRENT" "$WAVE")"
+          NEXT="$(printf '%s\n' "$MAP" | awk -F= '/^next=/{print substr($0,6)}')"
+          DISPATCH_WAVE="$(printf '%s\n' "$MAP" | awk -F= '/^dispatch_wave=/{print substr($0,15)}')"
           if [ -z "$NEXT" ]; then
-            echo "Scheduled wave complete after ${CURRENT}."
+            echo "Queue complete after ${CURRENT} (wave=${WAVE})."
             exit 0
           fi
-          echo "queue-next: ${CURRENT} → ${NEXT} (ref ${REF})"
-          # No checkout on this job — gh must not infer the repo from git.
+          echo "queue-next: ${CURRENT} → ${NEXT} dispatch_wave=${DISPATCH_WAVE} (ref ${REF})"
           gh workflow run playwright.yml --repo "$GH_REPO" --ref "$REF" \
             -f suite="$NEXT" \
-            -f scheduled_wave=true
+            -f scheduled_wave="$DISPATCH_WAVE"
 

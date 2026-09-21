@@ -1023,6 +1023,10 @@ async function getOrCreateBaseWorkbook(
 
   const generated = await generateInvoiceFromSubmitData(overlaid);
   const headers = await getCachedInvoiceTemplateHeaders();
+  const simplified = isSimplifiedTemplateEnv();
+  const buyerElectronic = simplified
+    ? SIMPLIFIED_BUYER_ELECTRONIC
+    : OMAN_BUYER_ELECTRONIC;
   // Force OM identity on base (writer/worker identity can leave buyer electronic without OM).
   patchIdentityIfOnTemplate(
     generated.filePath,
@@ -1052,7 +1056,7 @@ async function getOrCreateBaseWorkbook(
     generated.filePath,
     headers,
     "Buyer Electronic Address",
-    OMAN_BUYER_ELECTRONIC
+    buyerElectronic
   );
   patchIdentityIfOnTemplate(
     generated.filePath,
@@ -1448,9 +1452,9 @@ export function writePackReadme(
     "## Regenerate",
     "",
     "```bash",
-    "npx tsx scripts/generate_field_validation_oman_excels.ts --section \"DOCUMENT DETAILS\"",
-    "npx tsx scripts/generate_field_validation_oman_excels.ts --all",
-    "npx tsx scripts/generate_dropdown_field_packs.ts",
+    "npx tsx local/excel-packs/generate_field_validation_oman_excels.ts --section \"DOCUMENT DETAILS\"",
+    "npx tsx local/excel-packs/generate_field_validation_oman_excels.ts --all",
+    "npx tsx local/excel-packs/generate_dropdown_field_packs.ts",
     "```",
     "",
     "## Summary",

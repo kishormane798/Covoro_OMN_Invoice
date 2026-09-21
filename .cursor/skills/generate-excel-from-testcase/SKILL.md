@@ -98,7 +98,7 @@ Register path via returned `filePath`; generators push to `generatedFiles` for `
 Standalone script pattern (already used in repo):
 
 ```bash
-npx ts-node scripts/generate_valid_oman_invoice.ts
+npx tsx local/excel-packs/generate_valid_oman_invoice.ts
 ```
 
 Or run the single Playwright case that uploads the generated file:

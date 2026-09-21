@@ -28,7 +28,10 @@ import {
   OMAN_BUYER_VAT,
 } from "./fieldValidationExcelPackHelper";
 import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
-import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
+import {
+  isSimplifiedTemplateEnv,
+  SIMPLIFIED_BUYER_ELECTRONIC,
+} from "./simplifiedTemplateContext";
 import {
   taxExemptionReasonExemptValidTestData,
   taxExemptionReasonZeroRatedValidTestData,
@@ -694,6 +697,12 @@ const FORMULA_CAMEL_TO_HEADER: Record<string, string> = {
 const BUYER_VAT_FIELD = "Buyer VAT identifier";
 const BUYER_EL_FIELD = "Buyer electronic address";
 
+function buyerElectronicForTemplate(): string {
+  return isSimplifiedTemplateEnv()
+    ? SIMPLIFIED_BUYER_ELECTRONIC
+    : OMAN_BUYER_ELECTRONIC;
+}
+
 /** Full Tax stamps Buyer VAT after generate; Simplified has no TRN column. */
 function patchBuyerIdentityAfterGenerate(
   filePath: string,
@@ -705,7 +714,7 @@ function patchBuyerIdentityAfterGenerate(
   patchInvoiceTextCellInFile(
     filePath,
     BUYER_EL_FIELD,
-    OMAN_BUYER_ELECTRONIC,
+    buyerElectronicForTemplate(),
     dataRow
   );
 }
@@ -785,7 +794,7 @@ export function buildFormulaSubmitRow(
     if (!isSimplifiedTemplateEnv()) {
       identified[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
     }
-    identified[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+    identified[BUYER_EL_FIELD] = buyerElectronicForTemplate();
   }
   // Re-apply formula inputs after identity so discount/qty/rate feed generate totals.
   // Then fill Profit Margin companions (overlay only has camelCase formula keys).
@@ -1077,7 +1086,7 @@ function buildE08OmSubmitRow(
   let row = overlayHeaderValues(asStringRow(companions), amountOverlay);
   row = applyParallelWorkerIdentityToSubmitRow(row);
   row[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  row[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  row[BUYER_EL_FIELD] = buyerElectronicForTemplate();
   row[FV.TAX_CATEGORY_FIELD] = FV.EXEMPT_FROM_TAX_TAX_CATEGORY_CODE;
   row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
   row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = FV.TAX_EXEMPTION_REASON_SAMPLE;
@@ -1359,7 +1368,7 @@ function buildO08OmSubmitRow(
   let row = overlayHeaderValues(asStringRow(companions), amountOverlay);
   row = applyParallelWorkerIdentityToSubmitRow(row);
   row[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  row[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  row[BUYER_EL_FIELD] = buyerElectronicForTemplate();
   row[FV.TAX_CATEGORY_FIELD] = FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE;
   row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = "";
   row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] = "";
@@ -1733,7 +1742,7 @@ function buildZ08OmSubmitRow(
   let row = overlayHeaderValues(asStringRow(companions), amountOverlay);
   row = applyParallelWorkerIdentityToSubmitRow(row);
   row[BUYER_VAT_FIELD] = OMAN_BUYER_VAT;
-  row[BUYER_EL_FIELD] = OMAN_BUYER_ELECTRONIC;
+  row[BUYER_EL_FIELD] = buyerElectronicForTemplate();
   row[FV.TAX_CATEGORY_FIELD] = FV.ZERO_RATED_TAX_CATEGORY_CODE;
   row[FV.INVOICED_ITEM_TAX_RATE_FIELD] = FV.TAX_RATE_ZERO;
   row[FV.TAX_EXEMPTION_REASON_CODE_FIELD] =

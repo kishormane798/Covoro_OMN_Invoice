@@ -41,4 +41,4 @@ Not generators — readers after download:
 | Field validation helpers / specs | `updateExcelField*` |
 | `Helpers/excel/submitInvoiceCaseHelper.ts` | `generateInvoiceFromSubmitData` / `FromSubmitRows` |
 | `Helpers/excel/conditionalValidationSpecHelpers.ts` | `generateInvoiceFromSubmitData` after prepare |
-| `scripts/generate_valid_oman_invoice.ts` | `generateInvoiceFromSubmitData` |
+| `local/excel-packs/generate_valid_oman_invoice.ts` | `generateInvoiceFromSubmitData` |

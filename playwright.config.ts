@@ -1,8 +1,10 @@
 /**
  * Playwright project defaults for UAE E-Invoice automation.
  *
- * UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under project `chromium-ui`; other tests use `chromium`.
- * Video is retained on failure. Trace is off.
+ * Default local run (`npx playwright test` / `npm test`): Simplified Template **field**, **formula**, and
+ * **conditional** specs only (`chromium`). On `CI=true`, `chromium` runs any non-UI spec (explicit path from GitHub Actions).
+ * UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under project `chromium-ui`.
+ * Video is off. Trace is off.
  *
  * Workers: default is 5 so Worker 1…5 maps to TIN 1779700001…5 (`TEST_PARALLEL_INDEX` 0…4). When `CI=true`, default is 1 unless
  * `PW_WORKERS` is set. Override: `PW_WORKERS=1 npx playwright test` or `--workers=1`.
@@ -72,7 +74,7 @@ export default defineConfig({
   use: {
     baseURL: resolvedBaseUrl,
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'off',
     trace: 'off',
     storageState: 'storageState.json',
   },
@@ -81,7 +83,16 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/, /previous-code/],
+      ...(process.env.CI
+        ? { testIgnore: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/, /previous-code/] }
+        : {
+            testMatch: [
+              /OMN_FieldValidation_SimplifiedTemplate_Test\.spec\.ts$/,
+              /OMN_FormulaValidation_SimplifiedTemplate_Test\.spec\.ts$/,
+              /OMN_ConditionalValidation_SimplifiedTemplate_Test\.spec\.ts$/,
+            ],
+            testIgnore: [/previous-code/],
+          }),
       use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     },
     {

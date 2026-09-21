@@ -35,7 +35,10 @@ import {
   applyInvoiceCalculationsToFile,
 } from "../../utils/excel/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
-import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
+import {
+  isSimplifiedTemplateEnv,
+  SIMPLIFIED_BUYER_ELECTRONIC,
+} from "./simplifiedTemplateContext";
 import { runPythonForStdout } from "../../utils/pythonRunner";
 
 export type ConditionalMatrixCase = {
@@ -1497,7 +1500,9 @@ async function getOrCreateConditionalBase(
   patchInvoiceTextCellInFile(
     generated.filePath,
     "Buyer Electronic Address",
-    OMAN_BUYER_ELECTRONIC
+    isSimplifiedTemplateEnv()
+      ? SIMPLIFIED_BUYER_ELECTRONIC
+      : OMAN_BUYER_ELECTRONIC
   );
   patchInvoiceTextCellInFile(
     generated.filePath,
@@ -2006,8 +2011,8 @@ export function writeConditionalPackReadme(
     "## Regenerate",
     "",
     "```bash",
-    "npx tsx scripts/generate_conditional_validation_oman_excels.ts --all",
-    "npx tsx scripts/generate_conditional_validation_oman_excels.ts --rule ALIGNED-IBRP-028-OM",
+    "npx tsx local/excel-packs/generate_conditional_validation_oman_excels.ts --all",
+    "npx tsx local/excel-packs/generate_conditional_validation_oman_excels.ts --rule ALIGNED-IBRP-028-OM",
     "```",
     "",
     "## Summary",

@@ -94,13 +94,11 @@ temp/
 /playwright/.cache/
 /playwright/.auth/
 
-# Local one-off data generation scripts (not framework code)
+# Local one-off data generation (Excel packs, bulk submit, audit CLIs)
+/local/
+
+# Local one-off Covoro batch extras (not framework code)
 /scripts/covoro_batch/
-/scripts/generate_bulk_submit_single_line.py
-/scripts/generate_bulk_submit_multiline.py
-/scripts/generate_bulk_submit_invoices.py
-/scripts/generate_one_invoice_1000_items.py
-/scripts/prepare_parallel_perf_excels.py
 
 # Local-only Playwright specs (not part of shared suite)
 /tests/KishorLocal/
