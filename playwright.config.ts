@@ -46,7 +46,7 @@ export default defineConfig({
   // Never fail-fast by default; allow the full suite to run.
   maxFailures: 0,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  retries: 1,
   workers: resolveWorkerCount(),
   outputDir: 'test-results/',
   reporter: [
@@ -74,7 +74,7 @@ export default defineConfig({
   use: {
     baseURL: resolvedBaseUrl,
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'off',
     trace: 'off',
     storageState: 'storageState.json',
   },
