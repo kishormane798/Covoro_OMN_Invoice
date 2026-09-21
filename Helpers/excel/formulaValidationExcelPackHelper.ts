@@ -523,7 +523,7 @@ function multiItemWorkedCorrect(
   }
   if (isForeignCurrency(tc) && key.includes("tax accounting currency")) {
     const tax = doc["invoice total tax amount"] ?? 95;
-    return Number((tax * DEFAULT_FOREIGN_EXCHANGE_RATE).toFixed(2));
+    return Math.ceil(tax * DEFAULT_FOREIGN_EXCHANGE_RATE * 1000 - 1e-12) / 1000;
   }
   return line1[key] ?? doc[key] ?? null;
 }

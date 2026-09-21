@@ -4,9 +4,6 @@
  * | API | Enable with | Use for |
  * |-----|-------------|---------|
  * | `flowLog` / `flowWarn` | `E2E_TERMINAL_LOGS=1` | Upload, dashboard, submit, validation milestones |
- * | `isUiSubmitFieldDebugEnabled` / `terminalLog` | `UI_SUBMIT_DEBUG=1` | Per-field Create Invoice submit fill (`UiSubmitFieldDebug`) |
- *
- * `terminalLog` is for callers that gate themselves (e.g. `UiSubmitFieldDebug.enabled`).
  */
 
 const TRUTHY = new Set(["1", "true", "yes"]);
@@ -38,9 +35,3 @@ export function flowWarn(scope: string, message: string): void {
   reportLog(`[${scope}] WARN ${message}`);
 }
 
-export const UI_SUBMIT_FIELD_DEBUG_ENV = "UI_SUBMIT_DEBUG";
-
-/** Per-field UI submit fill trace when `UI_SUBMIT_DEBUG=1`, `true`, or `yes`. */
-export function isUiSubmitFieldDebugEnabled(): boolean {
-  return envFlagEnabled(UI_SUBMIT_FIELD_DEBUG_ENV);
-}

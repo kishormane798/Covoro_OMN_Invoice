@@ -14,6 +14,7 @@ import {
   verifyAlignedIbrpZ09OmNotAllowedBatch,
   patchIbr137OmNegativeAmountAfterGenerate,
   patchLineItemVatAmountFromRow,
+  patchProfitMarginDueBlank,
   verifyConditionalScenario,
   verifyConditionalScenarioAnyOf,
   verifyIbr019OmAllowedBatch,
@@ -285,6 +286,23 @@ test.describe("Conditional validation (Oman PINT-OM)", () => {
           rowData,
           scenario.expectedErrorField ?? FV.TAX_CATEGORY_FIELD,
           scenario.shouldError
+        );
+      });
+    }
+  });
+
+  test.describe("Profit Margin Total Amount Due mandatory (IBR-082-OM)", () => {
+    for (const scenario of FV.IBR_082_OM_EMPTY_DUE_SCENARIOS) {
+      test(`${scenario.title}`, async ({ page }) => {
+        const rowData = ConditionalRows.buildIbr082OmEmptyDueScenarioRow(scenario);
+        await verifyConditionalScenario(
+          page,
+          rowData,
+          scenario.expectedErrorField ?? FV.TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
+          scenario.shouldError,
+          scenario.omitDueAfterGenerate
+            ? { patchFile: (filePath) => patchProfitMarginDueBlank(filePath) }
+            : undefined
         );
       });
     }

@@ -66,8 +66,6 @@ const FX = "Currency Exchange Rate";
 const PM_DUE = "Total amount due (profit margin)";
 
 type VatinCaseOpts = {
-  /** Happy-path OM+10 — owned by Conditional IBR-003-OM. */
-  includeValid?: boolean;
   /**
    * Empty presence — Seller → IBR-006-OM; Third Party → IBR-015-OM.
    * Buyer empty stays in Field (IBR-016 is ID-or-VATIN, not the same).
@@ -83,22 +81,10 @@ function vatinCases(
   patchSellerErrors: boolean,
   opts: VatinCaseOpts = {}
 ): FormatContextFieldCase[] {
-  const { includeValid = false, includeEmpty = false } = opts;
+  const { includeEmpty = false } = opts;
   const tooShort = valid.slice(0, 11);
   const tooLong = `${valid}0`;
-  const patchValid = field === SELLER_VAT ? false : true;
   const cases: FormatContextFieldCase[] = [];
-  if (includeValid) {
-    cases.push({
-      field,
-      section,
-      overlay,
-      condition: "valid OM + 10 digits (12 chars)",
-      value: valid,
-      shouldError: false,
-      patchAfterGenerate: patchValid,
-    });
-  }
   if (includeEmpty) {
     cases.push({
       field,
@@ -111,15 +97,6 @@ function vatinCases(
     });
   }
   cases.push(
-    {
-      field,
-      section,
-      overlay,
-      condition: "whitespace only",
-      value: "        ",
-      shouldError: true,
-      patchAfterGenerate: true,
-    },
     {
       field,
       section,
@@ -142,54 +119,13 @@ function vatinCases(
   return cases;
 }
 
-type UuidCaseOpts = {
-  /** UUID v5 accept — Credit Note owned by Conditional IBR-002-OM. */
-  includeValid?: boolean;
-  /** Empty — Credit Note owned by Conditional IBR-032-OM. */
-  includeEmpty?: boolean;
-};
-
 function uuidCases(
   field: string,
   section: string,
   overlay: FormatContextOverlay,
-  aboveMaxLen: number,
-  opts: UuidCaseOpts = {}
+  aboveMaxLen: number
 ): FormatContextFieldCase[] {
-  const { includeValid = true, includeEmpty = true } = opts;
-  const cases: FormatContextFieldCase[] = [];
-  if (includeValid) {
-    cases.push({
-      field,
-      section,
-      overlay,
-      condition: "valid UUID v5",
-      value: PRECEDING_INVOICE_UUID_SAMPLE,
-      shouldError: false,
-      patchAfterGenerate: true,
-    });
-  }
-  if (includeEmpty) {
-    cases.push({
-      field,
-      section,
-      overlay,
-      condition: "empty",
-      value: "",
-      shouldError: true,
-      patchAfterGenerate: true,
-    });
-  }
-  cases.push(
-    {
-      field,
-      section,
-      overlay,
-      condition: "whitespace only",
-      value: "        ",
-      shouldError: true,
-      patchAfterGenerate: true,
-    },
+  return [
     {
       field,
       section,
@@ -198,9 +134,8 @@ function uuidCases(
       value: padUuid(PRECEDING_INVOICE_UUID_SAMPLE, aboveMaxLen),
       shouldError: true,
       patchAfterGenerate: true,
-    }
-  );
-  return cases;
+    },
+  ];
 }
 
 export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
@@ -216,22 +151,11 @@ export const formatContextFieldValidationCases: FormatContextFieldCase[] = [
     IBR_003_VALID_THIRD_PARTY_VATIN,
     false
   ),
-  // CN v5 accept / empty → Conditional IBR-002 / IBR-032; keep whitespace + over-max.
-  ...uuidCases(UNIQUE_UUID, "Credit Note", "creditNote", 109, {
-    includeValid: false,
-    includeEmpty: false,
-  }),
+  // Pattern / empty UUID → Conditional IBR-002 / IBR-032 / IBR-013 / IBR-058; keep over-max.
+  ...uuidCases(UNIQUE_UUID, "Credit Note", "creditNote", 109),
   ...uuidCases(PREPAY_UUID, "Prepayment", "prepayment", 109),
-  ...uuidCases(SUPPORT_UUID, "Supporting document", "supporting", 109).map((c) =>
-    c.condition === "empty"
-      ? {
-          ...c,
-          condition:
-            "an empty value while Supporting document reference is provided",
-        }
-      : c
-  ),
-  // Length-only Tax Rate; value rules → Conditional S-05 / Formula IBR-046.
+  ...uuidCases(SUPPORT_UUID, "Supporting document", "supporting", 109),
+  // Length-only Tax Rate; value rules → Conditional IBR-046-OM.
   {
     field: TAX_RATE,
     section: "Item Tax",

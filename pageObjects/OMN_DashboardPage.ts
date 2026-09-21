@@ -31,7 +31,6 @@ export type ReusableDashboardInvoice = {
 };
 const SUBMIT_MENU_ATTEMPTS = 3;
 const INVOICE_DOWNLOAD_RESPONSE_TIMEOUT_MS = 30_000;
-const BULK_DOWNLOAD_RESPONSE_TIMEOUT_MS = 120_000;
 
 /** UI labels in Options → Download submenu (`.sub-list-item`). */
 export const INVOICE_DOWNLOAD_FORMAT_LABEL = {
@@ -55,8 +54,6 @@ const SELECTORS = {
   uploadInvoiceTrigger: "#upload-invoice-btn",
   invoiceTableCell: "td.MuiTableCell-body .ellipsis-container .ellipsis-text",
 } as const;
-
-export const EINVOICE_MASTERS_PATH = "/einvoice/masters";
 
 const pageContextBusinessTin = new WeakMap<Page, string>();
 
@@ -876,24 +873,6 @@ export class DashboardPage {
     }
   }
 
-    private mastersMenuButton = () =>
-    this.page
-      .getByTestId("menu-wrapper")
-      .filter({
-        has: this.page.locator(`a[href="${EINVOICE_MASTERS_PATH}"]`, {
-          hasText: /^Masters$/,
-        }),
-      })
-      .getByRole("button", { name: "Masters", exact: true });
-
-    async openMastersPage(): Promise<void> {
-    const mastersButton = this.mastersMenuButton();
-    await expect(mastersButton).toBeVisible({ timeout: 30_000 });
-    await mastersButton.click();
-    await this.page.waitForURL(`**${EINVOICE_MASTERS_PATH}**`, { timeout: 30_000 });
-    await this.expectMastersPageLoaded();
-  }
-
     async clickCreateInvoice(): Promise<void> {
     const createBtn = this.createInvoiceButton();
     await expect(createBtn).toBeVisible({ timeout: 30_000 });
@@ -966,22 +945,6 @@ export class DashboardPage {
     const button = editButtons.nth(editIndex[section]);
     await expect(button).toBeVisible({ timeout: 30_000 });
     await button.click();
-  }
-
-    async expectMastersPageLoaded(): Promise<void> {
-    await expect(this.page.getByTestId("product-header")).toHaveText("Masters");
-    await expect(this.page.getByTestId("header-wrapper")).toBeVisible();
-    await expect(
-      this.page.getByRole("button", { name: "Buyer/Seller", exact: true })
-    ).toBeVisible();
-    await expect(this.page.getByRole("button", { name: "Items", exact: true })).toBeVisible();
-    await expect(
-      this.page.getByRole("heading", { name: "Buyer/Seller List", level: 3 })
-    ).toBeVisible();
-    await expect(this.page.getByTestId("MASTERS")).toBeVisible();
-    await expect(this.page.getByTestId("search-input")).toBeVisible();
-    await expect(this.page.getByRole("button", { name: "Add New" })).toBeVisible();
-    await expect(this.page.locator("table.masters-list-table")).toBeVisible();
   }
 
   private async clickRowOptions(row: Locator): Promise<void> {
@@ -1121,71 +1084,6 @@ export class DashboardPage {
     }
 
     await expect(submitOption).toBeHidden({ timeout: 10000 });
-    await expect(row).toBeVisible();
-  }
-
-  /**
-   * Options → **Submit as PDF** (submit with PDF attachment).
-   * Menu id follows submit pattern (`#sub-item-submit-as-pdf`); text fallback if id differs.
-   */
-  async submitInvoiceAsPdfFromTable(invoiceNumber: string) {
-    const row = this.invoiceTableRow(invoiceNumber);
-
-    await expect(row).toBeVisible({ timeout: 30000 });
-
-    const optionsButton = row.locator('button:has-text("Options")');
-    const submitAsPdfOption = this.page
-      .locator("#sub-item-submit-as-pdf")
-      .or(
-        this.page.locator('[id^="sub-item-"]').filter({ hasText: /^Submit as PDF$/i })
-      )
-      .or(
-        this.page
-          .locator('.list-item[role="presentation"]')
-          .filter({
-            has: this.page.locator(".label-container", { hasText: /^Submit as PDF$/i }),
-          })
-      )
-      .first();
-    let submitted = false;
-
-    for (let attempt = 1; attempt <= SUBMIT_MENU_ATTEMPTS; attempt++) {
-      await expect(optionsButton).toBeVisible();
-      await optionsButton.scrollIntoViewIfNeeded().catch(() => {});
-      try {
-        await optionsButton.click({ timeout: 4_000 });
-      } catch {
-        await optionsButton.click({ timeout: 4_000, force: true });
-      }
-
-      try {
-        await expect(submitAsPdfOption).toBeVisible({ timeout: 4_000 });
-      } catch {
-        continue;
-      }
-
-      try {
-        await submitAsPdfOption.click({ timeout: 4_000 });
-      } catch {
-        await submitAsPdfOption.click({ timeout: 4_000, force: true });
-      }
-
-      const hiddenAfterClick = await submitAsPdfOption
-        .isHidden({ timeout: 5_000 })
-        .catch(() => false);
-      if (hiddenAfterClick) {
-        submitted = true;
-        break;
-      }
-    }
-
-    if (!submitted) {
-      throw new Error(
-        `Could not complete Options -> Submit as PDF click flow for invoice ${invoiceNumber} after ${SUBMIT_MENU_ATTEMPTS} attempts`
-      );
-    }
-
-    await expect(submitAsPdfOption).toBeHidden({ timeout: 10000 });
     await expect(row).toBeVisible();
   }
 
@@ -1419,12 +1317,6 @@ export class DashboardPage {
     await this.ensureEinvoiceDashboardForReuse();
   }
 
-  async hasStatisticsCard(label: string): Promise<boolean> {
-    return this.statisticsCardLocator(label)
-      .isVisible({ timeout: 3_000 })
-      .catch(() => false);
-  }
-
   private statisticsCardLocator(label: string): Locator {
     return this.page
       .locator(".statistics-card")
@@ -1451,76 +1343,6 @@ export class DashboardPage {
     await waitForEInvoiceListValidatingGone(this.page, 30_000).catch(() => {});
   }
 
-  private matchesStatusForFileDownload(
-    normalizedStatus: string,
-    target: "ready to submit" | "delivered" | "error"
-  ): boolean {
-    if (target === "delivered") {
-      return normalizedStatus === "delivered";
-    }
-    if (target === "ready to submit") {
-      return normalizedStatus === "ready to submit";
-    }
-    if (target === "error") {
-      return normalizedStatus === "error";
-    }
-    return false;
-  }
-
-  /**
-   * First visible invoice row matching `status` after a statistics-card filter.
-   * Plain **Delivered** only — excludes Delivered to C3 / C5.
-   * Invoice statuses only (not upload file "completed").
-   */
-  async firstInvoiceRowForFileDownload(
-    status: "ready to submit" | "delivered" | "error",
-    options?: { pollTimeoutMs?: number }
-  ): Promise<ReusableDashboardInvoice> {
-    const pollIntervalMs = 3_000;
-    const timeoutMs = options?.pollTimeoutMs ?? 60_000;
-    const deadline = Date.now() + timeoutMs;
-    let lastDiagnostics = "";
-
-    while (Date.now() < deadline) {
-      await waitForEInvoiceListValidatingGone(this.page, Math.min(30_000, deadline - Date.now())).catch(
-        () => {}
-      );
-
-      const rows = this.invoiceDataRows();
-      const count = await rows.count();
-      for (let i = 0; i < count; i++) {
-        const row = rows.nth(i);
-        const normalized = await this.readRowStatusNormalized(row);
-        if (!this.matchesStatusForFileDownload(normalized, status)) continue;
-
-        const invoiceNumber = await this.readRowInvoiceNumber(row);
-        if (!invoiceNumber || invoiceNumber === "-") continue;
-
-        reportLog(
-          `[DashboardPage] File-download row: ${invoiceNumber} (status: ${normalized})`
-        );
-        return { invoiceNumber, status: normalized, row };
-      }
-
-      lastDiagnostics = await this.describeVisibleInvoiceRows();
-      if (Date.now() + pollIntervalMs > deadline) break;
-      await this.page.waitForTimeout(pollIntervalMs);
-    }
-
-    throw new Error(
-      `No invoice row with status "${status}" on dashboard within ${timeoutMs}ms. ` +
-        `Visible rows: ${lastDiagnostics || "(none)"}`
-    );
-  }
-
-  /** Row **Options** → assert **Download** parent menu item is visible. */
-  async expectDownloadMenuEntryVisibleOnRow(row: Locator): Promise<void> {
-    await this.clickRowOptions(row);
-    await expect(this.page.locator("#sub-item-download").first()).toBeVisible({
-      timeout: 15_000,
-    });
-  }
-
   /** Row **Options** → **Download**; returns the visible format submenu container. */
   async openInvoiceDownloadSubmenuOnRow(row: Locator): Promise<Locator> {
     await this.clickRowOptions(row);
@@ -1538,24 +1360,6 @@ export class DashboardPage {
     const submenu = this.page.locator(".sub-dropdown-container").filter({ visible: true }).last();
     await expect(submenu).toBeVisible({ timeout: 10_000 });
     return submenu;
-  }
-
-  async expectDownloadFormatsInSubmenu(
-    submenu: Locator,
-    options: { visible: readonly string[]; hidden: readonly string[] }
-  ): Promise<void> {
-    for (const label of options.visible) {
-      const item = submenu
-        .locator(".sub-list-item")
-        .filter({ hasText: new RegExp(`^\\s*${escapeRegExp(label)}\\s*$`, "i") });
-      await expect(item.first()).toBeVisible({ timeout: 10_000 });
-    }
-    for (const label of options.hidden) {
-      const item = submenu
-        .locator(".sub-list-item")
-        .filter({ hasText: new RegExp(`^\\s*${escapeRegExp(label)}\\s*$`, "i") });
-      await expect(item).toHaveCount(0);
-    }
   }
 
   /** Click one format in the open Download submenu; returns API response metadata + body. */
@@ -1805,59 +1609,6 @@ export class DashboardPage {
     await this.searchInvoiceInTable(query);
   }
 
-  /** Bulk Action → **Download** nested submenu container (Excel, JSON, XML, PDF). */
-  async openBulkDownloadSubmenu(): Promise<Locator> {
-    const menu = this.page.locator("#bulk-actionable-dropdown .select-btn-container");
-    const download = menu
-      .locator(".list-item.sub-dropdown")
-      .filter({
-        has: this.page.locator(".label-container", { hasText: /^Download$/i }),
-      })
-      .first();
-
-    await expect(download).toBeVisible({ timeout: 10_000 });
-    await download.click();
-
-    const submenu = this.page.locator(".sub-dropdown-container").filter({ visible: true }).last();
-    await expect(submenu).toBeVisible({ timeout: 10_000 });
-    return submenu;
-  }
-
-  /** Bulk Action → **Download Records** nested submenu container. */
-  async openBulkDownloadRecordsSubmenu(): Promise<Locator> {
-    const menu = this.page.locator("#bulk-actionable-dropdown .select-btn-container");
-    const downloadRecords = menu
-      .locator(".list-item.sub-dropdown")
-      .filter({
-        has: this.page.locator(".label-container", { hasText: /^Download Records$/i }),
-      })
-      .first();
-
-    await expect(downloadRecords).toBeVisible({ timeout: 10_000 });
-    await downloadRecords.click();
-
-    const submenu = this.page.locator(".sub-dropdown-container").filter({ visible: true }).last();
-    await expect(submenu).toBeVisible({ timeout: 10_000 });
-    return submenu;
-  }
-
-  /** Click a **Download Records** option (e.g. Error Records) and return the download response. */
-  async clickBulkDownloadRecordsOption(
-    submenu: Locator,
-    optionLabel: string
-  ): Promise<InvoiceFileDownloadResponse> {
-    const item = submenu
-      .locator('.sub-list-item[role="presentation"]')
-      .filter({ hasText: new RegExp(`^\\s*${escapeRegExp(optionLabel)}\\s*$`, "i") })
-      .first();
-    await expect(item).toBeVisible({ timeout: 10_000 });
-
-    return this.waitForInvoiceDownloadAfterClick(() => item.click(), {
-      timeoutMs: BULK_DOWNLOAD_RESPONSE_TIMEOUT_MS,
-      waitForBulkExport: true,
-    });
-  }
-
   /**
    * Read a visible toast/alert if present (does not fail when absent).
    * Use on download failures so Allure/report errors include the UI message.
@@ -1896,54 +1647,5 @@ export class DashboardPage {
     }
 
     return null;
-  }
-
-  /**
-   * Bulk Download Records option that should **not** download a file (e.g. Valid Records on Error filter).
-   * Expects a toast message instead.
-   */
-  async expectToastMessage(options?: { timeoutMs?: number }): Promise<string> {
-    const timeoutMs = options?.timeoutMs ?? 20_000;
-    const text = await this.peekVisibleToastMessage({ timeoutMs });
-    if (text) return text;
-    throw new Error("Toast message did not appear after bulk Download Records action.");
-  }
-
-  /**
-   * Bulk Download Records option that should **not** download a file (e.g. Valid Records on Error filter).
-   * Expects a toast message instead.
-   */
-  async clickBulkDownloadRecordsOptionExpectingToast(
-    submenu: Locator,
-    optionLabel: string
-  ): Promise<string> {
-    const item = submenu
-      .locator('.sub-list-item[role="presentation"]')
-      .filter({ hasText: new RegExp(`^\\s*${escapeRegExp(optionLabel)}\\s*$`, "i") })
-      .first();
-    await expect(item).toBeVisible({ timeout: 10_000 });
-
-    const toastPromise = this.expectToastMessage({ timeoutMs: 20_000 });
-    await item.click();
-    return toastPromise;
-  }
-
-  /**
-   * Bulk / row Download format option that should **not** download a file
-   * (e.g. JSON/PDF/XML on Ready to Submit or Error filter). Expects a toast instead.
-   */
-  async clickDownloadFormatInSubmenuExpectingToast(
-    submenu: Locator,
-    formatLabel: string
-  ): Promise<string> {
-    const item = submenu
-      .locator(".sub-list-item")
-      .filter({ hasText: new RegExp(`^\\s*${escapeRegExp(formatLabel)}\\s*$`, "i") })
-      .first();
-    await expect(item).toBeVisible({ timeout: 10_000 });
-
-    const toastPromise = this.expectToastMessage({ timeoutMs: 20_000 });
-    await item.click();
-    return toastPromise;
   }
 }

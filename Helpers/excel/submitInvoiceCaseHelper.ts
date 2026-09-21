@@ -113,48 +113,6 @@ export async function runSubmitInvoiceUploadSanityCase(
   return { invoiceNumber, filePath };
 }
 
-/** Upload-only multi-item sanity: generate multi-line workbook, upload, assert completed. */
-export async function runSubmitInvoiceMultiItemUploadSanityCase(
-  page: Page,
-  rows: Array<Record<string, string>>
-): Promise<{ invoiceNumber: string; filePath: string }> {
-  if (!rows.length) {
-    throw new Error("runSubmitInvoiceMultiItemUploadSanityCase: rows cannot be empty");
-  }
-
-  const submissionRows = rows.map((r) =>
-    mergeSubmitInvoiceOverrides(applySubmitTaxCategoryAndRateRules(r))
-  );
-
-  const { filePath, invoiceNumber } = await generateInvoiceFromSubmitRows(
-    submissionRows
-  );
-
-  if (!fs.existsSync(filePath)) {
-    throw new Error(
-      `Multi-item Excel was not created (expected ${filePath}). Check Python (py/python), template path, and invoice_excel_writer.py.`
-    );
-  }
-
-  const uploadPage = await openUploadPage(page);
-  await uploadPage.uploadFile(filePath);
-  const uploadStatus = await uploadPage.waitForAnyStatus();
-
-  if (uploadStatus === "error") {
-    const errorHint = await page
-      .locator(".content span.error, .content span.failed")
-      .first()
-      .innerText()
-      .catch(() => "");
-    const suffix = errorHint.trim() ? ` Parser/UI: ${errorHint.trim()}` : "";
-    throw new Error(
-      `Upload failed for ${invoiceNumber}.${suffix} Uploaded file attached in report.`
-    );
-  }
-
-  return { invoiceNumber, filePath };
-}
-
 export async function runSubmitInvoiceCase(
   page: Page,
   data: Record<string, string>

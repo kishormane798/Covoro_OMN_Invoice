@@ -16,6 +16,13 @@ description: >-
 
 **Do not use** for min/max/dropdown-only (`add-field-validation-case`) or Σ/totals (`add-formula-validation-case`).
 
+## Excel suite ownership
+
+If-then only. IBR-082-OM empty Total Amount Due lives here (patch after generate).
+Do not add min/max/dropdown or Σ (ALIGNED-IBRP-*-08, IBR-071, IBR-075).
+Do not copy a case that Field already covers as length/dropdown.
+See `docs/superpowers/specs/2026-09-21-excel-suite-ownership-dedupe-design.md`.
+
 ## Key files
 
 | Purpose | Path |

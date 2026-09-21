@@ -13,7 +13,6 @@ import { buildUniqueSubmitInvoiceNumber } from "../utils/excel/invoiceExcel";
 import { generateFormatContextFieldExcel } from "../Helpers/excel/formatContextFieldValidationHelper";
 import {
   generateOmanDropdownMasterExcel,
-  generateOmanExemptReasonExcel,
   generateOmanFieldLengthExcel,
   generateOmanIssueDateExcel,
   generateOmanNumericFieldExcel,
@@ -273,39 +272,9 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
               checkEdit: true,
             });
           });
-        } else if (config.field === "Third Party Name") {
-          test(`An empty Third Party Name on a Third-party invoice should be rejected with an error. (Third Party Name)`, async ({
-            page,
-          }) => {
-            const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
-              config.field,
-              config.belowMin
-            );
-            await runErrorValidation(page, {
-              filePath,
-              field: config.field,
-              invoiceNumber,
-              checkEdit: true,
-            });
-          });
-        } else if (
-          config.field === "Preceding Invoice reference" ||
-          config.field === "Third Party Address Line 1" ||
-          config.field === "Third Party Address Line 2" ||
-          config.field === "Third Party Address Line 3" ||
-          config.field === "Third Party City" ||
-          config.field === "Third Party Postal Code - PO Box Number"
-        ) {
-          test(`${config.belowMin === 0 ? `An empty ${config.field}` : `${config.field} of ${config.belowMin} characters`} should be rejected with an error. (${config.field})`, async ({ page }) => {
-            const { filePath, invoiceNumber } = await generateOmanFieldLengthExcel(
-              config.field,
-              config.belowMin
-            );
-            await runErrorValidation(
-              page,
-              { filePath, field: config.field, invoiceNumber, checkEdit: true });
-          });
         }
+        // Empty Third Party on Third-party invoice → IBR-015-OM Conditional.
+        // Empty Preceding Invoice reference on credit note → ALIGNED-IBRP-028-OM / IBR-032-OM.
       }
     });
   }
@@ -350,14 +319,6 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
         if (config.belowMin === 0 && !config.omitEmptyTest) {
           test(`An empty ${config.field} ${titleOutcome(config.emptyExpectsError)}. (${config.field})`, async ({ page }) => {
             await runNumericBoundary(page, config, config.belowMin, config.emptyExpectsError);
-          });
-        }
-
-        if (config.allowsNegative) {
-          const negativeValue = `-${FV.formatOmanNumericBoundaryValue(config.min, config.decimals ?? 3)}`;
-          test(`${config.field} with negative value (${negativeValue}) should be accepted. (${config.field})`, async ({ page }) => {
-            const { filePath } = await generateOmanSeededFieldExcel(config.field, negativeValue);
-            await uploadAndVerifyFieldAccepted(page, filePath);
           });
         }
       }
@@ -511,33 +472,6 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
       }
     });
   }
-
-  test.describe("Tax exemption reason — code / text companion", () => {
-    const reasonCode = FV.TAX_EXEMPTION_REASON_SAMPLE;
-    const reasonText = "Exempt supply under Oman VAT";
-
-    test(`Exempt VAT with exemption code and no text should be accepted. (Tax exemption reason text)`, async ({
-      page,
-    }) => {
-      const { filePath } = await generateOmanExemptReasonExcel(reasonCode, "");
-      await uploadAndVerifyFieldAccepted(page, filePath);
-    });
-
-    test(`Exempt VAT with exemption text and no code should be rejected with an error. (Tax exemption reason code)`, async ({
-      page,
-    }) => {
-      const { filePath, invoiceNumber } = await generateOmanExemptReasonExcel(
-        "",
-        reasonText
-      );
-      await runErrorValidation(page, {
-        filePath,
-        field: FV.TAX_EXEMPTION_REASON_CODE_FIELD,
-        invoiceNumber,
-        checkEdit: true,
-      });
-    });
-  });
 
   if (formatContextOnSimplified.length) {
     test.describe("Format / context fields — UUID, rate, FX, profit margin", () => {

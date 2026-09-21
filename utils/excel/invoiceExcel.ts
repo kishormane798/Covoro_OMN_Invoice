@@ -285,15 +285,6 @@ export function filterConfigsByHeaderLabels<T extends { field: string }>(
   return configs.filter((c) => allowed.has(invoiceHeaderMatchKey(c.field)));
 }
 
-export function filterNegativeFormulaRowsByErrorField<
-  T extends { errorField?: string },
->(rows: T[], headerLabels: readonly string[]): T[] {
-  const allowed = buildNormalizedHeaderSet(headerLabels);
-  return rows.filter(
-    (r) => Boolean(r.errorField) && allowed.has(invoiceHeaderMatchKey(String(r.errorField)))
-  );
-}
-
 /** Narrow rows to columns present on the template; drop empty rows; dedupe by stable JSON of the narrowed row. */
 export function filterSubmitInvoiceRowsByTemplateHeaders(
   rows: ReadonlyArray<Record<string, string>>,
@@ -498,7 +489,7 @@ export function isProfitMarginTransactionType(value: unknown): boolean {
 }
 
 /**
- * Line-item and document totals: intermediate math at **6 dp**, written amounts **ceil to 2 dp**.
+ * Line-item and document totals: intermediate math at **6 dp**, written amounts **ceil to 3 dp**.
  * Must stay aligned with Python `apply_invoice_calculations_to_data_row` in `invoice_excel_writer.py`.
  * Pass an effective `taxRate` (0 for non–Standard rate categories; see submit helpers / formula path resolvers).
  * Doc charge/allowance tax uses `docChargeTaxCategory` / `docAllowanceTaxCategory` when set
@@ -508,10 +499,10 @@ export function isProfitMarginTransactionType(value: unknown): boolean {
 export function calculateInvoiceValues(data: any) {
   /** Stabilise intermediate values to 6 decimal places (matches exchange-rate / quantity precision). */
   const fix6 = (num: number) => Number(num.toFixed(6));
-  /** Monetary outputs: round **up** to 2 decimal places (half-cent and above goes up). */
-  const ceil2 = (num: number) => {
+  /** Monetary outputs: round **up** to 3 decimal places. */
+  const ceil3 = (num: number) => {
     if (!Number.isFinite(num)) return 0;
-    return Math.ceil(num * 100 - 1e-12) / 100;
+    return Math.ceil(num * 1000 - 1e-12) / 1000;
   };
   const toNumber = (value: unknown, fallback = 0): number => {
     if (value === null || value === undefined || String(value).trim() === "") {
@@ -579,24 +570,24 @@ export function calculateInvoiceValues(data: any) {
 
   const rawLinePlusVat = fix6(rawLineNet + rawVatBase);
 
-  const itemNetPrice = ceil2(rawItemNet);
-  const invoiceLineNetAmount = ceil2(rawLineNet);
+  const itemNetPrice = ceil3(rawItemNet);
+  const invoiceLineNetAmount = ceil3(rawLineNet);
   /** Line Item VAT Amount (BTOM-016): 0 for Exempt (IBR-039-OM), required on non-simplified (IBR-038-OM). */
-  const lineItemVatAmount = ceil2(rawVatBase);
+  const lineItemVatAmount = ceil3(rawVatBase);
   /** Total Amount Including VAT (BTOM-017) = line net + line VAT. */
-  const totalAmountIncludingVat = ceil2(rawLinePlusVat);
-  const sumInvoiceLineNetAmount = ceil2(rawLineNet);
+  const totalAmountIncludingVat = ceil3(rawLinePlusVat);
+  const sumInvoiceLineNetAmount = ceil3(rawLineNet);
 
   const rawTotalWithoutTax = fix6(rawLineNet + docCharges - docAllowances);
-  const invoiceTotalWithoutTax = ceil2(rawTotalWithoutTax);
-  const invoiceTotalTax = ceil2(rawInvoiceTotalTax);
+  const invoiceTotalWithoutTax = ceil3(rawTotalWithoutTax);
+  const invoiceTotalTax = ceil3(rawInvoiceTotalTax);
   const invoiceTotalTaxAccountingCurrency =
     currencyCode === OMAN_HOME_CURRENCY
       ? null
-      : ceil2(fix6(invoiceTotalTax * currencyRate));
+      : ceil3(fix6(invoiceTotalTax * currencyRate));
   const rawTotalWithTax = fix6(rawTotalWithoutTax + rawInvoiceTotalTax);
-  const invoiceTotalWithTax = ceil2(rawTotalWithTax);
-  const amountDue = ceil2(fix6(rawTotalWithTax - paidAmount + roundingAmount));
+  const invoiceTotalWithTax = ceil3(rawTotalWithTax);
+  const amountDue = ceil3(fix6(rawTotalWithTax - paidAmount + roundingAmount));
   /**
    * IBR-082-OM: fill only for Profit Margin Invoice / Profit Margin Self-Invoice.
    * When applicable, value = Σ Total Amount Including VAT (single-line = that line).
@@ -1310,7 +1301,7 @@ export async function generateInvoiceExcel(
     strictHeaders: true,
     clearRow: false,
   });
-  // Recompute calculated columns from the saved row (fix6 / ceil2 in Python) for every template,
+  // Recompute calculated columns from the saved row (fix6 / ceil3 in Python) for every template,
   // Same rules as `calculateInvoiceValues` in TS; runs after worker TIN patch when enabled.
   applyInvoiceCalculationsToFile(filePath);
   generatedFiles.push(filePath);
@@ -1678,7 +1669,7 @@ export async function generateInvoiceFromSubmitData(
     fileName: `${invoiceNumber}.xlsx`,
     rowValues: rowValuesForWrite,
   });
-  // Apply Python row calculations so templates get the same fix6 / ceil2 totals on disk.
+  // Apply Python row calculations so templates get the same fix6 / ceil3 totals on disk.
   // Pack regen under load routinely exceeds the 45s pythonRunner default.
   applyInvoiceCalculationsToFile(filePath, DATA_ROW, 300_000);
   generatedFiles.push(filePath);
@@ -1782,21 +1773,6 @@ export async function generateDistinctSubmitInvoices(
   return { filePath, invoiceNumbers, batchPrefix };
 }
 
-/** Fields whose value changes line/doc totals — rebuild seed workbook per batch. */
-function dropdownFieldRequiresRecalc(fieldName: string): boolean {
-  const n = normalizeInvoiceHeader(fieldName);
-  return (
-    n.includes("tax category") ||
-    n.includes("tax rate") ||
-    n.includes("currency") ||
-    n.includes("exchange rate") ||
-    n.includes("quantity") ||
-    n.includes("price") ||
-    n.includes("allowance") ||
-    n.includes("charge")
-  );
-}
-
 /**
  * Multi-invoice workbook for Oman dropdown packs: each row is a **full** submit-shaped
  * invoice. Builds one Oman seed via `generateInvoiceFromSubmitData`, then clones that
@@ -1859,7 +1835,7 @@ async function buildSubmitFlowMultiLineRowPayloads(
   const roundingAmount = toNumber(rows[0]["Rounding amount"], 0);
 
   const fix6 = (n: number) => Number(n.toFixed(6));
-  const ceil2 = (num: number) => Math.ceil(num * 100 - 1e-12) / 100;
+  const ceil3 = (num: number) => Math.ceil(num * 1000 - 1e-12) / 1000;
 
   const firstEffectiveTaxRate = resolveEffectiveTaxRateFromSplitTaxColumns(
     rows[0],
@@ -1910,10 +1886,10 @@ async function buildSubmitFlowMultiLineRowPayloads(
     return {
       rawLineNet,
       rawVat,
-      itemNetPrice: ceil2(rawItemNet),
-      invoiceLineNetAmount: ceil2(rawLineNet),
-      lineItemVatAmount: ceil2(rawVat),
-      totalAmountIncludingVat: ceil2(rawLinePlusVat),
+      itemNetPrice: ceil3(rawItemNet),
+      invoiceLineNetAmount: ceil3(rawLineNet),
+      lineItemVatAmount: ceil3(rawVat),
+      totalAmountIncludingVat: ceil3(rawLinePlusVat),
     };
   });
 
@@ -1923,20 +1899,20 @@ async function buildSubmitFlowMultiLineRowPayloads(
   const rawTotalTax = fix6(rawSumVat + docChargeTaxRaw - docAllowanceTaxRaw);
   const rawTotalWithTax = fix6(rawTotalWithoutTax + rawTotalTax);
 
-  const invoiceTotalWithoutTax = ceil2(rawTotalWithoutTax);
-  const invoiceTotalTax = ceil2(rawTotalTax);
-  const invoiceTotalWithTax = ceil2(rawTotalWithTax);
-  const amountDue = ceil2(fix6(rawTotalWithTax - paidAmount + roundingAmount));
-  const sumInvoiceLineNetAmount = ceil2(rawSumLineNet);
+  const invoiceTotalWithoutTax = ceil3(rawTotalWithoutTax);
+  const invoiceTotalTax = ceil3(rawTotalTax);
+  const invoiceTotalWithTax = ceil3(rawTotalWithTax);
+  const amountDue = ceil3(fix6(rawTotalWithTax - paidAmount + roundingAmount));
+  const sumInvoiceLineNetAmount = ceil3(rawSumLineNet);
   const invoiceTotalTaxAccountingCurrency =
     currencyCode === OMAN_HOME_CURRENCY
       ? null
-      : ceil2(fix6(invoiceTotalTax * currencyRate));
+      : ceil3(fix6(invoiceTotalTax * currencyRate));
   const profitMarginTxn = isProfitMarginTransactionType(
     rows[0]?.["Invoice Transaction Type Code"]
   );
   const totalAmountDueProfitMargin = profitMarginTxn
-    ? ceil2(fix6(perLine.reduce((acc, l) => acc + l.rawLineNet + l.rawVat, 0)))
+    ? ceil3(fix6(perLine.reduce((acc, l) => acc + l.rawLineNet + l.rawVat, 0)))
     : null;
 
   return rows.map((row, idx) => {

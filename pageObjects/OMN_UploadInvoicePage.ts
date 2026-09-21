@@ -71,10 +71,6 @@ export class UploadInvoicePage {
 
     private errorStatus = () => this.page.locator(SELECTORS.errorStatus).first();
 
-    private completedStatuses = () => this.page.locator(SELECTORS.completedStatus);
-
-    private errorStatuses = () => this.page.locator(SELECTORS.errorStatus);
-
     private downloadErrorIcon = () => this.page.locator(SELECTORS.downloadErrorIcon);
 
     private saveOrNextButton = () =>
@@ -573,41 +569,6 @@ export class UploadInvoicePage {
         }
 
         throw new Error('Upload status did not become completed/error within timeout');
-    }
-
-    /**
-     * After attach: pass if Status becomes Error, or no terminal Completed/Error within
-     * `timeoutMs` (client-side reject / AV block with no history row). Fail if Completed.
-     */
-    async waitForUploadRejected(timeoutMs = 90_000): Promise<'error' | 'no-status'> {
-        const completed = this.completedStatus();
-        const error = this.errorStatus();
-        const deadline = Date.now() + timeoutMs;
-
-        while (Date.now() < deadline) {
-            if (this.page.isClosed()) {
-                throw new Error('Upload reject wait ended: page or browser was closed');
-            }
-            if ((await completed.count()) > 0) {
-                throw new Error(
-                    'Upload reached Completed but rejection (error or no-status) was expected',
-                );
-            }
-            if ((await error.count()) > 0) {
-                return 'error';
-            }
-            await this.tryClickUploadRowRefresh();
-            try {
-                await this.page.waitForTimeout(500);
-            } catch (error) {
-                if (this.page.isClosed()) {
-                    throw new Error('Upload reject wait ended: page or browser was closed');
-                }
-                throw error;
-            }
-        }
-
-        return 'no-status';
     }
 
     async waitForErrorFileDownloadEnabled() {

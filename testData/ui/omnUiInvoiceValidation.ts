@@ -1,5 +1,4 @@
 import {
-  AMOUNT_DECIMAL_PRECISION_SCENARIOS,
   AMOUNT_QUANTITY_SIGN_SCENARIOS,
   BUYER_ADDRESS_LINE_1_FIELD,
   BUYER_ADDRESS_LINE_2_FIELD,
@@ -221,6 +220,8 @@ export const OMN_UI_SKIP = {
   partyIdentity: "Worker identity is covered by the party-identity UI cases.",
   twentyLine:
     "UI does not replay the 20-line sweep; two lines cover multi-line entry.",
+  ibr149SimplifiedWip:
+    "WIP: IBR-149-OM Simplified Tax Invoice exclusion checkboxes are not product-ready; keep for future.",
 } as const;
 
 export type OmnUiCatalogKind =
@@ -586,7 +587,11 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
     const [applicable, ...forbidden] = labels;
     return forbidden.every((partner) => btom001TxnPairForbidden(applicable!, partner));
   })
-  .map((source) => ({
+  .map((source) => {
+  // IBR-149-OM Simplified ⊕ partner: Excel is commented; UI stays skip until product-ready.
+  const ibr149SimplifiedWip =
+    source.ruleId === "IBR-149-OM" && source.shouldError;
+  return {
   group: OMN_UI_TXN_EXCLUSION_GROUP,
   title: source.title
     .replace(/ \| Invoice Type: .+? \((IBR-\d+-OM)\)$/, " ($1)")
@@ -596,7 +601,10 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
       "Then the invoice should be rejected with an error.",
       "Then that transaction type checkbox should be disabled."
     ),
-  mode: "run" as const,
+  mode: (ibr149SimplifiedWip ? "skip" : "run") as const,
+  ...(ibr149SimplifiedWip
+    ? { skipReason: OMN_UI_SKIP.ibr149SimplifiedWip }
+    : {}),
   kind: "txnExclusion" as const,
   field: "Invoice Transaction Type Code",
   expectsError: source.shouldError,
@@ -604,6 +612,7 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
   invoiceTransactionTypeCode: source.shouldError
     ? source.invoiceTransactionTypeCode
     : uiTxnCellWithAllowedCompanions(source.invoiceTransactionTypeCode),
+  };
 }));
 
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
@@ -2020,11 +2029,6 @@ const UI_BUYER_COUNTRY_IDS = ["country", "countryCode"] as const;
 const UI_SHIPPING_COUNTRY_IDS = ["country", "countryCode"] as const;
 
 const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
-  ...AMOUNT_DECIMAL_PRECISION_SCENARIOS.map((s) =>
-    catalogControlScenario(s, "item", "itemGrossPrice", [
-      { section: "item", inputId: "itemGrossPrice", control: "text", value: s.itemGrossPrice },
-    ])
-  ),
   ...ITEM_TYPE_REQUIRED_SCENARIOS.map((s) =>
     catalogControlScenario(s, "item", UI_ITEM_TYPE_IDS[0], [
       {

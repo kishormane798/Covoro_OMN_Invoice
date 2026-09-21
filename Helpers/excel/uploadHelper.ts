@@ -14,7 +14,6 @@ import { getInvoiceTemplatePath } from "../../utils/excel/invoiceExcel";
 import { parallelWorkerDashboardOpenOpts } from "../worker/parallelWorkerSubmitIdentity";
 import { resolveBaseUrl } from "../../utils/appConfig";
 import { flowLog } from "../diagnosticLog";
-import { printErrorWorkbookMessages } from "../../utils/excel/invoiceExcel";
 // Excel round-trip is field-validation only (`uploadAndVerifyFieldAccepted`).
 // Do not hook it here — formula, conditional, dropdown, and multi-line would inherit it.
 
@@ -180,18 +179,6 @@ export async function uploadAndVerify(
     filePath: string
 ) {
     await uploadAndVerifyStatus(page, filePath, 'completed');
-}
-
-
-export async function uploadAndVerifyError(
-    page: Page,
-    filePath: string
-) {
-    await uploadAndVerifyStatus(page, filePath, 'error');
-    const uploadPage = new UploadInvoicePage(page);
-    await uploadPage.waitForErrorFileDownloadEnabled();
-    const errorFilePath = await uploadPage.downloadErrorFileViaClick();
-    printErrorWorkbookMessages(errorFilePath, 6);
 }
 
 /** Open upload dialog without waiting for file status (submit / edit flows). */

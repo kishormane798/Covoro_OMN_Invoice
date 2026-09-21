@@ -25,8 +25,6 @@ import {
   verifyAlignedIbrpZ08OmNotAllowedBatch,
   ALIGNED_IBRP_S_08_OM_CASES,
   runAlignedIbrpS08OmScenario,
-  IBR_082_OM_CASES,
-  runIbr082OmScenario,
   CALCULATED_FIELD_MISMATCH_TARGETS,
   FORMULA_BAISA_TOLERANCE,
   FORMULA_MONETARY_TOLERANCE,
@@ -223,16 +221,6 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
         await verifyAlignedIbrpZ08OmNotAllowedBatch(page);
       }
     );
-  });
-
-  test.describe("Profit Margin Total Amount Due (IBR-082-OM)", () => {
-    test.describe.configure({ mode: "parallel" });
-
-    for (const scenario of IBR_082_OM_CASES) {
-      test(scenario.title, async ({ page }) => {
-        await runIbr082OmScenario(page, scenario);
-      });
-    }
   });
 
   test.describe("Item net price and line net formulas (IBR-075-OM / IBR-071-OM)", () => {

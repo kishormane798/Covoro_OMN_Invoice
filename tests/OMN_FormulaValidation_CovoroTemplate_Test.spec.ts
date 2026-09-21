@@ -25,8 +25,6 @@ import {
   verifyAlignedIbrpZ08OmNotAllowedBatch,
   ALIGNED_IBRP_S_08_OM_CASES,
   runAlignedIbrpS08OmScenario,
-  IBR_082_OM_CASES,
-  runIbr082OmScenario,
   CALCULATED_FIELD_MISMATCH_TARGETS,
   FORMULA_BAISA_TOLERANCE,
   FORMULA_MONETARY_TOLERANCE,
@@ -230,21 +228,6 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
         await verifyAlignedIbrpZ08OmNotAllowedBatch(page);
       }
     );
-  });
-
-  /**
-   * IBR-082-OM: Profit Margin Invoice → Total Amount Due (BTOM-020) is mandatory
-   * and must equal Σ Total amount including VAT (BTOM-017). Omit after generate
-   * (the writer fills BTOM-020 for Profit Margin txn types).
-   */
-  test.describe("Profit Margin Total Amount Due (IBR-082-OM)", () => {
-    test.describe.configure({ mode: "parallel" });
-
-    for (const scenario of IBR_082_OM_CASES) {
-      test(scenario.title, async ({ page }) => {
-        await runIbr082OmScenario(page, scenario);
-      });
-    }
   });
 
   /**

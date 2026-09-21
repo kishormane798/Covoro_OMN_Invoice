@@ -1963,7 +1963,7 @@ async function fillOmnUiFormulaItem(
     await fillFormulaCandidate(invoice, "item", key, scenario[key]);
   }
   await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
-  // Do not overwrite line VAT with Excel ceil2 on Copy — Tax Amount wins.
+  // Do not overwrite line VAT with Excel ceil3 on Copy — Tax Amount wins.
   if (scenario.currencyRate != null && entry === "edit") {
     const expected = omnUiExpectedTotals(scenario);
     await invoice.replaceLabeledItemText(
@@ -3970,7 +3970,7 @@ export async function runOmnUiFormulaScenario(
   const taxAmt = parseAmount(await invoice.readInputValue("item", "taxRateDtls[0].taxAmt"));
   if (itemNet != null) expect(itemNet).toBeCloseTo(expected.itemNetPrice, 1);
   if (lineNet != null) expect(lineNet).toBeCloseTo(expected.invoiceLineNetAmount, 1);
-  // UI validates line VAT against Tax Amount (Create/Copy auto-calc; may differ from Excel ceil2).
+  // UI validates line VAT against Tax Amount (Create/Copy auto-calc; may differ from Excel ceil3).
   if (vatLine != null && taxAmt != null) expect(vatLine).toBeCloseTo(taxAmt, 1);
   else if (vatLine != null) expect(vatLine).toBeCloseTo(expected.vatLineAmount, 1);
   if (lineAmt != null && lineNet != null && vatLine != null) {

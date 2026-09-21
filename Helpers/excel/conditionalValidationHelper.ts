@@ -891,6 +891,19 @@ export function buildProfitMarginSelfInvoiceScenarioRow(
   });
 }
 
+export function buildIbr082OmEmptyDueScenarioRow(
+  _scenario: FV.Ibr082OmEmptyDueScenario
+): Record<string, string | null> {
+  const seed = getSeedInvoiceRow();
+  return applyPartyIdentifiersByTxnType({
+    ...seed,
+    [FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD]: FV.TXN_PROFIT_MARGIN_INVOICE,
+    [FV.TAX_CATEGORY_FIELD]: FV.NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
+    [FV.INVOICED_ITEM_TAX_RATE_FIELD]: null,
+    [FV.TAX_EXEMPTION_REASON_CODE_FIELD]: "",
+  });
+}
+
 /** Phase 4: Summary Invoice period (IBR-037-OM / IBR-036-OM). */
 export function buildSummaryInvoicePeriodScenarioRow(
   scenario: FV.SummaryPeriodScenario

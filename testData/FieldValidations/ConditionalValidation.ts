@@ -4008,6 +4008,30 @@ export const PROFIT_MARGIN_SELF_INVOICE_SCENARIOS: ProfitMarginTaxCategoryScenar
     },
   ];
 
+export type Ibr082OmEmptyDueScenario = OmanConditionalScenario & {
+  /** Writer fills BTOM-020 for Profit Margin; true = blank the cell after generate. */
+  omitDueAfterGenerate: boolean;
+};
+
+export const IBR_082_OM_EMPTY_DUE_SCENARIOS: Ibr082OmEmptyDueScenario[] = [
+  {
+    ruleId: "IBR-082-OM",
+    title:
+      "Given a Profit Margin invoice — When Total Amount Due is provided — Then the invoice should be accepted. (IBR-082-OM)",
+    shouldError: false,
+    omitDueAfterGenerate: false,
+    expectedErrorField: TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
+  },
+  {
+    ruleId: "IBR-082-OM",
+    title:
+      "Given a Profit Margin invoice — When Total Amount Due is left empty — Then the invoice should be rejected with an error. (IBR-082-OM)",
+    shouldError: true,
+    omitDueAfterGenerate: true,
+    expectedErrorField: TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
+  },
+];
+
 /** IBR-091-OM Allowed: Profit Margin Invoice + HS that does not start with a banned prefix. */
 export const PROFIT_MARGIN_HS_PREFIX_ALLOWED_SCENARIOS: ProfitMarginHsPrefixScenario[] =
   [
@@ -7274,7 +7298,7 @@ export const BUYER_IDENTIFIER_SCHEME_SCENARIOS: BuyerIdentifierSchemeScenario[] 
 // ---------------------------------------------------------------------------
 // itemAttributeNameValue (IBR-CO-21)
 // If Item attribute name is provided → Item attribute value MUST be provided,
-// and vice versa. Max length 300 chars each.
+// and vice versa. Length min/max stays in Field validation.
 // ---------------------------------------------------------------------------
 export type ItemAttributeConditionalScenario = {
   ruleId: string;
@@ -7318,64 +7342,7 @@ export const ITEM_ATTRIBUTE_CONDITIONAL_SCENARIOS: ItemAttributeConditionalScena
       shouldError: false,
       expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
     },
-
-    // --- Item attribute name length boundaries (min 1, max 300) ---
-    {
-      ruleId: "IBR-CO-21",
-      title:
-        "Given an item attribute name of 1 character — When a value is provided — Then the invoice should be accepted. (IBR-CO-21)",
-      itemAttributeName: "A",
-      itemAttributeValue: "SomeValue",
-      shouldError: false,
-      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
-    },
-    {
-      ruleId: "IBR-CO-21",
-      title:
-        "Given an item attribute name of 300 characters — When a value is provided — Then the invoice should be accepted. (IBR-CO-21)",
-      itemAttributeName: "A".repeat(300),
-      itemAttributeValue: "SomeValue",
-      shouldError: false,
-      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
-    },
-    {
-      ruleId: "IBR-CO-21",
-      title:
-        "Given an item attribute name of 301 characters — When a value is provided — Then the invoice should be rejected with an error. (IBR-CO-21)",
-      itemAttributeName: "A".repeat(301),
-      itemAttributeValue: "SomeValue",
-      shouldError: true,
-      expectedErrorField: ITEM_ATTRIBUTE_NAME_FIELD,
-    },
-
-    // --- Item attribute value length boundaries (min 1, max 300) ---
-    {
-      ruleId: "IBR-CO-21",
-      title:
-        "Given an item attribute value of 1 character — When a name is provided — Then the invoice should be accepted. (IBR-CO-21)",
-      itemAttributeName: "Color",
-      itemAttributeValue: "B",
-      shouldError: false,
-      expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
-    },
-    {
-      ruleId: "IBR-CO-21",
-      title:
-        "Given an item attribute value of 300 characters — When a name is provided — Then the invoice should be accepted. (IBR-CO-21)",
-      itemAttributeName: "Color",
-      itemAttributeValue: "B".repeat(300),
-      shouldError: false,
-      expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
-    },
-    {
-      ruleId: "IBR-CO-21",
-      title:
-        "Given an item attribute value of 301 characters — When a name is provided — Then the invoice should be rejected with an error. (IBR-CO-21)",
-      itemAttributeName: "Color",
-      itemAttributeValue: "B".repeat(301),
-      shouldError: true,
-      expectedErrorField: ITEM_ATTRIBUTE_VALUE_FIELD,
-    },
+    // Length min/max/above-max for name and value stays in Field validation.
   ];
 
 // ---------------------------------------------------------------------------

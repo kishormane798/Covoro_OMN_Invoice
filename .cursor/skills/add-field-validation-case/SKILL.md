@@ -11,6 +11,12 @@ description: Add Excel upload field validation tests (accept or error file). Use
 - Valid upload accepted, or invalid upload → error workbook
 - **Not** for Oman if-then conditionals (`ALIGNED-IBRP-*-OM` / `IBR-*-OM`) — use `add-conditional-validation-case`
 
+## Excel suite ownership
+
+Keep min / max / min−1 (empty) / max+1, valid+invalid dropdown, and Invoice Issue Date.
+Do not add VATIN/UUID **pattern**, exemption **code+text**, party **scheme-when-id**, **-05** tax-rate if-then, or **IBR-137-OM** sign tests — Conditional already owns those.
+See `docs/superpowers/specs/2026-09-21-excel-suite-ownership-dedupe-design.md`.
+
 ## Key files
 
 | Purpose | Path |

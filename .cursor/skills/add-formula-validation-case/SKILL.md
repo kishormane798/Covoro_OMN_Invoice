@@ -12,6 +12,13 @@ description: Add formula, min-max, and calculated-totals validation tests. Use w
 - Inventory **FORMULA** rules (e.g. `ALIGNED-IBRP-E-08-OM` Σ taxable amount) after
   `expand-omn-conditional-rule` Check → user replies **yes** to implement
 
+## Excel suite ownership
+
+Keep Σ / calculated mismatch / tolerance, IBR-071-OM, IBR-075-OM, ALIGNED-IBRP-E/O/S/Z-08-OM.
+Do not add IBR-082-OM **empty** (Conditional), tax-rate **if-then (-05)** (Conditional), or IBR-137-OM sign (Conditional).
+Setting tax category/rate as **inputs** for totals is allowed.
+See `docs/superpowers/specs/2026-09-21-excel-suite-ownership-dedupe-design.md`.
+
 ## Check vs implement
 
 If the user only asked to **check** coverage, do not add cases here. Follow

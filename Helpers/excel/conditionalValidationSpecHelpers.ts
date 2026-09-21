@@ -28,6 +28,7 @@ import {
   PROFIT_MARGIN_ITEM_TYPE_CODE_FIELD,
   SELLER_VAT_IDENTIFIER_FIELD,
   THIRD_PARTY_VATIN_FIELD,
+  TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
   IBR_137_OM_PATCH_AFTER_GENERATE_FIELDS,
   SUMMARY_INVOICE_PERIOD_SCENARIOS,
   TAX_AMOUNT_IN_ACCOUNTING_CURRENCY_FIELD,
@@ -82,11 +83,6 @@ export type ConditionalRowTransform = (
   rowData: Record<string, string | null>
 ) => Record<string, string | null>;
 
-/** Playwright test name: drop leading `TC_01 ` / `TC_12 ` trace id from scenario title. */
-export function playwrightTitleFromScenarioTitle(title: string): string {
-  return title.replace(/^TC_\d+\s+/, "");
-}
-
 /**
  * Collapse Title-Case duplicates onto the first spelling (seed keys). Later values win
  * so formula inputs like Item gross price are what generateInvoiceFromSubmitData totals use.
@@ -118,6 +114,14 @@ export function patchSellerVatFromRow(
     filePath,
     SELLER_VAT_IDENTIFIER_FIELD,
     String(rowData[SELLER_VAT_IDENTIFIER_FIELD] ?? "")
+  );
+}
+
+export function patchProfitMarginDueBlank(filePath: string): void {
+  patchInvoiceTextCellInFile(
+    filePath,
+    TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FIELD,
+    ""
   );
 }
 
@@ -154,20 +158,6 @@ export function vatinPatternPatchOptions(
     patchFile: (filePath, rowData) =>
       patchVatinPatternFromRow(filePath, rowData, scenario.party),
   };
-}
-
-/**
- * IBR-038-OM: submit writer recalculates Line item VAT amount. Re-apply an
- * explicit blank after generate so Full Tax empty cases stay empty.
- */
-export function patchBlankLineItemVatAmountIfEmpty(
-  filePath: string,
-  rowData: Record<string, string | null>
-): void {
-  if (String(rowData[LINE_ITEM_VAT_AMOUNT_FIELD] ?? "").trim()) {
-    return;
-  }
-  patchInvoiceTextCellInFile(filePath, LINE_ITEM_VAT_AMOUNT_FIELD, "");
 }
 
 /**
@@ -450,29 +440,6 @@ export function patchIbr137OmNegativeAmountAfterGenerate(
     return;
   }
   patchInvoiceDataCellInFile(filePath, field, amount);
-}
-
-/**
- * ALIGNED-IBRP-E-09-OM: submit writer recalculates Invoice total tax amount
- * (IBT-117 proxy). Re-apply 0 / non-zero after generate. Do not blank this
- * column to simulate IBG-23 omit — VAT breakdown is UI/backend auto-map.
- * Resolve header case-insensitively so seed casing ("Invoice total tax amount")
- * still supplies the scenario value after collapseSubmitRowHeaderKeys.
- */
-export function patchVatCategoryTaxAmountAfterGenerate(
-  filePath: string,
-  rowData: Record<string, string | null>
-): void {
-  const raw = readRowFieldIgnoringCase(rowData, INVOICE_TOTAL_TAX_AMOUNT_FIELD);
-  if (!raw.trim()) {
-    return;
-  }
-  const amount = Number(raw);
-  if (Number.isNaN(amount)) {
-    patchInvoiceTextCellInFile(filePath, INVOICE_TOTAL_TAX_AMOUNT_FIELD, raw);
-    return;
-  }
-  patchInvoiceDataCellInFile(filePath, INVOICE_TOTAL_TAX_AMOUNT_FIELD, amount);
 }
 
 /**

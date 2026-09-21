@@ -508,15 +508,15 @@ function buildSameTaxSecondLine(line1: FormulaDataRow): FormulaDataRow {
   };
 }
 
-function roundMoney2(n: number): number {
-  return Number((Math.round(n * 100) / 100).toFixed(2));
+function ceil3(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.ceil(n * 1000 - 1e-12) / 1000;
 }
 
-/** IBR-065-OM: IBT-111 = ceil2(fix6(IBT-110 × FX)); aligned with `calculateInvoiceValues`. */
+/** IBR-065-OM: IBT-111 = ceil3(fix6(IBT-110 × FX)); aligned with `calculateInvoiceValues`. */
 function ibt111FromInvoiceTotalTax(totalTax: number, currencyRate: number): number {
   const fix6 = (n: number) => Number(n.toFixed(6));
-  const ceil2 = (n: number) => Math.ceil(n * 100 - 1e-12) / 100;
-  return ceil2(fix6(totalTax * currencyRate));
+  return ceil3(fix6(totalTax * currencyRate));
 }
 
 const IBT111_EXCEL_HEADER = "Invoice Total Tax Amount In Tax Accounting Currency";
@@ -531,16 +531,16 @@ function pickCorrectTwoLine(
     return target.pickCorrect(c1);
   }
   const line2Vat = c2.lineItemVatAmount ?? 0;
-  const sumNet = roundMoney2(c1.invoiceLineNetAmount + c2.invoiceLineNetAmount);
-  const totalWithoutTax = roundMoney2(c1.invoiceTotalWithoutTax + c2.invoiceLineNetAmount);
-  const totalTax = roundMoney2(c1.invoiceTotalTax + line2Vat);
-  const totalWithTax = roundMoney2(totalWithoutTax + totalTax);
+  const sumNet = ceil3(c1.invoiceLineNetAmount + c2.invoiceLineNetAmount);
+  const totalWithoutTax = ceil3(c1.invoiceTotalWithoutTax + c2.invoiceLineNetAmount);
+  const totalTax = ceil3(c1.invoiceTotalTax + line2Vat);
+  const totalWithTax = ceil3(totalWithoutTax + totalTax);
   const ibt111 =
     target.excelHeader === IBT111_EXCEL_HEADER && currencyRate !== undefined && currencyRate > 0
       ? ibt111FromInvoiceTotalTax(totalTax, currencyRate)
       : c1.invoiceTotalTaxAccountingCurrency === null
         ? null
-        : roundMoney2(
+        : ceil3(
             (c1.invoiceTotalTaxAccountingCurrency / Math.max(c1.invoiceTotalTax, 0.000001)) *
               totalTax
           );
@@ -550,12 +550,12 @@ function pickCorrectTwoLine(
     invoiceTotalWithoutTax: totalWithoutTax,
     invoiceTotalTax: totalTax,
     invoiceTotalWithTax: totalWithTax,
-    amountDue: roundMoney2(c1.amountDue + c2.invoiceLineNetAmount + line2Vat),
+    amountDue: ceil3(c1.amountDue + c2.invoiceLineNetAmount + line2Vat),
     invoiceTotalTaxAccountingCurrency: ibt111,
     totalAmountDueProfitMargin:
       c1.totalAmountDueProfitMargin === null
         ? null
-        : roundMoney2(
+        : ceil3(
             (c1.totalAmountIncludingVat ?? 0) + (c2.totalAmountIncludingVat ?? 0)
           ),
   };
@@ -1881,46 +1881,6 @@ export async function runAlignedIbrpZ08OmScenario(
     return;
   }
   await uploadAndVerify(page, filePath);
-}
-
-/**
- * IBR-082-OM: when BTOM-001 is Profit Margin Invoice, Total Amount Due (BTOM-020)
- * is mandatory and must equal Σ Total amount including VAT (BTOM-017).
- * Match + mismatch already live in the calculated-field suite; this covers omit.
- */
-export type Ibr082OmPolarity = "not_allowed_omit";
-
-export type Ibr082OmCase = {
-  ruleId: "IBR-082-OM";
-  polarity: Ibr082OmPolarity;
-  title: string;
-  shouldError: true;
-};
-
-export const IBR_082_OM_CASES: Ibr082OmCase[] = [
-  {
-    ruleId: "IBR-082-OM",
-    polarity: "not_allowed_omit",
-    title:
-      "Given a Profit Margin invoice — When Total Amount Due is left empty — Then the invoice should be rejected with an error. (IBR-082-OM)",
-    shouldError: true,
-  },
-];
-
-export async function runIbr082OmScenario(page: Page, scenario: Ibr082OmCase) {
-  const row = formulaMismatchBaseRow("Total Amount Due (Profit Margin)");
-  const { filePath, invoiceNumber } = await generateFormulaWorkbook(row, "omr", 1);
-
-  if (scenario.polarity === "not_allowed_omit") {
-    patchInvoiceTextCellInFile(filePath, PROFIT_MARGIN_DUE_HEADER, "");
-  }
-
-  await runErrorValidation(page, {
-    filePath,
-    field: PROFIT_MARGIN_DUE_HEADER,
-    invoiceNumber,
-    checkEdit: true,
-  });
 }
 
 export async function runNegativeFormulaScenario(

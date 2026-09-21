@@ -1,7 +1,3 @@
-import { Page } from "@playwright/test";
-import { UploadInvoicePage } from "../../pageObjects/OMN_UploadInvoicePage";
-import { validateErrorFileColumn, printErrorWorkbookMessages } from "../../utils/excel/invoiceExcel";
-
 /** Invoice # helpers for min/max and negative field-validation specs. */
 export function buildInvoiceNumber(value: string, maxLen = 64): string {
   if (value.length <= maxLen) return value;
@@ -15,16 +11,4 @@ export function randomAlphaNumeric(length: number): string {
     out += chars[Math.floor(Math.random() * chars.length)];
   }
   return out;
-}
-
-/** After upload error: download annotated workbook and assert Errors column mentions `field`. */
-export async function verifyErrorFile(page: Page, field: string) {
-  const uploadPage = new UploadInvoicePage(page);
-
-  await uploadPage.waitForStatus("error");
-  await uploadPage.waitForErrorFileDownloadEnabled();
-
-  const errorFilePath = await uploadPage.downloadErrorFileViaClick();
-  printErrorWorkbookMessages(errorFilePath, 6);
-  await validateErrorFileColumn(errorFilePath, field);
 }

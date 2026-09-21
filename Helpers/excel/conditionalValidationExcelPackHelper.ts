@@ -690,26 +690,6 @@ export function shouldExpandMultiValuePack(
   return !(tc.title || "").toLowerCase().includes("trigger not met");
 }
 
-/** @deprecated Prefer shouldExpandMultiValuePack — kept for call-site compatibility. */
-export function shouldExpandMultiInvoiceTypes(
-  tc: ConditionalMatrixCase
-): boolean {
-  const rule = (tc.ruleId || "").trim().toUpperCase();
-  const spec = FV.MULTI_VALUE_PACK_EXPAND[rule];
-  if (!spec || spec.dimension !== "invoiceType") return false;
-  return shouldExpandMultiValuePack(tc);
-}
-
-/** @deprecated Prefer shouldExpandMultiValuePack. */
-export function shouldExpandMultiSelfBilledDocTypes(
-  tc: ConditionalMatrixCase
-): boolean {
-  return (
-    (tc.ruleId || "").trim().toUpperCase() === "IBR-177-OM" &&
-    shouldExpandMultiValuePack(tc)
-  );
-}
-
 /**
  * For IBR-032 blank/whitespace/omit mutations, clear the full preceding trio
  * (ref + date + UUID) so the negative workbook is honest against IBR-032.

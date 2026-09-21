@@ -315,14 +315,14 @@ def fix6(num: float) -> float:
     return round(float(num), 6)
 
 
-def ceil2(num: float) -> float:
-    """Monetary outputs: round up to 2 decimal places."""
+def ceil3(num: float) -> float:
+    """Monetary outputs: round up to 3 decimal places."""
     import math
 
     x = float(num)
     if not math.isfinite(x):
         return 0.0
-    return math.ceil(x * 100.0 - 1e-12) / 100.0
+    return math.ceil(x * 1000.0 - 1e-12) / 1000.0
 
 
 def normalize_category(value: object) -> str:
@@ -503,23 +503,23 @@ def apply_invoice_calculations_to_data_row(ws, header_row: int, data_row: int) -
 
     line_plus_vat_raw = fix6(line_net_raw + vat_base_raw)
 
-    item_net_price = ceil2(item_net_price_raw)
-    invoice_line_net_amount = ceil2(line_net_raw)
-    line_item_vat_amount = ceil2(vat_base_raw)
-    total_amount_including_vat = ceil2(line_plus_vat_raw)
-    sum_invoice_line_net = ceil2(line_net_raw)
+    item_net_price = ceil3(item_net_price_raw)
+    invoice_line_net_amount = ceil3(line_net_raw)
+    line_item_vat_amount = ceil3(vat_base_raw)
+    total_amount_including_vat = ceil3(line_plus_vat_raw)
+    sum_invoice_line_net = ceil3(line_net_raw)
 
     total_without_raw = fix6(line_net_raw + doc_charges - doc_allowances)
-    invoice_total_without_tax = ceil2(total_without_raw)
-    invoice_total_tax = ceil2(invoice_total_tax_raw)
+    invoice_total_without_tax = ceil3(total_without_raw)
+    invoice_total_tax = ceil3(invoice_total_tax_raw)
     if is_oman_home_currency(invoice_currency):
         invoice_total_tax_accounting = None
     else:
-        invoice_total_tax_accounting = ceil2(fix6(invoice_total_tax * currency_rate))
+        invoice_total_tax_accounting = ceil3(fix6(invoice_total_tax * currency_rate))
 
     total_with_raw = fix6(total_without_raw + invoice_total_tax_raw)
-    invoice_total_with_tax = ceil2(total_with_raw)
-    amount_due = ceil2(fix6(total_with_raw - paid_amount + rounding_amount))
+    invoice_total_with_tax = ceil3(total_with_raw)
+    amount_due = ceil3(fix6(total_with_raw - paid_amount + rounding_amount))
     txn_type = cell_value(ws, data_row, header_map, "Invoice Transaction Type Code")
     # IBR-082-OM: fill only for Profit Margin Invoice / Profit Margin Self-Invoice.
     if is_profit_margin_transaction_type(txn_type):
@@ -692,11 +692,11 @@ def cmd_expand_invoice_lines(args: list[str]) -> None:
     raw_tax_total = fix6(raw_sum_vat + doc_charge_tax - doc_allowance_tax)
     raw_with = fix6(raw_without + raw_tax_total)
     invoice_totals = {
-        "Sum of Invoice line net amount": ceil2(raw_sum_net),
-        "Invoice total amount without tax": ceil2(raw_without),
-        "Invoice total tax amount": ceil2(raw_tax_total),
-        "Invoice total amount with tax": ceil2(raw_with),
-        "Amount due for payment": ceil2(fix6(raw_with - paid_amount + rounding_amount)),
+        "Sum of Invoice line net amount": ceil3(raw_sum_net),
+        "Invoice total amount without tax": ceil3(raw_without),
+        "Invoice total tax amount": ceil3(raw_tax_total),
+        "Invoice total amount with tax": ceil3(raw_with),
+        "Amount due for payment": ceil3(fix6(raw_with - paid_amount + rounding_amount)),
     }
 
     base_name = _strip_line_hash_suffix(
