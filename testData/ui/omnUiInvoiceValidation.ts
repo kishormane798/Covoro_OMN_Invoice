@@ -613,7 +613,7 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
     ? source.invoiceTransactionTypeCode
     : uiTxnCellWithAllowedCompanions(source.invoiceTransactionTypeCode),
   };
-}));
+});
 
 export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...partyIdentifierCompanionRows,

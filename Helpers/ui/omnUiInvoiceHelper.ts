@@ -1863,6 +1863,11 @@ async function runOmnUiTxnExclusionCase(
     omnUiExpectedTotals(formulaScenario).invoiceLineNetAmount
   );
   await applyInvoiceFormulaInputs(invoice, entry, formulaScenario);
+  await ensureInvoiceDocVatMatchesItem(
+    invoice,
+    String(formulaScenario.taxCategory ?? OMN_UI_TAX_CATEGORY_STANDARD),
+    formulaScenario.taxExemptionReasonCode
+  );
   await commitSection(invoice, "invoice", entry);
   // Copy sometimes leaves Invoice Details editable after the first Save — retry once.
   if (await invoice.isSectionInEditMode("invoice", entry)) {
