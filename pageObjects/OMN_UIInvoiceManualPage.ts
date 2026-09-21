@@ -273,11 +273,10 @@ export class OMN_UIInvoiceManualPage {
   }
 
   /**
-   * Section persist label. Document/Seller/…: Create+Copy → Save, Edit → Update.
-   * Item Details table footer is always Save (Create / Edit / Copy).
+   * Section persist label. Create+Copy → Save, Edit → Update (including Item Details).
+   * Item modal labels stay in `itemModalCommitButton` (Add / Update).
    */
-  private persistButtonName(entry: OmnUiEntry, section?: OmnUiSection): "Save" | "Update" {
-    if (section === "item") return "Save";
+  private persistButtonName(entry: OmnUiEntry, _section?: OmnUiSection): "Save" | "Update" {
     return entry === "edit" ? "Update" : "Save";
   }
 
@@ -1034,6 +1033,39 @@ export class OMN_UIInvoiceManualPage {
     if ((await input.count()) === 0) return;
     await expect(input.first()).toBeVisible({ timeout: 15_000 });
     await input.first().fill(value);
+  }
+
+  /** Invoice Details labels such as Taxable Amount (OMR). Skip missing or disabled. */
+  async replaceLabeledSectionText(
+    section: OmnUiSection,
+    label: string,
+    value: string
+  ): Promise<void> {
+    const root = this.scope(section);
+    const exact = root.getByRole("textbox", { name: label, exact: true });
+    const labeled = root.getByLabel(label, { exact: true });
+    const input =
+      (await exact.count()) > 0
+        ? exact.first()
+        : (await labeled.count()) > 0
+          ? labeled.first()
+          : root.getByRole("textbox", { name: new RegExp(label, "i") }).first();
+    if ((await input.count()) === 0) return;
+    if (await input.isDisabled().catch(() => true)) return;
+    await expect(input).toBeVisible({ timeout: 15_000 });
+    await input.click({ clickCount: 3 }).catch(() => input.click());
+    await input.fill(value);
+  }
+
+  /**
+   * VAT breakdown (Edit DOM): `#taxAmtStandardRate`, `#taxableAmtStandardRate`.
+   */
+  async fillInvoicePerTaxTypeAmounts(
+    taxAmount: string,
+    taxableAmount: string
+  ): Promise<void> {
+    await this.replaceInput("invoice", "taxAmtStandardRate", taxAmount);
+    await this.replaceInput("invoice", "taxableAmtStandardRate", taxableAmount);
   }
 
   async readLabeledSectionValue(section: OmnUiSection, label: string): Promise<string> {

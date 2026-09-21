@@ -4,7 +4,7 @@
  * Default local run (`npx playwright test` / `npm test`): Simplified Template **field**, **formula**, and
  * **conditional** specs only (`chromium`). On `CI=true`, `chromium` runs any non-UI spec (explicit path from GitHub Actions).
  * UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under project `chromium-ui`.
- * Video is off. Trace is off.
+ * Video is retained on failure only (saved under test-results/). Trace is off.
  *
  * Workers: default is 5 so Worker 1…5 maps to TIN 1779700001…5 (`TEST_PARALLEL_INDEX` 0…4). When `CI=true`, default is 1 unless
  * `PW_WORKERS` is set. Override: `PW_WORKERS=1 npx playwright test` or `--workers=1`.
@@ -46,7 +46,7 @@ export default defineConfig({
   // Never fail-fast by default; allow the full suite to run.
   maxFailures: 0,
   forbidOnly: !!process.env.CI,
-  retries: 1,
+  retries: 0,
   workers: resolveWorkerCount(),
   outputDir: 'test-results/',
   reporter: [
@@ -74,7 +74,7 @@ export default defineConfig({
   use: {
     baseURL: resolvedBaseUrl,
     screenshot: 'only-on-failure',
-    video: 'off',
+    video: 'retain-on-failure',
     trace: 'off',
     storageState: 'storageState.json',
   },

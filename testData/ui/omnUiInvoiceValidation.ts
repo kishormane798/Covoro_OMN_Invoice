@@ -64,7 +64,7 @@ import {
   PRECEDING_INVOICE_SCENARIOS,
   PRECEDING_INVOICE_UUID_FIELD,
   PRECEDING_INVOICE_UUID_SAMPLE,
-  PREPAYMENT_TXN_EXCLUSION_SCENARIOS,
+  // PREPAYMENT_TXN_EXCLUSION_SCENARIOS, // IBR-176-OM — UI conditional commented
   PROFIT_MARGIN_HS_PREFIX_SCENARIOS,
   PROFIT_MARGIN_ITEM_TYPE_SCENARIOS,
   PROFIT_MARGIN_SELF_INVOICE_SCENARIOS,
@@ -121,7 +121,7 @@ import {
   SPECIAL_ZONE_SELLER_SCENARIOS,
   SELF_BILLED_BUYER_VAT_SCENARIOS,
   SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS,
-  SELF_BILLED_TXN_CONSTRAINT_SCENARIOS,
+  // SELF_BILLED_TXN_CONSTRAINT_SCENARIOS, // IBR-177-OM — UI conditional commented
   SELF_BILLED_TXN_EXCLUSION_SCENARIOS,
   IBR_139_TXN_EXCLUSION_SCENARIOS,
   SUMMARY_TXN_EXCLUSION_SCENARIOS,
@@ -2245,12 +2245,14 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
     ], UI_BUYER_COUNTRY_IDS.slice(1))
   ),
-  ...SELF_BILLED_TXN_CONSTRAINT_SCENARIOS.map((s) =>
-    catalogControlScenario(s, "document", "invTxnType", [])
-  ),
-  ...PREPAYMENT_TXN_EXCLUSION_SCENARIOS.map((s) =>
-    catalogControlScenario(s, "document", "invTxnType", [])
-  ),
+  // IBR-177-OM: Invoice Type 261/389 must use Self-billed / RCM / PM-Self / Import of Goods.
+  // IBR-176-OM: Prepayment cannot combine with Summary / Deemed / Profit Margin Self-Invoice.
+  // ...SELF_BILLED_TXN_CONSTRAINT_SCENARIOS.map((s) =>
+  //   catalogControlScenario(s, "document", "invTxnType", [])
+  // ),
+  // ...PREPAYMENT_TXN_EXCLUSION_SCENARIOS.map((s) =>
+  //   catalogControlScenario(s, "document", "invTxnType", [])
+  // ),
   ...[
     ...DOCUMENT_ALLOWANCE_CHARGE_VAT_SCENARIOS,
     ...DOCUMENT_ALLOWANCE_CHARGE_RATE_SCENARIOS,

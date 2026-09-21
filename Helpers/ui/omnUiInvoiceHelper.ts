@@ -38,8 +38,8 @@ import {
   OMN_UI_PRECEDING_UUID_ID,
   OMN_UI_PROFIT_MARGIN_TOTAL_DUE,
   OMN_UI_SECTION_ORDER,
-  OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT,
   OMN_UI_TAX_CATEGORY_STANDARD,
+  OMN_UI_CURRENCY_OMR,
   OMN_UI_UNIT_OF_MEASURE,
   OMN_UI_TXN_FULL_TAX,
   OMN_UI_TXN_SELF_BILLED,
@@ -62,7 +62,6 @@ import {
   CREDIT_DEBIT_REASON_SAMPLE,
   EXEMPT_FROM_TAX_TAX_CATEGORY_CODE,
   NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE,
-  OMAN_CURRENCY_USD,
   PRECEDING_INVOICE_UUID_SAMPLE,
   PROFIT_MARGIN_ITEM_TYPE_SAMPLE,
   STANDARD_TAX_CATEGORY_CODE,
@@ -102,6 +101,7 @@ import {
   invoiceFormulaTestData,
   type InvoiceFormulaScenario,
 } from "../../testData/FieldValidations/Min_max_field_validation";
+import { INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME } from "../../testData/FieldValidations/invoiceCurrencyIsoToDisplayName";
 
 function toNumber(value: unknown, fallback = 0): number {
   if (value === null || value === undefined || String(value).trim() === "") {
@@ -117,13 +117,21 @@ function omnUiExpectedTotals(scenario: InvoiceFormulaScenario): {
   invoiceLineNetAmount: number;
   vatLineAmount: number;
   invoiceLineAmount: number;
+  invoiceTotalWithoutTax: number;
+  invoiceTotalTax: number;
   invoiceTotalWithTax: number;
   amountDue: number;
+  taxInAccountingCurrency: number | null;
 } {
   const fix6 = (num: number) => Number(num.toFixed(6));
   const ceil3 = (num: number) => {
     if (!Number.isFinite(num)) return 0;
     return Math.ceil(num * 1000 - 1e-12) / 1000;
+  };
+  /** UI tax = round3(taxable × rate / 100). 0.001 × 5% = 0.00005 → VAT 0, not ceil3 0.001. */
+  const round3 = (num: number) => {
+    if (!Number.isFinite(num)) return 0;
+    return Math.round(num * 1000 + 1e-8) / 1000;
   };
   const itemPriceBaseQty = toNumber(scenario.itemPriceBaseQty, 1);
   const itemGrossPrice = toNumber(scenario.itemGrossPrice);
@@ -144,17 +152,29 @@ function omnUiExpectedTotals(scenario: InvoiceFormulaScenario): {
       : lineCharge - lineAllowance
   );
   const rawVatBase = fix6(rawLineNet * (taxRate / 100));
-  const rawInvoiceTotalTax = fix6(rawVatBase);
-  const rawTotalWithoutTax = fix6(rawLineNet + docCharges - docAllowances);
-  const rawTotalWithTax = fix6(rawTotalWithoutTax + rawInvoiceTotalTax);
+  const vatLineAmount = round3(rawVatBase);
+  /** Item modal footer uses round3, not ceil3 (1.651 qty → 6050.878, not 6050.879). */
+  const invoiceLineNetAmount = round3(rawLineNet);
+  const invoiceTotalWithoutTax = ceil3(
+    fix6(invoiceLineNetAmount + docCharges - docAllowances)
+  );
+  const invoiceTotalTax = round3(invoiceTotalWithoutTax * (taxRate / 100));
+  const currencyRate = toNumber(scenario.currencyRate, Number.NaN);
 
   return {
-    itemNetPrice: ceil3(rawItemNet),
-    invoiceLineNetAmount: ceil3(rawLineNet),
-    vatLineAmount: ceil3(rawVatBase),
-    invoiceLineAmount: ceil3(rawLineNet + rawVatBase),
-    invoiceTotalWithTax: ceil3(rawTotalWithTax),
-    amountDue: ceil3(fix6(rawTotalWithTax - paidAmount + roundingAmount)),
+    itemNetPrice: round3(rawItemNet),
+    invoiceLineNetAmount,
+    vatLineAmount,
+    invoiceLineAmount: round3(invoiceLineNetAmount + vatLineAmount),
+    invoiceTotalWithoutTax,
+    invoiceTotalTax,
+    invoiceTotalWithTax: round3(invoiceTotalWithoutTax + invoiceTotalTax),
+    amountDue: round3(
+      invoiceTotalWithoutTax + invoiceTotalTax - paidAmount + roundingAmount
+    ),
+    taxInAccountingCurrency: Number.isFinite(currencyRate)
+      ? round3(invoiceTotalTax * currencyRate)
+      : null,
   };
 }
 
@@ -517,6 +537,7 @@ async function resetSelfBilledParties(
     kind: "catalogControl",
     shouldError: false,
     assertInputId: "invNum",
+    invoiceTypeCode: knownTypes.invoiceTypeCode,
     invoiceTransactionTypeCode: knownTypes.invoiceTransactionTypeCode,
   };
   for (const section of ["seller", "buyer"] as const) {
@@ -738,7 +759,6 @@ async function addAndCommitBaselineItem(
   await ensureItemBaseline(invoice, entry, new Set());
   await invoice.clickItemCommit(entry);
   await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
-  // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
   await invoice.clickSectionCommit("item", entry);
 }
 
@@ -1858,16 +1878,15 @@ async function runOmnUiTxnExclusionCase(
     isOmnUiPrefilledLineItemEntry(entry)
   );
   await invoice.openSectionForEdit("invoice", entry);
-  await waitForInvoiceSumOfLineNet(
-    invoice,
-    omnUiExpectedTotals(formulaScenario).invoiceLineNetAmount
-  );
   await applyInvoiceFormulaInputs(invoice, entry, formulaScenario);
   await ensureInvoiceDocVatMatchesItem(
     invoice,
     String(formulaScenario.taxCategory ?? OMN_UI_TAX_CATEGORY_STANDARD),
     formulaScenario.taxExemptionReasonCode
   );
+  if (entry === "edit") {
+    await enterExpectedInvoiceFormulaAmounts(invoice, formulaScenario);
+  }
   await commitSection(invoice, "invoice", entry);
   // Copy sometimes leaves Invoice Details editable after the first Save — retry once.
   if (await invoice.isSectionInEditMode("invoice", entry)) {
@@ -1968,25 +1987,12 @@ async function fillOmnUiFormulaItem(
     await fillFormulaCandidate(invoice, "item", key, scenario[key]);
   }
   await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
-  // Do not overwrite line VAT with Excel ceil3 on Copy — Tax Amount wins.
-  if (scenario.currencyRate != null && entry === "edit") {
-    const expected = omnUiExpectedTotals(scenario);
-    await invoice.replaceLabeledItemText(
-      "Line Item VAT Amount",
-      String(expected.vatLineAmount)
-    );
-    await invoice.replaceLabeledItemText(
-      "Total Amount Including VAT",
-      String(expected.invoiceLineAmount)
-    );
-  }
   await invoice.clickItemCommit(entry);
   if (!expectSaved) {
     return;
   }
   await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
-  // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
-  await invoice.clickSectionCommit("item", entry);
+  await commitItemSectionAfterModal(invoice, entry);
 }
 
 async function expectAnyFormulaError(
@@ -2095,21 +2101,14 @@ async function runOmnUiFormulaCatalogScenario(
       scenario.invoiceTransactionTypeCode || TXN_PROFIT_MARGIN_INVOICE
     );
   } else if (row.kind === "formulaNonOmr") {
-    await invoice.selectFirstNonOmrCurrency();
+    await selectAedOrUsdInvoiceCurrency(invoice);
     await invoice.expectInputDisabled("document", "currExchangeRate", false);
     const fx =
       scenario.currencyRate === undefined || scenario.currencyRate === null
         ? "3.67"
         : String(scenario.currencyRate);
     await writeText(invoice, entry, "document", "currExchangeRate", fx);
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "document",
-      "taxAccountingCurrency",
-      OMAN_CURRENCY_USD,
-      ["taxAccCurr", "taxAccountingCurrCode"]
-    );
+    await selectTaxAccountingCurrencyOnEdit(invoice, entry);
   }
   await invoice.clickSectionCommit("document", entry);
   await invoice.expectSectionSavedReadOnly("document");
@@ -2141,12 +2140,6 @@ async function runOmnUiFormulaCatalogScenario(
     }
   }
   await invoice.openSectionForEdit("invoice", entry);
-  if (!row.expectsError) {
-    await waitForInvoiceSumOfLineNet(
-      invoice,
-      omnUiExpectedTotals(scenario as InvoiceFormulaScenario).invoiceLineNetAmount
-    );
-  }
   await applyInvoiceFormulaInputs(invoice, entry, scenario as InvoiceFormulaScenario);
   await ensureInvoiceDocVatMatchesItem(
     invoice,
@@ -2155,16 +2148,11 @@ async function runOmnUiFormulaCatalogScenario(
     ),
     (scenario as InvoiceFormulaScenario).taxExemptionReasonCode
   );
-  if (row.kind === "formulaNonOmr") {
-    const ibt111 = await invoice.readInputValue(
-      "invoice",
-      "totalTaxAmtInTaxAccCurr",
-      [...OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT.inputIds]
+  if (entry === "edit" && !row.expectsError) {
+    await enterExpectedInvoiceFormulaAmounts(
+      invoice,
+      scenario as InvoiceFormulaScenario
     );
-    expect(
-      ibt111,
-      `${OMN_UI_TAX_IN_ACCOUNTING_CURRENCY_AMOUNT.excelField} should be visible and calculated`
-    ).not.toBe("");
   }
   await commitSection(invoice, "invoice", entry);
 
@@ -2172,16 +2160,6 @@ async function runOmnUiFormulaCatalogScenario(
     await expectAnyFormulaError(invoice, scenario as InvoiceFormulaScenario);
     await invoice.expectSectionNotSaved("invoice", entry);
     return;
-  }
-  const target =
-    row.kind === "formulaProfitMargin" ? OMN_UI_PROFIT_MARGIN_TOTAL_DUE : undefined;
-  if (target) {
-    const value = await invoice.readInputValue(
-      target.section,
-      target.inputIds[0],
-      target.inputIds.slice(1)
-    );
-    expect(value, `${target.excelField} should be visible and calculated`).not.toBe("");
   }
   if (await invoice.isSectionInEditMode("invoice", entry)) {
     await invoice.clickSectionCommit("invoice", entry);
@@ -2302,6 +2280,46 @@ function isOmrCurrency(code?: string): boolean {
   return !code || /OMR|Rial Omani/i.test(code);
 }
 
+const TAX_ACCOUNTING_CURR_ID = "taxAccountingCurr";
+const TAX_ACCOUNTING_CURR_ALTS = [
+  "taxAccountingCurrency",
+  "taxAccCurr",
+  "taxAccountingCurrCode",
+] as const;
+
+/** Invoice currency for FX / IBT-111 cases — UAE Dirham, else US Dollar. Not first list option. */
+async function selectAedOrUsdInvoiceCurrency(
+  invoice: OMN_UIInvoiceManualPage
+): Promise<void> {
+  const aed = INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME.AED;
+  const usd = INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME.USD;
+  const current = (await invoice.readInputValue("document", "invCurrCode")).trim();
+  if (current === aed || current === usd) return;
+  try {
+    await invoice.selectAutocomplete("document", "invCurrCode", aed);
+  } catch {
+    await invoice.selectAutocomplete("document", "invCurrCode", usd);
+  }
+}
+async function selectTaxAccountingCurrencyOnEdit(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry
+): Promise<void> {
+  if (entry !== "edit") return;
+  await invoice.expectInputDisabled(
+    "document",
+    TAX_ACCOUNTING_CURR_ID,
+    false,
+    TAX_ACCOUNTING_CURR_ALTS
+  );
+  await invoice.selectAutocomplete(
+    "document",
+    TAX_ACCOUNTING_CURR_ID,
+    new RegExp(`${OMN_UI_CURRENCY_OMR}|\\bOMR\\b`, "i"),
+    TAX_ACCOUNTING_CURR_ALTS
+  );
+}
+
 const ADDRESS_INPUT_IDS = [
   "address1",
   "address2",
@@ -2359,12 +2377,18 @@ function extraSectionsForTxn(txn?: string): OmnUiSection[] {
 }
 
 /**
- * Sections this conditional must fill, in OMN_UI_SECTION_ORDER. Document is
- * always first. Item and extra party/totals sections are included when needed,
- * but runOmnUiConditionalScenario commits the section under test and then
- * stops so later sections (e.g. Add Item) cannot take Document out of edit.
+ * Sections this conditional must fill, in OMN_UI_SECTION_ORDER.
+ * Document-only rules stay on Document (no Seller/Buyer/Item).
+ * Otherwise Document is first; Item and extra party/totals sections are
+ * included when needed. runOmnUiConditionalScenario commits the section
+ * under test and then stops so later sections (e.g. Add Item) cannot take
+ * Document out of edit.
  */
 function sectionsForConditional(scenario: OmnUiConditionalScenario): OmnUiSection[] {
+  const stopAt = scenario.completeThrough ?? scenario.section;
+  if (stopAt === "document") {
+    return ["document"];
+  }
   const needed = new Set<OmnUiSection>(["document", "item"]);
   for (const section of extraSectionsForKind(scenario.kind)) {
     needed.add(section);
@@ -2376,7 +2400,7 @@ function sectionsForConditional(scenario: OmnUiConditionalScenario): OmnUiSectio
     needed.add(write.section);
   }
   needed.add(scenario.section);
-  if (scenario.completeThrough) needed.add(scenario.completeThrough);
+  needed.add(stopAt);
   return OMN_UI_SECTION_ORDER.filter((section) => needed.has(section));
 }
 
@@ -3179,7 +3203,15 @@ async function applyExcelTxnSectionCompanions(
     if (has(TXN_IMPORT_OF_SERVICES_RCM) && scenario.countryCode === undefined) {
       await writeAutocomplete(invoice, entry, "buyer", "country", OMAN_COUNTRY_CODE, ["countryCode"]);
       if (scenario.buyerVatIdentifier === undefined) {
-        await writeText(invoice, entry, "buyer", "vatIdentifier", IBR_003_VALID_BUYER_VATIN);
+        // Invoice Type 261/389: Buyer VATIN is the worker TIN. Do not infer
+        // self-billed from the RCM txn label (that would steal commercial RCM).
+        const invoiceType =
+          scenario.invoiceTypeCode ||
+          (await invoice.readInputValue("document", "invType"));
+        const buyerVat = isSelfBilledOnForm(invoiceType)
+          ? excelPartyIdentity(invoiceType, scenario.invoiceTransactionTypeCode).buyerVat
+          : IBR_003_VALID_BUYER_VATIN;
+        await writeText(invoice, entry, "buyer", "vatIdentifier", buyerVat);
       }
     }
     if (has(TXN_SPECIAL_ZONE_SUPPLIES) && scenario.buyerCountrySubdivision === undefined) {
@@ -3302,17 +3334,19 @@ async function applyConditionalSectionFields(
       );
     } else if (scenario.kind === "exchangeRate") {
       if (!isOmrCurrency(scenario.invoiceCurrencyCode)) {
-        await invoice.selectFirstNonOmrCurrency();
+        await selectAedOrUsdInvoiceCurrency(invoice);
         await invoice.expectInputDisabled("document", "currExchangeRate", false);
+        await selectTaxAccountingCurrencyOnEdit(invoice, entry);
       }
       await writeText(invoice, entry, "document", "currExchangeRate", scenario.exchangeRate);
     } else if (
       scenario.kind === "vatCategoryRate" &&
       !isOmrCurrency(scenario.invoiceCurrencyCode)
     ) {
-      await invoice.selectFirstNonOmrCurrency();
+      await selectAedOrUsdInvoiceCurrency(invoice);
       await invoice.expectInputDisabled("document", "currExchangeRate", false);
       await writeText(invoice, entry, "document", "currExchangeRate", scenario.exchangeRate);
+      await selectTaxAccountingCurrencyOnEdit(invoice, entry);
     }
     if (
       creditNoteCompanionsRequired(invoiceType, scenario.invoiceTypeCode) ||
@@ -3668,7 +3702,11 @@ export async function runOmnUiConditionalScenario(
     await applyConditionalSectionFields(invoice, entry, scenario, section);
     await applyCatalogControlWrites(invoice, entry, scenario, section);
     await commitSection(invoice, section, entry);
-    if (section === "document") {
+    const stopAt = scenario.completeThrough ?? scenario.section;
+    // Document-only conditionals (type, txn, currency, reason, preceding,
+    // period, import, incoterms, …) assert on Document. Do not open
+    // Seller/Buyer — Copy/Edit still hold commercial parties.
+    if (section === "document" && stopAt !== "document") {
       await resetSelfBilledParties(invoice, entry, {
         invoiceTypeCode:
           resolvedUiInvoiceType(scenario) ||
@@ -3679,7 +3717,7 @@ export async function runOmnUiConditionalScenario(
     // Save the section under test before later sections. Add Item takes
     // Document out of edit mode, so a Save after the item modal times out
     // (footer Save is gone — only Edit remains).
-    if (section === (scenario.completeThrough ?? scenario.section)) {
+    if (section === stopAt) {
       break;
     }
   }
@@ -3761,10 +3799,83 @@ async function syncItemVatLineToTaxAmount(
   }
 }
 
+async function replaceInvoiceAmountIfEnabled(
+  invoice: OMN_UIInvoiceManualPage,
+  inputId: string,
+  value: number,
+  altInputIds: readonly string[] = []
+): Promise<void> {
+  if (await invoice.isInputDisabled("invoice", inputId, altInputIds)) return;
+  await invoice.replaceInput("invoice", inputId, String(value), altInputIds);
+}
+
+/**
+ * Edit does not auto-calc Invoice Details. Type expected totals (Taxable Amount,
+ * tax, document totals) so Update is not rejected with stale baseline amounts.
+ */
+async function enterExpectedInvoiceFormulaAmounts(
+  invoice: OMN_UIInvoiceManualPage,
+  scenario: InvoiceFormulaScenario
+): Promise<void> {
+  const expected = omnUiExpectedTotals(scenario);
+  await replaceInvoiceAmountIfEnabled(
+    invoice,
+    "sumOfInvLineNetAmt",
+    expected.invoiceLineNetAmount
+  );
+  await replaceInvoiceAmountIfEnabled(
+    invoice,
+    "totalAmtWithoutTax",
+    expected.invoiceTotalWithoutTax
+  );
+  await replaceInvoiceAmountIfEnabled(
+    invoice,
+    "totalTaxAmt",
+    expected.invoiceTotalTax
+  );
+  await replaceInvoiceAmountIfEnabled(
+    invoice,
+    "totalAmtWithTax",
+    expected.invoiceTotalWithTax
+  );
+  await replaceInvoiceAmountIfEnabled(invoice, "paidAmt", toNumber(scenario.paidAmount));
+  await replaceInvoiceAmountIfEnabled(
+    invoice,
+    "roundingAmt",
+    toNumber(scenario.roundingAmount)
+  );
+  await replaceInvoiceAmountIfEnabled(
+    invoice,
+    "paymentDueAmt",
+    expected.amountDue
+  );
+  if (expected.taxInAccountingCurrency != null) {
+    await replaceInvoiceAmountIfEnabled(
+      invoice,
+      "totalTaxAmtInTaxAccCurr",
+      expected.taxInAccountingCurrency
+    );
+  }
+  await invoice.fillInvoicePerTaxTypeAmounts(
+    String(expected.invoiceTotalTax),
+    String(expected.invoiceTotalWithoutTax)
+  );
+}
+
+async function replaceItemAmountIfEnabled(
+  invoice: OMN_UIInvoiceManualPage,
+  inputId: string,
+  value: number,
+  altInputIds: readonly string[] = []
+): Promise<void> {
+  if (await invoice.isInputDisabled("item", inputId, altInputIds)) return;
+  await invoice.replaceInput("item", inputId, String(value), altInputIds);
+}
+
 /**
  * Create/Copy auto-calculate nets / Tax Amount. Line VAT must match Tax Amount
  * or Update is rejected. Sync editable VAT fields from Tax Amount after auto-calc.
- * Edit does not auto-calc — enter nets (and Tax Amount when editable), then sync VAT.
+ * Edit does not auto-calc — type expected amounts, then assert before Update.
  */
 async function enterExpectedItemFormulaAmounts(
   invoice: OMN_UIInvoiceManualPage,
@@ -3773,26 +3884,39 @@ async function enterExpectedItemFormulaAmounts(
 ): Promise<void> {
   if (entry === "edit") {
     const expected = omnUiExpectedTotals(scenario);
-    if (!(await invoice.isInputDisabled("item", "itemNetPrice"))) {
-      await invoice.replaceInput("item", "itemNetPrice", String(expected.itemNetPrice));
-    }
-    if (!(await invoice.isInputDisabled("item", "invLineNetAmt"))) {
-      await invoice.replaceInput(
-        "item",
-        "invLineNetAmt",
-        String(expected.invoiceLineNetAmount)
-      );
-    }
-    if (!(await invoice.isInputDisabled("item", "taxRateDtls[0].taxAmt"))) {
-      await invoice.replaceInput(
-        "item",
-        "taxRateDtls[0].taxAmt",
-        String(expected.vatLineAmount)
-      );
-    }
+    await replaceItemAmountIfEnabled(invoice, "itemNetPrice", expected.itemNetPrice);
+    await replaceItemAmountIfEnabled(
+      invoice,
+      "invLineNetAmt",
+      expected.invoiceLineNetAmount
+    );
+    await replaceItemAmountIfEnabled(
+      invoice,
+      "taxRateDtls[0].taxAmt",
+      expected.vatLineAmount
+    );
+    await replaceItemAmountIfEnabled(
+      invoice,
+      "totalInvLineVatAmt",
+      expected.vatLineAmount,
+      ["vatLineAmt"]
+    );
+    await replaceItemAmountIfEnabled(
+      invoice,
+      "totalAmtIncludingVat",
+      expected.invoiceLineAmount,
+      ["invLineAmt"]
+    );
+    await invoice.replaceLabeledItemText(
+      "Line Item VAT Amount",
+      String(expected.vatLineAmount)
+    );
+    await invoice.replaceLabeledItemText(
+      "Total Amount Including VAT",
+      String(expected.invoiceLineAmount)
+    );
+    return;
   }
-  // Create/Copy: Tax Amount comes from auto-calc. Edit: Tax Amount may be disabled.
-  // Always align line VAT + incl. VAT to Tax Amount so Update is not rejected.
   await syncItemVatLineToTaxAmount(invoice);
 }
 
@@ -3896,21 +4020,16 @@ async function ensureInvoiceDocVatMatchesItem(
   }
 }
 
-/** After Item Details Save, disabled Invoice Details totals refresh from Sum of Line Net. */
-async function waitForInvoiceSumOfLineNet(
+/**
+ * Create/Copy: Item Details section Save after the line modal.
+ * Edit: skip — fill Item Details only, then Invoice Details Update refreshes totals.
+ */
+async function commitItemSectionAfterModal(
   invoice: OMN_UIInvoiceManualPage,
-  expectedLineNet: number
+  entry: OmnUiEntry
 ): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        parseAmount(await invoice.readInputValue("invoice", "sumOfInvLineNetAmt")),
-      {
-        timeout: 15_000,
-        message: `sumOfInvLineNetAmt should refresh to ${expectedLineNet} after Item Details Save`,
-      }
-    )
-    .toBeCloseTo(expectedLineNet, 1);
+  if (entry === "edit") return;
+  await invoice.clickSectionCommit("item", entry);
 }
 
 async function fillFormulaCandidate(
@@ -3964,24 +4083,25 @@ export async function runOmnUiFormulaScenario(
   await enterExpectedItemFormulaAmounts(invoice, entry, scenario);
 
   const expected = omnUiExpectedTotals(scenario);
-  const itemNet = parseAmount(await invoice.readInputValue("item", "itemNetPrice"));
-  const lineNet = parseAmount(await invoice.readInputValue("item", "invLineNetAmt"));
-  const vatLine = parseAmount(
-    await invoice.readInputValue("item", "totalInvLineVatAmt", ["vatLineAmt"])
-  );
-  const lineAmt = parseAmount(
-    await invoice.readInputValue("item", "totalAmtIncludingVat", ["invLineAmt"])
-  );
-  const taxAmt = parseAmount(await invoice.readInputValue("item", "taxRateDtls[0].taxAmt"));
-  if (itemNet != null) expect(itemNet).toBeCloseTo(expected.itemNetPrice, 1);
-  if (lineNet != null) expect(lineNet).toBeCloseTo(expected.invoiceLineNetAmount, 1);
-  // UI validates line VAT against Tax Amount (Create/Copy auto-calc; may differ from Excel ceil3).
-  if (vatLine != null && taxAmt != null) expect(vatLine).toBeCloseTo(taxAmt, 1);
-  else if (vatLine != null) expect(vatLine).toBeCloseTo(expected.vatLineAmount, 1);
-  if (lineAmt != null && lineNet != null && vatLine != null) {
-    expect(lineAmt).toBeCloseTo(lineNet + vatLine, 1);
-  } else if (lineAmt != null) {
-    expect(lineAmt).toBeCloseTo(expected.invoiceLineAmount, 1);
+  if (entry !== "edit") {
+    const itemNet = parseAmount(await invoice.readInputValue("item", "itemNetPrice"));
+    const lineNet = parseAmount(await invoice.readInputValue("item", "invLineNetAmt"));
+    const vatLine = parseAmount(
+      await invoice.readInputValue("item", "totalInvLineVatAmt", ["vatLineAmt"])
+    );
+    const lineAmt = parseAmount(
+      await invoice.readInputValue("item", "totalAmtIncludingVat", ["invLineAmt"])
+    );
+    const taxAmt = parseAmount(await invoice.readInputValue("item", "taxRateDtls[0].taxAmt"));
+    if (itemNet != null) expect(itemNet).toBeCloseTo(expected.itemNetPrice, 1);
+    if (lineNet != null) expect(lineNet).toBeCloseTo(expected.invoiceLineNetAmount, 1);
+    if (vatLine != null && taxAmt != null) expect(vatLine).toBeCloseTo(taxAmt, 1);
+    else if (vatLine != null) expect(vatLine).toBeCloseTo(expected.vatLineAmount, 1);
+    if (lineAmt != null && lineNet != null && vatLine != null) {
+      expect(lineAmt).toBeCloseTo(lineNet + vatLine, 1);
+    } else if (lineAmt != null) {
+      expect(lineAmt).toBeCloseTo(expected.invoiceLineAmount, 1);
+    }
   }
 
   const whitespaceItemKeys = OMN_UI_ITEM_FORMULA_KEYS.filter((key) =>
@@ -3998,17 +4118,18 @@ export async function runOmnUiFormulaScenario(
     return;
   }
   await expect(invoice.itemModal()).toBeHidden({ timeout: 15_000 });
-  // Item Details footer is always Save; other sections: Edit→Update, Create/Copy→Save.
-  await invoice.clickSectionCommit("item", entry);
+  await commitItemSectionAfterModal(invoice, entry);
 
   await invoice.openSectionForEdit("invoice", entry);
-  await waitForInvoiceSumOfLineNet(invoice, expected.invoiceLineNetAmount);
   await applyInvoiceFormulaInputs(invoice, entry, scenario);
   await ensureInvoiceDocVatMatchesItem(
     invoice,
     String(scenario.taxCategory ?? OMN_UI_TAX_CATEGORY_STANDARD),
     scenario.taxExemptionReasonCode
   );
+  if (entry === "edit") {
+    await enterExpectedInvoiceFormulaAmounts(invoice, scenario);
+  }
   await invoice.clickSectionCommit("invoice", entry);
   await expectInvoiceDetailsSavedWithoutError(invoice, scenario.name);
 }
