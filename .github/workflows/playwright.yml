@@ -65,9 +65,6 @@ env:
   SUBMIT_INVOICE_COMBINATIONS: "all"
   PW_WORKERS: "5"
   PW_CI_FULL_SUITE_TIMEOUT_MINUTES: "240"
-  UAE_EINVOICE_SELLER_TIN_SLOTS: "OM1108202600,OM1108202601,OM1108202602,OM1108202603,OM1108202604"
-  UAE_EINVOICE_COUNTERPARTY_ELECTRONIC: "om-receiver-dev"
-  UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC: "OM1008994728"
 
 jobs:
   should_run:
@@ -223,6 +220,10 @@ jobs:
           npx playwright install chromium
 
       - name: Create .env file
+        env:
+          UAE_EINVOICE_SELLER_TIN_SLOTS: ${{ secrets.UAE_EINVOICE_SELLER_TIN_SLOTS }}
+          UAE_EINVOICE_COUNTERPARTY_ELECTRONIC: ${{ secrets.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC }}
+          UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC: ${{ secrets.UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC }}
         run: |
           echo "BASE_URL=${{ secrets.BASE_URL }}" >> .env
           echo "TEST_USER_EMAIL=${{ secrets.TEST_USER_EMAIL }}" >> .env
@@ -234,17 +235,10 @@ jobs:
       - name: Verify required environment variables
         run: |
           missing=0
-          for key in BASE_URL TEST_USER_EMAIL TEST_USER_PASSWORD; do
+          for key in BASE_URL TEST_USER_EMAIL TEST_USER_PASSWORD UAE_EINVOICE_SELLER_TIN_SLOTS UAE_EINVOICE_COUNTERPARTY_ELECTRONIC UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC; do
             val=$(grep -E "^${key}=" .env | cut -d= -f2- || true)
             if [ -z "${val:-}" ]; then
               echo "::error::Missing or empty ${key}. Set the ${key} secret in GitHub Actions."
-              missing=1
-            fi
-          done
-          for key in UAE_EINVOICE_SELLER_TIN_SLOTS UAE_EINVOICE_COUNTERPARTY_ELECTRONIC UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC; do
-            val=$(grep -E "^${key}=" .env | cut -d= -f2- || true)
-            if [ -z "${val:-}" ]; then
-              echo "::error::Missing or empty ${key}. Set it on the workflow env."
               missing=1
             fi
           done
