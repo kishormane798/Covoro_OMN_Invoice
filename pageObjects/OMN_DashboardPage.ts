@@ -1205,7 +1205,8 @@ export class DashboardPage {
 
     let status = await readStatus();
     while (!allowed.has(status)) {
-      if (status === "error" || status === "submission error") {
+      await this.assertNotSubmissionError(status, invoiceNumber);
+      if (status === "error") {
         throw new Error(
           `Invoice ${invoiceNumber}: expected Ready to Submit but dashboard status is "${status}".`
         );
@@ -1224,16 +1225,67 @@ export class DashboardPage {
 
     private isSubmitFlowDeliveryComplete(normalizedStatus: string): boolean {
     return (
+      normalizedStatus === "delivered" ||
       normalizedStatus === "delivered to (c5 & c4)" ||
       normalizedStatus === "delivered to c5" ||
       normalizedStatus === "delivered to c3"
     );
   }
 
-  private assertNotSubmissionError(normalizedStatus: string, invoiceNumber: string) {
-    if (normalizedStatus === "submission error") {
-      throw new Error(`Invoice ${invoiceNumber}: status is Submission Error (test failed)`);
+  /**
+   * Hover-and-read the status tooltip. The UI shows this tooltip only for
+   * **Submission Error**. Callers must already have that status; this method
+   * also requires the cell `<p>` to be Submission Error before hovering.
+   * Message text is whatever `ul.error-list li` (or `.error-card`) contains.
+   */
+  private async readSubmissionErrorTooltip(invoiceNumber: string): Promise<string> {
+    const row = this.invoiceRow(invoiceNumber);
+    const statusCell = row
+      .locator("td.status-td")
+      .filter({
+        has: this.page.locator("p", { hasText: /^\s*Submission Error\s*$/i }),
+      })
+      .first();
+    if ((await statusCell.count()) === 0) return "";
+    const hoverTarget = statusCell.locator(".error-icon").first();
+    if ((await hoverTarget.count()) === 0) {
+      const fallbackHover = statusCell.locator(".error-tooltip").first();
+      if ((await fallbackHover.count()) === 0) return "";
+      await fallbackHover.hover({ timeout: 5_000 }).catch(() => {});
+    } else {
+      await hoverTarget.hover({ timeout: 5_000 }).catch(() => {});
     }
+    const items = statusCell.locator("ul.error-list li");
+    await items
+      .first()
+      .waitFor({ state: "attached", timeout: 5_000 })
+      .catch(() => {});
+    const count = await items.count();
+    const messages: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const text = (await items.nth(i).innerText().catch(() => "")).replace(/\s+/g, " ").trim();
+      if (text) messages.push(text);
+    }
+    if (messages.length > 0) return messages.join("; ");
+    const listText = (await statusCell.locator("ul.error-list").first().innerText().catch(() => ""))
+      .replace(/\s+/g, " ")
+      .trim();
+    if (listText) return listText;
+    const cardText = (await statusCell.locator(".error-card").first().innerText().catch(() => ""))
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^Error\s+/i, "")
+      .trim();
+    return cardText;
+  }
+
+  private async assertNotSubmissionError(normalizedStatus: string, invoiceNumber: string) {
+    if (normalizedStatus !== "submission error") return;
+    const message = await this.readSubmissionErrorTooltip(invoiceNumber);
+    const reason = message
+      ? `Submission Error with message: ${message}`
+      : "Submission Error with message: (tooltip not available)";
+    throw new Error(`Invoice ${invoiceNumber} failed. Reason: ${reason}`);
   }
 
     async waitForInvoiceDeliveryStatus(
@@ -1259,19 +1311,19 @@ export class DashboardPage {
     };
 
     let status = await readStatus();
-    this.assertNotSubmissionError(status, invoiceNumber);
+    await this.assertNotSubmissionError(status, invoiceNumber);
 
     while (!this.isSubmitFlowDeliveryComplete(status)) {
       if (Date.now() >= deadline) {
         throw new Error(
-          `Invoice ${invoiceNumber} did not reach Delivered to (C5 & C4) / Delivered to C5 / Delivered to C3 within ${timeoutMs}ms. Last dashboard status: "${status}". ` +
+          `Invoice ${invoiceNumber} did not reach Delivered / Delivered to C5 / Delivered to C3 within ${timeoutMs}ms. Last dashboard status: "${status}". ` +
             `Stuck states usually mean backend/processing delay or a status label mismatch (check UI vs normalizeStatusText).`
         );
       }
       await this.page.waitForTimeout(pollIntervalMs);
       await this.refreshDashboard();
       status = await readStatus();
-      this.assertNotSubmissionError(status, invoiceNumber);
+      await this.assertNotSubmissionError(status, invoiceNumber);
     }
     return status;
   }

@@ -1,8 +1,8 @@
 /**
  * Playwright project defaults for UAE E-Invoice automation.
  *
- * Default local run (`npx playwright test` / `npm test`): Simplified Template **field**, **formula**, and
- * **conditional** specs only (`chromium`). On `CI=true`, `chromium` runs any non-UI spec (explicit path from GitHub Actions).
+ * Default `chromium` run (`npx playwright test` / `npm test`): any non-UI spec. Pass a path to run one file
+ * (e.g. `npx playwright test tests/OMN_SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts`).
  * UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under project `chromium-ui`.
  * Video is always recorded (saved under test-results/). Trace is off.
  *
@@ -83,16 +83,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      ...(process.env.CI
-        ? { testIgnore: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/, /previous-code/] }
-        : {
-            testMatch: [
-              /OMN_FieldValidation_SimplifiedTemplate_Test\.spec\.ts$/,
-              /OMN_FormulaValidation_SimplifiedTemplate_Test\.spec\.ts$/,
-              /OMN_ConditionalValidation_SimplifiedTemplate_Test\.spec\.ts$/,
-            ],
-            testIgnore: [/previous-code/],
-          }),
+      testIgnore: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/, /previous-code/],
       use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     },
     {
