@@ -66,6 +66,8 @@ env:
   PW_WORKERS: "5"
   PW_CI_FULL_SUITE_TIMEOUT_MINUTES: "240"
   UAE_EINVOICE_SELLER_TIN_SLOTS: "OM1108202600,OM1108202601,OM1108202602,OM1108202603,OM1108202604"
+  UAE_EINVOICE_COUNTERPARTY_ELECTRONIC: "om-receiver-dev"
+  UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC: "OM1008994728"
 
 jobs:
   should_run:
@@ -226,6 +228,8 @@ jobs:
           echo "TEST_USER_EMAIL=${{ secrets.TEST_USER_EMAIL }}" >> .env
           echo "TEST_USER_PASSWORD=${{ secrets.TEST_USER_PASSWORD }}" >> .env
           echo "UAE_EINVOICE_SELLER_TIN_SLOTS=${UAE_EINVOICE_SELLER_TIN_SLOTS}" >> .env
+          echo "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC=${UAE_EINVOICE_COUNTERPARTY_ELECTRONIC}" >> .env
+          echo "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC=${UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC}" >> .env
 
       - name: Verify required environment variables
         run: |
@@ -234,6 +238,13 @@ jobs:
             val=$(grep -E "^${key}=" .env | cut -d= -f2- || true)
             if [ -z "${val:-}" ]; then
               echo "::error::Missing or empty ${key}. Set the ${key} secret in GitHub Actions."
+              missing=1
+            fi
+          done
+          for key in UAE_EINVOICE_SELLER_TIN_SLOTS UAE_EINVOICE_COUNTERPARTY_ELECTRONIC UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC; do
+            val=$(grep -E "^${key}=" .env | cut -d= -f2- || true)
+            if [ -z "${val:-}" ]; then
+              echo "::error::Missing or empty ${key}. Set it on the workflow env."
               missing=1
             fi
           done
