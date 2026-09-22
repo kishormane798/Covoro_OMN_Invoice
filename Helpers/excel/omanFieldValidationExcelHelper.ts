@@ -13,8 +13,8 @@ import {
   applyTaxExemptionReasonDocumentCompanions,
   buildOmanDropdownBaseRow,
   resolveDropdownTemplateField,
-  OMAN_BUYER_ELECTRONIC,
-  OMAN_BUYER_VAT,
+  omanBuyerElectronic,
+  omanBuyerVat,
   type TaxExemptionVatContext,
 } from "./fieldValidationExcelPackHelper";
 import {
@@ -92,8 +92,8 @@ function withRuntimeBuyerIdentity<T extends Record<string, string>>(row: T): T {
   }
   return {
     ...row,
-    [BUYER_VAT_FIELD]: OMAN_BUYER_VAT,
-    [BUYER_EL_FIELD]: OMAN_BUYER_ELECTRONIC,
+    [BUYER_VAT_FIELD]: omanBuyerVat(),
+    [BUYER_EL_FIELD]: omanBuyerElectronic(),
   };
 }
 
@@ -102,10 +102,10 @@ function patchRuntimeBuyerIdentity(filePath: string, field: string): void {
     return;
   }
   if (field !== BUYER_VAT_FIELD) {
-    patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, OMAN_BUYER_VAT);
+    patchInvoiceTextCellInFile(filePath, BUYER_VAT_FIELD, omanBuyerVat());
   }
   if (field !== BUYER_EL_FIELD) {
-    patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, OMAN_BUYER_ELECTRONIC);
+    patchInvoiceTextCellInFile(filePath, BUYER_EL_FIELD, omanBuyerElectronic());
   }
 }
 
@@ -1078,12 +1078,12 @@ export async function generateOmanAllFieldsBoundaryPackExcel(
     const dataRow = INVOICE_TEMPLATE_DATA_ROW + i;
     if (!isSimplifiedTemplateEnv()) {
       if (cases[i].field !== BUYER_VAT_FIELD) {
-        patches.push({ header: BUYER_VAT_FIELD, value: OMAN_BUYER_VAT, dataRow });
+        patches.push({ header: BUYER_VAT_FIELD, value: omanBuyerVat(), dataRow });
       }
       if (cases[i].field !== BUYER_EL_FIELD) {
         patches.push({
           header: BUYER_EL_FIELD,
-          value: OMAN_BUYER_ELECTRONIC,
+          value: omanBuyerElectronic(),
           dataRow,
         });
       }

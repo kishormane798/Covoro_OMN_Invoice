@@ -27,6 +27,7 @@ import {
 } from "../../Helpers/excel/conditionalValidationHelper";
 import {
   applySelfBilledPartyIdentitySwap,
+  getCounterpartyElectronicAddress,
   isSelfBilledInvoiceType,
 } from "../../utils/envPartyIdentity";
 import * as FV from "./ConditionalValidation";
@@ -236,7 +237,7 @@ export function buildOmanSubmitDocumentRow(
   };
   common = applySubmitTxnExtras(common, txn);
   common = applySubmitInvoiceTypeExtras(common, invoiceTypeCode);
-  common["Buyer electronic address"] = "om-receiver-dev";
+  common["Buyer electronic address"] = getCounterpartyElectronicAddress();
   let row = asStringRow(common);
   if (isSelfBilledInvoiceType(invoiceTypeCode)) {
     row = applySelfBilledPartyIdentitySwap(row);

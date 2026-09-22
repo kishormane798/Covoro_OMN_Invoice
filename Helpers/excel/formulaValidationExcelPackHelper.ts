@@ -9,7 +9,13 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { sectionFolderName } from "./fieldValidationExcelPackHelper";
+import {
+  omanBuyerElectronic,
+  omanBuyerVat,
+  omanSellerElectronic,
+  omanSellerVat,
+  sectionFolderName,
+} from "./fieldValidationExcelPackHelper";
 import {
   CALCULATED_FIELD_MISMATCH_TARGETS,
   CALCULATED_FIELD_TOLERANCE_TARGETS,
@@ -890,10 +896,10 @@ export function writeFormulaPackReadme(
     "## Seller / Buyer identity",
     "",
     "- Seller / Buyer electronic address Scheme: `Oman Value Added Tax Identification Number (VATIN)`",
-    "- Seller VAT Identifier (TRN / TIN): `OM1108202600`",
-    "- Seller electronic address: `om1108202600`",
-    "- Buyer VAT identifier: `OM1000091919`",
-    "- Buyer electronic address: `om-receiver-dev`",
+    `- Seller VAT Identifier (TRN / TIN): \`${omanSellerVat()}\``,
+    `- Seller electronic address: \`${omanSellerElectronic()}\``,
+    `- Buyer VAT identifier: \`${omanBuyerVat()}\``,
+    `- Buyer electronic address: \`${omanBuyerElectronic()}\``,
     "",
     "## Folder layout",
     "",

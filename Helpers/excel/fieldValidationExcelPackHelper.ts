@@ -43,13 +43,16 @@ import {
 } from "../../utils/excel/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
 import { runPythonForStdout } from "../../utils/pythonRunner";
+import { getCounterpartyElectronicAddress } from "../../utils/envPartyIdentity";
+import {
+  electronicTinForParallelIndex,
+  omanElectronicAddressFromWorkerTin,
+} from "../worker/parallelWorkerSubmitIdentity";
 import {
   isSimplifiedTemplateEnv,
-  SIMPLIFIED_BUYER_ELECTRONIC,
   SIMPLIFIED_BUYER_NAME,
   SIMPLIFIED_ELECTRONIC_SCHEME,
   SIMPLIFIED_SELLER_NAMES,
-  SIMPLIFIED_SELLER_TIN_SLOTS,
 } from "./simplifiedTemplateContext";
 
 export type FieldValidationMatrixCase = {
@@ -401,18 +404,33 @@ export function caseOutputDir(
   );
 }
 
-/** Oman seller/buyer identity (EAS 0248 / Oman VATIN scheme; buyer electronic is Peppol receiver ID). */
-export const OMAN_SELLER_VAT = "OM1108202600";
-export const OMAN_BUYER_VAT = "OM1000091919";
-/** Peppol seller electronic address — lowercase worker VATIN (slot 0). */
-export const OMAN_SELLER_ELECTRONIC = "om1108202600";
-export const OMAN_BUYER_ELECTRONIC = "om-receiver-dev";
+/** Oman seller/buyer identity from `.env` (EAS 0248 / Oman VATIN scheme). */
+export function omanSellerVat(): string {
+  return electronicTinForParallelIndex(0);
+}
+
+export function omanBuyerVat(): string {
+  return getCounterpartyVatIdentifier();
+}
+
+export function omanSellerElectronic(): string {
+  return omanElectronicAddressFromWorkerTin(omanSellerVat());
+}
+
+export function omanBuyerElectronic(): string {
+  return getCounterpartyElectronicAddress();
+}
+
 export const OMAN_ELECTRONIC_SCHEME =
   "Oman Value Added Tax Identification Number (VATIN)";
 
 /** Simplified template has no TRN column — worker identity is Peppol electronic + scheme. */
 function simplifiedTemplateWorkerSellerElectronic(): string {
-  return SIMPLIFIED_SELLER_TIN_SLOTS[0].toLowerCase();
+  return omanElectronicAddressFromWorkerTin(electronicTinForParallelIndex(0));
+}
+
+function simplifiedTemplateBuyerElectronic(): string {
+  return omanElectronicAddressFromWorkerTin(getCounterpartyElectronicAddress());
 }
 
 export function applyOmanSellerBuyerIdentity(
@@ -431,8 +449,8 @@ export function applyOmanSellerBuyerIdentity(
       "Buyer Name": SIMPLIFIED_BUYER_NAME,
       "Seller electronic address": sellerEl,
       "Seller Electronic Address": sellerEl,
-      "Buyer electronic address": SIMPLIFIED_BUYER_ELECTRONIC,
-      "Buyer Electronic Address": SIMPLIFIED_BUYER_ELECTRONIC,
+      "Buyer electronic address": simplifiedTemplateBuyerElectronic(),
+      "Buyer Electronic Address": simplifiedTemplateBuyerElectronic(),
       "Seller electronic address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
       "Seller Electronic Address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
       "Buyer electronic address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
@@ -441,10 +459,10 @@ export function applyOmanSellerBuyerIdentity(
   }
   return {
     ...row,
-    "Seller VAT Identifier (TRN / TIN)": OMAN_SELLER_VAT,
-    "Buyer VAT identifier": OMAN_BUYER_VAT,
-    "Seller electronic address": OMAN_SELLER_ELECTRONIC,
-    "Buyer electronic address": OMAN_BUYER_ELECTRONIC,
+    "Seller VAT Identifier (TRN / TIN)": omanSellerVat(),
+    "Buyer VAT identifier": omanBuyerVat(),
+    "Seller electronic address": omanSellerElectronic(),
+    "Buyer electronic address": omanBuyerElectronic(),
     "Seller electronic address Scheme": OMAN_ELECTRONIC_SCHEME,
     "Buyer electronic address Scheme": OMAN_ELECTRONIC_SCHEME,
   };
@@ -1025,20 +1043,20 @@ async function getOrCreateBaseWorkbook(
   const headers = await getCachedInvoiceTemplateHeaders();
   const simplified = isSimplifiedTemplateEnv();
   const buyerElectronic = simplified
-    ? SIMPLIFIED_BUYER_ELECTRONIC
-    : OMAN_BUYER_ELECTRONIC;
+    ? simplifiedTemplateBuyerElectronic()
+    : omanBuyerElectronic();
   // Force OM identity on base (writer/worker identity can leave buyer electronic without OM).
   patchIdentityIfOnTemplate(
     generated.filePath,
     headers,
     "Seller VAT Identifier (TRN / TIN)",
-    OMAN_SELLER_VAT
+    omanSellerVat()
   );
   patchIdentityIfOnTemplate(
     generated.filePath,
     headers,
     "Seller Electronic Address",
-    OMAN_SELLER_ELECTRONIC
+    omanSellerElectronic()
   );
   patchIdentityIfOnTemplate(
     generated.filePath,
@@ -1050,7 +1068,7 @@ async function getOrCreateBaseWorkbook(
     generated.filePath,
     headers,
     "Buyer VAT Identifier",
-    OMAN_BUYER_VAT
+    omanBuyerVat()
   );
   patchIdentityIfOnTemplate(
     generated.filePath,
@@ -1430,10 +1448,10 @@ export function writePackReadme(
     "## Seller / Buyer identity (UAE TIN scheme + OM values)",
     "",
     "- Seller / Buyer electronic address Scheme: `Oman Value Added Tax Identification Number (VATIN)`",
-    `- Seller VAT Identifier (TRN / TIN): \`${OMAN_SELLER_VAT}\``,
-    `- Seller electronic address: \`${OMAN_SELLER_ELECTRONIC}\``,
-    `- Buyer VAT identifier: \`${OMAN_BUYER_VAT}\``,
-    `- Buyer electronic address: \`${OMAN_BUYER_ELECTRONIC}\``,
+    `- Seller VAT Identifier (TRN / TIN): \`${omanSellerVat()}\``,
+    `- Seller electronic address: \`${omanSellerElectronic()}\``,
+    `- Buyer VAT identifier: \`${omanBuyerVat()}\``,
+    `- Buyer electronic address: \`${omanBuyerElectronic()}\``,
     "",
     "## Folder layout",
     "",

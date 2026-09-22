@@ -107,6 +107,7 @@ import {
   THIRD_PARTY_REQUIRED_SCENARIOS,
   THIRD_PARTY_VATIN_FIELD,
   TXN_FULL_TAX_INVOICE,
+  TXN_SIMPLIFIED_TAX_INVOICE,
   TXN_IMPORT_OF_GOODS,
   TXN_CONTINUOUS_SUPPLY,
   TXN_PROFIT_MARGIN_INVOICE,
@@ -1907,6 +1908,60 @@ function isUiVatCategoryRateDriveable(s: {
   return false;
 }
 
+/**
+ * IBR-155-OM Export of Services. Copy keeps Goods in Item Type.
+ * Clear that combobox the same way other item dropdowns are cleared, then choose Service.
+ */
+function uiExportOfServicesItemWrites(
+  exemptionReason: string | null | undefined
+): OmnUiConditionalControlWrite[] {
+  const reason = String(exemptionReason ?? "").trim().toLowerCase();
+  if (!reason.includes("export of service")) return [];
+  return [
+    {
+      section: "item",
+      inputId: "itemType",
+      control: "autocomplete",
+      value: "",
+    },
+    {
+      section: "item",
+      inputId: "itemType",
+      control: "autocomplete",
+      value: "Service",
+    },
+    {
+      section: "item",
+      inputId: "classificationIdentifier",
+      control: "autocomplete",
+      value: "",
+    },
+  ];
+}
+
+/** Excel leaves the line on Standard when IBT-121 is empty. Zero rated with a blank reason blocks Update. */
+function uiZeroRatedReasonWrites(
+  exemptionReason: string | null | undefined
+): OmnUiConditionalControlWrite[] {
+  const reason = String(exemptionReason ?? "").trim();
+  if (!reason) return [];
+  return [
+    {
+      section: "item",
+      inputId: "taxRateDtls[0].taxCategory",
+      control: "autocomplete",
+      value: ZERO_RATED_TAX_CATEGORY_CODE,
+    },
+    {
+      section: "item",
+      inputId: "taxExemptionRsnType",
+      altInputIds: ["taxRateDtls[0].exemptionReasonCode", "taxExemptionReasonCode"],
+      control: "autocomplete",
+      value: reason,
+    },
+  ];
+}
+
 function vatCategoryExemptionCompanion(taxCategory: string): string {
   if (taxCategory === EXEMPT_FROM_TAX_TAX_CATEGORY_CODE) {
     return TAX_EXEMPTION_REASON_SAMPLE;
@@ -1955,6 +2010,20 @@ function uiLineTaxWritesForDocVat(
   return writes;
 }
 
+/** UI-only. Excel upload keeps these positive Standard-rate rows. */
+const UI_VAT_RATE_SKIP_UPDATE_TITLES = new Set([
+  "Given a VAT category that is not Exempt — When tax rate is 5 — Then the invoice should be accepted. (ALIGNED-IBRP-E-05-OM)",
+]);
+const UI_VAT_RATE_SKIP_COPY_TITLES = new Set([
+  "Given a VAT category other than Not subject — When tax rate is 5 — Then the invoice should be accepted. (ALIGNED-IBRP-O-05-OM)",
+]);
+
+function uiVatRateEntries(title: string): readonly OmnUiEntry[] | undefined {
+  if (UI_VAT_RATE_SKIP_UPDATE_TITLES.has(title)) return ["create"];
+  if (UI_VAT_RATE_SKIP_COPY_TITLES.has(title)) return ["create", "edit"];
+  return undefined;
+}
+
 function mapUiVatCategoryRate(
   list: readonly {
     ruleId: string;
@@ -1968,6 +2037,7 @@ function mapUiVatCategoryRate(
 ): OmnUiConditionalScenario[] {
   return list.filter(isUiVatCategoryRateDriveable).map((s) => {
     const loc = locFor(s.expectedErrorField, CV_FIELD_LOC[INVOICED_ITEM_TAX_RATE_FIELD]);
+    const entries = uiVatRateEntries(s.title);
     return {
       title: s.title,
       ruleId: s.ruleId,
@@ -1981,6 +2051,7 @@ function mapUiVatCategoryRate(
       taxExemptionReasonCode: vatCategoryExemptionCompanion(s.taxCategory),
       invoiceCurrencyCode: extra?.invoiceCurrencyCode,
       exchangeRate: extra?.exchangeRate,
+      ...(entries ? { entries } : {}),
     };
   });
 }
@@ -2127,30 +2198,31 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       },
     ], UI_SHIPPING_COUNTRY_IDS.slice(1))
   ),
-  ...EXPORT_SERVICE_TYPE_SCENARIOS.map((s) =>
-    catalogControlScenario(s, "item", "serviceTypeCode", [
-      {
-        section: "item",
-        inputId: "taxRateDtls[0].taxCategory",
-        control: "autocomplete",
-        value: ZERO_RATED_TAX_CATEGORY_CODE,
-      },
-      {
-        section: "item",
-        inputId: "taxExemptionRsnType",
-        altInputIds: ["taxRateDtls[0].exemptionReasonCode", "taxExemptionReasonCode"],
-        control: "autocomplete",
-        value: s.taxExemptionReasonCode,
-      },
-      {
-        section: "item",
-        inputId: "serviceTypeCode",
-        control: s.serviceTypeCode === "NOT-A-CL12-SERVICE-TYPE"
-          ? "autocompleteInput"
-          : "autocomplete",
-        value: s.serviceTypeCode,
-      },
-    ])
+  // Empty Service Type on Export of Services stays on Excel upload only.
+  ...EXPORT_SERVICE_TYPE_SCENARIOS.filter(
+    (s) =>
+      s.title !==
+      "Given Export of Services — When Service Type is left empty — Then the invoice should be rejected with an error. (IBR-155-OM)"
+  ).map((s) =>
+    catalogControlScenario(
+      s,
+      "item",
+      "serviceTypeCode",
+      [
+        ...uiExportOfServicesItemWrites(s.taxExemptionReasonCode),
+        ...uiZeroRatedReasonWrites(s.taxExemptionReasonCode),
+        {
+          section: "item",
+          inputId: "serviceTypeCode",
+          altInputIds: ["serviceAccountingCode"],
+          control: s.serviceTypeCode === "NOT-A-CL12-SERVICE-TYPE"
+            ? "autocompleteInput"
+            : "autocomplete",
+          value: s.serviceTypeCode,
+        },
+      ],
+      ["serviceAccountingCode"]
+    )
   ),
   ...EXPORT_DELIVER_COUNTRY_FORBIDDEN_OM_SCENARIOS.map((s) =>
     catalogControlScenario(s, "shipping", UI_SHIPPING_COUNTRY_IDS[0], [
@@ -2177,18 +2249,7 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
   ),
   ...EXPORT_SUPPORTING_DOCUMENT_SCENARIOS.map((s) => ({
     ...catalogControlScenario(s, "payment", "supportingDocRef", [
-      {
-        section: "item",
-        inputId: "taxRateDtls[0].taxCategory",
-        control: "autocomplete",
-        value: ZERO_RATED_TAX_CATEGORY_CODE,
-      },
-      {
-        section: "item",
-        inputId: "taxExemptionRsnType",
-        control: "autocomplete",
-        value: s.taxExemptionReasonCode,
-      },
+      ...uiZeroRatedReasonWrites(s.taxExemptionReasonCode),
       {
         section: "payment",
         inputId: "supportingDocRef",
@@ -2298,6 +2359,9 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
     const source = s.source ?? "line";
     const componentPrefix =
       source === "charge" ? "docLevelCharges[0]" : "docLevelAllowances[0]";
+    const componentReason =
+      String(s.taxExemptionReasonCode ?? "").trim() ||
+      vatCategoryExemptionCompanion(s.taxCategory);
     const componentWrites: OmnUiConditionalControlWrite[] =
       source === "line"
         ? []
@@ -2314,9 +2378,27 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
               control: "autocomplete",
               value: s.taxCategory,
             },
+            ...(componentReason
+              ? [
+                  {
+                    section: "invoice" as const,
+                    inputId: `${componentPrefix}.exemptionRsn`,
+                    control: "autocomplete" as const,
+                    value: componentReason,
+                  },
+                ]
+              : []),
           ];
-    const lineCategory =
-      source === "line" || s.breakdownMatches !== false
+    // Simplified success: the form requires the allowance/charge category on the
+    // line, and Zero rated / Exempt also need the item exemption reason.
+    // Full Tax mismatch stays a Standard line so the presence error still fires.
+    const simplifiedAcceptsDocCategory =
+      s.invoiceTransactionTypeCode === TXN_SIMPLIFIED_TAX_INVOICE &&
+      s.shouldError === false &&
+      s.breakdownMatches === false;
+    const lineCategory = simplifiedAcceptsDocCategory
+      ? s.taxCategory
+      : source === "line" || s.breakdownMatches !== false
         ? s.taxCategory
         : s.taxCategory === STANDARD_TAX_CATEGORY_CODE
           ? ZERO_RATED_TAX_CATEGORY_CODE
@@ -2325,13 +2407,15 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       source === "line"
         ? "taxRateDtls[0].taxCategory"
         : `${componentPrefix}.vatCategory`;
+    const lineTaxWrites = uiLineTaxWritesForDocVat(lineCategory);
+    const itemCategoryWrite: OmnUiConditionalControlWrite = {
+      section: "item",
+      inputId: "taxRateDtls[0].taxCategory",
+      control: "autocomplete",
+      value: lineCategory,
+    };
     return catalogControlScenario(s, source === "line" ? "item" : "invoice", assertId, [
-      {
-        section: "item",
-        inputId: "taxRateDtls[0].taxCategory",
-        control: "autocomplete",
-        value: lineCategory,
-      },
+      ...(lineTaxWrites.length > 0 ? lineTaxWrites : [itemCategoryWrite]),
       ...componentWrites,
     ]);
   }),
@@ -2843,6 +2927,27 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
 /** All mapped conditionals, including dropdown-style rows. Each row is one test in the Conditional spec. */
 export const OMN_UI_CONDITIONAL_SCENARIOS = OMN_UI_CONDITIONAL_SCENARIOS_ALL;
 
+/** Create, Edit, and Copy. Excel upload keeps these rows. */
+const UI_SKIP_SOURCE_TITLES = new Set([
+  "Given Export of Services — When Deliver to country is Oman — Then the invoice should be rejected with an error. (IBR-012-OM)",
+  "Given Full Tax Invoice Commercial invoice — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
+  "Given Full Tax Invoice Commercial invoice Goods — When the HS code is not on the ROP list — Then the invoice should be rejected with an error. (IBR-174-OM)",
+]);
+
+/** Edit and Copy ("Update should succeed"). Create and Excel upload keep these rows. */
+const UI_UPDATE_SKIP_SOURCE_TITLES = new Set([
+  "Given Charges on document level — When the value is 0 — Then the invoice should be accepted. (IBR-137-OM)",
+]);
+
+/** Copy only. Create, Edit, and Excel upload keep these rows. */
+const UI_COPY_SKIP_SOURCE_TITLES = new Set([
+  "Given a Standard rate document allowance — When an exemption reason is provided — Then the invoice should be rejected with an error. (IBR-062-OM)",
+  "Given an Exempt document allowance — When a Zero-rated exemption reason is used — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
+  "Given a Standard rate document allowance — When an exemption reason is provided — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
+  "Given a Zero rated document allowance — When an Exempt exemption reason is used — Then the invoice should be rejected with an error. (IBR-CL-10-OM)",
+  "Given Allowances on document level — When the value is 0 — Then the invoice should be accepted. (IBR-137-OM)",
+]);
+
 function scenariosFor(
   list: readonly OmnUiConditionalScenario[],
   entry: OmnUiEntry,
@@ -2850,7 +2955,11 @@ function scenariosFor(
 ): OmnUiConditionalScenario[] {
   return list.filter(
     (scenario) =>
-      scenario.section === section && (!scenario.entries || scenario.entries.includes(entry))
+      scenario.section === section &&
+      (!scenario.entries || scenario.entries.includes(entry)) &&
+      !UI_SKIP_SOURCE_TITLES.has(scenario.title) &&
+      !(entry !== "create" && UI_UPDATE_SKIP_SOURCE_TITLES.has(scenario.title)) &&
+      !(entry === "copy" && UI_COPY_SKIP_SOURCE_TITLES.has(scenario.title))
   );
 }
 

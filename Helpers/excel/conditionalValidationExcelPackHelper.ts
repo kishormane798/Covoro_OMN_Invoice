@@ -18,11 +18,11 @@ import {
   applyDependentOverlay,
   applyOmanSellerBuyerIdentity,
   MATRIX_FIELD_TO_ROW_KEY,
-  OMAN_BUYER_ELECTRONIC,
-  OMAN_BUYER_VAT,
+  omanBuyerElectronic,
+  omanBuyerVat,
   OMAN_ELECTRONIC_SCHEME,
-  OMAN_SELLER_ELECTRONIC,
-  OMAN_SELLER_VAT,
+  omanSellerElectronic,
+  omanSellerVat,
   resolveRowKey,
 } from "./fieldValidationExcelPackHelper";
 import * as FV from "../../testData/FieldValidations/ConditionalValidation";
@@ -35,10 +35,9 @@ import {
   applyInvoiceCalculationsToFile,
 } from "../../utils/excel/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
-import {
-  isSimplifiedTemplateEnv,
-  SIMPLIFIED_BUYER_ELECTRONIC,
-} from "./simplifiedTemplateContext";
+import { getCounterpartyElectronicAddress } from "../../utils/envPartyIdentity";
+import { omanElectronicAddressFromWorkerTin } from "../worker/parallelWorkerSubmitIdentity";
+import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
 import { runPythonForStdout } from "../../utils/pythonRunner";
 
 export type ConditionalMatrixCase = {
@@ -1131,7 +1130,7 @@ function pickValidValue(
     return "50";
   }
   if (k.includes("seller vat") || k.includes("buyer vat")) {
-    return k.includes("buyer") ? "OM1000091919" : OMAN_SELLER_VAT;
+    return k.includes("buyer") ? omanBuyerVat() : omanSellerVat();
   }
   if (k.includes("seller post")) return "133";
   if (k.includes("tax rate") || k === "tax rate") return FV.TAX_RATE_STANDARD_OMAN;
@@ -1459,18 +1458,18 @@ async function getOrCreateConditionalBase(
     patchInvoiceTextCellInFile(
       generated.filePath,
       "Seller VAT Identifier (TRN / TIN)",
-      OMAN_SELLER_VAT
+      omanSellerVat()
     );
     patchInvoiceTextCellInFile(
       generated.filePath,
       "Buyer VAT Identifier",
-      OMAN_BUYER_VAT
+      omanBuyerVat()
     );
   }
   patchInvoiceTextCellInFile(
     generated.filePath,
     "Seller Electronic Address",
-    OMAN_SELLER_ELECTRONIC
+    omanSellerElectronic()
   );
   patchInvoiceTextCellInFile(
     generated.filePath,
@@ -1481,8 +1480,8 @@ async function getOrCreateConditionalBase(
     generated.filePath,
     "Buyer Electronic Address",
     isSimplifiedTemplateEnv()
-      ? SIMPLIFIED_BUYER_ELECTRONIC
-      : OMAN_BUYER_ELECTRONIC
+      ? omanElectronicAddressFromWorkerTin(getCounterpartyElectronicAddress())
+      : omanBuyerElectronic()
   );
   patchInvoiceTextCellInFile(
     generated.filePath,
@@ -1971,10 +1970,10 @@ export function writeConditionalPackReadme(
     "## Seller / Buyer identity",
     "",
     `- Seller / Buyer electronic address Scheme: \`${OMAN_ELECTRONIC_SCHEME}\``,
-    `- Seller VAT Identifier (TRN / TIN): \`${OMAN_SELLER_VAT}\``,
-    `- Seller electronic address: \`${OMAN_SELLER_ELECTRONIC}\``,
-    `- Buyer VAT identifier: \`${OMAN_BUYER_VAT}\``,
-    `- Buyer electronic address: \`${OMAN_BUYER_ELECTRONIC}\``,
+    `- Seller VAT Identifier (TRN / TIN): \`${omanSellerVat()}\``,
+    `- Seller electronic address: \`${omanSellerElectronic()}\``,
+    `- Buyer VAT identifier: \`${omanBuyerVat()}\``,
+    `- Buyer electronic address: \`${omanBuyerElectronic()}\``,
     "",
     "## Folder layout",
     "",

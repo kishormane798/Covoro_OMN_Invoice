@@ -91,6 +91,8 @@ import {
   CN_DN_SELF_BILLED_INVOICE_TYPES,
   SELF_BILLED_OR_RCM_TXN_TYPES,
   btom001EnsureBaseTxnLabels,
+  ITEM_TYPE_SERVICES,
+  TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES,
   UAE_COUNTRY_CODE,
   ZERO_RATED_EXEMPTION_REASON_LABELS,
   ZERO_RATED_TAX_CATEGORY_CODE,
@@ -2702,10 +2704,21 @@ async function writeAutocomplete(
   altInputIds: readonly string[] = []
 ): Promise<void> {
   if (value === undefined) return;
-  if (await invoice.isInputDisabled(section, inputId, altInputIds)) return;
   let literal = excelFormulaToUiValue(value) ?? "";
   if (isCountrySubdivisionInput(inputId, altInputIds)) {
     literal = toOmnUiCountrySubdivisionLabel(literal);
+  }
+  if (await invoice.isInputDisabled(section, inputId, altInputIds)) {
+    const waitForItemExemption =
+      isItemExemptionReasonCodeInput(section, inputId, altInputIds) &&
+      !isUiEmptyValue(literal);
+    if (!waitForItemExemption) return;
+    await expect
+      .poll(
+        async () => !(await invoice.isInputDisabled(section, inputId, altInputIds)),
+        { timeout: 8_000 }
+      )
+      .toBe(true);
   }
   if (isUiEmptyValue(literal)) {
     await leaveOrClearEmpty(invoice, entry, section, inputId, altInputIds, "autocomplete");
@@ -2719,33 +2732,38 @@ async function writeAutocomplete(
     await selectDocumentTransactionTypes(invoice, literal);
     return;
   }
-  if (await shouldTypeItemExemptionReasonMismatch(invoice, section, inputId, altInputIds, literal)) {
-    await invoice.replaceInput(section, inputId, literal, altInputIds);
-    await invoice.dismissOpenDropdown();
-    return;
-  }
   await invoice.selectAutocomplete(section, inputId, literal, altInputIds);
 }
 
-/** Wrong-family IBT-121 is not in the #taxExemptionRsnType list for that tax category. */
-async function shouldTypeItemExemptionReasonMismatch(
-  invoice: OMN_UIInvoiceManualPage,
-  section: OmnUiSection,
-  inputId: string,
-  altInputIds: readonly string[],
-  literal: string
-): Promise<boolean> {
-  if (section !== "item") return false;
-  const isReasonType =
-    inputId === "taxExemptionRsnType" ||
-    altInputIds.includes("taxExemptionRsnType") ||
-    altInputIds.includes("exemptionReasonType");
-  if (!isReasonType) return false;
-  const category = await invoice.readInputValue("item", "taxRateDtls[0].taxCategory");
+/**
+ * Exempt VAT lists only Exemption- reasons; Zero rated lists only Zero-rated reasons.
+ * Pick the reason from the list that contains it, then set the scenario category.
+ */
+function isWrongFamilyItemExemptionReason(taxCategory: string, reason: string): boolean {
+  if (isUiEmptyValue(reason)) return false;
   return (
-    (isZeroRatedTaxCategory(category) && isExemptExemptionCode(literal)) ||
-    (isExemptTaxCategory(category) && isZeroRatedExemptionCode(literal))
+    (isExemptTaxCategory(taxCategory) && isZeroRatedExemptionCode(reason)) ||
+    (isZeroRatedTaxCategory(taxCategory) && isExemptExemptionCode(reason))
   );
+}
+
+async function selectWrongFamilyItemExemptionReason(
+  invoice: OMN_UIInvoiceManualPage,
+  taxCategory: string,
+  reason: string,
+  reasonCodeAlts: readonly string[]
+): Promise<void> {
+  const listCategory = isZeroRatedExemptionCode(reason)
+    ? ZERO_RATED_TAX_CATEGORY_CODE
+    : EXEMPT_FROM_TAX_TAX_CATEGORY_CODE;
+  await invoice.selectAutocomplete("item", "taxRateDtls[0].taxCategory", listCategory);
+  await invoice.expectInputDisabled("item", "taxExemptionRsnType", false, reasonCodeAlts);
+  await invoice.selectAutocomplete("item", "taxExemptionRsnType", reason, [...reasonCodeAlts]);
+  await invoice.selectAutocomplete("item", "taxRateDtls[0].taxCategory", taxCategory);
+  const kept = await invoice.readInputValue("item", "taxExemptionRsnType", [...reasonCodeAlts]);
+  if (kept.trim().toLowerCase() === reason.trim().toLowerCase()) return;
+  await invoice.expectInputDisabled("item", "taxExemptionRsnType", false, reasonCodeAlts);
+  await invoice.selectAutocomplete("item", "taxExemptionRsnType", reason, [...reasonCodeAlts]);
 }
 
 async function writeDate(
@@ -2776,12 +2794,30 @@ async function fillAddressBlock(
   await writeText(invoice, entry, section, "address3", scenario.addressLine3);
   await writeText(invoice, entry, section, "city", scenario.city);
   await writeText(invoice, entry, section, "postCode", scenario.postCode, ["postalCode"]);
+  // CL-13 subdivision options appear only after a country is selected.
+  // Copy leaves Deliver to country empty, so pick country before the subdivision.
+  const countryLiteral = excelFormulaToUiValue(scenario.countryCode) ?? "";
+  const subdivisionLiteral = toOmnUiCountrySubdivisionLabel(
+    excelFormulaToUiValue(scenario.countrySubdivision) ?? ""
+  );
+  const clearCountryAfterSubdivision =
+    scenario.countryCode !== undefined &&
+    isUiEmptyValue(countryLiteral) &&
+    !isUiEmptyValue(subdivisionLiteral);
+  if (!isUiEmptyValue(countryLiteral) || clearCountryAfterSubdivision) {
+    const option = /^oman$/i.test(countryLiteral) || clearCountryAfterSubdivision ? /oman/i : countryLiteral;
+    await invoice.selectAutocomplete(section, "country", option, ["countryCode"]);
+  } else if (scenario.countryCode !== undefined) {
+    await leaveOrClearEmpty(invoice, entry, section, "country", ["countryCode"], "autocomplete");
+  }
   await writeAutocomplete(invoice, entry, section, "countrySubdivision", scenario.countrySubdivision, [
     "deliverToCountrySubdivision",
     "buyerCountrySubdivision",
     "sellerCountrySubdivision",
   ]);
-  await writeAutocomplete(invoice, entry, section, "country", scenario.countryCode, ["countryCode"]);
+  if (clearCountryAfterSubdivision) {
+    await leaveOrClearEmpty(invoice, entry, section, "country", ["countryCode"], "autocomplete");
+  }
 }
 
 async function expectPrecedingInvoiceEnablement(
@@ -2979,6 +3015,67 @@ function txnCellIncludesProfitMargin(txn?: string): boolean {
   );
 }
 
+function isItemExemptionReasonCodeInput(
+  section: OmnUiSection,
+  inputId: string,
+  altInputIds: readonly string[]
+): boolean {
+  if (section !== "item") return false;
+  return [inputId, ...altInputIds].some(
+    (id) =>
+      id === "taxExemptionRsnType" ||
+      id === "taxExemptionReasonCode" ||
+      id === "exemptionReasonType" ||
+      id === "taxRateDtls[0].exemptionReasonCode"
+  );
+}
+
+/** Catalog rows keep IBT-121 on catalogWrites; other rows set taxExemptionReasonCode. */
+function plannedItemExemptionReason(scenario: OmnUiConditionalScenario): string {
+  const fromScenario = String(scenario.taxExemptionReasonCode ?? "").trim();
+  if (fromScenario) return fromScenario;
+  for (const write of scenario.catalogWrites ?? []) {
+    if (write.section !== "item") continue;
+    if (
+      !isItemExemptionReasonCodeInput("item", write.inputId, write.altInputIds ?? [])
+    ) {
+      continue;
+    }
+    return String(write.value ?? "").trim();
+  }
+  return "";
+}
+
+function isExportOfServicesExemption(reason: string): boolean {
+  const normalized = reason.trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized === TAX_EXEMPTION_REASON_EXPORT_OF_SERVICES.trim().toLowerCase() ||
+    normalized.includes("export of service")
+  );
+}
+
+/**
+ * UI only. Excel Export of Services rows already use Item Type Services.
+ * Service Type (IBR-155-OM) stays hidden while the line is Goods.
+ */
+async function ensureUiServiceItemTypeForExportOfServices(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  scenario: OmnUiConditionalScenario
+): Promise<void> {
+  if (!isExportOfServicesExemption(plannedItemExemptionReason(scenario))) return;
+  await writeAutocomplete(invoice, entry, "item", "itemType", ITEM_TYPE_SERVICES);
+  await leaveOrClearEmpty(
+    invoice,
+    entry,
+    "item",
+    "classificationIdentifier",
+    [],
+    "autocomplete"
+  );
+}
+
 /** Excel applyTxnExclusionCompanions + applyIbr081TxnCompanions — item fields. */
 async function applyTxnItemCompanions(
   invoice: OMN_UIInvoiceManualPage,
@@ -3016,17 +3113,29 @@ async function applyTxnItemCompanions(
     await syncItemExemptionFieldsToTaxCategory(invoice, entry);
   }
   if (has(TXN_EXPORT_INVOICE) && scenario.taxCategory === undefined) {
-    const exportExemption =
-      ZERO_RATED_EXEMPTION_REASON_LABELS.find((label) =>
-        label.includes("Direct Export of Goods")
-      ) ?? TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
+    const plannedReason = plannedItemExemptionReason(scenario);
+    const exportOfServices = isExportOfServicesExemption(plannedReason);
     await invoice.selectAutocomplete(
       "item",
       "taxRateDtls[0].taxCategory",
       ZERO_RATED_TAX_CATEGORY_CODE
     );
     await syncItemExemptionFieldsToTaxCategory(invoice, entry);
-    if (scenario.taxExemptionReasonCode === undefined) {
+    if (exportOfServices) {
+      await ensureUiServiceItemTypeForExportOfServices(invoice, entry, scenario);
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "item",
+        "taxExemptionRsnType",
+        plannedReason,
+        ["taxRateDtls[0].exemptionReasonCode", "exemptionReasonType", "taxExemptionReasonCode"]
+      );
+    } else if (!plannedReason && scenario.taxExemptionReasonCode === undefined) {
+      const exportExemption =
+        ZERO_RATED_EXEMPTION_REASON_LABELS.find((label) =>
+          label.includes("Direct Export of Goods")
+        ) ?? TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE;
       await writeAutocomplete(
         invoice,
         entry,
@@ -3035,15 +3144,24 @@ async function applyTxnItemCompanions(
         exportExemption,
         ["taxRateDtls[0].exemptionReasonCode", "exemptionReasonType", "taxExemptionReasonCode"]
       );
+      await writeAutocomplete(invoice, entry, "item", "itemType", OMN_UI_ITEM_TYPE_GOODS);
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "item",
+        "classificationIdentifier",
+        OMN_UI_HS_CODE
+      );
+    } else {
+      await writeAutocomplete(invoice, entry, "item", "itemType", OMN_UI_ITEM_TYPE_GOODS);
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "item",
+        "classificationIdentifier",
+        OMN_UI_HS_CODE
+      );
     }
-    await writeAutocomplete(invoice, entry, "item", "itemType", OMN_UI_ITEM_TYPE_GOODS);
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "item",
-      "classificationIdentifier",
-      OMN_UI_HS_CODE
-    );
   }
 }
 
@@ -3445,7 +3563,12 @@ async function applyConditionalSectionFields(
       "exemptionReasonType",
       "taxExemptionReasonCode",
     ] as const;
-    if (scenario.taxCategory) {
+    const plannedReason = excelFormulaToUiValue(scenario.taxExemptionReasonCode) ?? "";
+    const wrongFamilyReason = isWrongFamilyItemExemptionReason(
+      String(scenario.taxCategory ?? ""),
+      plannedReason
+    );
+    if (scenario.taxCategory && !wrongFamilyReason) {
       await invoice.selectAutocomplete(
         "item",
         "taxRateDtls[0].taxCategory",
@@ -3453,23 +3576,32 @@ async function applyConditionalSectionFields(
       );
     }
     const taxCat = scenario.taxCategory;
-    await syncItemExemptionFieldsToTaxCategory(invoice, entry);
+    if (!wrongFamilyReason) {
+      await syncItemExemptionFieldsToTaxCategory(invoice, entry);
+    }
+    await ensureUiServiceItemTypeForExportOfServices(invoice, entry, scenario);
     const needsExemption =
       taxCat === EXEMPT_FROM_TAX_TAX_CATEGORY_CODE ||
       taxCat === ZERO_RATED_TAX_CATEGORY_CODE;
-    if (needsExemption) {
-      await invoice.expectInputDisabled("item", "taxExemptionRsnType", false, reasonCodeAlts);
-    }
-    await writeAutocomplete(
-      invoice,
-      entry,
-      "item",
-      "taxExemptionRsnType",
-      scenario.taxExemptionReasonCode,
-      reasonCodeAlts
-    );
-    if (taxCat === STANDARD_TAX_CATEGORY_CODE && scenario.taxRate != null && scenario.taxRate !== "") {
-      await invoice.expectInputDisabled("item", "taxRateDtls[0].taxRate", false);
+    if (wrongFamilyReason && taxCat) {
+      await selectWrongFamilyItemExemptionReason(
+        invoice,
+        taxCat,
+        plannedReason,
+        reasonCodeAlts
+      );
+    } else {
+      if (needsExemption) {
+        await invoice.expectInputDisabled("item", "taxExemptionRsnType", false, reasonCodeAlts);
+      }
+      await writeAutocomplete(
+        invoice,
+        entry,
+        "item",
+        "taxExemptionRsnType",
+        scenario.taxExemptionReasonCode,
+        reasonCodeAlts
+      );
     }
     await writeText(
       invoice,

@@ -1846,51 +1846,38 @@ def cmd_write_dropdown_batch(args: list[str]) -> None:
 
 
 # Map Playwright worker slot to Oman seller VATINs; keep aligned with Helpers/parallelWorkerSubmitIdentity.ts.
-_DEFAULT_OMAN_SELLER_TIN_SLOTS = [
-    "OM1108202600",
-    "OM1108202601",
-    "OM1108202602",
-    "OM1108202603",
-    "OM1108202604",
-]
 _PARALLEL_WORKER_TIN_SLOTS = 5
-# Default counterparty electronic address (not TRN/TIN); normal buyer / self-billed seller.
-_COUNTERPARTY_ELECTRONIC_BY_ENV = {
-    "dev": "om-receiver-dev",
-    "preprod": "om-receiver-dev",
-}
-# Buyer/seller VATIN — independent of Peppol receiver electronic address.
-_COUNTERPARTY_VAT_BY_ENV = {
-    "dev": "OM1000091919",
-    "preprod": "100821229500003",
-}
-
-
-def _resolve_target_env() -> str:
-    url = resolve_base_url().lower()
-    return "preprod" if "preprod" in url else "dev"
 
 
 def _seller_tin_slots() -> list[str]:
-    """Optional comma/semicolon list from `UAE_EINVOICE_SELLER_TIN_SLOTS` (Oman VATIN slots)."""
+    """Required comma/semicolon list from `UAE_EINVOICE_SELLER_TIN_SLOTS` (Oman VATIN slots)."""
     raw = os.environ.get("UAE_EINVOICE_SELLER_TIN_SLOTS", "").strip()
     if not raw:
-        return []
+        raise RuntimeError(
+            "UAE_EINVOICE_SELLER_TIN_SLOTS is required in .env "
+            "(comma-separated Oman VATINs, one per worker slot)."
+        )
     if (raw.startswith('"') and raw.endswith('"')) or (
         raw.startswith("'") and raw.endswith("'")
     ):
         raw = raw[1:-1].strip()
-    return [
+    slots = [
         part.strip().strip('"').strip("'")
         for part in raw.replace(";", ",").split(",")
         if part.strip().strip('"').strip("'")
     ]
+    if not slots:
+        raise RuntimeError(
+            "UAE_EINVOICE_SELLER_TIN_SLOTS is required in .env "
+            "(comma-separated Oman VATINs, one per worker slot)."
+        )
+    return slots
 
 
 def _electronic_tin_for_worker_index(worker_index: int) -> str:
     """Keep aligned with Helpers/parallelWorkerSubmitIdentity.electronicTinForParallelIndex."""
     slot = int(worker_index) % _PARALLEL_WORKER_TIN_SLOTS
-    slots = _seller_tin_slots() or _DEFAULT_OMAN_SELLER_TIN_SLOTS
+    slots = _seller_tin_slots()
     return slots[slot % len(slots)]
 
 
@@ -1900,7 +1887,7 @@ def _worker_vat_for_electronic(worker_el: str) -> str:
 
 
 def _oman_electronic_address_from_worker_vat(worker_vat: str) -> str:
-    """Peppol electronic address is lowercase Oman VATIN (`om1108202600`)."""
+    """Peppol electronic address is lowercase Oman VATIN (`OM…` → `om…`)."""
     s = str(worker_vat).strip()
     if len(s) == 12 and s[:2].upper() == "OM" and s[2:].isdigit():
         return s.lower()
@@ -1928,20 +1915,68 @@ _SIMPLIFIED_BUYER_NAME = "Prashant"
 _OMAN_VATIN_ELECTRONIC_SCHEME = "Oman Value Added Tax Identification Number (VATIN)"
 
 
+def _normalize_oman_vatin(raw: str) -> str | None:
+    s = str(raw).strip()
+    if len(s) == 12 and s[:2].upper() == "OM" and s[2:].isdigit():
+        return "OM" + s[2:]
+    return None
+
+
+def _unquote_env(raw: str) -> str:
+    override = str(raw).strip()
+    if (override.startswith('"') and override.endswith('"')) or (
+        override.startswith("'") and override.endswith("'")
+    ):
+        return override[1:-1].strip()
+    return override
+
+
+def _simplified_counterparty_electronic_raw() -> str:
+    override = os.environ.get(
+        "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC", ""
+    ).strip()
+    if not override:
+        raise RuntimeError(
+            "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC is required in .env "
+            "(buyer Oman VATIN, e.g. OM1008994728)."
+        )
+    return _unquote_env(override)
+
+
 def _counterparty_electronic_address() -> str:
     """Keep aligned with utils/envPartyIdentity.ts `getCounterpartyElectronicAddress`."""
+    if _is_simplified_template_env():
+        override = _simplified_counterparty_electronic_raw()
+        oman = _normalize_oman_vatin(override)
+        return oman.lower() if oman else override
     override = os.environ.get("UAE_EINVOICE_COUNTERPARTY_ELECTRONIC", "").strip()
-    if override:
-        return override
-    return _COUNTERPARTY_ELECTRONIC_BY_ENV[_resolve_target_env()]
+    if not override:
+        raise RuntimeError(
+            "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC is required in .env "
+            "(buyer Peppol electronic, e.g. om-receiver-dev)."
+        )
+    return _unquote_env(override)
 
 
 def _counterparty_vat() -> str:
     """Keep aligned with utils/envPartyIdentity.ts `getCounterpartyVatIdentifier`."""
+    simplified = _simplified_counterparty_electronic_raw()
+    oman = _normalize_oman_vatin(simplified)
+    if oman:
+        return oman
     el_override = os.environ.get("UAE_EINVOICE_COUNTERPARTY_ELECTRONIC", "").strip()
-    if el_override and el_override.isdigit():
+    if not el_override:
+        raise RuntimeError(
+            "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC is required in .env "
+            "(buyer Peppol electronic, e.g. om-receiver-dev)."
+        )
+    el_override = _unquote_env(el_override)
+    oman = _normalize_oman_vatin(el_override)
+    if oman:
+        return oman
+    if el_override.isdigit():
         return el_override + "00003"
-    return _COUNTERPARTY_VAT_BY_ENV[_resolve_target_env()]
+    return el_override
 
 
 def _read_data_row_text(

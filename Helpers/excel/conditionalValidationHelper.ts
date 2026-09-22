@@ -7,8 +7,12 @@ import * as FV from "../../testData/FieldValidations/ConditionalValidation";
 import { PRESERVE_EXEMPT_TAX_RATE_MARKER } from "../../utils/excel/invoiceExcel";
 import {
   applySelfBilledPartyIdentitySwap,
+  getCounterpartyElectronicAddress,
+  getCounterpartyVatIdentifier,
   isSelfBilledInvoiceType,
+  sellerVatFromEnvSlot,
 } from "../../utils/envPartyIdentity";
+import { omanElectronicAddressFromWorkerTin } from "../worker/parallelWorkerSubmitIdentity";
 import {
   buyerSellerIdentifierCodeValidTestData,
   industrialClassificationIsicValidTestData,
@@ -61,11 +65,11 @@ export function buildValidOmanFullTaxInvoiceRow(): Record<string, string> {
     "Extraction of crude petroleum"
   );
 
-  // Electronic address: lowercase Peppol ID; VATIN stays OM-prefixed (12 chars).
-  const sellerElectronic = "om1108202600";
-  const buyerElectronic = "om-receiver-dev";
-  const sellerVat = "OM1108202600";
-  const buyerVat = "OM1000091919";
+  // Electronic address: lowercase Peppol ID; VATIN stays OM-prefixed (12 chars). From `.env`.
+  const sellerVat = sellerVatFromEnvSlot(0);
+  const sellerElectronic = omanElectronicAddressFromWorkerTin(sellerVat);
+  const buyerElectronic = getCounterpartyElectronicAddress();
+  const buyerVat = getCounterpartyVatIdentifier();
 
   return {
     // Document — Master + conditional (Full Tax / Commercial / OMR / no FX)

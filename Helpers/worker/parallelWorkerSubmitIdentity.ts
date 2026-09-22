@@ -2,15 +2,15 @@
  * Playwright worker index 0–4 maps to Oman VATIN slots (mod 5). Dashboard card selection must match Python row patch
  * in `invoice_excel_writer.py` (`_apply_parallel_worker_identity_to_row`).
  *
- * Default slots: `OM1108202600` … `OM1108202604`. Optional `UAE_EINVOICE_SELLER_TIN_SLOTS`
- * (comma-separated) overrides that list. TRN/TIN stays the OM-prefixed VATIN; Peppol
- * electronic address is the same value in lowercase (`om1108202600`).
+ * Seller slots come from `UAE_EINVOICE_SELLER_TIN_SLOTS`. TRN/TIN stays the OM-prefixed VATIN;
+ * Peppol electronic address is the same value in lowercase (`om…`).
  */
 
 import {
   getCounterpartyElectronicAddress,
   getCounterpartyVatIdentifier,
   isSelfBilledInvoiceType,
+  requireSellerTinSlots,
 } from "../../utils/envPartyIdentity";
 import {
   isSimplifiedTemplateEnv,
@@ -22,30 +22,8 @@ import {
 /** Five dashboard TIN slots; indexes wrap when `PW_WORKERS` > 5. */
 export const PARALLEL_WORKER_TIN_SLOT_COUNT = 5;
 
-const DEFAULT_OMAN_SELLER_TIN_SLOTS = [
-  "OM1108202600",
-  "OM1108202601",
-  "OM1108202602",
-  "OM1108202603",
-  "OM1108202604",
-];
-
-function parseSellerTinSlotsFromEnv(): string[] {
-  const raw = process.env.UAE_EINVOICE_SELLER_TIN_SLOTS?.trim() ?? "";
-  if (!raw) return [];
-  const unquoted =
-    (raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))
-      ? raw.slice(1, -1).trim()
-      : raw;
-  return unquoted
-    .split(/[,;]/)
-    .map((part) => part.trim().replace(/^["']|["']$/g, ""))
-    .filter(Boolean);
-}
-
 function sellerTinSlots(): string[] {
-  const fromEnv = parseSellerTinSlotsFromEnv();
-  return fromEnv.length > 0 ? fromEnv : DEFAULT_OMAN_SELLER_TIN_SLOTS;
+  return requireSellerTinSlots();
 }
 
 /**
@@ -90,7 +68,7 @@ export function isParallelWorkerIdentityEnabled(): boolean {
 
 /**
  * Worker dashboard / VATIN for a Playwright worker index or slot (0–4).
- * Uses `UAE_EINVOICE_SELLER_TIN_SLOTS` when set; else `OM1108202600` … `OM1108202604`.
+ * Uses `UAE_EINVOICE_SELLER_TIN_SLOTS` from `.env`.
  * `getParallelWorkerIndex()` already returns a slot; passing it here is correct.
  */
 export function electronicTinForParallelIndex(parallelIndex: number): string {
@@ -99,7 +77,7 @@ export function electronicTinForParallelIndex(parallelIndex: number): string {
   return slots[slot % slots.length];
 }
 
-/** Peppol electronic address for an Oman worker VATIN (`OM1108202600` → `om1108202600`). */
+/** Peppol electronic address for an Oman worker VATIN (`OM…` → `om…`). */
 export function omanElectronicAddressFromWorkerTin(vat: string): string {
   const s = vat.trim();
   return /^OM\d{10}$/i.test(s) ? s.toLowerCase() : s;
@@ -134,8 +112,8 @@ export function parallelWorkerDashboardOpenOpts(options?: {
 }
 
 /**
- * Worker TRN/TIN for Excel/UI rows. Oman VATIN stays `OM1108202604` (dashboard card);
- * Peppol electronic address is the lowercase form (`om1108202604`).
+ * Worker TRN/TIN for Excel/UI rows. Oman VATIN stays the `.env` slot (dashboard card);
+ * Peppol electronic address is the lowercase form (`om…`).
  */
 export function workerVatIdentifierForParallelIndex(parallelIndex?: number): string {
   return electronicTinForParallelIndex(parallelIndex ?? getParallelWorkerIndex());
@@ -165,8 +143,10 @@ export function applyParallelWorkerIdentityToSubmitRow(
   const workerIndex = getParallelWorkerIndex();
   const workerVat = workerVatIdentifierForParallelIndex(workerIndex);
   const workerEl = omanElectronicAddressFromWorkerTin(workerVat);
-  const counterpartyEl = getCounterpartyElectronicAddress();
   const simplified = isSimplifiedTemplateEnv();
+  const counterpartyEl = simplified
+    ? omanElectronicAddressFromWorkerTin(getCounterpartyElectronicAddress())
+    : getCounterpartyElectronicAddress();
 
   const txnType = normalizeSubmitInvoiceType(data["Invoice Transaction Type Code"]);
   const selfBilled = isSelfBilledInvoiceType(data["Invoice Type Code"]);

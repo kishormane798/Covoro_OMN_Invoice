@@ -9,41 +9,120 @@ import { resolveBaseUrl } from "./appConfig";
 
 export type TargetEnv = "dev" | "preprod";
 
-const COUNTERPARTY_ELECTRONIC_BY_ENV: Record<TargetEnv, string> = {
-  dev: "om-receiver-dev",
-  preprod: "om-receiver-dev",
-};
-
-/** Buyer/seller VATIN — independent of Peppol receiver electronic address. */
-const COUNTERPARTY_VAT_BY_ENV: Record<TargetEnv, string> = {
-  dev: "OM1000091919",
-  preprod: "100821229500003",
-};
-
 export function resolveTargetEnv(): TargetEnv {
   const url = resolveBaseUrl().toLowerCase();
   return url.includes("preprod") ? "preprod" : "dev";
 }
 
-/** Override with `UAE_EINVOICE_COUNTERPARTY_ELECTRONIC`; else derive from `BASE_URL`. */
+const OMAN_VATIN_RE = /^OM(\d{10})$/i;
+const SELLER_TIN_SLOTS_ENV = "UAE_EINVOICE_SELLER_TIN_SLOTS";
+const COUNTERPARTY_EL_ENV = "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC";
+const SIMPLIFIED_COUNTERPARTY_EL_ENV =
+  "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC";
+
+/** `OM1708202600` / `om1708202600` → `OM1708202600`; else null. */
+export function normalizeOmanVatin(raw: string): string | null {
+  const m = raw.trim().match(OMAN_VATIN_RE);
+  return m ? `OM${m[1]}` : null;
+}
+
+function unquoteEnvList(raw: string): string {
+  const trimmed = raw.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+/** Seller dashboard / VATIN slots from `.env` (comma or semicolon). */
+export function parseSellerTinSlotsFromEnv(): string[] {
+  const raw = process.env[SELLER_TIN_SLOTS_ENV]?.trim() ?? "";
+  if (!raw) return [];
+  return unquoteEnvList(raw)
+    .split(/[,;]/)
+    .map((part) => part.trim().replace(/^["']|["']$/g, ""))
+    .filter(Boolean);
+}
+
+export function requireSellerTinSlots(): string[] {
+  const slots = parseSellerTinSlotsFromEnv();
+  if (slots.length === 0) {
+    throw new Error(
+      `${SELLER_TIN_SLOTS_ENV} is required in .env (comma-separated Oman VATINs, one per worker slot).`
+    );
+  }
+  return slots;
+}
+
+export function sellerVatFromEnvSlot(slot = 0): string {
+  const slots = requireSellerTinSlots();
+  const idx = Math.max(0, Math.floor(slot)) % slots.length;
+  return slots[idx];
+}
+
+function isSimplifiedTemplatePath(): boolean {
+  return (process.env.INVOICE_TEMPLATE_PATH ?? "")
+    .replace(/\\/g, "/")
+    .toLowerCase()
+    .includes("simplifiedtemplate.xlsx");
+}
+
+function requireCounterpartyElectronicRaw(): string {
+  const override = process.env[COUNTERPARTY_EL_ENV]?.trim();
+  if (!override) {
+    throw new Error(
+      `${COUNTERPARTY_EL_ENV} is required in .env (buyer Peppol electronic, e.g. om-receiver-dev).`
+    );
+  }
+  return unquoteEnvList(override);
+}
+
+function requireSimplifiedCounterpartyElectronicRaw(): string {
+  const override = process.env[SIMPLIFIED_COUNTERPARTY_EL_ENV]?.trim();
+  if (!override) {
+    throw new Error(
+      `${SIMPLIFIED_COUNTERPARTY_EL_ENV} is required in .env (buyer Oman VATIN, e.g. OM1008994728).`
+    );
+  }
+  return unquoteEnvList(override);
+}
+
+function peppolElectronicFromRaw(raw: string): string {
+  const oman = normalizeOmanVatin(raw);
+  return oman ? oman.toLowerCase() : raw;
+}
+
+/** Buyer / self-billed-seller electronic. Simplified workbook uses `UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`; Covoro Excel + UI use `UAE_EINVOICE_COUNTERPARTY_ELECTRONIC`. */
 export function getCounterpartyElectronicAddress(): string {
-  const override = process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC?.trim();
-  if (override) return override;
-  return COUNTERPARTY_ELECTRONIC_BY_ENV[resolveTargetEnv()];
+  if (isSimplifiedTemplatePath()) {
+    return peppolElectronicFromRaw(requireSimplifiedCounterpartyElectronicRaw());
+  }
+  return requireCounterpartyElectronicRaw();
 }
 
 /** Numeric UAE TIN → `{electronic}00003`; Oman VATIN (`OM…`) stays unchanged. */
 export function vatIdentifierForElectronicAddress(electronic: string): string {
+  const oman = normalizeOmanVatin(electronic);
+  if (oman) return oman;
   return /^\d+$/.test(electronic) ? `${electronic}00003` : electronic;
 }
 
-/** Counterparty TRN/TIN — normal buyer / self-billed seller. */
+/** Counterparty TRN/TIN — normal buyer / self-billed seller (Oman VATIN from Simplified env). */
 export function getCounterpartyVatIdentifier(): string {
-  const electronicOverride = process.env.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC?.trim();
-  if (electronicOverride && /^\d+$/.test(electronicOverride)) {
+  const simplifiedRaw = requireSimplifiedCounterpartyElectronicRaw();
+  const simplifiedOman = normalizeOmanVatin(simplifiedRaw);
+  if (simplifiedOman) return simplifiedOman;
+
+  const electronicOverride = requireCounterpartyElectronicRaw();
+  const oman = normalizeOmanVatin(electronicOverride);
+  if (oman) return oman;
+  if (/^\d+$/.test(electronicOverride)) {
     return vatIdentifierForElectronicAddress(electronicOverride);
   }
-  return COUNTERPARTY_VAT_BY_ENV[resolveTargetEnv()];
+  return electronicOverride;
 }
 
 function normalizeInvoiceType(value: unknown): string {
@@ -59,9 +138,6 @@ export function isSelfBilledInvoiceType(invoiceTypeCode: unknown): boolean {
   return n.includes("self billed credit note") || n.includes("self billed invoice");
 }
 
-/** Default slot-0 seller VATIN when worker identity is disabled (pack scripts). */
-export const DEFAULT_OMAN_SELLER_VATIN = "OM1108202600";
-
 const SELLER_ELECTRONIC_FIELD = "Seller electronic address";
 const SELLER_VAT_FIELD = "Seller VAT Identifier (TRN / TIN)";
 const BUYER_ELECTRONIC_FIELD = "Buyer electronic address";
@@ -74,10 +150,11 @@ const BUYER_VAT_FIELD = "Buyer VAT identifier";
 export function applySelfBilledPartyIdentitySwap<
   T extends Record<string, string>,
 >(row: T): T {
+  const fallbackSellerVat = sellerVatFromEnvSlot(0);
   const sellerEl = String(
-    row[SELLER_ELECTRONIC_FIELD] ?? DEFAULT_OMAN_SELLER_VATIN.toLowerCase()
+    row[SELLER_ELECTRONIC_FIELD] ?? fallbackSellerVat.toLowerCase()
   );
-  const sellerVat = String(row[SELLER_VAT_FIELD] ?? DEFAULT_OMAN_SELLER_VATIN);
+  const sellerVat = String(row[SELLER_VAT_FIELD] ?? fallbackSellerVat);
   const buyerEl = String(
     row[BUYER_ELECTRONIC_FIELD] ?? getCounterpartyElectronicAddress()
   );
@@ -92,12 +169,29 @@ export function applySelfBilledPartyIdentitySwap<
   };
 }
 
-/** Patch Buyer electronic address for normal invoices only (skip 261/389). */
+/**
+ * Counterparty Peppol + VAT on the correct party.
+ * Normal: Buyer electronic (VAT stays on the row unless already set by identity).
+ * Self-billed invoice / Self billed credit note: Seller electronic + Seller VAT.
+ */
 export function applyCounterpartyElectronicAddressOverrides<
   T extends Record<string, unknown>,
 >(row: T): T {
+  const el = getCounterpartyElectronicAddress();
   if (isSelfBilledInvoiceType(row["Invoice Type Code"])) {
-    return { ...row };
+    const next: Record<string, unknown> = {
+      ...row,
+      [SELLER_ELECTRONIC_FIELD]: el,
+      "Seller Electronic Address": el,
+    };
+    if (!isSimplifiedTemplatePath()) {
+      next[SELLER_VAT_FIELD] = getCounterpartyVatIdentifier();
+    }
+    return next as T;
   }
-  return { ...row, [BUYER_ELECTRONIC_FIELD]: getCounterpartyElectronicAddress() };
+  return {
+    ...row,
+    [BUYER_ELECTRONIC_FIELD]: el,
+    "Buyer Electronic Address": el,
+  };
 }

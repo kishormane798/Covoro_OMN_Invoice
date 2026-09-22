@@ -569,6 +569,21 @@ export class OMN_UIInvoiceManualPage {
   private readonly omanVatinSchemeOption =
     /Oman Value Added Tax Identification Number \(VATIN\)/i;
 
+  /**
+   * Excel Item Type is "Services". The Create Invoice list option is "Service".
+   * Typing "Services" filters the list to "No options" and the listbox never opens.
+   */
+  private toUiItemTypeOption(
+    inputId: string,
+    altInputIds: readonly string[],
+    option: string | RegExp
+  ): string | RegExp {
+    const isItemType = inputId === "itemType" || altInputIds.includes("itemType");
+    if (!isItemType || typeof option !== "string") return option;
+    if (/^services$/i.test(option.trim())) return "Service";
+    return option;
+  }
+
   private autocompleteFilterText(option: string): string {
     // Full "Oman Value Added Tax Identification Number (VATIN)" (or ICD agency
     // suffix) filters the MUI list to empty — seller/buyer scheme search uses
@@ -620,6 +635,7 @@ export class OMN_UIInvoiceManualPage {
     option: string | RegExp,
     altInputIds: readonly string[] = []
   ): Promise<void> {
+    option = this.toUiItemTypeOption(inputId, altInputIds, option);
     await this.expectLiveControlKind(section, inputId, "autocomplete", altInputIds);
     const input = await this.resolveInput(section, inputId, altInputIds);
     await expect(input).toBeVisible({ timeout: 15_000 });
