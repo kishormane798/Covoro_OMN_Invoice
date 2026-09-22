@@ -220,31 +220,62 @@ export class UploadInvoicePage {
         return (await this.saveOrNextButton().count()) > 0;
     }
 
-    /** Leave mapping wizard via nav back-arrow, then ensure upload dialog is open. */
+    private async isUploadDialogReady(): Promise<boolean> {
+        return (
+            (await this.fileInput().count().catch(() => 0)) > 0 &&
+            (await this.uploadTitle().isVisible().catch(() => false))
+        );
+    }
+
+    /**
+     * Leave mapping wizard via nav back-arrow, then ensure upload dialog is open.
+     * Change Mapping is a full page (not a modal): after Save the back control can
+     * click without leaving the route, and `#upload-invoice-btn` never appears there.
+     */
     private async returnToUploadViaBackArrow(): Promise<void> {
         const backArrow = this.page.getByTestId('back-arrow').first();
-        if ((await backArrow.count()) > 0) {
+        if ((await backArrow.count()) > 0 && (await backArrow.isVisible().catch(() => false))) {
             await backArrow.click({ timeout: 15000 });
-        } else {
+        }
+
+        const leftMappingOrUploadReady = async () =>
+            (await this.isUploadDialogReady()) || !this.isOnChangeMappingRoute();
+        await expect
+            .poll(leftMappingOrUploadReady, { timeout: 5000, intervals: [250] })
+            .toBe(true)
+            .catch(() => {});
+
+        if (!(await this.isUploadDialogReady()) && this.isOnChangeMappingRoute()) {
             const einvoiceDashboard = this.page
                 .getByRole('link', { name: /E-Invoice Dashboard/i })
                 .first();
-            if ((await einvoiceDashboard.count()) > 0) {
+            if (
+                (await einvoiceDashboard.count()) > 0 &&
+                (await einvoiceDashboard.isVisible().catch(() => false))
+            ) {
                 await einvoiceDashboard.click({ timeout: 15000 });
             } else {
                 await this.page.goto('/einvoice-dashboard', { waitUntil: 'domcontentloaded' });
             }
+            await expect
+                .poll(leftMappingOrUploadReady, { timeout: 15000, intervals: [400] })
+                .toBe(true);
         }
 
-        const fileInputVisible =
-            (await this.fileInput().count().catch(() => 0)) > 0 &&
-            (await this.uploadTitle().isVisible().catch(() => false));
-        if (!fileInputVisible) {
-            await this.uploadButton().waitFor({ state: 'visible', timeout: 30000 });
-            await this.openUploadDialog();
-        } else {
+        if (await this.isUploadDialogReady()) {
             await this.fileInput().waitFor({ state: 'attached', timeout: 20000 });
+            return;
         }
+
+        const btn = this.uploadButton();
+        await waitForLocatorWithPageRefresh(this.page, btn, {
+            state: 'visible',
+            attemptTimeoutMs: 20_000,
+            afterRefreshTimeoutMs: 20_000,
+            maxRefreshes: 1,
+            orLocators: [this.uploadTitle()],
+        });
+        await this.openUploadDialog();
     }
 
     private async assertUploadTemplateSelection(

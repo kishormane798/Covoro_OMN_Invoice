@@ -526,7 +526,8 @@ async function clearPartySection(
 async function resetSelfBilledParties(
   invoice: OMN_UIInvoiceManualPage,
   entry: OmnUiEntry,
-  knownTypes: { invoiceTypeCode?: string; invoiceTransactionTypeCode?: string }
+  knownTypes: { invoiceTypeCode?: string; invoiceTransactionTypeCode?: string },
+  stopAt: OmnUiSection
 ): Promise<void> {
   if (!isSelfBilledOnForm(knownTypes.invoiceTypeCode)) return;
   const has = (label: string) =>
@@ -540,7 +541,9 @@ async function resetSelfBilledParties(
     invoiceTypeCode: knownTypes.invoiceTypeCode,
     invoiceTransactionTypeCode: knownTypes.invoiceTransactionTypeCode,
   };
+  const stopIdx = sectionOrderIndex(stopAt);
   for (const section of ["seller", "buyer"] as const) {
+    if (sectionOrderIndex(section) > stopIdx) continue;
     await invoice.openSectionForEdit(section, entry);
     await clearPartySection(invoice, section);
     await ensurePartyBaseline(invoice, section, new Set(), knownTypes);
@@ -914,12 +917,17 @@ async function ensureSectionBaseline(
       knownTypes?.invoiceTypeCode ||
       (await invoice.readInputValue("document", "invType"));
     if (isSelfBilledOnForm(typeCode)) {
-      await resetSelfBilledParties(invoice, entry, {
-        invoiceTypeCode: typeCode,
-        invoiceTransactionTypeCode:
-          knownTypes?.invoiceTransactionTypeCode ||
-          (await invoice.readInputValue("document", "invTxnType")),
-      });
+      await resetSelfBilledParties(
+        invoice,
+        entry,
+        {
+          invoiceTypeCode: typeCode,
+          invoiceTransactionTypeCode:
+            knownTypes?.invoiceTransactionTypeCode ||
+            (await invoice.readInputValue("document", "invTxnType")),
+        },
+        section
+      );
     }
     if (section === "invoice") {
       await addAndCommitBaselineItem(invoice, entry);
@@ -2218,7 +2226,7 @@ export async function runOmnUiExcelPartyIdentityCase(
   );
   await invoice.clickSectionCommit("document", entry);
   await invoice.expectSectionSavedReadOnly("document");
-  await resetSelfBilledParties(invoice, entry, knownTypes);
+  await resetSelfBilledParties(invoice, entry, knownTypes, identityCase.section);
 
   await invoice.openSectionForEdit(identityCase.section, entry);
   await ensurePartyBaseline(invoice, identityCase.section, new Set(), knownTypes);
@@ -2376,20 +2384,39 @@ function extraSectionsForTxn(txn?: string): OmnUiSection[] {
   return extra;
 }
 
+function sectionOrderIndex(section: OmnUiSection): number {
+  const index = OMN_UI_SECTION_ORDER.indexOf(section);
+  return index < 0 ? OMN_UI_SECTION_ORDER.length : index;
+}
+
+/**
+ * Last accordion to open. Never past the field under test — `completeThrough: "item"`
+ * on seller/buyer rules used to open Buyer/Item after the assert Save and hide errors.
+ */
+function stopSectionForConditional(scenario: OmnUiConditionalScenario): OmnUiSection {
+  const asserted = scenario.section;
+  const through = scenario.completeThrough;
+  if (!through) return asserted;
+  return sectionOrderIndex(through) < sectionOrderIndex(asserted) ? through : asserted;
+}
+
 /**
  * Sections this conditional must fill, in OMN_UI_SECTION_ORDER.
  * Document-only rules stay on Document (no Seller/Buyer/Item).
- * Otherwise Document is first; Item and extra party/totals sections are
- * included when needed. runOmnUiConditionalScenario commits the section
- * under test and then stops so later sections (e.g. Add Item) cannot take
- * Document out of edit.
+ * Never open accordions after the field under test (seller → no buyer/item;
+ * buyer → no item). Item is included only when it sits before the assert
+ * section (invoice / payment / custom need a line first).
  */
 function sectionsForConditional(scenario: OmnUiConditionalScenario): OmnUiSection[] {
-  const stopAt = scenario.completeThrough ?? scenario.section;
+  const stopAt = stopSectionForConditional(scenario);
   if (stopAt === "document") {
     return ["document"];
   }
-  const needed = new Set<OmnUiSection>(["document", "item"]);
+  const stopIdx = sectionOrderIndex(stopAt);
+  const needed = new Set<OmnUiSection>(["document"]);
+  if (sectionOrderIndex("item") < stopIdx) {
+    needed.add("item");
+  }
   for (const section of extraSectionsForKind(scenario.kind)) {
     needed.add(section);
   }
@@ -2401,7 +2428,9 @@ function sectionsForConditional(scenario: OmnUiConditionalScenario): OmnUiSectio
   }
   needed.add(scenario.section);
   needed.add(stopAt);
-  return OMN_UI_SECTION_ORDER.filter((section) => needed.has(section));
+  return OMN_UI_SECTION_ORDER.filter(
+    (section) => needed.has(section) && sectionOrderIndex(section) <= stopIdx
+  );
 }
 
 function excludeIdsForConditional(
@@ -3702,21 +3731,24 @@ export async function runOmnUiConditionalScenario(
     await applyConditionalSectionFields(invoice, entry, scenario, section);
     await applyCatalogControlWrites(invoice, entry, scenario, section);
     await commitSection(invoice, section, entry);
-    const stopAt = scenario.completeThrough ?? scenario.section;
+    const stopAt = stopSectionForConditional(scenario);
     // Document-only conditionals (type, txn, currency, reason, preceding,
     // period, import, incoterms, …) assert on Document. Do not open
     // Seller/Buyer — Copy/Edit still hold commercial parties.
     if (section === "document" && stopAt !== "document") {
-      await resetSelfBilledParties(invoice, entry, {
-        invoiceTypeCode:
-          resolvedUiInvoiceType(scenario) ||
-          (await invoice.readInputValue("document", "invType")),
-        invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
-      });
+      await resetSelfBilledParties(
+        invoice,
+        entry,
+        {
+          invoiceTypeCode:
+            resolvedUiInvoiceType(scenario) ||
+            (await invoice.readInputValue("document", "invType")),
+          invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
+        },
+        stopAt
+      );
     }
-    // Save the section under test before later sections. Add Item takes
-    // Document out of edit mode, so a Save after the item modal times out
-    // (footer Save is gone — only Edit remains).
+    // Stop on the assert section (error or success). Later accordions hide helper-text.
     if (section === stopAt) {
       break;
     }

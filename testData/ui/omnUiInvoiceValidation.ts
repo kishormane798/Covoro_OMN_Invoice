@@ -133,7 +133,7 @@ import {
   IBR_146_TXN_EXCLUSION_SCENARIOS,
   IBR_147_TXN_EXCLUSION_SCENARIOS,
   IBR_148_TXN_EXCLUSION_SCENARIOS,
-  IBR_149_TXN_EXCLUSION_SCENARIOS,
+  // IBR_149_TXN_EXCLUSION_SCENARIOS, // Excel is commented; omit from UI (do not skip).
   SELF_BILLED_OR_RCM_TXN_TYPES,
   btom001EnsureBaseTxnLabels,
   btom001TxnPairForbidden,
@@ -220,8 +220,6 @@ export const OMN_UI_SKIP = {
   partyIdentity: "Worker identity is covered by the party-identity UI cases.",
   twentyLine:
     "UI does not replay the 20-line sweep; two lines cover multi-line entry.",
-  ibr149SimplifiedWip:
-    "WIP: IBR-149-OM Simplified Tax Invoice exclusion checkboxes are not product-ready; keep for future.",
 } as const;
 
 export type OmnUiCatalogKind =
@@ -576,7 +574,7 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
   ...IBR_146_TXN_EXCLUSION_SCENARIOS,
   ...IBR_147_TXN_EXCLUSION_SCENARIOS,
   ...IBR_148_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_149_TXN_EXCLUSION_SCENARIOS,
+  // ...IBR_149_TXN_EXCLUSION_SCENARIOS, // IBR-149-OM Simplified ⊕ partner: Excel is commented; omit from UI (do not skip).
 ])
   // UI disables partners from the BTOM-001 matrix only. Skip PINT pairs the
   // matrix still allows (e.g. Simplified ⊕ Special Zone — IBR-149-OM Excel only).
@@ -588,9 +586,6 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
     return forbidden.every((partner) => btom001TxnPairForbidden(applicable!, partner));
   })
   .map((source) => {
-  // IBR-149-OM Simplified ⊕ partner: Excel is commented; UI stays skip until product-ready.
-  const ibr149SimplifiedWip =
-    source.ruleId === "IBR-149-OM" && source.shouldError;
   return {
   group: OMN_UI_TXN_EXCLUSION_GROUP,
   title: source.title
@@ -601,10 +596,7 @@ const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
       "Then the invoice should be rejected with an error.",
       "Then that transaction type checkbox should be disabled."
     ),
-  mode: (ibr149SimplifiedWip ? "skip" : "run") as const,
-  ...(ibr149SimplifiedWip
-    ? { skipReason: OMN_UI_SKIP.ibr149SimplifiedWip }
-    : {}),
+  mode: "run" as const,
   kind: "txnExclusion" as const,
   field: "Invoice Transaction Type Code",
   expectsError: source.shouldError,

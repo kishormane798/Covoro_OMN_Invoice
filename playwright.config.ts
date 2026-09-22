@@ -4,7 +4,7 @@
  * Default local run (`npx playwright test` / `npm test`): Simplified Template **field**, **formula**, and
  * **conditional** specs only (`chromium`). On `CI=true`, `chromium` runs any non-UI spec (explicit path from GitHub Actions).
  * UI specs (`UI*.spec.ts`, `UIMaster*.spec.ts`) run under project `chromium-ui`.
- * Video is retained on failure only (saved under test-results/). Trace is off.
+ * Video is always recorded (saved under test-results/). Trace is off.
  *
  * Workers: default is 5 so Worker 1…5 maps to TIN 1779700001…5 (`TEST_PARALLEL_INDEX` 0…4). When `CI=true`, default is 1 unless
  * `PW_WORKERS` is set. Override: `PW_WORKERS=1 npx playwright test` or `--workers=1`.

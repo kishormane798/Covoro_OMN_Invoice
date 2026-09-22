@@ -104,7 +104,7 @@ const LINE_DEFS: readonly LineDef[] = [
     taxCategory: FV.STANDARD_TAX_CATEGORY_CODE,
     taxRate: FV.TAX_RATE_STANDARD_OMAN,
     exemption: "",
-    serviceTypeCode: "",
+    serviceTypeCode: FV.SERVICE_TYPE_CODE_SAMPLE,
     hsCode: FV.OMAN_HS_CODE_12,
   },
   {
@@ -113,7 +113,7 @@ const LINE_DEFS: readonly LineDef[] = [
     taxCategory: FV.ZERO_RATED_TAX_CATEGORY_CODE,
     taxRate: FV.TAX_RATE_ZERO,
     exemption: FV.TAX_EXEMPTION_REASON_ZERO_RATED_SAMPLE,
-    serviceTypeCode: "",
+    serviceTypeCode: FV.SERVICE_TYPE_CODE_SAMPLE,
     hsCode: FV.OMAN_HS_CODE_12,
   },
   {
