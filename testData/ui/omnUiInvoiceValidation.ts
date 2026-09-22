@@ -2335,7 +2335,10 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
       ...componentWrites,
     ]);
   }),
-  ...SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS.map((s) =>
+  // UI subdivision dropdown is CL-13-OM only; invalid codes stay Excel.
+  ...SPECIAL_ZONE_COUNTRY_SUBDIVISION_SCENARIOS.filter(
+    (s) => !/subdivision is not on the allowed list/i.test(s.title)
+  ).map((s) =>
     ({
       ...catalogControlScenario(
         s,
@@ -2402,7 +2405,11 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
         inputId: "sellerIdentifier",
         altInputIds: ["identifier"],
         control: "text",
-        value: s.sellerIdentifierProvided ? "OM-SELLER-001" : "",
+        value: s.sellerIdentifierProvided
+          ? s.invoiceTransactionTypeCode === TXN_SPECIAL_ZONE_SUPPLIES
+            ? "SZ-SELLER-001"
+            : "OM-SELLER-001"
+          : "",
       },
       {
         section: "seller",
@@ -2418,9 +2425,15 @@ const remainingCatalogConditionalScenarios: OmnUiConditionalScenario[] = [
         inputId: "identifierTextualCode",
         altInputIds: ["identifierCode", "textualCode", "sellerIdentifierCode"],
         control: "autocomplete",
+        // IBR-007 Allowed is id+scheme. Special Zone still needs IBR-151 license
+        // textual; do not blank it after txn companions fill it.
         value: s.sellerCompanion === "code"
           ? OMN_UI_PARTY_IDENTIFIER_TEXTUAL_CODE
-          : "",
+          : s.invoiceTransactionTypeCode === TXN_SPECIAL_ZONE_SUPPLIES &&
+              s.sellerCompanion === "scheme" &&
+              s.sellerIdentifierProvided
+            ? SPECIAL_ZONE_LICENSE_SCHEME
+            : "",
       },
     ], ["identifier"])
   ),

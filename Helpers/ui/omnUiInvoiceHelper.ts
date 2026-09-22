@@ -3232,10 +3232,10 @@ async function applyExcelTxnSectionCompanions(
     if (has(TXN_IMPORT_OF_SERVICES_RCM) && scenario.countryCode === undefined) {
       await writeAutocomplete(invoice, entry, "buyer", "country", OMAN_COUNTRY_CODE, ["countryCode"]);
       if (scenario.buyerVatIdentifier === undefined) {
-        // Invoice Type 261/389: Buyer VATIN is the worker TIN. Do not infer
-        // self-billed from the RCM txn label (that would steal commercial RCM).
+        // RCM on Copy/Edit still selects Self-billed Invoice Type. Prefer txn-inferred
+        // type so Buyer VATIN is the worker TIN, not the Excel sample OM1000091919.
         const invoiceType =
-          scenario.invoiceTypeCode ||
+          resolvedUiInvoiceType(scenario) ||
           (await invoice.readInputValue("document", "invType"));
         const buyerVat = isSelfBilledOnForm(invoiceType)
           ? excelPartyIdentity(invoiceType, scenario.invoiceTransactionTypeCode).buyerVat
@@ -3551,6 +3551,29 @@ async function applyConditionalSectionFields(
     return;
   }
   if (section === "buyer") {
+    const clearBuyerIdTrio =
+      scenario.kind === "buyerIdOrVatin" &&
+      scenario.buyerIdentifier !== undefined &&
+      isUiEmptyValue(scenario.buyerIdentifier);
+    if (clearBuyerIdTrio) {
+      // Clear scheme + textual while identifier still has a value (dropdowns stay enabled).
+      await leaveOrClearEmpty(
+        invoice,
+        entry,
+        "buyer",
+        "schemeIdentifier",
+        ["buyerSchemeIdentifier"],
+        "autocomplete"
+      );
+      await leaveOrClearEmpty(
+        invoice,
+        entry,
+        "buyer",
+        "identifierTextualCode",
+        ["identifierCode", "textualCode", "buyerIdentifierCode"],
+        "autocomplete"
+      );
+    }
     await writeText(invoice, entry, "buyer", "buyerIdentifier", scenario.buyerIdentifier, ["identifier"]);
     await writeText(
       invoice,
@@ -3735,18 +3758,24 @@ export async function runOmnUiConditionalScenario(
     // Document-only conditionals (type, txn, currency, reason, preceding,
     // period, import, incoterms, …) assert on Document. Do not open
     // Seller/Buyer — Copy/Edit still hold commercial parties.
+    // If the loop will fill Seller then Buyer anyway (RCM IBR-020-OM), skip
+    // resetSelfBilledParties so we do not fill Buyer, then reopen Seller, then Buyer again.
     if (section === "document" && stopAt !== "document") {
-      await resetSelfBilledParties(
-        invoice,
-        entry,
-        {
-          invoiceTypeCode:
-            resolvedUiInvoiceType(scenario) ||
-            (await invoice.readInputValue("document", "invType")),
-          invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
-        },
-        stopAt
-      );
+      const willFillSellerAndBuyer =
+        sections.includes("seller") && sections.includes("buyer");
+      if (!willFillSellerAndBuyer) {
+        await resetSelfBilledParties(
+          invoice,
+          entry,
+          {
+            invoiceTypeCode:
+              resolvedUiInvoiceType(scenario) ||
+              (await invoice.readInputValue("document", "invType")),
+            invoiceTransactionTypeCode: scenario.invoiceTransactionTypeCode,
+          },
+          stopAt
+        );
+      }
     }
     // Stop on the assert section (error or success). Later accordions hide helper-text.
     if (section === stopAt) {
