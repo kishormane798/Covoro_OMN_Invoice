@@ -46,7 +46,7 @@ test.describe(`Submit invoice multi-item (${TEMPLATE})`, () => {
       continue;
     }
     test(
-      `Given ${first["Invoice Type Code"] ?? ""} with ${first["Invoice Transaction Type Code"] ?? ""} (OMR, 4 lines) — When the invoice is uploaded — Then the invoice should be delivered.`,
+      `Given invoice type ${first["Invoice Type Code"] ?? ""} and transaction type ${first["Invoice Transaction Type Code"] ?? ""} (OMR, 4 lines) — When the invoice is uploaded — Then the invoice should be delivered.`,
       async ({ page }) => {
         test.setTimeout(SUBMIT_INVOICE_TEST_TIMEOUT_MS);
         await runSubmitInvoiceMultiItemCase(page, tc.rows);

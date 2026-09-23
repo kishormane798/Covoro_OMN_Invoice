@@ -63,7 +63,9 @@ Optional variables used in automation:
 | `TEST_PARALLEL_INDEX`                  | Set by Playwright in workers; used for per-worker output folders `testData/generated/excel/pw-<index>/` and TIN slotting.                                   |
 | `UAE_EINVOICE_WORKER_INDEX`            | Set in `baseTest` from worker index (slotted 0–4); aligns with dashboard TIN selection and Python row identity.                                             |
 | `UAE_EINVOICE_DISABLE_WORKER_IDENTITY` | Set to `1` to disable multi-TIN worker identity behavior.                                                                                                   |
-| `UAE_EINVOICE_COUNTERPARTY_ELECTRONIC` | Override counterparty electronic address (normal buyer / self-billed seller). Defaults: **dev** `1000091919`, **preprod** `1200020015` (from `BASE_URL`). |
+| `OMN_EINVOICE_SELLER_TIN_SLOTS` | Comma-separated Oman VATINs, one per Playwright worker slot. |
+| `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC` | Buyer Peppol electronic for Covoro Excel and UI (normal buyer / self-billed seller). |
+| `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC` | Buyer Oman VATIN for the Simplified template. |
 | `SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS`   | Minimum 60000; default **4 minutes** wait for submit/delivery steps.                                                                                        |
 | `UAE_EINVOICE_DEBUG_DASHBOARD`         | Set to `1` for extra dashboard logging.                                                                                                                     |
 

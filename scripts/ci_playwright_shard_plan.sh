@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Resolve which Covoro spec CI should run. All suites run as one full job (no Playwright --shard).
+# Resolve which spec CI should run.
+# covoro_submit_single is split into Playwright shards of at most 400 tests.
+# TEST_COUNT must be set for that mode (from `playwright test --list`).
+# Every other suite is one job (shard 1/1).
 # UI suites run the full spec (no OMN_UI_SPEC_PART split). Legacy *_1 / *_2 names still map to the same spec.
 # Usage: ci_playwright_shard_plan.sh <mode> [ignored_shard_filter]
 set -euo pipefail
@@ -74,6 +77,24 @@ SHARD_TOTAL=1
 SHARD_INDICES="[1]"
 SHARD_SIZE="${PW_CI_SHARD_SIZE:-100}"
 JOB_TIMEOUT_MINUTES="${PW_CI_FULL_SUITE_TIMEOUT_MINUTES:-240}"
+SUBMIT_SHARD_SIZE="${PW_CI_SUBMIT_SHARD_SIZE:-400}"
+
+if [ "$MODE" = "covoro_submit_single" ]; then
+  if ! [[ "${TEST_COUNT:-}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "::error::covoro_submit_single requires TEST_COUNT from playwright test --list"
+    exit 1
+  fi
+  SHARD_SIZE="$SUBMIT_SHARD_SIZE"
+  SHARD_TOTAL=$(( (TEST_COUNT + SHARD_SIZE - 1) / SHARD_SIZE ))
+  SHARD_INDICES="["
+  for i in $(seq 1 "$SHARD_TOTAL"); do
+    if [ "$i" -gt 1 ]; then
+      SHARD_INDICES+=","
+    fi
+    SHARD_INDICES+="$i"
+  done
+  SHARD_INDICES+="]"
+fi
 
 {
   echo "mode=$MODE"
@@ -85,4 +106,4 @@ JOB_TIMEOUT_MINUTES="${PW_CI_FULL_SUITE_TIMEOUT_MINUTES:-240}"
   echo "job_timeout_minutes=$JOB_TIMEOUT_MINUTES"
 } >> "${GITHUB_OUTPUT:?}"
 
-echo "Suite $MODE → spec $SPEC, project $PROJECT, full suite (no shard), timeout ${JOB_TIMEOUT_MINUTES}m"
+echo "Suite $MODE → spec $SPEC, project $PROJECT, shards ${SHARD_TOTAL} x up to ${SHARD_SIZE} (indices ${SHARD_INDICES}), timeout ${JOB_TIMEOUT_MINUTES}m"

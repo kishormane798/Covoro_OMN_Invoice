@@ -1849,12 +1849,27 @@ def cmd_write_dropdown_batch(args: list[str]) -> None:
 _PARALLEL_WORKER_TIN_SLOTS = 5
 
 
+_SELLER_TIN_SLOTS_ENV = "OMN_EINVOICE_SELLER_TIN_SLOTS"
+_COUNTERPARTY_EL_ENV = "OMN_EINVOICE_COUNTERPARTY_ELECTRONIC"
+_SIMPLIFIED_COUNTERPARTY_EL_ENV = "OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC"
+
+
+def _read_invoice_env(name: str, legacy_name: str) -> str:
+    """Prefer the Oman key. The UAE-prefixed key still works until `.env` is renamed."""
+    raw = os.environ.get(name, "").strip()
+    if raw:
+        return raw
+    return os.environ.get(legacy_name, "").strip()
+
+
 def _seller_tin_slots() -> list[str]:
-    """Required comma/semicolon list from `UAE_EINVOICE_SELLER_TIN_SLOTS` (Oman VATIN slots)."""
-    raw = os.environ.get("UAE_EINVOICE_SELLER_TIN_SLOTS", "").strip()
+    """Required comma/semicolon list from `OMN_EINVOICE_SELLER_TIN_SLOTS` (Oman VATIN slots)."""
+    raw = _read_invoice_env(
+        _SELLER_TIN_SLOTS_ENV, "UAE_EINVOICE_SELLER_TIN_SLOTS"
+    )
     if not raw:
         raise RuntimeError(
-            "UAE_EINVOICE_SELLER_TIN_SLOTS is required in .env "
+            "OMN_EINVOICE_SELLER_TIN_SLOTS is required in .env "
             "(comma-separated Oman VATINs, one per worker slot)."
         )
     if (raw.startswith('"') and raw.endswith('"')) or (
@@ -1868,7 +1883,7 @@ def _seller_tin_slots() -> list[str]:
     ]
     if not slots:
         raise RuntimeError(
-            "UAE_EINVOICE_SELLER_TIN_SLOTS is required in .env "
+            "OMN_EINVOICE_SELLER_TIN_SLOTS is required in .env "
             "(comma-separated Oman VATINs, one per worker slot)."
         )
     return slots
@@ -1932,12 +1947,13 @@ def _unquote_env(raw: str) -> str:
 
 
 def _simplified_counterparty_electronic_raw() -> str:
-    override = os.environ.get(
-        "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC", ""
-    ).strip()
+    override = _read_invoice_env(
+        _SIMPLIFIED_COUNTERPARTY_EL_ENV,
+        "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC",
+    )
     if not override:
         raise RuntimeError(
-            "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC is required in .env "
+            "OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC is required in .env "
             "(buyer Oman VATIN, e.g. OM1008994728)."
         )
     return _unquote_env(override)
@@ -1949,10 +1965,12 @@ def _counterparty_electronic_address() -> str:
         override = _simplified_counterparty_electronic_raw()
         oman = _normalize_oman_vatin(override)
         return oman.lower() if oman else override
-    override = os.environ.get("UAE_EINVOICE_COUNTERPARTY_ELECTRONIC", "").strip()
+    override = _read_invoice_env(
+        _COUNTERPARTY_EL_ENV, "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC"
+    )
     if not override:
         raise RuntimeError(
-            "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC is required in .env "
+            "OMN_EINVOICE_COUNTERPARTY_ELECTRONIC is required in .env "
             "(buyer Peppol electronic, e.g. om-receiver-dev)."
         )
     return _unquote_env(override)
@@ -1964,10 +1982,12 @@ def _counterparty_vat() -> str:
     oman = _normalize_oman_vatin(simplified)
     if oman:
         return oman
-    el_override = os.environ.get("UAE_EINVOICE_COUNTERPARTY_ELECTRONIC", "").strip()
+    el_override = _read_invoice_env(
+        _COUNTERPARTY_EL_ENV, "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC"
+    )
     if not el_override:
         raise RuntimeError(
-            "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC is required in .env "
+            "OMN_EINVOICE_COUNTERPARTY_ELECTRONIC is required in .env "
             "(buyer Peppol electronic, e.g. om-receiver-dev)."
         )
     el_override = _unquote_env(el_override)

@@ -1,4 +1,5 @@
 # Cron 05:45 IST Mon–Fri: Copy → Conditional Copy → Simplified field → Simplified conditional → Edit → Create → Covoro submit single.
+# Covoro submit single runs in groups of at most 400 tests, one group at a time.
 # Multiline Covoro submit is manual only (not queued). Formula stays on manual family chains.
 # Manual Run: Create → Conditional Create; Edit → Conditional Edit; Covoro field → formula → conditional
 # (same for Simplified Excel). Copy without scheduled_wave stops after Conditional Copy.
@@ -12,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "Automation suite to run (full spec, no shard)."
+        description: "Automation suite to run. Covoro submit single is split into groups of at most 400 tests."
         required: true
         default: "covoro_ui_copy"
         type: choice
@@ -131,10 +132,40 @@ jobs:
             MODE="covoro_ui_copy"
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
-          echo "Running MODE=$MODE (full spec, no shard)"
+          echo "Running MODE=$MODE"
 
-      - name: Plan Playwright full suite
+      - uses: actions/setup-node@v5
+        if: steps.mode.outputs.mode == 'covoro_submit_single'
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install Node dependencies (submit test count)
+        if: steps.mode.outputs.mode == 'covoro_submit_single'
+        timeout-minutes: 10
+        run: npm ci --no-fund --no-audit
+
+      - name: Count Covoro submit single tests
+        id: submit_count
+        if: steps.mode.outputs.mode == 'covoro_submit_single'
+        env:
+          BASE_URL: https://example.invalid
+        run: |
+          set -euo pipefail
+          OUT="$(npx playwright test tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts --project=chromium --list)"
+          printf '%s\n' "$OUT"
+          COUNT="$(printf '%s\n' "$OUT" | sed -n -E 's/^Total: ([0-9]+) tests?.*/\1/p' | tail -n 1)"
+          if [ -z "${COUNT:-}" ] || [ "$COUNT" -lt 1 ]; then
+            echo "::error::Could not count Covoro submit single tests"
+            exit 1
+          fi
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Covoro submit single test count: $COUNT"
+
+      - name: Plan Playwright suite
         id: plan
+        env:
+          TEST_COUNT: ${{ steps.submit_count.outputs.count }}
         shell: bash
         run: |
           bash scripts/ci_playwright_shard_plan.sh \
@@ -142,11 +173,12 @@ jobs:
 
   test:
     needs: resolve
-    name: test (${{ needs.resolve.outputs.mode }})
+    name: ${{ needs.resolve.outputs.shard_total == '1' && format('test ({0})', needs.resolve.outputs.mode) || format('test ({0} {1}/{2})', needs.resolve.outputs.mode, matrix.shard, needs.resolve.outputs.shard_total) }}
     timeout-minutes: ${{ fromJSON(needs.resolve.outputs.job_timeout_minutes) }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         shard: ${{ fromJson(needs.resolve.outputs.shard_indices) }}
 
@@ -221,21 +253,21 @@ jobs:
 
       - name: Create .env file
         env:
-          UAE_EINVOICE_SELLER_TIN_SLOTS: ${{ secrets.UAE_EINVOICE_SELLER_TIN_SLOTS }}
-          UAE_EINVOICE_COUNTERPARTY_ELECTRONIC: ${{ secrets.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC }}
-          UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC: ${{ secrets.UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC }}
+          OMN_EINVOICE_SELLER_TIN_SLOTS: ${{ secrets.OMN_EINVOICE_SELLER_TIN_SLOTS || secrets.UAE_EINVOICE_SELLER_TIN_SLOTS }}
+          OMN_EINVOICE_COUNTERPARTY_ELECTRONIC: ${{ secrets.OMN_EINVOICE_COUNTERPARTY_ELECTRONIC || secrets.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC }}
+          OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC: ${{ secrets.OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC || secrets.UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC }}
         run: |
           echo "BASE_URL=${{ secrets.BASE_URL }}" >> .env
           echo "TEST_USER_EMAIL=${{ secrets.TEST_USER_EMAIL }}" >> .env
           echo "TEST_USER_PASSWORD=${{ secrets.TEST_USER_PASSWORD }}" >> .env
-          echo "UAE_EINVOICE_SELLER_TIN_SLOTS=${UAE_EINVOICE_SELLER_TIN_SLOTS}" >> .env
-          echo "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC=${UAE_EINVOICE_COUNTERPARTY_ELECTRONIC}" >> .env
-          echo "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC=${UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC}" >> .env
+          echo "OMN_EINVOICE_SELLER_TIN_SLOTS=${OMN_EINVOICE_SELLER_TIN_SLOTS}" >> .env
+          echo "OMN_EINVOICE_COUNTERPARTY_ELECTRONIC=${OMN_EINVOICE_COUNTERPARTY_ELECTRONIC}" >> .env
+          echo "OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC=${OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC}" >> .env
 
       - name: Verify required environment variables
         run: |
           missing=0
-          for key in BASE_URL TEST_USER_EMAIL TEST_USER_PASSWORD UAE_EINVOICE_SELLER_TIN_SLOTS UAE_EINVOICE_COUNTERPARTY_ELECTRONIC UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC; do
+          for key in BASE_URL TEST_USER_EMAIL TEST_USER_PASSWORD OMN_EINVOICE_SELLER_TIN_SLOTS OMN_EINVOICE_COUNTERPARTY_ELECTRONIC OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC; do
             val=$(grep -E "^${key}=" .env | cut -d= -f2- || true)
             if [ -z "${val:-}" ]; then
               echo "::error::Missing or empty ${key}. Set the ${key} secret in GitHub Actions."
@@ -251,14 +283,19 @@ jobs:
         run: |
           SPEC="${{ needs.resolve.outputs.spec }}"
           PROJECT="${{ needs.resolve.outputs.project }}"
+          SHARD="${{ matrix.shard }}"
+          TOTAL="${{ needs.resolve.outputs.shard_total }}"
           set -e
-          echo "Running full suite (no shard) on ${SPEC} --project=${PROJECT}"
-          npx playwright test "$SPEC" --project="$PROJECT"
+          echo "Running shard ${SHARD}/${TOTAL} on ${SPEC} --project=${PROJECT}"
+          npx playwright test "$SPEC" --project="$PROJECT" --shard="${SHARD}/${TOTAL}"
 
       - name: Report name (matches run name)
         id: report
         if: always()
         shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ needs.resolve.outputs.shard_total }}
         run: |
           MODE="${{ needs.resolve.outputs.mode }}"
           case "$MODE" in
@@ -270,7 +307,13 @@ jobs:
             covoro_field) LABEL="Covoro field validation" ;;
             covoro_formula) LABEL="Covoro formula validation" ;;
             covoro_conditional) LABEL="Covoro conditional validation" ;;
-            covoro_submit_single) LABEL="Covoro submit single" ;;
+            covoro_submit_single)
+              if [ "${SHARD_TOTAL:-1}" -gt 1 ]; then
+                LABEL="Covoro submit single ${SHARD} of ${SHARD_TOTAL}"
+              else
+                LABEL="Covoro submit single"
+              fi
+              ;;
             covoro_submit_multi) LABEL="Covoro submit multi-item" ;;
             covoro_ui_copy) LABEL="UI copy" ;;
             covoro_ui_conditional_copy) LABEL="UI conditional copy" ;;

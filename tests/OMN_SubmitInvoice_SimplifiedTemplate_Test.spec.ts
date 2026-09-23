@@ -38,7 +38,7 @@ test.describe(`Submit invoice (${TEMPLATE})`, () => {
       ? `${row["Tax Category"]} ${taxRate}%`
       : row["Tax Category"];
     test(
-      `Given ${row["Invoice Type Code"]} with ${row["Invoice Transaction Type Code"]} and ${taxLabel} (OMR) — When the invoice is uploaded — Then the invoice should be delivered.`,
+      `Given invoice type ${row["Invoice Type Code"]} and transaction type ${row["Invoice Transaction Type Code"]} with ${taxLabel} (OMR) — When the invoice is uploaded — Then the invoice should be delivered.`,
       async ({ page }) => {
         test.setTimeout(SUBMIT_INVOICE_TEST_TIMEOUT_MS);
         await runSubmitInvoiceCase(page, row);

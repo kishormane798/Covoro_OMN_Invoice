@@ -15,10 +15,21 @@ export function resolveTargetEnv(): TargetEnv {
 }
 
 const OMAN_VATIN_RE = /^OM(\d{10})$/i;
-const SELLER_TIN_SLOTS_ENV = "UAE_EINVOICE_SELLER_TIN_SLOTS";
-const COUNTERPARTY_EL_ENV = "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC";
+const SELLER_TIN_SLOTS_ENV = "OMN_EINVOICE_SELLER_TIN_SLOTS";
+const SELLER_TIN_SLOTS_ENV_LEGACY = "UAE_EINVOICE_SELLER_TIN_SLOTS";
+const COUNTERPARTY_EL_ENV = "OMN_EINVOICE_COUNTERPARTY_ELECTRONIC";
+const COUNTERPARTY_EL_ENV_LEGACY = "UAE_EINVOICE_COUNTERPARTY_ELECTRONIC";
 const SIMPLIFIED_COUNTERPARTY_EL_ENV =
+  "OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC";
+const SIMPLIFIED_COUNTERPARTY_EL_ENV_LEGACY =
   "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC";
+
+/** Prefer the Oman key. The UAE-prefixed key still works until `.env` and GitHub secrets are renamed. */
+function readInvoiceEnv(name: string, legacyName: string): string {
+  const current = process.env[name]?.trim() ?? "";
+  if (current) return current;
+  return process.env[legacyName]?.trim() ?? "";
+}
 
 /** `OM1708202600` / `om1708202600` → `OM1708202600`; else null. */
 export function normalizeOmanVatin(raw: string): string | null {
@@ -39,7 +50,7 @@ function unquoteEnvList(raw: string): string {
 
 /** Seller dashboard / VATIN slots from `.env` (comma or semicolon). */
 export function parseSellerTinSlotsFromEnv(): string[] {
-  const raw = process.env[SELLER_TIN_SLOTS_ENV]?.trim() ?? "";
+  const raw = readInvoiceEnv(SELLER_TIN_SLOTS_ENV, SELLER_TIN_SLOTS_ENV_LEGACY);
   if (!raw) return [];
   return unquoteEnvList(raw)
     .split(/[,;]/)
@@ -71,7 +82,7 @@ function isSimplifiedTemplatePath(): boolean {
 }
 
 function requireCounterpartyElectronicRaw(): string {
-  const override = process.env[COUNTERPARTY_EL_ENV]?.trim();
+  const override = readInvoiceEnv(COUNTERPARTY_EL_ENV, COUNTERPARTY_EL_ENV_LEGACY);
   if (!override) {
     throw new Error(
       `${COUNTERPARTY_EL_ENV} is required in .env (buyer Peppol electronic, e.g. om-receiver-dev).`
@@ -81,7 +92,10 @@ function requireCounterpartyElectronicRaw(): string {
 }
 
 function requireSimplifiedCounterpartyElectronicRaw(): string {
-  const override = process.env[SIMPLIFIED_COUNTERPARTY_EL_ENV]?.trim();
+  const override = readInvoiceEnv(
+    SIMPLIFIED_COUNTERPARTY_EL_ENV,
+    SIMPLIFIED_COUNTERPARTY_EL_ENV_LEGACY
+  );
   if (!override) {
     throw new Error(
       `${SIMPLIFIED_COUNTERPARTY_EL_ENV} is required in .env (buyer Oman VATIN, e.g. OM1008994728).`
@@ -95,7 +109,7 @@ function peppolElectronicFromRaw(raw: string): string {
   return oman ? oman.toLowerCase() : raw;
 }
 
-/** Buyer / self-billed-seller electronic. Simplified workbook uses `UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`; Covoro Excel + UI use `UAE_EINVOICE_COUNTERPARTY_ELECTRONIC`. */
+/** Buyer / self-billed-seller electronic. Simplified workbook uses `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`; Covoro Excel + UI use `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC`. */
 export function getCounterpartyElectronicAddress(): string {
   if (isSimplifiedTemplatePath()) {
     return peppolElectronicFromRaw(requireSimplifiedCounterpartyElectronicRaw());

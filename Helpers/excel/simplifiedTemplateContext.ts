@@ -5,10 +5,10 @@ import { clearInvoiceTemplateHeaderCache } from "../../utils/excel/invoiceExcel"
  * Points `INVOICE_TEMPLATE_PATH` at SimplifiedTemplate.xlsx for simplified specs.
  * Use `applySimplifiedTemplateEnv` in `beforeEach` and `clearSimplifiedTemplateEnv` in `afterAll`.
  *
- * Seller slots stay in `.env` (`UAE_EINVOICE_SELLER_TIN_SLOTS`).
- * Simplified buyer electronic is `UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`
+ * Seller slots stay in `.env` (`OMN_EINVOICE_SELLER_TIN_SLOTS`).
+ * Simplified buyer electronic is `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`
  * (written as `omXXXXXXXXXX`). Covoro Excel + UI buyer electronic is
- * `UAE_EINVOICE_COUNTERPARTY_ELECTRONIC`.
+ * `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC`.
  */
 export const SIMPLIFIED_TEMPLATE_WORKBOOK_RELATIVE_PATH = path.join(
   "testData",

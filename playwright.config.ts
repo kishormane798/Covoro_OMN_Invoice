@@ -74,7 +74,7 @@ export default defineConfig({
   use: {
     baseURL: resolvedBaseUrl,
     screenshot: 'only-on-failure',
-    video: 'off',
+    video: 'on',
     trace: 'off',
     storageState: 'storageState.json',
   },

@@ -2,7 +2,7 @@
  * Playwright worker index 0–4 maps to Oman VATIN slots (mod 5). Dashboard card selection must match Python row patch
  * in `invoice_excel_writer.py` (`_apply_parallel_worker_identity_to_row`).
  *
- * Seller slots come from `UAE_EINVOICE_SELLER_TIN_SLOTS`. TRN/TIN stays the OM-prefixed VATIN;
+ * Seller slots come from `OMN_EINVOICE_SELLER_TIN_SLOTS`. TRN/TIN stays the OM-prefixed VATIN;
  * Peppol electronic address is the same value in lowercase (`om…`).
  */
 
@@ -68,7 +68,7 @@ export function isParallelWorkerIdentityEnabled(): boolean {
 
 /**
  * Worker dashboard / VATIN for a Playwright worker index or slot (0–4).
- * Uses `UAE_EINVOICE_SELLER_TIN_SLOTS` from `.env`.
+ * Uses `OMN_EINVOICE_SELLER_TIN_SLOTS` from `.env`.
  * `getParallelWorkerIndex()` already returns a slot; passing it here is correct.
  */
 export function electronicTinForParallelIndex(parallelIndex: number): string {

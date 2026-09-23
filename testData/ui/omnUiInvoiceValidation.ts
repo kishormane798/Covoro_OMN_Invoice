@@ -123,18 +123,20 @@ import {
   SELF_BILLED_BUYER_VAT_SCENARIOS,
   SELF_BILLED_RCM_BUYER_COUNTRY_SCENARIOS,
   // SELF_BILLED_TXN_CONSTRAINT_SCENARIOS, // IBR-177-OM — UI conditional commented
-  SELF_BILLED_TXN_EXCLUSION_SCENARIOS,
-  IBR_139_TXN_EXCLUSION_SCENARIOS,
-  SUMMARY_TXN_EXCLUSION_SCENARIOS,
-  CONTINUOUS_TXN_EXCLUSION_SCENARIOS,
-  IBR_142_TXN_EXCLUSION_SCENARIOS,
-  IBR_143_TXN_EXCLUSION_SCENARIOS,
-  IBR_144_TXN_EXCLUSION_SCENARIOS,
-  IBR_145_TXN_EXCLUSION_SCENARIOS,
-  IBR_146_TXN_EXCLUSION_SCENARIOS,
-  IBR_147_TXN_EXCLUSION_SCENARIOS,
-  IBR_148_TXN_EXCLUSION_SCENARIOS,
-  // IBR_149_TXN_EXCLUSION_SCENARIOS, // Excel is commented; omit from UI (do not skip).
+  // IBR-138-OM … IBR-149-OM are not applied. Scenario data stays in
+  // ConditionalValidation.ts; do not register these cases on the UI catalogs.
+  // SELF_BILLED_TXN_EXCLUSION_SCENARIOS, // IBR-138-OM not applied
+  // IBR_139_TXN_EXCLUSION_SCENARIOS, // IBR-139-OM not applied
+  // SUMMARY_TXN_EXCLUSION_SCENARIOS, // IBR-140-OM not applied
+  // CONTINUOUS_TXN_EXCLUSION_SCENARIOS, // IBR-141-OM not applied
+  // IBR_142_TXN_EXCLUSION_SCENARIOS, // IBR-142-OM not applied
+  // IBR_143_TXN_EXCLUSION_SCENARIOS, // IBR-143-OM not applied
+  // IBR_144_TXN_EXCLUSION_SCENARIOS, // IBR-144-OM not applied
+  // IBR_145_TXN_EXCLUSION_SCENARIOS, // IBR-145-OM not applied
+  // IBR_146_TXN_EXCLUSION_SCENARIOS, // IBR-146-OM not applied
+  // IBR_147_TXN_EXCLUSION_SCENARIOS, // IBR-147-OM not applied
+  // IBR_148_TXN_EXCLUSION_SCENARIOS, // IBR-148-OM not applied
+  // IBR_149_TXN_EXCLUSION_SCENARIOS, // IBR-149-OM not applied
   SELF_BILLED_OR_RCM_TXN_TYPES,
   btom001EnsureBaseTxnLabels,
   btom001TxnPairForbidden,
@@ -288,7 +290,7 @@ export const OMN_UI_FIELD_CATALOG_GROUPS = [
   "CL-06-OM — Scheme Identifier and textual code masters",
   "Numeric fields — valid digit count",
   "Numeric fields — invalid digit count",
-  "Invoice transaction type exclusion (IBR-138-OM … IBR-149-OM)",
+  // "Invoice transaction type exclusion (IBR-138-OM … IBR-149-OM)", // not applied
 ] as const;
 
 export type OmnUiNumericFieldLocation = {
@@ -564,18 +566,18 @@ function uniqueUiTxnExclusionSources(
 }
 
 const txnExclusionFieldRows: OmnUiCatalogRow[] = uniqueUiTxnExclusionSources([
-  ...SELF_BILLED_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_139_TXN_EXCLUSION_SCENARIOS,
-  ...SUMMARY_TXN_EXCLUSION_SCENARIOS,
-  ...CONTINUOUS_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_142_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_143_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_144_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_145_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_146_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_147_TXN_EXCLUSION_SCENARIOS,
-  ...IBR_148_TXN_EXCLUSION_SCENARIOS,
-  // ...IBR_149_TXN_EXCLUSION_SCENARIOS, // IBR-149-OM Simplified ⊕ partner: Excel is commented; omit from UI (do not skip).
+  // ...SELF_BILLED_TXN_EXCLUSION_SCENARIOS, // IBR-138-OM not applied
+  // ...IBR_139_TXN_EXCLUSION_SCENARIOS, // IBR-139-OM not applied
+  // ...SUMMARY_TXN_EXCLUSION_SCENARIOS, // IBR-140-OM not applied
+  // ...CONTINUOUS_TXN_EXCLUSION_SCENARIOS, // IBR-141-OM not applied
+  // ...IBR_142_TXN_EXCLUSION_SCENARIOS, // IBR-142-OM not applied
+  // ...IBR_143_TXN_EXCLUSION_SCENARIOS, // IBR-143-OM not applied
+  // ...IBR_144_TXN_EXCLUSION_SCENARIOS, // IBR-144-OM not applied
+  // ...IBR_145_TXN_EXCLUSION_SCENARIOS, // IBR-145-OM not applied
+  // ...IBR_146_TXN_EXCLUSION_SCENARIOS, // IBR-146-OM not applied
+  // ...IBR_147_TXN_EXCLUSION_SCENARIOS, // IBR-147-OM not applied
+  // ...IBR_148_TXN_EXCLUSION_SCENARIOS, // IBR-148-OM not applied
+  // ...IBR_149_TXN_EXCLUSION_SCENARIOS, // IBR-149-OM not applied
 ])
   // UI disables partners from the BTOM-001 matrix only. Skip PINT pairs the
   // matrix still allows (e.g. Simplified ⊕ Special Zone — IBR-149-OM Excel only).
@@ -613,14 +615,14 @@ export const OMN_UI_FIELD_CATALOG: OmnUiCatalogRow[] = [
   ...cl06Rows,
   ...numericValidRows,
   ...numericInvalidRows,
-  ...txnExclusionFieldRows,
+  // ...txnExclusionFieldRows, // IBR-138-OM … IBR-149-OM not applied
 ];
 
 export const OMN_UI_FORMULA_CATALOG_GROUPS = [
   "Invalid inputs",
   "Non-OMR tax in accounting currency (IBT-111)",
   "Item net price and line net formulas (IBR-075-OM / IBR-071-OM)",
-  "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)",
+  // "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)", // not applied
 ] as const;
 
 const negativeFormulaRows: OmnUiCatalogRow[] = invoiceNegativeFormulaTestData
@@ -696,18 +698,7 @@ export const OMN_UI_FORMULA_CATALOG: OmnUiCatalogRow[] = [
   ...negativeFormulaRows,
   ...nonOmrFormulaRows,
   ...lineNetFormulaRows,
-  ...txnExclusionFieldRows
-    .filter((row) => !row.expectsError)
-    .slice(0, 1)
-    .map((row) => ({
-      ...row,
-      group: "Invoice transaction type exclusion — formula (IBR-138-OM … IBR-149-OM)",
-      title: row.title.replace(
-        "When the form is saved",
-        "When calculated totals match"
-      ),
-      formulaScenario: invoiceFormulaTestData[0],
-    })),
+  // ...txnExclusionFieldRows // IBR-138-OM … IBR-149-OM not applied
 ];
 
 export const OMN_UI_CONDITIONAL_PENDING_GROUPS = [] as const;
