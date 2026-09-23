@@ -1,6 +1,6 @@
-# Cron 05:45 IST Mon–Fri: Copy → Conditional Copy → Simplified field → Simplified conditional → Edit → Create → Covoro submit single.
-# Covoro submit single runs in groups of at most 400 tests, one group at a time.
-# Multiline Covoro submit is manual only (not queued). Formula stays on manual family chains.
+# Cron 05:45 IST Mon–Fri: Copy → Conditional Copy → Simplified field → Simplified conditional → Edit → Create → Covoro submit multi-item.
+# Covoro submit single is manual only (not queued). When run manually it is split into groups of at most 400 tests, one group at a time.
+# Formula stays on manual family chains.
 # Manual Run: Create → Conditional Create; Edit → Conditional Edit; Covoro field → formula → conditional
 # (same for Simplified Excel). Copy without scheduled_wave stops after Conditional Copy.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -33,13 +33,13 @@ on:
           - covoro_ui_conditional_create
           - covoro_ui_conditional_edit
       scheduled_wave:
-        description: "On Copy: morning queue after Conditional Copy — Simplified field, Simplified conditional, Edit, Create, Covoro submit single. Leave off for Copy pair only. Without this, Create/Edit/Covoro/Simplified stay on their own family. Edit with this on continues from Edit (Create, then Covoro submit single). Multiline submit is a separate manual run."
+        description: "On Copy: morning queue after Conditional Copy — Simplified field, Simplified conditional, Edit, Create, Covoro submit multi-item. Leave off for Copy pair only. Without this, Create/Edit/Covoro/Simplified stay on their own family. Edit with this on continues from Edit (Create, then Covoro submit multi-item). Covoro submit single is a separate manual run."
         type: boolean
         required: false
         default: false
 
 run-name: >-
-  ${{ github.event_name == 'schedule' && 'Scheduled Copy, Simplified, Edit, Create, Covoro submit'
+  ${{ github.event_name == 'schedule' && 'Scheduled Copy, Simplified, Edit, Create, Covoro submit multi'
       || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
       || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'

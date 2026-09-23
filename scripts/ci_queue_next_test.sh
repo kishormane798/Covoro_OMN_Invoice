@@ -24,7 +24,7 @@ expect covoro_ui_conditional_copy true simplified_field true
 expect simplified_field true simplified_conditional true
 expect simplified_conditional true covoro_ui_edit true
 expect covoro_ui_edit true covoro_ui_create true
-expect covoro_ui_create true covoro_submit_single true
+expect covoro_ui_create true covoro_submit_multi true
 expect covoro_submit_single true "" false
 expect simplified_formula true simplified_conditional false
 expect covoro_ui_copy false covoro_ui_conditional_copy false
