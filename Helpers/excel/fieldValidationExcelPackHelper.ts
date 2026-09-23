@@ -429,8 +429,10 @@ function simplifiedTemplateWorkerSellerElectronic(): string {
   return omanElectronicAddressFromWorkerTin(electronicTinForParallelIndex(0));
 }
 
-function simplifiedTemplateBuyerElectronic(): string {
-  return omanElectronicAddressFromWorkerTin(getCounterpartyElectronicAddress());
+function simplifiedTemplateBuyerElectronic(txnType?: unknown): string {
+  return omanElectronicAddressFromWorkerTin(
+    getCounterpartyElectronicAddress(txnType)
+  );
 }
 
 export function applyOmanSellerBuyerIdentity(
@@ -449,8 +451,12 @@ export function applyOmanSellerBuyerIdentity(
       "Buyer Name": SIMPLIFIED_BUYER_NAME,
       "Seller electronic address": sellerEl,
       "Seller Electronic Address": sellerEl,
-      "Buyer electronic address": simplifiedTemplateBuyerElectronic(),
-      "Buyer Electronic Address": simplifiedTemplateBuyerElectronic(),
+      "Buyer electronic address": simplifiedTemplateBuyerElectronic(
+        row["Invoice Transaction Type Code"]
+      ),
+      "Buyer Electronic Address": simplifiedTemplateBuyerElectronic(
+        row["Invoice Transaction Type Code"]
+      ),
       "Seller electronic address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
       "Seller Electronic Address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
       "Buyer electronic address Scheme": SIMPLIFIED_ELECTRONIC_SCHEME,
@@ -1043,7 +1049,7 @@ async function getOrCreateBaseWorkbook(
   const headers = await getCachedInvoiceTemplateHeaders();
   const simplified = isSimplifiedTemplateEnv();
   const buyerElectronic = simplified
-    ? simplifiedTemplateBuyerElectronic()
+    ? simplifiedTemplateBuyerElectronic(overlaid["Invoice Transaction Type Code"])
     : omanBuyerElectronic();
   // Force OM identity on base (writer/worker identity can leave buyer electronic without OM).
   patchIdentityIfOnTemplate(

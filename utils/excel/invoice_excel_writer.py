@@ -1852,6 +1852,9 @@ _PARALLEL_WORKER_TIN_SLOTS = 5
 _SELLER_TIN_SLOTS_ENV = "OMN_EINVOICE_SELLER_TIN_SLOTS"
 _COUNTERPARTY_EL_ENV = "OMN_EINVOICE_COUNTERPARTY_ELECTRONIC"
 _SIMPLIFIED_COUNTERPARTY_EL_ENV = "OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC"
+_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_EL_ENV = (
+    "OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC"
+)
 
 
 def _read_invoice_env(name: str, legacy_name: str) -> str:
@@ -1959,10 +1962,37 @@ def _simplified_counterparty_electronic_raw() -> str:
     return _unquote_env(override)
 
 
-def _counterparty_electronic_address() -> str:
+def _simplified_import_goods_counterparty_electronic_raw() -> str:
+    override = _read_invoice_env(
+        _SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_EL_ENV,
+        "UAE_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC",
+    )
+    if not override:
+        raise RuntimeError(
+            "OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC is required in .env "
+            "(Import of Goods buyer Oman VATIN, e.g. OM1708202605)."
+        )
+    return _unquote_env(override)
+
+
+def _is_import_of_goods_txn(value: object) -> bool:
+    """Keep aligned with utils/envPartyIdentity.ts `isImportOfGoodsTransactionType`."""
+    compact = "".join(str(value or "").split()).strip().lower()
+    if not compact:
+        return False
+    if "importofgoods" in compact:
+        return True
+    return compact in ("xxxxxxxxxxxx1xxxxxxx", "00000000000010000000")
+
+
+def _counterparty_electronic_address(txn_type: object = None) -> str:
     """Keep aligned with utils/envPartyIdentity.ts `getCounterpartyElectronicAddress`."""
     if _is_simplified_template_env():
-        override = _simplified_counterparty_electronic_raw()
+        override = (
+            _simplified_import_goods_counterparty_electronic_raw()
+            if _is_import_of_goods_txn(txn_type)
+            else _simplified_counterparty_electronic_raw()
+        )
         oman = _normalize_oman_vatin(override)
         return oman.lower() if oman else override
     override = _read_invoice_env(
@@ -2038,7 +2068,9 @@ def _apply_parallel_worker_identity_to_row(
 
     # Simplified template has no TRN — worker identity is electronic address + scheme only.
     simplified = _is_simplified_template_env()
-    counterparty_el = _counterparty_electronic_address()
+    counterparty_el = _counterparty_electronic_address(
+        None if self_billed else txn_type
+    )
     if self_billed:
         put("Seller electronic address", counterparty_el)
         put("Buyer electronic address", worker_el)

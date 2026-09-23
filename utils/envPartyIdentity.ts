@@ -23,6 +23,10 @@ const SIMPLIFIED_COUNTERPARTY_EL_ENV =
   "OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC";
 const SIMPLIFIED_COUNTERPARTY_EL_ENV_LEGACY =
   "UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC";
+const SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_EL_ENV =
+  "OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC";
+const SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_EL_ENV_LEGACY =
+  "UAE_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC";
 
 /** Prefer the Oman key. The UAE-prefixed key still works until `.env` and GitHub secrets are renamed. */
 function readInvoiceEnv(name: string, legacyName: string): string {
@@ -104,15 +108,50 @@ function requireSimplifiedCounterpartyElectronicRaw(): string {
   return unquoteEnvList(override);
 }
 
+function requireSimplifiedImportGoodsCounterpartyElectronicRaw(): string {
+  const override = readInvoiceEnv(
+    SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_EL_ENV,
+    SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_EL_ENV_LEGACY
+  );
+  if (!override) {
+    throw new Error(
+      `${SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_EL_ENV} is required in .env (Import of Goods buyer Oman VATIN, e.g. OM1708202605).`
+    );
+  }
+  return unquoteEnvList(override);
+}
+
+/** Excel label `Import of Goods` or BTOM-001 bit `XXXXXXXXXXXX1XXXXXXX` / `00000000000010000000`. */
+export function isImportOfGoodsTransactionType(value: unknown): boolean {
+  const compact = String(value ?? "")
+    .replace(/\s+/g, "")
+    .trim()
+    .toLowerCase();
+  if (!compact) return false;
+  if (compact.includes("importofgoods")) return true;
+  return (
+    compact === "xxxxxxxxxxxx1xxxxxxx" || compact === "00000000000010000000"
+  );
+}
+
 function peppolElectronicFromRaw(raw: string): string {
   const oman = normalizeOmanVatin(raw);
   return oman ? oman.toLowerCase() : raw;
 }
 
-/** Buyer / self-billed-seller electronic. Simplified workbook uses `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`; Covoro Excel + UI use `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC`. */
-export function getCounterpartyElectronicAddress(): string {
+/**
+ * Buyer / self-billed-seller electronic.
+ * Simplified workbook: `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`, except
+ * Import of Goods which uses `OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC`.
+ * Covoro Excel + UI use `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC`.
+ * Pass the row transaction type so simplified Import of Goods picks the import VATIN.
+ */
+export function getCounterpartyElectronicAddress(txnType?: unknown): string {
   if (isSimplifiedTemplatePath()) {
-    return peppolElectronicFromRaw(requireSimplifiedCounterpartyElectronicRaw());
+    const raw = isImportOfGoodsTransactionType(txnType)
+      ? requireSimplifiedImportGoodsCounterpartyElectronicRaw()
+      : requireSimplifiedCounterpartyElectronicRaw();
+    return peppolElectronicFromRaw(raw);
   }
   return requireCounterpartyElectronicRaw();
 }
@@ -191,8 +230,11 @@ export function applySelfBilledPartyIdentitySwap<
 export function applyCounterpartyElectronicAddressOverrides<
   T extends Record<string, unknown>,
 >(row: T): T {
-  const el = getCounterpartyElectronicAddress();
-  if (isSelfBilledInvoiceType(row["Invoice Type Code"])) {
+  const selfBilled = isSelfBilledInvoiceType(row["Invoice Type Code"]);
+  const el = getCounterpartyElectronicAddress(
+    selfBilled ? undefined : row["Invoice Transaction Type Code"]
+  );
+  if (selfBilled) {
     const next: Record<string, unknown> = {
       ...row,
       [SELLER_ELECTRONIC_FIELD]: el,

@@ -1480,7 +1480,9 @@ async function getOrCreateConditionalBase(
     generated.filePath,
     "Buyer Electronic Address",
     isSimplifiedTemplateEnv()
-      ? omanElectronicAddressFromWorkerTin(getCounterpartyElectronicAddress())
+      ? omanElectronicAddressFromWorkerTin(
+          getCounterpartyElectronicAddress(overlaid["Invoice Transaction Type Code"])
+        )
       : omanBuyerElectronic()
   );
   patchInvoiceTextCellInFile(

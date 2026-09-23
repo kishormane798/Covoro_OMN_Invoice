@@ -65,7 +65,8 @@ Optional variables used in automation:
 | `UAE_EINVOICE_DISABLE_WORKER_IDENTITY` | Set to `1` to disable multi-TIN worker identity behavior.                                                                                                   |
 | `OMN_EINVOICE_SELLER_TIN_SLOTS` | Comma-separated Oman VATINs, one per Playwright worker slot. |
 | `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC` | Buyer Peppol electronic for Covoro Excel and UI (normal buyer / self-billed seller). |
-| `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC` | Buyer Oman VATIN for the Simplified template. |
+| `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC` | Buyer Oman VATIN for the Simplified template. Buyer name stays `Prashant`. |
+| `OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC` | Simplified buyer Oman VATIN when the transaction type is Import of Goods. Buyer name stays `Prashant`. |
 | `SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS`   | Minimum 60000; default **4 minutes** wait for submit/delivery steps.                                                                                        |
 | `UAE_EINVOICE_DEBUG_DASHBOARD`         | Set to `1` for extra dashboard logging.                                                                                                                     |
 

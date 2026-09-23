@@ -6,9 +6,11 @@ import { clearInvoiceTemplateHeaderCache } from "../../utils/excel/invoiceExcel"
  * Use `applySimplifiedTemplateEnv` in `beforeEach` and `clearSimplifiedTemplateEnv` in `afterAll`.
  *
  * Seller slots stay in `.env` (`OMN_EINVOICE_SELLER_TIN_SLOTS`).
- * Simplified buyer electronic is `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`
- * (written as `omXXXXXXXXXX`). Covoro Excel + UI buyer electronic is
- * `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC`.
+ * Simplified buyer name stays `Prashant`.
+ * Buyer electronic is `OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC`
+ * (written as `omXXXXXXXXXX`), except Import of Goods which uses
+ * `OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC`.
+ * Covoro Excel + UI buyer electronic is `OMN_EINVOICE_COUNTERPARTY_ELECTRONIC`.
  */
 export const SIMPLIFIED_TEMPLATE_WORKBOOK_RELATIVE_PATH = path.join(
   "testData",

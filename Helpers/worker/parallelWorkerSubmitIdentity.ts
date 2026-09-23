@@ -144,13 +144,17 @@ export function applyParallelWorkerIdentityToSubmitRow(
   const workerVat = workerVatIdentifierForParallelIndex(workerIndex);
   const workerEl = omanElectronicAddressFromWorkerTin(workerVat);
   const simplified = isSimplifiedTemplateEnv();
-  const counterpartyEl = simplified
-    ? omanElectronicAddressFromWorkerTin(getCounterpartyElectronicAddress())
-    : getCounterpartyElectronicAddress();
 
   const txnType = normalizeSubmitInvoiceType(data["Invoice Transaction Type Code"]);
   const selfBilled = isSelfBilledInvoiceType(data["Invoice Type Code"]);
   const deemed = txnType === "deemed supply";
+  const counterpartyEl = simplified
+    ? omanElectronicAddressFromWorkerTin(
+        getCounterpartyElectronicAddress(
+          selfBilled ? undefined : data["Invoice Transaction Type Code"]
+        )
+      )
+    : getCounterpartyElectronicAddress();
 
   const next: Record<string, string> = { ...data };
 

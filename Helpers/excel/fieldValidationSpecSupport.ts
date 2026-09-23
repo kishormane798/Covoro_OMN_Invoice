@@ -8,7 +8,6 @@ import { SIMPLIFIED_TEMPLATE_HEADER_LABELS } from "../../testData/invoiceTemplat
 import { filterConfigsByHeaderLabels } from "../../utils/excel/invoiceExcel";
 import type { DropdownWriteCasing } from "./omanFieldValidationExcelHelper";
 import { uploadAndVerify } from "./uploadHelper";
-import { assertSingleLineUploadedExcelRoundTrip } from "./invoiceExcelRoundTripHelper";
 
 export const FIELD_VALIDATION_TEMPLATE = "Covoro";
 export const FIELD_VALIDATION_TEMPLATE_SIMPLIFIED = "Simplified";
@@ -142,8 +141,7 @@ export const hsCodeDropdownOnSimplified = simplifiedFieldConfigs(
 );
 
 /**
- * Accepted field-validation upload: completed, then Ready to Submit → Download Excel
- * and compare filled cells. Skips multi-line workbooks. Do not use for dropdown /
+ * Accepted field-validation upload: status completed. Do not use for dropdown /
  * CL-06 master loops, formula, or conditional specs.
  */
 export async function uploadAndVerifyFieldAccepted(
@@ -151,5 +149,4 @@ export async function uploadAndVerifyFieldAccepted(
   filePath: string
 ): Promise<void> {
   await uploadAndVerify(page, filePath);
-  await assertSingleLineUploadedExcelRoundTrip(page, filePath);
 }

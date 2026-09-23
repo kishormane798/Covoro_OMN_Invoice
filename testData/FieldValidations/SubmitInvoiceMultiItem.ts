@@ -237,7 +237,9 @@ export function buildOmanSubmitDocumentRow(
   };
   common = applySubmitTxnExtras(common, txn);
   common = applySubmitInvoiceTypeExtras(common, invoiceTypeCode);
-  common["Buyer electronic address"] = getCounterpartyElectronicAddress();
+  common["Buyer electronic address"] = getCounterpartyElectronicAddress(
+    isSelfBilledInvoiceType(invoiceTypeCode) ? undefined : txn
+  );
   let row = asStringRow(common);
   if (isSelfBilledInvoiceType(invoiceTypeCode)) {
     row = applySelfBilledPartyIdentitySwap(row);
