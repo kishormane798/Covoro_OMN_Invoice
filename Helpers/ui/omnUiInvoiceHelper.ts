@@ -1243,6 +1243,23 @@ async function enableExemptionReasonTextMinMaxFields(
   await invoice.expectInputDisabled("item", rule.inputId, false, rule.altInputIds);
 }
 
+/**
+ * Edit does not recalculate. Zero rated exemption text requires VAT line amount 0.
+ */
+async function enterZeroVatLineOnEdit(
+  invoice: OMN_UIInvoiceManualPage,
+  entry: OmnUiEntry,
+  rule: OmnUiFieldRule
+): Promise<void> {
+  if (entry !== "edit" || !isTaxExemptionReasonTextField(rule)) return;
+  await replaceItemAmountIfEnabled(invoice, "taxRateDtls[0].taxAmt", 0);
+  await replaceItemAmountIfEnabled(invoice, "totalInvLineVatAmt", 0, ["vatLineAmt"]);
+  await invoice.replaceLabeledItemText("Line Item VAT Amount", "0");
+  const lineNet = parseAmount(await invoice.readInputValue("item", "invLineNetAmt")) ?? 0;
+  await replaceItemAmountIfEnabled(invoice, "totalAmtIncludingVat", lineNet, ["invLineAmt"]);
+  await invoice.replaceLabeledItemText("Total Amount Including VAT", String(lineNet));
+}
+
 function isTaxRateLengthField(rule: OmnUiFieldRule): boolean {
   return rule.inputId === "taxRateDtls[0].taxRate";
 }
@@ -1385,6 +1402,7 @@ export async function runOmnUiMinMaxCase(
     await enableExemptionReasonTextMinMaxFields(invoice, rule);
     await writeMinMaxField();
   }
+  await enterZeroVatLineOnEdit(invoice, entry, rule);
   await fillItemAttributeMinMaxCompanion(invoice, entry, rule, value);
   await fillQuantityMinMaxCompanion(invoice, rule, value);
   await commitSection(invoice, rule.section, entry);
@@ -1476,6 +1494,83 @@ export async function runOmnUiIssueDateCase(
   await invoice.expectSectionSavedReadOnly("document");
 }
 
+async function readOmnUiAmount(
+  invoice: OMN_UIInvoiceManualPage,
+  section: OmnUiSection,
+  inputId: string,
+  altInputIds: readonly string[] = []
+): Promise<number> {
+  return toNumber(await invoice.readInputValue(section, inputId, altInputIds));
+}
+
+/**
+ * Edit does not recalculate. After a numeric boundary change, type the formula
+ * outputs so Update is not rejected. Create and Copy auto-calculate.
+ */
+async function syncEditNumericFormulaAmounts(
+  invoice: OMN_UIInvoiceManualPage,
+  section: "item" | "invoice"
+): Promise<void> {
+  if (section === "item") {
+    const scenario: InvoiceFormulaScenario = {
+      name: "edit numeric boundary",
+      expect: "success",
+      itemPriceBaseQty: await readOmnUiAmount(invoice, "item", "priceBaseQty", [
+        "itemPriceBaseQty",
+      ]),
+      itemGrossPrice: await readOmnUiAmount(invoice, "item", "itemGrossPrice"),
+      itemPriceDiscount: await readOmnUiAmount(invoice, "item", "itemPriceDiscount", [
+        "invLinePriceDiscount",
+      ]),
+      invoicedQty: await readOmnUiAmount(invoice, "item", "invoiceQty", [
+        "invoicedQty",
+        "invQty",
+      ]),
+      lineCharge: await readOmnUiAmount(invoice, "item", "chargesDtls[0].amount", [
+        "invLineChargeAmount",
+      ]),
+      lineAllowance: await readOmnUiAmount(invoice, "item", "allowanceDtls[0].amount", [
+        "invLineAllowanceAmount",
+      ]),
+      taxRate: await readOmnUiAmount(invoice, "item", "taxRateDtls[0].taxRate"),
+    };
+    const expected = omnUiExpectedTotals(scenario);
+    await replaceItemAmountIfEnabled(invoice, "itemNetPrice", expected.itemNetPrice);
+    await replaceItemAmountIfEnabled(invoice, "invLineNetAmt", expected.invoiceLineNetAmount);
+    await invoice.replaceInputForced(
+      "item",
+      "taxRateDtls[0].taxAmt",
+      String(expected.vatLineAmount)
+    );
+    // Tax Amount is disabled and the form keeps its own 3-decimal value
+    // (4989.9995 stays 4989.999). Line VAT must match that value, not round3.
+    const taxRaw = (await invoice.readInputValue("item", "taxRateDtls[0].taxAmt")).trim();
+    const vatText = taxRaw || String(expected.vatLineAmount);
+    const totalIncludingVat = Number(
+      (expected.invoiceLineNetAmount + toNumber(vatText, expected.vatLineAmount)).toFixed(3)
+    );
+    if (!(await invoice.isInputDisabled("item", "totalInvLineVatAmt", ["vatLineAmt"]))) {
+      await invoice.replaceInput("item", "totalInvLineVatAmt", vatText, ["vatLineAmt"]);
+    }
+    await replaceItemAmountIfEnabled(
+      invoice,
+      "totalAmtIncludingVat",
+      totalIncludingVat,
+      ["invLineAmt"]
+    );
+    await invoice.replaceLabeledItemText("Line Item VAT Amount", vatText);
+    await invoice.replaceLabeledItemText("Total Invoice Line VAT Amount", vatText);
+    await invoice.replaceLabeledItemText("Total Amount Including VAT", String(totalIncludingVat));
+    return;
+  }
+
+  const totalWithTax = await readOmnUiAmount(invoice, "invoice", "totalAmtWithTax");
+  const paid = await readOmnUiAmount(invoice, "invoice", "paidAmt", ["paidAmount"]);
+  const rounding = await readOmnUiAmount(invoice, "invoice", "roundingAmt", ["roundingAmount"]);
+  const amountDue = Math.round((totalWithTax - paid + rounding) * 1000 + 1e-8) / 1000;
+  await replaceInvoiceAmountIfEnabled(invoice, "paymentDueAmt", amountDue);
+}
+
 export async function runOmnUiNumericCase(
   page: Page,
   entry: OmnUiEntry,
@@ -1529,6 +1624,10 @@ export async function runOmnUiNumericCase(
         ["invLinePriceDiscount"]
       );
     }
+  }
+
+  if (entry === "edit" && !expectsError) {
+    await syncEditNumericFormulaAmounts(invoice, location.section);
   }
 
   await commitSection(invoice, location.section, entry);
