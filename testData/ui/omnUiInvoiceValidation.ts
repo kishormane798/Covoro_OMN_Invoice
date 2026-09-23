@@ -2923,6 +2923,14 @@ const UI_SKIP_SOURCE_TITLES = new Set([
   "Given Export of Services — When Deliver to country is Oman — Then the invoice should be rejected with an error. (IBR-012-OM)",
   "Given Full Tax Invoice Commercial invoice — When only Address Line 1 is entered — Then the invoice should be rejected with an error. (IBR-040-OM)",
   "Given Full Tax Invoice Commercial invoice Goods — When the HS code is not on the ROP list — Then the invoice should be rejected with an error. (IBR-174-OM)",
+  "Given an HS classification — When the value has 6 digits — Then the invoice should be rejected with an error. (IBR-080-OM)",
+  "Given an item classification that is not an HS code — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-080-OM)",
+  "Given Export of Services — When Service Type is invalid — Then the invoice should be rejected with an error. (IBR-155-OM)",
+  "Given Import of Goods — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
+  "Given Import of Services (RCM) — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
+  "Given Profit Margin Self-Invoice — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
+  "Given Self-billed Invoice — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
+  "Given Profit Margin Self-Invoice — When item type is invalid — Then the invoice should be rejected with an error. (CL-11-OM)",
 ]);
 
 /** Edit and Copy ("Update should succeed"). Create and Excel upload keep these rows. */
