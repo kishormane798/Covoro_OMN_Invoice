@@ -164,6 +164,85 @@ function fieldsFor(section: OmnUiSection): UiSubmitField[] {
   );
 }
 
+/**
+ * These stay disabled until a gate is set (txn chip, tax category, identifier).
+ * Fill the rest of the section first, then wait and write them.
+ * Covers every transaction companion on the submit row:
+ * Summary/Continuous period, Profit Margin preceding, Import of Goods,
+ * Prepayment, Special Zone / IBR-007 seller scheme, Exempt/Zero exemption,
+ * profit-margin item type, and item country of origin.
+ */
+const LATE_CONDITIONAL_INPUT_IDS = new Set([
+  "schemeIdentifier",
+  "taxExemptionRsnType",
+  "taxExemptionRsn",
+  "docLevelCharges[0].exemptionRsn",
+  "docLevelAllowances[0].exemptionRsn",
+  "profitMarginItemType",
+  "originCountry",
+  "prepaymentInvoiceNum",
+  "prepaymentInvoiceUuid",
+  "invStartDate",
+  "invEndDate",
+  "importDate",
+  "customsDeclarationNumber",
+  "incoterms",
+  "creditNoteRsn",
+  "proceedingDtls[0].invoiceReference",
+  "proceedingDtls[0].invoiceIssueDate",
+  "proceedingDtls[0].uniqueIdentifierNumber",
+]);
+
+/** Self-billed buyer Peppol/VAT stays MUI-disabled; a normal fill returns without writing. */
+const FORCE_DISABLED_TEXT_IDS = new Set([
+  "vatIdentifier",
+  "sellerVatIdentifier",
+  "electronicAddress",
+  "sellerElectronicAddress",
+  "buyerElectronicAddress",
+]);
+
+function inputIdsOf(inputId: string, alts: readonly string[]): string[] {
+  return [inputId, ...alts];
+}
+
+function enablesLate(inputId: string, alts: readonly string[]): boolean {
+  return inputIdsOf(inputId, alts).some((id) => LATE_CONDITIONAL_INPUT_IDS.has(id));
+}
+
+function forceWhenDisabled(inputId: string, alts: readonly string[]): boolean {
+  return inputIdsOf(inputId, alts).some((id) => FORCE_DISABLED_TEXT_IDS.has(id));
+}
+
+function fieldsInFillOrder(section: OmnUiSection): UiSubmitField[] {
+  const fields = fieldsFor(section);
+  const early: UiSubmitField[] = [];
+  const late: UiSubmitField[] = [];
+  for (const field of fields) {
+    if (enablesLate(field.inputId, field.altInputIds ?? [])) late.push(field);
+    else early.push(field);
+  }
+  return [...early, ...late];
+}
+
+async function waitUntilInputEnabled(
+  invoice: OMN_UIInvoiceManualPage,
+  section: OmnUiSection,
+  inputId: string,
+  alts: readonly string[]
+): Promise<boolean> {
+  try {
+    await expect
+      .poll(async () => !(await invoice.isInputDisabled(section, inputId, alts)), {
+        timeout: 8_000,
+      })
+      .toBe(true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sectionHasValue(section: OmnUiSection, row: Record<string, string>): boolean {
   return fieldsFor(section).some((field) => rowValue(row, field.field) !== "");
 }
@@ -258,7 +337,15 @@ async function fillMappedField(
   const alts = goodsServiceAccounting
     ? ["serviceAccountingCode"]
     : (field.altInputIds ?? []);
-  if (await invoice.isInputDisabled(field.section, inputId, alts)) return;
+  if (await invoice.isInputDisabled(field.section, inputId, alts)) {
+    if (forceWhenDisabled(inputId, alts)) {
+      await invoice.replaceInputForced(field.section, inputId, value, alts);
+      return;
+    }
+    if (!enablesLate(inputId, alts)) return;
+    const enabled = await waitUntilInputEnabled(invoice, field.section, inputId, alts);
+    if (!enabled) return;
+  }
 
   if (field.kind === "autocomplete") {
     const option = goodsServiceAccounting
@@ -282,7 +369,7 @@ async function fillSectionFromRow(
   section: OmnUiSection,
   row: Record<string, string>
 ): Promise<void> {
-  for (const field of fieldsFor(section)) {
+  for (const field of fieldsInFillOrder(section)) {
     await fillMappedField(invoice, field, row);
   }
 }
