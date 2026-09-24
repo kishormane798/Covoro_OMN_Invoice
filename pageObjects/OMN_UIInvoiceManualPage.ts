@@ -1384,6 +1384,28 @@ export class OMN_UIInvoiceManualPage {
       .first();
   }
 
+  /**
+   * Header persist on Create E-Invoice Details. Disabled until the form is complete.
+   * Create and Copy show **Create**. Edit shows **Update**.
+   */
+  createInvoiceHeaderPersistButton(entry: OmnUiEntry = "create"): Locator {
+    const label = entry === "edit" ? /^Update$/ : /^Create$/;
+    return this.page
+      .locator(".subscription-header .navigate-children .btn-container button.base-btn")
+      .filter({ has: this.page.locator(".btn-children", { hasText: label }) })
+      .first();
+  }
+
+  async clickCreateInvoiceHeaderPersist(entry: OmnUiEntry = "create"): Promise<void> {
+    await this.waitForCreateInvoiceIdle();
+    const persist = this.createInvoiceHeaderPersistButton(entry);
+    await expect(persist).toBeVisible({ timeout: 30_000 });
+    await expect(persist).toBeEnabled({ timeout: 60_000 });
+    await persist.scrollIntoViewIfNeeded();
+    await this.dismissOpenDropdown();
+    await persist.click({ timeout: 12_000 });
+  }
+
   createInvoicePageSubmitButton(): Locator {
     return this.page
       .locator(".btn-container .button-wrapper button.base-btn")

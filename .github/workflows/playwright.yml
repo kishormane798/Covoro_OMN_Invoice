@@ -1,5 +1,6 @@
 # Cron 05:45 IST Mon–Fri: Copy → Conditional Copy → Simplified field → Simplified conditional → Edit → Create → Covoro submit multi-item.
-# Covoro submit single is manual only (not queued). When run manually it is split into groups of at most 400 tests, one group at a time.
+# Covoro submit single is manual only (not queued). Run workflow offers submit 1 … submit 5 (at most 400 tests each).
+# Create Invoice UI submit single is the same split: ui submit 1 … ui submit 6 (at most 400 tests each). Zero rated rows are not in that spec.
 # Formula stays on manual family chains.
 # Manual Run: Create → Conditional Create; Edit → Conditional Edit; Covoro field → formula → conditional
 # (same for Simplified Excel). Copy without scheduled_wave stops after Conditional Copy.
@@ -13,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "Automation suite to run. Covoro submit single is split into groups of at most 400 tests."
+        description: "Automation suite to run. Covoro submit single: pick submit 1, submit 2, … (400 tests each). UI submit single: pick ui submit 1, ui submit 2, … (400 tests each; Zero rated is not run)."
         required: true
         default: "covoro_ui_copy"
         type: choice
@@ -27,13 +28,23 @@ on:
           - covoro_field
           - covoro_formula
           - covoro_conditional
-          - covoro_submit_single
+          - submit 1
+          - submit 2
+          - submit 3
+          - submit 4
+          - submit 5
+          - ui submit 1
+          - ui submit 2
+          - ui submit 3
+          - ui submit 4
+          - ui submit 5
+          - ui submit 6
           - covoro_submit_multi
           - covoro_ui_create
           - covoro_ui_conditional_create
           - covoro_ui_conditional_edit
       scheduled_wave:
-        description: "On Copy: morning queue after Conditional Copy — Simplified field, Simplified conditional, Edit, Create, Covoro submit multi-item. Leave off for Copy pair only. Without this, Create/Edit/Covoro/Simplified stay on their own family. Edit with this on continues from Edit (Create, then Covoro submit multi-item). Covoro submit single is a separate manual run."
+        description: "On Copy: morning queue after Conditional Copy — Simplified field, Simplified conditional, Edit, Create, Covoro submit multi-item. Leave off for Copy pair only. Without this, Create/Edit/Covoro/Simplified stay on their own family. Edit with this on continues from Edit (Create, then Covoro submit multi-item). Submit 1–5 and UI submit 1–6 are separate manual runs."
         type: boolean
         required: false
         default: false
@@ -46,7 +57,8 @@ run-name: >-
       || github.event.inputs.suite == 'covoro_field' && 'Covoro field validation'
       || github.event.inputs.suite == 'covoro_formula' && 'Covoro formula validation'
       || github.event.inputs.suite == 'covoro_conditional' && 'Covoro conditional validation'
-      || github.event.inputs.suite == 'covoro_submit_single' && 'Covoro submit single'
+      || startsWith(github.event.inputs.suite, 'submit ') && format('Covoro {0}', github.event.inputs.suite)
+      || startsWith(github.event.inputs.suite, 'ui submit ') && format('UI {0}', github.event.inputs.suite)
       || github.event.inputs.suite == 'covoro_submit_multi' && 'Covoro submit multi-item'
       || startsWith(github.event.inputs.suite, 'covoro_ui_') && github.event.inputs.suite
       || 'Copy Invoice UI' }}
@@ -132,35 +144,54 @@ jobs:
             MODE="covoro_ui_copy"
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          case "$MODE" in
+            "submit "[1-9]*|covoro_submit_single)
+              echo "count_submit=true" >> "$GITHUB_OUTPUT"
+              echo "count_spec=tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts" >> "$GITHUB_OUTPUT"
+              echo "count_project=chromium" >> "$GITHUB_OUTPUT"
+              ;;
+            "ui submit "[1-9]*|covoro_ui_submit)
+              echo "count_submit=true" >> "$GITHUB_OUTPUT"
+              echo "count_spec=tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_Test.spec.ts" >> "$GITHUB_OUTPUT"
+              echo "count_project=chromium-ui" >> "$GITHUB_OUTPUT"
+              ;;
+            *) echo "count_submit=false" >> "$GITHUB_OUTPUT" ;;
+          esac
           echo "Running MODE=$MODE"
 
       - uses: actions/setup-node@v5
-        if: steps.mode.outputs.mode == 'covoro_submit_single'
+        if: steps.mode.outputs.count_submit == 'true'
         with:
           node-version-file: .node-version
           cache: npm
 
       - name: Install Node dependencies (submit test count)
-        if: steps.mode.outputs.mode == 'covoro_submit_single'
+        if: steps.mode.outputs.count_submit == 'true'
         timeout-minutes: 10
         run: npm ci --no-fund --no-audit
 
-      - name: Count Covoro submit single tests
+      - name: Count submit single tests
         id: submit_count
-        if: steps.mode.outputs.mode == 'covoro_submit_single'
+        if: steps.mode.outputs.count_submit == 'true'
         env:
           BASE_URL: https://example.invalid
+          OMN_EINVOICE_SELLER_TIN_SLOTS: ${{ secrets.OMN_EINVOICE_SELLER_TIN_SLOTS || secrets.UAE_EINVOICE_SELLER_TIN_SLOTS }}
+          OMN_EINVOICE_COUNTERPARTY_ELECTRONIC: ${{ secrets.OMN_EINVOICE_COUNTERPARTY_ELECTRONIC || secrets.UAE_EINVOICE_COUNTERPARTY_ELECTRONIC }}
+          OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC: ${{ secrets.OMN_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC || secrets.UAE_EINVOICE_SIMPLIFIED_COUNTERPARTY_ELECTRONIC }}
+          OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC: ${{ secrets.OMN_EINVOICE_SIMPLIFIED_IMPORT_GOODS_COUNTERPARTY_ELECTRONIC || 'OM1708202605' }}
         run: |
           set -euo pipefail
-          OUT="$(npx playwright test tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts --project=chromium --list)"
+          SPEC="${{ steps.mode.outputs.count_spec }}"
+          PROJECT="${{ steps.mode.outputs.count_project }}"
+          OUT="$(npx playwright test "$SPEC" --project="$PROJECT" --list)"
           printf '%s\n' "$OUT"
           COUNT="$(printf '%s\n' "$OUT" | sed -n -E 's/^Total: ([0-9]+) tests?.*/\1/p' | tail -n 1)"
           if [ -z "${COUNT:-}" ] || [ "$COUNT" -lt 1 ]; then
-            echo "::error::Could not count Covoro submit single tests"
+            echo "::error::Could not count submit single tests in ${SPEC}"
             exit 1
           fi
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
-          echo "Covoro submit single test count: $COUNT"
+          echo "Submit single test count (${PROJECT} ${SPEC}): $COUNT"
 
       - name: Plan Playwright suite
         id: plan
@@ -173,7 +204,7 @@ jobs:
 
   test:
     needs: resolve
-    name: ${{ needs.resolve.outputs.shard_total == '1' && format('test ({0})', needs.resolve.outputs.mode) || format('test ({0} {1}/{2})', needs.resolve.outputs.mode, matrix.shard, needs.resolve.outputs.shard_total) }}
+    name: ${{ startsWith(needs.resolve.outputs.mode, 'ui submit ') && format('ui submit {0}', matrix.shard) || startsWith(needs.resolve.outputs.mode, 'submit ') && format('submit {0}', matrix.shard) || (needs.resolve.outputs.shard_total == '1' && format('test ({0})', needs.resolve.outputs.mode) || format('test ({0} {1}/{2})', needs.resolve.outputs.mode, matrix.shard, needs.resolve.outputs.shard_total)) }}
     timeout-minutes: ${{ fromJSON(needs.resolve.outputs.job_timeout_minutes) }}
     runs-on: ubuntu-latest
     strategy:
@@ -309,12 +340,11 @@ jobs:
             covoro_field) LABEL="Covoro field validation" ;;
             covoro_formula) LABEL="Covoro formula validation" ;;
             covoro_conditional) LABEL="Covoro conditional validation" ;;
-            covoro_submit_single)
-              if [ "${SHARD_TOTAL:-1}" -gt 1 ]; then
-                LABEL="Covoro submit single ${SHARD} of ${SHARD_TOTAL}"
-              else
-                LABEL="Covoro submit single"
-              fi
+            covoro_submit_single|submit\ [1-9]*)
+              LABEL="Covoro submit ${SHARD}"
+              ;;
+            covoro_ui_submit|ui\ submit\ [1-9]*)
+              LABEL="UI submit ${SHARD}"
               ;;
             covoro_submit_multi) LABEL="Covoro submit multi-item" ;;
             covoro_ui_copy) LABEL="UI copy" ;;
@@ -514,6 +544,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           CURRENT: ${{ needs.resolve.outputs.mode }}
+          SHARD_TOTAL: ${{ needs.resolve.outputs.shard_total }}
           REF: ${{ github.ref_name }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_WAVE: ${{ github.event.inputs.scheduled_wave }}
@@ -524,7 +555,7 @@ jobs:
           if [ "$EVENT_NAME" = "schedule" ] || [ "$INPUT_WAVE" = "true" ]; then
             WAVE=true
           fi
-          MAP="$(bash scripts/ci_queue_next.sh "$CURRENT" "$WAVE")"
+          MAP="$(bash scripts/ci_queue_next.sh "$CURRENT" "$WAVE" "${SHARD_TOTAL:-}")"
           NEXT="$(printf '%s\n' "$MAP" | awk -F= '/^next=/{print substr($0,6)}')"
           DISPATCH_WAVE="$(printf '%s\n' "$MAP" | awk -F= '/^dispatch_wave=/{print substr($0,15)}')"
           if [ -z "$NEXT" ]; then

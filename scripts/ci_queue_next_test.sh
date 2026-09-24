@@ -6,9 +6,9 @@ SCRIPT="${ROOT}/scripts/ci_queue_next.sh"
 fail=0
 
 expect() {
-  local current="$1" wave="$2" want_next="$3" want_wave="$4"
+  local current="$1" wave="$2" want_next="$3" want_wave="$4" shard_total="${5:-}"
   local out next dw
-  out="$(bash "$SCRIPT" "$current" "$wave")"
+  out="$(bash "$SCRIPT" "$current" "$wave" "$shard_total")"
   next="$(printf '%s\n' "$out" | awk -F= '/^next=/{print substr($0,6)}')"
   dw="$(printf '%s\n' "$out" | awk -F= '/^dispatch_wave=/{print substr($0,15)}')"
   if [ "$next" != "$want_next" ] || [ "$dw" != "$want_wave" ]; then
@@ -38,6 +38,14 @@ expect covoro_conditional false "" false
 expect simplified_field false simplified_formula false
 expect simplified_formula false simplified_conditional false
 expect covoro_submit_single false "" false
+expect "submit 1" false "submit 2" false 5
+expect "submit 4" false "submit 5" false 5
+expect "submit 5" false "" false 5
+expect "submit 2" true "submit 3" false 4
+expect "ui submit 1" false "ui submit 2" false 6
+expect "ui submit 5" false "ui submit 6" false 6
+expect "ui submit 6" false "" false 6
+expect "ui submit 2" true "ui submit 3" false 4
 expect covoro_submit_multi true "" false
 expect unknown_suite true "" false
 

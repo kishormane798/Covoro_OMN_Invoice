@@ -378,3 +378,45 @@ export const multiItemInvoiceCases: MultiItemSubmitInvoiceCase[] =
   buildOmanMultiItemSubmitCases();
 
 export const MULTI_ITEM_SUBMIT_CASE_COUNT = multiItemInvoiceCases.length;
+
+/** IBR-004-OM: exchange rate required when invoice currency is not OMR. */
+const NON_OMR_EXCHANGE_RATE = "0.385";
+
+function nonOmrMultiItemSeedRows(): Record<string, string>[] {
+  const found = multiItemInvoiceCases.find(
+    (tc) =>
+      tc.rows[0]?.[FV.INVOICE_TYPE_CODE_FIELD] === FV.INVOICE_TYPE_TAX_INVOICE &&
+      tc.rows[0]?.[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD] ===
+        FV.TXN_FULL_TAX_INVOICE
+  );
+  if (found) return found.rows;
+  const common = buildOmanSubmitDocumentRow(
+    FV.INVOICE_TYPE_TAX_INVOICE,
+    FV.TXN_FULL_TAX_INVOICE
+  );
+  return LINE_DEFS.map((def) =>
+    overlayLine(common, def, FV.TXN_FULL_TAX_INVOICE)
+  );
+}
+
+/**
+ * Same 4-line Tax invoice × Full Tax Invoice as the OMR matrix, once per
+ * ISO currency except OMR. Source currency stays OMR; FX is 0.385.
+ */
+export function buildOmanMultiItemNonOmrSubmitCases(): MultiItemSubmitInvoiceCase[] {
+  const seed = nonOmrMultiItemSeedRows();
+  return FV.INVOICE_CURRENCY_DROPDOWN_CODES.filter(
+    (code) => code !== FV.OMAN_CURRENCY_OMR
+  ).map((currencyCode) => ({
+    name: `${FV.INVOICE_TYPE_TAX_INVOICE} | ${FV.TXN_FULL_TAX_INVOICE} | ${currencyCode} | 4 items`,
+    rows: seed.map((row) => ({
+      ...row,
+      [FV.INVOICE_CURRENCY_CODE_FIELD]: currencyCode,
+      [FV.SOURCE_CURRENCY_CODE_FIELD]: FV.OMAN_CURRENCY_OMR,
+      [FV.EXCHANGE_RATE_FIELD]: NON_OMR_EXCHANGE_RATE,
+    })),
+  }));
+}
+
+export const multiItemInvoiceCasesNonOmr: MultiItemSubmitInvoiceCase[] =
+  buildOmanMultiItemNonOmrSubmitCases();

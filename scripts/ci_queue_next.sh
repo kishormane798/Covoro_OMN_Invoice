@@ -1,16 +1,34 @@
 #!/usr/bin/env bash
 # Resolve the next Playwright suite for CI queue-next.
-# Usage: ci_queue_next.sh <CURRENT> <WAVE>
+# Usage: ci_queue_next.sh <CURRENT> <WAVE> [SHARD_TOTAL]
 # WAVE=true: cron / Copy with scheduled_wave —
 # Copy → Conditional Copy → Simplified field → Simplified conditional → Edit → Create → Covoro submit multi-item.
-# Covoro submit single stays manual (never queued). Formula stays on the manual family chain only.
-# Otherwise: family pair only (Create/Edit/Covoro/Simplified/Copy pair). Submit and unknown → empty next.
+# Manual "submit N" chains to "submit N+1" while N+1 is within SHARD_TOTAL (400 tests each).
+# Manual "ui submit N" chains the same way.
+# Formula stays on the manual family chain only.
+# Otherwise: family pair only (Create/Edit/Covoro/Simplified/Copy pair). Unknown → empty next.
 set -euo pipefail
 
 CURRENT="${1:-}"
 WAVE="${2:-false}"
+SHARD_TOTAL="${3:-}"
 NEXT=""
 DISPATCH_WAVE="false"
+
+if [[ "$CURRENT" =~ ^(ui )?submit\ ([1-9][0-9]*)$ ]]; then
+  PREFIX="${BASH_REMATCH[1]}"
+  NEXT_N=$(( ${BASH_REMATCH[2]} + 1 ))
+  if [[ "$SHARD_TOTAL" =~ ^[1-9][0-9]*$ ]] && [ "$NEXT_N" -le "$SHARD_TOTAL" ]; then
+    NEXT="${PREFIX}submit ${NEXT_N}"
+  fi
+  echo "next=${NEXT}"
+  echo "dispatch_wave=${DISPATCH_WAVE}"
+  if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    echo "next=${NEXT}" >> "$GITHUB_OUTPUT"
+    echo "dispatch_wave=${DISPATCH_WAVE}" >> "$GITHUB_OUTPUT"
+  fi
+  exit 0
+fi
 
 cron_next() {
   case "$1" in

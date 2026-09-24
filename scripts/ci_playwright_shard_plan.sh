@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Resolve which spec CI should run.
-# covoro_submit_single is split into Playwright shards of at most 400 tests.
-# TEST_COUNT must be set for that mode (from `playwright test --list`).
+# covoro_submit_single and "submit N" use Playwright shards of at most 400 tests.
+# covoro_ui_submit and "ui submit N" use the same split on Create Invoice UI submit.
+# TEST_COUNT must be set for those modes (from `playwright test --list`).
+# "submit N" / "ui submit N" runs only shard N. covoro_submit_single / covoro_ui_submit runs every shard.
 # Every other suite is one job (shard 1/1).
 # UI suites run the full spec (no OMN_UI_SPEC_PART split). Legacy *_1 / *_2 names still map to the same spec.
 # Usage: ci_playwright_shard_plan.sh <mode> [ignored_shard_filter]
@@ -22,8 +24,12 @@ case "$MODE" in
   covoro_formula)
     SPEC="tests/OMN_FormulaValidation_CovoroTemplate_Test.spec.ts"
     ;;
-  covoro_submit_single)
+  covoro_submit_single|submit\ [1-9]*)
     SPEC="tests/OMN_SubmitInvoice_CovoroTemplate_Test.spec.ts"
+    ;;
+  covoro_ui_submit|ui\ submit\ [1-9]*)
+    SPEC="tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_Test.spec.ts"
+    PROJECT="chromium-ui"
     ;;
   covoro_submit_multi)
     SPEC="tests/OMN_SubmitInvoice_MultiItem_CovoroTemplate_Test.spec.ts"
@@ -79,21 +85,31 @@ SHARD_SIZE="${PW_CI_SHARD_SIZE:-100}"
 JOB_TIMEOUT_MINUTES="${PW_CI_FULL_SUITE_TIMEOUT_MINUTES:-240}"
 SUBMIT_SHARD_SIZE="${PW_CI_SUBMIT_SHARD_SIZE:-400}"
 
-if [ "$MODE" = "covoro_submit_single" ]; then
+if [ "$MODE" = "covoro_submit_single" ] || [[ "$MODE" =~ ^submit\ [1-9][0-9]*$ ]] \
+  || [ "$MODE" = "covoro_ui_submit" ] || [[ "$MODE" =~ ^ui\ submit\ [1-9][0-9]*$ ]]; then
   if ! [[ "${TEST_COUNT:-}" =~ ^[1-9][0-9]*$ ]]; then
-    echo "::error::covoro_submit_single requires TEST_COUNT from playwright test --list"
+    echo "::error::${MODE} requires TEST_COUNT from playwright test --list"
     exit 1
   fi
   SHARD_SIZE="$SUBMIT_SHARD_SIZE"
   SHARD_TOTAL=$(( (TEST_COUNT + SHARD_SIZE - 1) / SHARD_SIZE ))
-  SHARD_INDICES="["
-  for i in $(seq 1 "$SHARD_TOTAL"); do
-    if [ "$i" -gt 1 ]; then
-      SHARD_INDICES+=","
+  if [[ "$MODE" =~ ^(ui )?submit\ ([1-9][0-9]*)$ ]]; then
+    SELECTED="${BASH_REMATCH[2]}"
+    if [ "$SELECTED" -gt "$SHARD_TOTAL" ]; then
+      echo "::error::${MODE} is past the split. ${TEST_COUNT} tests make ${SHARD_TOTAL} groups of ${SHARD_SIZE}."
+      exit 1
     fi
-    SHARD_INDICES+="$i"
-  done
-  SHARD_INDICES+="]"
+    SHARD_INDICES="[${SELECTED}]"
+  else
+    SHARD_INDICES="["
+    for i in $(seq 1 "$SHARD_TOTAL"); do
+      if [ "$i" -gt 1 ]; then
+        SHARD_INDICES+=","
+      fi
+      SHARD_INDICES+="$i"
+    done
+    SHARD_INDICES+="]"
+  fi
 fi
 
 {
