@@ -1074,14 +1074,27 @@ export class OMN_UIInvoiceManualPage {
   }
 
   /**
-   * VAT breakdown (Edit DOM): `#taxAmtStandardRate`, `#taxableAmtStandardRate`.
+   * VAT breakdown inputs (`#taxAmtStandardRate`, `#taxableAmtStandardRate`) are
+   * not rendered on Edit. Fill them only when the nodes are actually present.
    */
   async fillInvoicePerTaxTypeAmounts(
     taxAmount: string,
     taxableAmount: string
   ): Promise<void> {
+    if ((await this.findInput("invoice", "taxAmtStandardRate")) === null) return;
     await this.replaceInput("invoice", "taxAmtStandardRate", taxAmount);
+    if ((await this.findInput("invoice", "taxableAmtStandardRate")) === null) return;
     await this.replaceInput("invoice", "taxableAmtStandardRate", taxableAmount);
+  }
+
+  /** First item row, Total Invoice Line VAT Amount (column after allowance). */
+  async readFirstItemLineVatAmount(): Promise<number | null> {
+    const row = this.itemTableBodyRows().first();
+    if ((await row.count()) === 0) return null;
+    const raw = (await row.locator("td").nth(6).innerText().catch(() => "")).replace(/,/g, "").trim();
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   async readLabeledSectionValue(section: OmnUiSection, label: string): Promise<string> {

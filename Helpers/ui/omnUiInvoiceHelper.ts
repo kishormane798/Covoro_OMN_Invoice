@@ -3946,6 +3946,113 @@ async function applyCatalogControlWrites(
   }
 }
 
+function itemTaxCategoryRequiresZeroVat(category: string): boolean {
+  const value = category.trim();
+  if (!value) return false;
+  return (
+    isExemptTaxCategory(value) ||
+    isZeroRatedTaxCategory(value) ||
+    value === NOT_SUBJECT_TO_VAT_TAX_CATEGORY_CODE ||
+    /not subject/i.test(value)
+  );
+}
+
+/**
+ * Edit does not auto-calculate. Type item net, VAT, and line total from the
+ * current inputs before Update. Exempt, Not subject, and Zero rated keep VAT at 0.
+ */
+async function enterEditConditionalItemAmounts(
+  invoice: OMN_UIInvoiceManualPage
+): Promise<void> {
+  const taxCategory = await invoice.readInputValue("item", "taxRateDtls[0].taxCategory");
+  const taxRate = itemTaxCategoryRequiresZeroVat(taxCategory)
+    ? 0
+    : await readOmnUiAmount(invoice, "item", "taxRateDtls[0].taxRate");
+  const formula: InvoiceFormulaScenario = {
+    name: "edit conditional item amounts",
+    expect: "success",
+    itemPriceBaseQty: await readOmnUiAmount(invoice, "item", "priceBaseQty", [
+      "itemPriceBaseQty",
+    ]),
+    itemGrossPrice: await readOmnUiAmount(invoice, "item", "itemGrossPrice"),
+    itemPriceDiscount: await readOmnUiAmount(invoice, "item", "itemPriceDiscount", [
+      "invLinePriceDiscount",
+    ]),
+    invoicedQty: await readOmnUiAmount(invoice, "item", "invoiceQty", [
+      "invoicedQty",
+      "invQty",
+    ]),
+    lineCharge: await readOmnUiAmount(invoice, "item", "chargesDtls[0].amount", [
+      "invLineChargeAmount",
+    ]),
+    lineAllowance: await readOmnUiAmount(invoice, "item", "allowanceDtls[0].amount", [
+      "invLineAllowanceAmount",
+    ]),
+    taxRate,
+  };
+  await enterExpectedItemFormulaAmounts(invoice, "edit", formula);
+}
+
+/**
+ * Edit does not auto-calculate Invoice Details. Type document totals after a
+ * charge or allowance change, or when that VAT category must carry zero tax.
+ */
+async function enterEditConditionalInvoiceAmounts(
+  invoice: OMN_UIInvoiceManualPage
+): Promise<void> {
+  const docCharges = await readOmnUiAmount(invoice, "invoice", "docLevelCharges[0].amount", [
+    "docCharges",
+  ]);
+  const docAllowances = await readOmnUiAmount(
+    invoice,
+    "invoice",
+    "docLevelAllowances[0].amount",
+    ["docAllowances"]
+  );
+  const allowanceCat = await invoice.readInputValue(
+    "invoice",
+    "docLevelAllowances[0].vatCategory",
+    ["vatCategoryAllowances"]
+  );
+  const chargeCat = await invoice.readInputValue(
+    "invoice",
+    "docLevelCharges[0].vatCategory",
+    ["vatCategoryCharges"]
+  );
+  const zeroVat =
+    itemTaxCategoryRequiresZeroVat(allowanceCat) ||
+    itemTaxCategoryRequiresZeroVat(chargeCat);
+  if (!zeroVat && docCharges === 0 && docAllowances === 0) return;
+
+  const lineNet = await readOmnUiAmount(invoice, "invoice", "sumOfInvLineNetAmt");
+  const existingTax = await readOmnUiAmount(invoice, "invoice", "totalTaxAmt");
+  const lineVat = await invoice.readFirstItemLineVatAmount();
+  // Exempt / Zero rated / Not subject do not show #taxAmtStandardRate on Edit.
+  // Invoice tax still has to equal the line VAT the item row already shows.
+  const taxRate =
+    lineVat != null && lineNet > 0
+      ? (lineVat / lineNet) * 100
+      : zeroVat || lineNet <= 0
+        ? 0
+        : (existingTax / lineNet) * 100;
+  const formula: InvoiceFormulaScenario = {
+    name: "edit conditional invoice amounts",
+    expect: "success",
+    itemPriceBaseQty: 1,
+    itemGrossPrice: lineNet,
+    itemPriceDiscount: 0,
+    invoicedQty: 1,
+    taxRate,
+    docCharges,
+    docAllowances,
+    paidAmount: await readOmnUiAmount(invoice, "invoice", "paidAmt", ["paidAmount"]),
+    roundingAmount: await readOmnUiAmount(invoice, "invoice", "roundingAmt", [
+      "roundingAmount",
+    ]),
+  };
+  await enterExpectedInvoiceFormulaAmounts(invoice, formula);
+}
+
 export async function runOmnUiConditionalScenario(
   page: Page,
   entry: OmnUiEntry,
@@ -3984,6 +4091,12 @@ export async function runOmnUiConditionalScenario(
     );
     await applyConditionalSectionFields(invoice, entry, scenario, section);
     await applyCatalogControlWrites(invoice, entry, scenario, section);
+    if (entry === "edit" && section === "item") {
+      await enterEditConditionalItemAmounts(invoice);
+    }
+    if (entry === "edit" && section === "invoice") {
+      await enterEditConditionalInvoiceAmounts(invoice);
+    }
     await commitSection(invoice, section, entry);
     const stopAt = stopSectionForConditional(scenario);
     // Document-only conditionals (type, txn, currency, reason, preceding,
@@ -4182,30 +4295,34 @@ async function enterExpectedItemFormulaAmounts(
       "invLineNetAmt",
       expected.invoiceLineNetAmount
     );
-    await replaceItemAmountIfEnabled(
-      invoice,
+    // Tax Amount stays disabled on Edit and keeps the form's own value.
+    // Line VAT must match that value, or Invoice Total Tax Amount is rejected.
+    await invoice.replaceInputForced(
+      "item",
       "taxRateDtls[0].taxAmt",
-      expected.vatLineAmount
+      String(expected.vatLineAmount)
     );
+    const taxRaw = (await invoice.readInputValue("item", "taxRateDtls[0].taxAmt")).trim();
+    const vatText = taxRaw || String(expected.vatLineAmount);
+    const vatAmount = toNumber(vatText, expected.vatLineAmount);
+    const totalIncludingVat = Number((expected.invoiceLineNetAmount + vatAmount).toFixed(3));
     await replaceItemAmountIfEnabled(
       invoice,
       "totalInvLineVatAmt",
-      expected.vatLineAmount,
+      vatAmount,
       ["vatLineAmt"]
     );
     await replaceItemAmountIfEnabled(
       invoice,
       "totalAmtIncludingVat",
-      expected.invoiceLineAmount,
+      totalIncludingVat,
       ["invLineAmt"]
     );
-    await invoice.replaceLabeledItemText(
-      "Line Item VAT Amount",
-      String(expected.vatLineAmount)
-    );
+    await invoice.replaceLabeledItemText("Line Item VAT Amount", vatText);
+    await invoice.replaceLabeledItemText("Total Invoice Line VAT Amount", vatText);
     await invoice.replaceLabeledItemText(
       "Total Amount Including VAT",
-      String(expected.invoiceLineAmount)
+      String(totalIncludingVat)
     );
     return;
   }

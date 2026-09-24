@@ -2926,25 +2926,57 @@ const UI_SKIP_SOURCE_TITLES = new Set([
   "Given an HS classification — When the value has 6 digits — Then the invoice should be rejected with an error. (IBR-080-OM)",
   "Given an item classification that is not an HS code — When the invoice is uploaded — Then the invoice should be rejected with an error. (IBR-080-OM)",
   "Given Export of Services — When Service Type is invalid — Then the invoice should be rejected with an error. (IBR-155-OM)",
+  "Given Export of Services — When Service Type is provided — Then the invoice should be accepted. (IBR-155-OM)",
   "Given Import of Goods — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
   "Given Import of Services (RCM) — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
   "Given Profit Margin Self-Invoice — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
   "Given Self-billed Invoice — When Buyer VATIN is provided — Then the invoice should be accepted. (IBR-017-OM)",
   "Given Profit Margin Self-Invoice — When item type is invalid — Then the invoice should be rejected with an error. (CL-11-OM)",
-]);
-
-/** Edit and Copy ("Update should succeed"). Create and Excel upload keep these rows. */
-const UI_UPDATE_SKIP_SOURCE_TITLES = new Set([
-  "Given Charges on document level — When the value is 0 — Then the invoice should be accepted. (IBR-137-OM)",
-]);
-
-/** Copy only. Create, Edit, and Excel upload keep these rows. */
-const UI_COPY_SKIP_SOURCE_TITLES = new Set([
   "Given a Standard rate document allowance — When an exemption reason is provided — Then the invoice should be rejected with an error. (IBR-062-OM)",
   "Given an Exempt document allowance — When a Zero-rated exemption reason is used — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
   "Given a Standard rate document allowance — When an exemption reason is provided — Then the invoice should be rejected with an error. (IBR-CL-05-OM)",
   "Given a Zero rated document allowance — When an Exempt exemption reason is used — Then the invoice should be rejected with an error. (IBR-CL-10-OM)",
   "Given Allowances on document level — When the value is 0 — Then the invoice should be accepted. (IBR-137-OM)",
+  "Given Charges on document level — When the value is 0 — Then the invoice should be accepted. (IBR-137-OM)",
+  "Given Special Zone Supplies — When Buyer address is complete — Then the invoice should be accepted. (IBR-019-OM)",
+]);
+
+/**
+ * Edit does not run these. Create and Copy still do.
+ * VAT breakdown inputs are not on the Edit invoice form, and these rows
+ * cannot be completed there.
+ */
+const UI_EDIT_SKIP_SOURCE_TITLES = new Set([
+  "Given currency OMR — When the exchange rate field is shown — Then it should be disabled. (IBR-172-OM)",
+  "Given an Exempt document allowance — When an exemption reason is provided — Then the invoice should be accepted. (IBR-062-OM)",
+  "Given a Zero rated document allowance — When an exemption reason is provided — Then the invoice should be accepted. (IBR-062-OM)",
+  "Given an Exempt document charge — When an exemption reason is provided — Then the invoice should be accepted. (IBR-064-OM)",
+  "Given a Zero rated document charge — When an exemption reason is provided — Then the invoice should be accepted. (IBR-064-OM)",
+  "Given a Zero rated document allowance — When tax rate 0 is implied by the category — Then the invoice should be accepted. (IBR-094-OM)",
+  "Given an Exempt document allowance — When an exemption reason is provided — Then the invoice should be accepted. (IBR-CL-05-OM)",
+  "Given a Zero rated document allowance — When a Zero-rated exemption reason is provided — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Medicines and Medical Equipment — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Investment Precious Metals — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is International and Intra-GCC Transport — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Transport-Related Services — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Means of Transport — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Rescue and Assistance Vehicles — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Oil, Derivatives, and Natural Gas — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Export of Services — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Direct Export of Goods — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Indirect Export of Goods — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Re-export of Goods — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Special Zone to Special Zone or Within Special Zone — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Mainland to Special Zone — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Customs Duty Suspension to Special Zone — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Zero rated document allowance — When the exemption reason is Special Zone to Customs Duty Suspension — Then the invoice should be accepted. (IBR-CL-10-OM)",
+  "Given a Full Tax invoice with an Exempt allowance — When Exempt VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
+  "Given a Full Tax invoice with an Exempt charge — When Exempt VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-E-01-OM)",
+  "Given a Full Tax invoice with a Not subject allowance — When Not subject VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
+  "Given a Full Tax invoice with a Not subject charge — When Not subject VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-O-01-OM)",
+  "Given a Full Tax invoice with a Zero rated allowance — When Zero rated VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
+  "Given a Full Tax invoice with a Zero rated charge — When Zero rated VAT breakdown is present — Then the invoice should be accepted. (ALIGNED-IBRP-Z-01-OM)",
+  "Given a paid amount — When prepayment number is left empty — Then the invoice should be rejected with an error. (IBR-058-OM)",
 ]);
 
 function scenariosFor(
@@ -2957,8 +2989,7 @@ function scenariosFor(
       scenario.section === section &&
       (!scenario.entries || scenario.entries.includes(entry)) &&
       !UI_SKIP_SOURCE_TITLES.has(scenario.title) &&
-      !(entry !== "create" && UI_UPDATE_SKIP_SOURCE_TITLES.has(scenario.title)) &&
-      !(entry === "copy" && UI_COPY_SKIP_SOURCE_TITLES.has(scenario.title))
+      !(entry === "edit" && UI_EDIT_SKIP_SOURCE_TITLES.has(scenario.title))
   );
 }
 
