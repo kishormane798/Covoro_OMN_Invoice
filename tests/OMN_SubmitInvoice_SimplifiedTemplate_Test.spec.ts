@@ -17,7 +17,7 @@ const invoiceDataOnSimplified = filterSubmitInvoiceRowsByTemplateHeaders(
 );
 
 test.describe(`Submit invoice (${TEMPLATE})`, () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   test.beforeAll(() => {
     applySimplifiedTemplateEnv();

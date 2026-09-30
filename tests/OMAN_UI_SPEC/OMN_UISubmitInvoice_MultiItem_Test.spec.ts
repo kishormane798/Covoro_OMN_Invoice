@@ -8,7 +8,7 @@ import {
 } from "../../Helpers/ui/omnUiSubmitInvoiceHelper";
 
 test.describe("Create Invoice via UI with multi-item", () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   for (const tc of multiItemInvoiceCases) {
     const invoiceTypeCode = tc.rows[0]?.["Invoice Type Code"] ?? "";

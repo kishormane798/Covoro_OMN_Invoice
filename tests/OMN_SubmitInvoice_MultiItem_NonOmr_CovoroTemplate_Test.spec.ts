@@ -7,7 +7,7 @@ import {
 } from "../Helpers/excel/submitInvoiceSpecSupport";
 
 test.describe(`Submit invoice multi-item non-OMR (${TEMPLATE})`, () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   for (const tc of multiItemInvoiceCasesNonOmr) {
     const first = tc.rows[0] ?? {};

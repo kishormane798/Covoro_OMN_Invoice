@@ -8,7 +8,7 @@ import {
 } from "../../Helpers/ui/omnUiSubmitInvoiceHelper";
 
 test.describe("Create Invoice via UI with one line", () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   for (const row of invoiceData) {
     if (shouldSkipSubmitSelfBilledCase(row["Invoice Type Code"] ?? "")) {

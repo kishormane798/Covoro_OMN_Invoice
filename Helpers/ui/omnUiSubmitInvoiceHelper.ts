@@ -6,7 +6,11 @@ import { expect, type Page } from "@playwright/test";
 import { OMN_UIInvoiceManualPage } from "../../pageObjects/OMN_UIInvoiceManualPage";
 import { flowLog } from "../diagnosticLog";
 import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorkerSubmitIdentity";
-import { buildUniqueSubmitInvoiceNumber } from "../../utils/excel/invoiceExcel";
+import {
+  buildUniqueSubmitInvoiceNumber,
+  calculateInvoiceValues,
+  isProfitMarginTransactionType,
+} from "../../utils/excel/invoiceExcel";
 import {
   BTOM_001_SINGLE_ALLOWED_TXN_TYPES,
   TXN_FULL_TAX_INVOICE,
@@ -17,6 +21,7 @@ import { INVOICE_CURRENCY_ISO_TO_DISPLAY_NAME } from "../../testData/FieldValida
 import {
   omnUiNumericFieldLocation,
   OMN_UI_FIELD_RULES,
+  OMN_UI_PROFIT_MARGIN_TOTAL_DUE,
   type OmnUiFieldKind,
   type OmnUiSection,
 } from "../../testData/ui/omnUiInvoiceValidation";
@@ -379,6 +384,60 @@ async function fillSectionFromRow(
   }
 }
 
+function rowNumber(row: Record<string, string>, field: string, fallback = 0): number {
+  const raw = rowValue(row, field);
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/** Standard rate uses the sheet rate. Every other category totals at 0%. */
+function lineTaxRate(row: Record<string, string>): number {
+  const category = rowValue(row, "Tax Category").toLowerCase();
+  if (category !== "standard rate" && category !== "standard rate.") return 0;
+  return rowNumber(row, "Tax Rate");
+}
+
+/**
+ * IBR-082-OM: Total Amount Due (Profit Margin) = Σ Total Amount Including VAT.
+ * The input is rendered only for Profit Margin Invoice / Profit Margin Self-Invoice.
+ */
+function profitMarginDueAmount(rows: Array<Record<string, string>>): string {
+  const sum = rows.reduce((total, row) => {
+    const calc = calculateInvoiceValues({
+      itemPriceBaseQty: rowNumber(row, "Item price base quantity", 1),
+      itemGrossPrice: rowNumber(row, "Item gross price"),
+      itemPriceDiscount: rowNumber(row, "Item price discount"),
+      invoicedQty: rowNumber(row, "Invoiced quantity"),
+      lineCharge: rowNumber(row, "Invoice line charge amount"),
+      lineAllowance: rowNumber(row, "Invoice line allowance amount"),
+      taxRate: lineTaxRate(row),
+    });
+    return total + calc.totalAmountIncludingVat;
+  }, 0);
+  const ceiled = Math.ceil(sum * 1000 - 1e-12) / 1000;
+  return ceiled.toFixed(3).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
+function selectedTxnShowsProfitMarginDue(labels: readonly string[]): boolean {
+  return labels.some((label) => isProfitMarginTransactionType(label));
+}
+
+async function fillProfitMarginTotalDue(
+  invoice: OMN_UIInvoiceManualPage,
+  rows: Array<Record<string, string>>
+): Promise<void> {
+  const inputId = OMN_UI_PROFIT_MARGIN_TOTAL_DUE.inputIds[0];
+  const alts = OMN_UI_PROFIT_MARGIN_TOTAL_DUE.inputIds.slice(1);
+  const enabled = await waitUntilInputEnabled(invoice, "invoice", inputId, alts);
+  if (!enabled) {
+    throw new Error(
+      "Total Amount Due (Profit Margin) was not available. It is shown only when invoice transaction type is Profit Margin Invoice or Profit Margin Self-Invoice."
+    );
+  }
+  await invoice.replaceInput("invoice", inputId, profitMarginDueAmount(rows), alts);
+}
+
 async function saveSection(
   invoice: OMN_UIInvoiceManualPage,
   section: OmnUiSection
@@ -492,7 +551,15 @@ export async function runOmnUiSubmitInvoiceMultiItemCase(
     for (const line of prepared) {
       await addItemLine(invoice, line);
     }
-    await fillAndSaveSection(invoice, "invoice", header);
+    const txnLabels =
+      options?.transactionTypes ??
+      splitOmanTxnMasterLabels(rowValue(header, "Invoice Transaction Type Code"));
+    await invoice.openSectionForEdit("invoice", ENTRY);
+    await fillSectionFromRow(invoice, "invoice", header);
+    if (selectedTxnShowsProfitMarginDue(txnLabels)) {
+      await fillProfitMarginTotalDue(invoice, prepared);
+    }
+    await saveSection(invoice, "invoice");
     await fillAndSaveSection(invoice, "payment", header);
     if (sectionHasValue("custom", header)) {
       await fillAndSaveSection(invoice, "custom", header);

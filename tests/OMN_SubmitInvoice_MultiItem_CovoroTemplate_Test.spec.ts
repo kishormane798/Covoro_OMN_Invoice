@@ -8,7 +8,7 @@ import {
 } from "../Helpers/excel/submitInvoiceSpecSupport";
 
 test.describe(`Submit invoice multi-item (${TEMPLATE})`, () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   for (const tc of multiItemInvoiceCases) {
     const invoiceTypeCode = tc.rows[0]?.["Invoice Type Code"] ?? "";

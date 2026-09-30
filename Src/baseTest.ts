@@ -430,6 +430,12 @@ export const test = base.extend<UaeTestFixtures, UaeWorkerFixtures>({
   },
 });
 
+function configuredRetries(testInfo: TestInfo): number {
+  const file = testInfo.file.replace(/\\/g, "/");
+  if (file.includes("SubmitInvoice")) return 0;
+  return testInfo.project?.retries ?? 0;
+}
+
 function playwrightWillRetry(testInfo: TestInfo): boolean {
   if (testInfo.status === "passed" || testInfo.status === "skipped") {
     return false;
@@ -437,8 +443,7 @@ function playwrightWillRetry(testInfo: TestInfo): boolean {
   if (testInfo.status === "interrupted") {
     return false;
   }
-  const retries = testInfo.project?.retries ?? 0;
-  return testInfo.retry < retries;
+  return testInfo.retry < configuredRetries(testInfo);
 }
 
 test.beforeEach(async ({}, testInfo) => {

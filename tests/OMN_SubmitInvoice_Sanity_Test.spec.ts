@@ -28,7 +28,7 @@ function firstMultiRows(): Array<Record<string, string>> {
 }
 
 test.describe("Submit sanity (post-deploy)", () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   test("Given a valid OMR invoice — When uploaded — Then the invoice should be delivered.", async ({
     page,
@@ -46,7 +46,7 @@ test.describe("Submit sanity (post-deploy)", () => {
 });
 
 test.describe("Bulk submit — sanity (post-deploy)", () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   test("Given 5 valid invoices — When bulk Submit is used — Then all invoices should be delivered.", async ({ page }) => {
     test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);

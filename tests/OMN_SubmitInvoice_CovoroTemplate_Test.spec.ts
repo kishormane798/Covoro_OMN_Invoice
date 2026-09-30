@@ -8,7 +8,7 @@ import {
 } from "../Helpers/excel/submitInvoiceSpecSupport";
 
 test.describe(`Submit invoice (${TEMPLATE})`, () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   for (const data of invoiceData) {
     const row = data;

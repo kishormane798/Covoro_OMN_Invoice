@@ -21,7 +21,7 @@ const multiItemInvoiceCasesOnSimplified = multiItemInvoiceCases.map((tc) => ({
 }));
 
 test.describe(`Submit invoice multi-item (${TEMPLATE})`, () => {
-  test.describe.configure({ mode: "parallel" });
+  test.describe.configure({ mode: "parallel", retries: 0 });
 
   test.beforeAll(() => {
     applySimplifiedTemplateEnv();
