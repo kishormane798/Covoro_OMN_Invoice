@@ -1,5 +1,4 @@
 import { test } from "../../Src/baseTest";
-import { ZERO_RATED_TAX_CATEGORY_CODE } from "../../testData/FieldValidations/ConditionalValidation";
 import { invoiceData } from "../../testData/FieldValidations/SubmitInvoice";
 import { shouldSkipSubmitSelfBilledCase } from "../../testData/FieldValidations/SubmitInvoiceMultiItem";
 import {
@@ -13,9 +12,6 @@ test.describe("Create Invoice via UI with one line", () => {
 
   for (const row of invoiceData) {
     if (shouldSkipSubmitSelfBilledCase(row["Invoice Type Code"] ?? "")) {
-      continue;
-    }
-    if ((row["Tax Category"] ?? "") === ZERO_RATED_TAX_CATEGORY_CODE) {
       continue;
     }
     const invoiceType = row["Invoice Type Code"] ?? "";

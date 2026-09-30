@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Resolve which spec CI should run.
 # covoro_submit_single and "submit N" use Playwright shards of at most 400 tests.
-# covoro_ui_submit and "ui submit N" use the same split on Create Invoice UI submit.
-# TEST_COUNT must be set for those modes (from `playwright test --list`).
+# covoro_ui_submit and "ui submit N" use the same split on Create Invoice UI submit (single line).
+# "ui submit multi 1" and "ui submit multi 2" split Create Invoice UI multi-item in half (shard 1/2 and 2/2).
+# TEST_COUNT must be set for single-line submit modes (from `playwright test --list`).
 # "submit N" / "ui submit N" runs only shard N. covoro_submit_single / covoro_ui_submit runs every shard.
 # Every other suite is one job (shard 1/1).
 # UI suites run the full spec (no OMN_UI_SPEC_PART split). Legacy *_1 / *_2 names still map to the same spec.
@@ -29,6 +30,10 @@ case "$MODE" in
     ;;
   covoro_ui_submit|ui\ submit\ [1-9]*)
     SPEC="tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_Test.spec.ts"
+    PROJECT="chromium-ui"
+    ;;
+  ui\ submit\ multi\ [12])
+    SPEC="tests/OMAN_UI_SPEC/OMN_UISubmitInvoice_MultiItem_Test.spec.ts"
     PROJECT="chromium-ui"
     ;;
   covoro_submit_multi)
@@ -110,6 +115,11 @@ if [ "$MODE" = "covoro_submit_single" ] || [[ "$MODE" =~ ^submit\ [1-9][0-9]*$ ]
     done
     SHARD_INDICES+="]"
   fi
+fi
+
+if [[ "$MODE" =~ ^ui\ submit\ multi\ ([12])$ ]]; then
+  SHARD_TOTAL=2
+  SHARD_INDICES="[${BASH_REMATCH[1]}]"
 fi
 
 {

@@ -1,7 +1,8 @@
-# Cron 05:45 IST Mon–Fri: Copy → Conditional Copy → Simplified field → Simplified conditional → Edit → Create → Covoro submit multi-item.
+# Cron 05:45 IST Mon–Fri: Covoro formula → Covoro conditional → Create → Conditional Create → UI submit multi 1 → UI submit multi 2.
+# Only that sequence runs on the schedule. Other suites stay manual.
 # Covoro submit single is manual only (not queued). Run workflow offers submit 1 … submit 5 (at most 400 tests each).
 # Create Invoice UI submit single is the same split: ui submit 1 … ui submit 6 (at most 400 tests each). Zero rated rows are not in that spec.
-# Formula stays on manual family chains.
+# Create Invoice UI submit multi-item is half and half: ui submit multi 1, then ui submit multi 2.
 # Manual Run: Create → Conditional Create; Edit → Conditional Edit; Covoro field → formula → conditional
 # (same for Simplified Excel). Copy without scheduled_wave stops after Conditional Copy.
 # Email digest (pass / fail / skip / flaky) → repo Variable EMAIL_RECIPIENTS_BASE (comma-separated).
@@ -14,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "Automation suite to run. Covoro submit single: pick submit 1, submit 2, … (400 tests each). UI submit single: pick ui submit 1, ui submit 2, … (400 tests each; Zero rated is not run)."
+        description: "Automation suite to run. Covoro submit single: pick submit 1, submit 2, … (400 tests each). UI submit single: pick ui submit 1, ui submit 2, … (400 tests each; Zero rated is not run). UI submit multi-item: pick ui submit multi 1 or ui submit multi 2 (half the multi-line form suite each)."
         required: true
         default: "covoro_ui_copy"
         type: choice
@@ -39,18 +40,20 @@ on:
           - ui submit 4
           - ui submit 5
           - ui submit 6
+          - ui submit multi 1
+          - ui submit multi 2
           - covoro_submit_multi
           - covoro_ui_create
           - covoro_ui_conditional_create
           - covoro_ui_conditional_edit
       scheduled_wave:
-        description: "On Copy: morning queue after Conditional Copy — Simplified field, Simplified conditional, Edit, Create, Covoro submit multi-item. Leave off for Copy pair only. Without this, Create/Edit/Covoro/Simplified stay on their own family. Edit with this on continues from Edit (Create, then Covoro submit multi-item). Submit 1–5 and UI submit 1–6 are separate manual runs."
+        description: "On Covoro formula: morning queue continues through Covoro conditional, Create, Conditional Create, then UI submit multi 1 and UI submit multi 2. Leave off for one family only. Submit 1–5 and UI submit 1–6 stay separate manual runs."
         type: boolean
         required: false
         default: false
 
 run-name: >-
-  ${{ github.event_name == 'schedule' && 'Scheduled Copy, Simplified, Edit, Create, Covoro submit multi'
+  ${{ github.event_name == 'schedule' && 'Scheduled Covoro formula, conditional, Create, Conditional Create, UI submit multi'
       || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
       || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'
@@ -58,6 +61,8 @@ run-name: >-
       || github.event.inputs.suite == 'covoro_formula' && 'Covoro formula validation'
       || github.event.inputs.suite == 'covoro_conditional' && 'Covoro conditional validation'
       || startsWith(github.event.inputs.suite, 'submit ') && format('Covoro {0}', github.event.inputs.suite)
+      || github.event.inputs.suite == 'ui submit multi 1' && 'UI submit multi 1'
+      || github.event.inputs.suite == 'ui submit multi 2' && 'UI submit multi 2'
       || startsWith(github.event.inputs.suite, 'ui submit ') && format('UI {0}', github.event.inputs.suite)
       || github.event.inputs.suite == 'covoro_submit_multi' && 'Covoro submit multi-item'
       || startsWith(github.event.inputs.suite, 'covoro_ui_') && github.event.inputs.suite
@@ -141,7 +146,7 @@ jobs:
         run: |
           MODE="${{ github.event.inputs.suite }}"
           if [ "${{ github.event_name }}" = "schedule" ] || [ -z "$MODE" ]; then
-            MODE="covoro_ui_copy"
+            MODE="covoro_formula"
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           case "$MODE" in
@@ -204,7 +209,7 @@ jobs:
 
   test:
     needs: resolve
-    name: ${{ startsWith(needs.resolve.outputs.mode, 'ui submit ') && format('ui submit {0}', matrix.shard) || startsWith(needs.resolve.outputs.mode, 'submit ') && format('submit {0}', matrix.shard) || (needs.resolve.outputs.shard_total == '1' && format('test ({0})', needs.resolve.outputs.mode) || format('test ({0} {1}/{2})', needs.resolve.outputs.mode, matrix.shard, needs.resolve.outputs.shard_total)) }}
+    name: ${{ startsWith(needs.resolve.outputs.mode, 'ui submit multi') && format('ui submit multi {0}', matrix.shard) || startsWith(needs.resolve.outputs.mode, 'ui submit ') && format('ui submit {0}', matrix.shard) || startsWith(needs.resolve.outputs.mode, 'submit ') && format('submit {0}', matrix.shard) || (needs.resolve.outputs.shard_total == '1' && format('test ({0})', needs.resolve.outputs.mode) || format('test ({0} {1}/{2})', needs.resolve.outputs.mode, matrix.shard, needs.resolve.outputs.shard_total)) }}
     timeout-minutes: ${{ fromJSON(needs.resolve.outputs.job_timeout_minutes) }}
     runs-on: ubuntu-latest
     strategy:
@@ -342,6 +347,9 @@ jobs:
             covoro_conditional) LABEL="Covoro conditional validation" ;;
             covoro_submit_single|submit\ [1-9]*)
               LABEL="Covoro submit ${SHARD}"
+              ;;
+            ui\ submit\ multi\ [12])
+              LABEL="UI submit multi ${SHARD}"
               ;;
             covoro_ui_submit|ui\ submit\ [1-9]*)
               LABEL="UI submit ${SHARD}"

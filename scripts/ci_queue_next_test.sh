@@ -19,12 +19,14 @@ expect() {
   fi
 }
 
-expect covoro_ui_copy true covoro_ui_conditional_copy true
-expect covoro_ui_conditional_copy true simplified_field true
-expect simplified_field true simplified_conditional true
-expect simplified_conditional true covoro_ui_edit true
-expect covoro_ui_edit true covoro_ui_create true
-expect covoro_ui_create true covoro_submit_multi true
+expect covoro_formula true covoro_conditional true
+expect covoro_conditional true covoro_ui_create true
+expect covoro_ui_create true covoro_ui_conditional_create true
+expect covoro_ui_conditional_create true "ui submit multi 1" true
+expect covoro_ui_copy true covoro_ui_conditional_copy false
+expect simplified_field true simplified_formula false
+expect simplified_conditional true "" false
+expect covoro_ui_edit true covoro_ui_conditional_edit false
 expect covoro_submit_single true "" false
 expect simplified_formula true simplified_conditional false
 expect covoro_ui_copy false covoro_ui_conditional_copy false
@@ -46,6 +48,9 @@ expect "ui submit 1" false "ui submit 2" false 6
 expect "ui submit 5" false "ui submit 6" false 6
 expect "ui submit 6" false "" false 6
 expect "ui submit 2" true "ui submit 3" false 4
+expect "ui submit multi 1" false "ui submit multi 2" false
+expect "ui submit multi 2" false "" false
+expect "ui submit multi 1" true "ui submit multi 2" false
 expect covoro_submit_multi true "" false
 expect unknown_suite true "" false
 

@@ -9,7 +9,6 @@ import { applyParallelWorkerIdentityToSubmitRow } from "../worker/parallelWorker
 import { buildUniqueSubmitInvoiceNumber } from "../../utils/excel/invoiceExcel";
 import {
   BTOM_001_SINGLE_ALLOWED_TXN_TYPES,
-  ITEM_TYPE_GOODS,
   TXN_FULL_TAX_INVOICE,
   TXN_SIMPLIFIED_TAX_INVOICE,
   splitOmanTxnMasterLabels,
@@ -57,6 +56,8 @@ const SKIP_EXCEL_FIELDS = new Set(
     "Invoice Type Code",
     "Invoice Transaction Type Code",
     "Tax Rate",
+    // Portal rejects this when the type label is not exactly Credit Note / Debit Note / Self Billed Credit Note.
+    "Credit note or Debit Note reason code",
     ...CALCULATED_EXCEL_FIELDS,
   ].map(normField)
 );
@@ -311,14 +312,23 @@ function autocompleteOptionLabel(
   );
 }
 
-/** Excel stores the full CL-12 label. The goods dropdown filters on the short name. */
-const GOODS_SERVICE_ACCOUNTING_SEARCH = "Healthcare Services.";
+/**
+ * Excel CL-12 stores "Healthcare Services.Services related…".
+ * The dropdown option is "Healthcare Services. Services related…".
+ */
+function cl12DropdownOption(value: string): string {
+  return value.trim().replace(/\.(\S)/g, ". $1");
+}
 
-function goodsServiceAccountingOption(value: string): string {
-  if (value.trim().toLowerCase().startsWith(GOODS_SERVICE_ACCOUNTING_SEARCH.toLowerCase())) {
-    return GOODS_SERVICE_ACCOUNTING_SEARCH;
-  }
-  return value;
+/**
+ * Goods and Service lines both use Service Accounting Code (#serviceAccCode).
+ * Classification scheme stays on its own dropdown.
+ */
+function serviceAccountingTarget(
+  field: UiSubmitField
+): { inputId: string; alts: string[] } | null {
+  if (field.section !== "item" || field.inputId !== "serviceTypeCode") return null;
+  return { inputId: "serviceAccCode", alts: ["serviceAccountingCode"] };
 }
 
 async function fillMappedField(
@@ -328,15 +338,9 @@ async function fillMappedField(
 ): Promise<void> {
   const value = rowValue(row, field.field);
   if (!value) return;
-  const goodsServiceAccounting =
-    field.section === "item" &&
-    field.inputId === "serviceTypeCode" &&
-    rowValue(row, "Item Type").toLowerCase() === ITEM_TYPE_GOODS.toLowerCase();
-  // Goods item dialog shows Service Accounting Code (#serviceAccCode), not Service Type.
-  const inputId = goodsServiceAccounting ? "serviceAccCode" : field.inputId;
-  const alts = goodsServiceAccounting
-    ? ["serviceAccountingCode"]
-    : (field.altInputIds ?? []);
+  const serviceAccounting = serviceAccountingTarget(field);
+  const inputId = serviceAccounting?.inputId ?? field.inputId;
+  const alts = serviceAccounting?.alts ?? [...(field.altInputIds ?? [])];
   if (await invoice.isInputDisabled(field.section, inputId, alts)) {
     if (forceWhenDisabled(inputId, alts)) {
       await invoice.replaceInputForced(field.section, inputId, value, alts);
@@ -348,9 +352,10 @@ async function fillMappedField(
   }
 
   if (field.kind === "autocomplete") {
-    const option = goodsServiceAccounting
-      ? goodsServiceAccountingOption(value)
-      : autocompleteOptionLabel(inputId, alts, value);
+    const option =
+      inputId === "serviceAccCode" || inputId === "serviceTypeCode"
+        ? cl12DropdownOption(value)
+        : autocompleteOptionLabel(inputId, alts, value);
     await invoice.selectAutocomplete(field.section, inputId, option, alts);
     return;
   }

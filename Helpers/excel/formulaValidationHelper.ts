@@ -59,11 +59,11 @@ const CALCULATED_FIELD_MISMATCH_DELTA = 12345;
 
 /**
  * Oman Peppol / conditional-matrix residual tolerance (u:slack).
- * IBR-168-OM / IBR-168-OM-WARN: ±0.001 OMR (baisa) per line for Line Item VAT Amount.
- * IBR-157-OM and most other monetary formula rules: ±0.01.
+ * Every calculated field we check, including Line Item VAT (IBR-168) and
+ * other monetary formula rules (IBR-157 and the rest): ±0.001.
  */
 export const FORMULA_BAISA_TOLERANCE = 0.001;
-export const FORMULA_MONETARY_TOLERANCE = 0.01;
+export const FORMULA_MONETARY_TOLERANCE = 0.001;
 
 type InvoiceCalcSnapshot = ReturnType<typeof calculateInvoiceValuesForGeneratorPayload>;
 
@@ -951,7 +951,7 @@ export async function runCalculatedFieldMismatchErrorScenario(
 
 /**
  * Conditional-matrix pattern: difference at allowed residual tolerance → accepted
- * (IBR-168 baisa ±0.001 / other monetary ±0.01).
+ * (±0.001 for every calculated field we check).
  */
 export async function runCalculatedFieldWithinToleranceAcceptedScenario(
   page: Page,
