@@ -340,10 +340,9 @@ async function ensureDocumentBaseline(
   excludeInputIds: Set<string>
 ): Promise<void> {
   if (!excludeInputIds.has("invNum")) {
-    const current = await invoice.readInputValue("document", "invNum");
-    if (entry !== "edit" || !current) {
-      await invoice.fillInvoiceNumber(buildUniqueSubmitInvoiceNumber());
-    }
+    // Create, Edit, and Copy: a prefilled number (for example INV-01) is cleared
+    // inside fillInvoiceNumber, then the unique number is entered.
+    await invoice.fillInvoiceNumber(buildUniqueSubmitInvoiceNumber());
   }
   // Copy blanks Invoice Number and Invoice Issue Date. Both are required on Update.
   // Create/Copy always set today. Edit keeps a date only if it is within 15 days.

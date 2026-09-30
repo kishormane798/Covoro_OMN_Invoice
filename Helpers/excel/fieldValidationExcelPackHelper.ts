@@ -43,7 +43,10 @@ import {
 } from "../../utils/excel/invoiceExcel";
 import { createPackProgressReporter, packOutputAlreadyExists } from "../packProgressReporter";
 import { runPythonForStdout } from "../../utils/pythonRunner";
-import { getCounterpartyElectronicAddress } from "../../utils/envPartyIdentity";
+import {
+  getCounterpartyElectronicAddress,
+  getCounterpartyVatIdentifier,
+} from "../../utils/envPartyIdentity";
 import {
   electronicTinForParallelIndex,
   omanElectronicAddressFromWorkerTin,

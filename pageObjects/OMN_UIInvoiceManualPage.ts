@@ -470,9 +470,14 @@ export class OMN_UIInvoiceManualPage {
   async fillInvoiceNumber(value: string): Promise<void> {
     const input = await this.resolveInput("document", "invNum");
     await expect(input).toBeVisible({ timeout: 15_000 });
+    const current = (await input.inputValue().catch(() => "")).trim();
+    if (current) {
+      await this.clearInput("document", "invNum");
+    }
     await input.click({ force: true });
     await input.fill(value);
     if ((await input.inputValue()).trim() !== value) {
+      await this.clearInput("document", "invNum");
       await input.click({ force: true });
       await input.pressSequentially(value, { delay: 15 });
     }
