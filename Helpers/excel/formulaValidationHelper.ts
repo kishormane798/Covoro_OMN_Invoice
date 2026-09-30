@@ -220,6 +220,31 @@ const LINE_LEVEL_CALCULATED_HEADERS = new Set([
 
 const PROFIT_MARGIN_DUE_HEADER = "Total Amount Due (Profit Margin)";
 
+/**
+ * PINT has not defined a formula for Total Amount Due (Profit Margin).
+ * A value that does not match the calculated amount is accepted.
+ * When PINT defines the formula, set this to true so mismatch and
+ * outside-tolerance cases expect an error file again.
+ */
+export const PINT_DEFINES_TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FORMULA = false;
+
+export function calculatedFieldMismatchExpectsError(
+  target: Pick<CalculatedFieldMismatchTarget, "excelHeader">
+): boolean {
+  if (target.excelHeader !== PROFIT_MARGIN_DUE_HEADER) {
+    return true;
+  }
+  return PINT_DEFINES_TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FORMULA;
+}
+
+export function calculatedFieldMismatchOutcomePhrase(
+  target: Pick<CalculatedFieldMismatchTarget, "excelHeader">
+): string {
+  return calculatedFieldMismatchExpectsError(target)
+    ? "rejected with an error"
+    : "accepted";
+}
+
 export function isInvoiceLevelCalculatedTarget(
   target: CalculatedFieldMismatchTarget
 ): boolean {
@@ -941,6 +966,12 @@ export async function runCalculatedFieldMismatchErrorScenario(
     CALCULATED_FIELD_MISMATCH_DELTA,
     options
   );
+  // Total Amount Due (Profit Margin): accepted until PINT defines the formula.
+  // Flip PINT_DEFINES_TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FORMULA to expect an error.
+  if (!calculatedFieldMismatchExpectsError(target)) {
+    await uploadAndVerify(page, filePath);
+    return;
+  }
   await runErrorValidation(page, {
     filePath,
     field: target.excelHeader,
@@ -984,6 +1015,12 @@ export async function runCalculatedFieldOutsideToleranceErrorScenario(
     outsideDelta,
     options
   );
+  // Total Amount Due (Profit Margin): accepted until PINT defines the formula.
+  // Flip PINT_DEFINES_TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FORMULA to expect an error.
+  if (!calculatedFieldMismatchExpectsError(target)) {
+    await uploadAndVerify(page, filePath);
+    return;
+  }
   await runErrorValidation(page, {
     filePath,
     field: target.excelHeader,

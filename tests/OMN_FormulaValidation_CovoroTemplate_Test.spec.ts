@@ -26,6 +26,7 @@ import {
   ALIGNED_IBRP_S_08_OM_CASES,
   runAlignedIbrpS08OmScenario,
   CALCULATED_FIELD_MISMATCH_TARGETS,
+  calculatedFieldMismatchOutcomePhrase,
   FORMULA_BAISA_TOLERANCE,
   FORMULA_MONETARY_TOLERANCE,
   TWENTY_LINE_FORMULA_CASES,
@@ -79,7 +80,7 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
     for (const { mode } of CURRENCY_SUITES) {
       const currency = mode === "omr" ? "OMR" : "USD";
       for (const target of mismatchTargetsForMode(mode)) {
-        test(`A mismatched ${target.shortName} in ${currency} should be rejected with an error. (${target.shortName})`, async ({ page }) => {
+        test(`A mismatched ${target.shortName} in ${currency} should be ${calculatedFieldMismatchOutcomePhrase(target)}. (${target.shortName})`, async ({ page }) => {
           test.skip(
             !mismatchSuiteEnabled,
             "Active template lacks columns required for formula generator checks"
@@ -122,7 +123,7 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
           await runCalculatedFieldWithinToleranceAcceptedScenario(page, mode, target);
         });
 
-        test(`${target.shortName} with a difference outside ±${target.tolerance} in ${currency} should be rejected with an error. (${target.shortName})`, async ({ page }) => {
+        test(`${target.shortName} with a difference outside ±${target.tolerance} in ${currency} should be ${calculatedFieldMismatchOutcomePhrase(target)}. (${target.shortName})`, async ({ page }) => {
           test.skip(
             !toleranceSuiteEnabled,
             "Active template lacks columns required for formula generator checks"
@@ -374,7 +375,7 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
       for (const { mode } of CURRENCY_SUITES) {
         const currency = mode === "omr" ? "OMR" : "USD";
         for (const target of mismatchTargetsForMode(mode)) {
-          test(`A mismatched ${target.shortName} on two lines in ${currency} should be rejected with an error. (${target.shortName})`, async ({
+          test(`A mismatched ${target.shortName} on two lines in ${currency} should be ${calculatedFieldMismatchOutcomePhrase(target)}. (${target.shortName})`, async ({
             page,
           }) => {
             test.skip(
@@ -421,7 +422,7 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
             await runCalculatedFieldWithinToleranceAcceptedScenario(page, mode, target, MULTI);
           });
 
-          test(`${target.shortName} with a difference outside ±${target.tolerance} on two lines in ${currency} should be rejected with an error. (${target.shortName})`, async ({
+          test(`${target.shortName} with a difference outside ±${target.tolerance} on two lines in ${currency} should be ${calculatedFieldMismatchOutcomePhrase(target)}. (${target.shortName})`, async ({
             page,
           }) => {
             test.skip(
@@ -631,7 +632,9 @@ test.describe(`Formula validation (${TEMPLATE})`, () => {
         }
       }
 
-      test(`A mismatched Total Amount Due (Profit Margin) on two lines should be rejected with an error. (Total Amount Due (Profit Margin))`, async ({
+      // Accepted until PINT defines this formula. Flip
+      // PINT_DEFINES_TOTAL_AMOUNT_DUE_PROFIT_MARGIN_FORMULA to expect an error.
+      test(`A mismatched Total Amount Due (Profit Margin) on two lines should be ${calculatedFieldMismatchOutcomePhrase(profitMarginTarget)}. (Total Amount Due (Profit Margin))`, async ({
         page,
       }) => {
         test.skip(
