@@ -213,6 +213,7 @@ function applySubmitTxnExtras(
   }
 
   // IBR-175-OM: Profit Margin Invoice → IBT-025 + BTOM-031 MUST be present.
+  // Item origin and attributes are required on the line for this transaction type.
   if (txn === FV.TXN_PROFIT_MARGIN_INVOICE) {
     next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] =
       next[FV.PRECEDING_INVOICE_REFERENCE_FIELD] || "PREV-OMN-001";
@@ -220,6 +221,12 @@ function applySubmitTxnExtras(
       next[FV.PRECEDING_INVOICE_UUID_FIELD] || FV.PRECEDING_INVOICE_UUID_SAMPLE;
     next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] =
       next[FV.PRECEDING_INVOICE_ISSUE_DATE_FIELD] || "2026-06-01";
+    next[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] =
+      next[FV.ITEM_COUNTRY_OF_ORIGIN_FIELD] || FV.OMAN_COUNTRY_CODE;
+    next[FV.ITEM_ATTRIBUTE_NAME_FIELD] =
+      next[FV.ITEM_ATTRIBUTE_NAME_FIELD] || "Color";
+    next[FV.ITEM_ATTRIBUTE_VALUE_FIELD] =
+      next[FV.ITEM_ATTRIBUTE_VALUE_FIELD] || "Silver";
   }
 
   return applySubmitDefaultPartyFields(

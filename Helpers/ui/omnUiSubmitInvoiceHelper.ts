@@ -13,7 +13,12 @@ import {
 } from "../../utils/excel/invoiceExcel";
 import {
   BTOM_001_SINGLE_ALLOWED_TXN_TYPES,
+  ITEM_ATTRIBUTE_NAME_FIELD,
+  ITEM_ATTRIBUTE_VALUE_FIELD,
+  ITEM_COUNTRY_OF_ORIGIN_FIELD,
+  OMAN_COUNTRY_CODE,
   TXN_FULL_TAX_INVOICE,
+  TXN_PROFIT_MARGIN_INVOICE,
   TXN_SIMPLIFIED_TAX_INVOICE,
   splitOmanTxnMasterLabels,
 } from "../../testData/FieldValidations/ConditionalValidation";
@@ -149,8 +154,32 @@ function applyUiSubmitTaxCategoryRules(
   return { ...data, "Tax Rate": "" };
 }
 
+/**
+ * Profit Margin Invoice item modal requires these on the form.
+ * Excel upload rows stay unchanged.
+ */
+function applyProfitMarginInvoiceItemCompanions(
+  row: Record<string, string>
+): Record<string, string> {
+  const labels = splitOmanTxnMasterLabels(rowValue(row, "Invoice Transaction Type Code"));
+  if (!labels.includes(TXN_PROFIT_MARGIN_INVOICE)) return row;
+  const next = { ...row };
+  if (!rowValue(next, ITEM_COUNTRY_OF_ORIGIN_FIELD)) {
+    next[ITEM_COUNTRY_OF_ORIGIN_FIELD] = OMAN_COUNTRY_CODE;
+  }
+  if (!rowValue(next, ITEM_ATTRIBUTE_NAME_FIELD)) {
+    next[ITEM_ATTRIBUTE_NAME_FIELD] = "Color";
+  }
+  if (!rowValue(next, ITEM_ATTRIBUTE_VALUE_FIELD)) {
+    next[ITEM_ATTRIBUTE_VALUE_FIELD] = "Silver";
+  }
+  return next;
+}
+
 function prepareUiSubmitRow(row: Record<string, string>): Record<string, string> {
-  return applyParallelWorkerIdentityToSubmitRow(applyUiSubmitTaxCategoryRules(row));
+  return applyParallelWorkerIdentityToSubmitRow(
+    applyProfitMarginInvoiceItemCompanions(applyUiSubmitTaxCategoryRules(row))
+  );
 }
 
 function todayIso(): string {
