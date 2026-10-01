@@ -1,4 +1,4 @@
-# Cron 05:45 IST Mon–Fri: Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment → UI submit multi 1 → UI submit multi 2.
+# Cron 05:00 IST Mon–Fri: Sanity → Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment → UI submit multi 1 → UI submit multi 2.
 # Only that sequence runs on the schedule. Other suites stay manual.
 # Covoro submit single is manual only (not queued). Run workflow offers submit 1 … submit 5 (at most 400 tests each).
 # Create Invoice UI submit single is the same split: ui submit 1 … ui submit 6 (at most 400 tests each). Zero rated rows are not in that spec.
@@ -10,8 +10,8 @@ name: Oman E-Invoice — Playwright
 
 on:
   schedule:
-    # 05:45 Asia/Kolkata Mon–Fri = 00:15 UTC (weekday is the same IST/UTC at this hour)
-    - cron: "15 0 * * 1-5"
+    # 05:00 Asia/Kolkata Mon–Fri = 23:30 UTC the previous calendar day (Sun–Thu)
+    - cron: "30 23 * * 0-4"
   workflow_dispatch:
     inputs:
       suite:
@@ -20,6 +20,7 @@ on:
         default: "covoro_ui_copy"
         type: choice
         options:
+          - sanity
           - covoro_ui_copy
           - covoro_ui_conditional_copy
           - covoro_ui_edit
@@ -48,13 +49,14 @@ on:
           - covoro_ui_conditional_create
           - covoro_ui_conditional_edit
       scheduled_wave:
-        description: "On Covoro formula: morning queue continues through Covoro conditional, Create, Conditional Create, UI attachment, then UI submit multi 1 and UI submit multi 2. Leave off for one family only. Submit 1–5 and UI submit 1–6 stay separate manual runs."
+        description: "On Sanity: morning queue continues through Covoro formula, Covoro conditional, Create, Conditional Create, UI attachment, then UI submit multi 1 and UI submit multi 2. Leave off for Sanity only. Submit 1–5 and UI submit 1–6 stay separate manual runs."
         type: boolean
         required: false
         default: false
 
 run-name: >-
-  ${{ github.event_name == 'schedule' && 'Scheduled Covoro formula, conditional, Create, Conditional Create, UI attachment, UI submit multi'
+  ${{ github.event_name == 'schedule' && 'Scheduled Sanity, Covoro formula, conditional, Create, Conditional Create, UI attachment, UI submit multi'
+      || github.event.inputs.suite == 'sanity' && 'Sanity'
       || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
       || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'
@@ -147,7 +149,7 @@ jobs:
         run: |
           MODE="${{ github.event.inputs.suite }}"
           if [ "${{ github.event_name }}" = "schedule" ] || [ -z "$MODE" ]; then
-            MODE="covoro_formula"
+            MODE="sanity"
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           case "$MODE" in
@@ -338,6 +340,7 @@ jobs:
         run: |
           MODE="${{ needs.resolve.outputs.mode }}"
           case "$MODE" in
+            sanity) LABEL="Sanity" ;;
             simplified_field) LABEL="Simplified field validation" ;;
             simplified_formula) LABEL="Simplified formula validation" ;;
             simplified_submit_single) LABEL="Simplified submit single" ;;

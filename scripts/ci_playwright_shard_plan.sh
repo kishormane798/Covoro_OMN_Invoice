@@ -16,6 +16,9 @@ PROJECT="chromium"
 SPEC=""
 
 case "$MODE" in
+  sanity)
+    SPEC="tests/OMN_SubmitInvoice_Sanity_Test.spec.ts"
+    ;;
   covoro_field)
     SPEC="tests/OMN_FieldValidation_CovoroTemplate_Test.spec.ts"
     ;;

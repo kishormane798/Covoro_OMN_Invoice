@@ -2,7 +2,7 @@
 # Resolve the next Playwright suite for CI queue-next.
 # Usage: ci_queue_next.sh <CURRENT> <WAVE> [SHARD_TOTAL]
 # WAVE=true: cron / scheduled_wave —
-# Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment → UI submit multi 1 → UI submit multi 2.
+# Sanity → Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment → UI submit multi 1 → UI submit multi 2.
 # Only that sequence is on the schedule. Other suites stay on their manual family.
 # Manual "submit N" chains to "submit N+1" while N+1 is within SHARD_TOTAL (400 tests each).
 # Manual "ui submit N" chains the same way.
@@ -46,6 +46,7 @@ fi
 
 cron_next() {
   case "$1" in
+    sanity) echo "covoro_formula" ;;
     covoro_formula) echo "covoro_conditional" ;;
     covoro_conditional) echo "covoro_ui_create" ;;
     covoro_ui_create) echo "covoro_ui_conditional_create" ;;

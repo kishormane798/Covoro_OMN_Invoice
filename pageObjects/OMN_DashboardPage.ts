@@ -1380,6 +1380,12 @@ export class DashboardPage {
       .first();
   }
 
+  async hasStatisticsCard(label: string): Promise<boolean> {
+    return this.statisticsCardLocator(label)
+      .isVisible({ timeout: 3_000 })
+      .catch(() => false);
+  }
+
   /** Click a dashboard statistics card (e.g. Delivered, Ready to Submit, Error in Records). */
   async clickStatisticsCard(label: string): Promise<void> {
     const card = this.statisticsCardLocator(label);
@@ -1393,6 +1399,66 @@ export class DashboardPage {
     }
     await this.page.waitForTimeout(500);
     await waitForEInvoiceListValidatingGone(this.page, 30_000).catch(() => {});
+  }
+
+  private matchesStatusForFileDownload(
+    normalizedStatus: string,
+    target: "ready to submit" | "delivered" | "error"
+  ): boolean {
+    if (target === "delivered") return normalizedStatus === "delivered";
+    if (target === "ready to submit") return normalizedStatus === "ready to submit";
+    if (target === "error") return normalizedStatus === "error";
+    return false;
+  }
+
+  /**
+   * First visible invoice row matching `status` after a statistics-card filter.
+   * Plain **Delivered** only — excludes Delivered to C3 / C5.
+   */
+  async firstInvoiceRowForFileDownload(
+    status: "ready to submit" | "delivered" | "error",
+    options?: { pollTimeoutMs?: number }
+  ): Promise<ReusableDashboardInvoice> {
+    const pollIntervalMs = 3_000;
+    const timeoutMs = options?.pollTimeoutMs ?? 60_000;
+    const deadline = Date.now() + timeoutMs;
+    let lastDiagnostics = "";
+
+    while (Date.now() < deadline) {
+      await waitForEInvoiceListValidatingGone(
+        this.page,
+        Math.min(30_000, deadline - Date.now())
+      ).catch(() => {});
+
+      const rows = this.invoiceDataRows();
+      const count = await rows.count();
+      for (let i = 0; i < count; i++) {
+        const row = rows.nth(i);
+        const normalized = await this.readRowStatusNormalized(row);
+        if (!this.matchesStatusForFileDownload(normalized, status)) continue;
+
+        const rawInvoiceNumber = (await this.readRowInvoiceNumber(row)).trim();
+        // Error records with no invoice number render the number cell as "-".
+        const invoiceNumber =
+          rawInvoiceNumber && rawInvoiceNumber !== "-"
+            ? rawInvoiceNumber
+            : `${normalized}-record`;
+
+        reportLog(
+          `[DashboardPage] File-download row: ${invoiceNumber} (status: ${normalized})`
+        );
+        return { invoiceNumber, status: normalized, row };
+      }
+
+      lastDiagnostics = await this.describeVisibleInvoiceRows();
+      if (Date.now() + pollIntervalMs > deadline) break;
+      await this.page.waitForTimeout(pollIntervalMs);
+    }
+
+    throw new Error(
+      `No invoice row with status "${status}" on dashboard within ${timeoutMs}ms. ` +
+        `Visible rows: ${lastDiagnostics || "(none)"}`
+    );
   }
 
   /** Row **Options** → **Download**; returns the visible format submenu container. */
@@ -1659,6 +1725,59 @@ export class DashboardPage {
    */
   async searchInvoiceTable(query: string): Promise<void> {
     await this.searchInvoiceInTable(query);
+  }
+
+  /** Bulk Action → **Download** nested submenu (Excel, JSON, XML, PDF). */
+  async openBulkDownloadSubmenu(): Promise<Locator> {
+    const menu = this.page.locator("#bulk-actionable-dropdown .select-btn-container");
+    const download = menu
+      .locator(".list-item.sub-dropdown")
+      .filter({
+        has: this.page.locator(".label-container", { hasText: /^Download$/i }),
+      })
+      .first();
+
+    await expect(download).toBeVisible({ timeout: 10_000 });
+    await download.click();
+
+    const submenu = this.page.locator(".sub-dropdown-container").filter({ visible: true }).last();
+    await expect(submenu).toBeVisible({ timeout: 10_000 });
+    return submenu;
+  }
+
+  /** Bulk Action → **Download Records** nested submenu (Valid Records / Error Records). */
+  async openBulkDownloadRecordsSubmenu(): Promise<Locator> {
+    const menu = this.page.locator("#bulk-actionable-dropdown .select-btn-container");
+    const downloadRecords = menu
+      .locator(".list-item.sub-dropdown")
+      .filter({
+        has: this.page.locator(".label-container", { hasText: /^Download Records$/i }),
+      })
+      .first();
+
+    await expect(downloadRecords).toBeVisible({ timeout: 10_000 });
+    await downloadRecords.click();
+
+    const submenu = this.page.locator(".sub-dropdown-container").filter({ visible: true }).last();
+    await expect(submenu).toBeVisible({ timeout: 10_000 });
+    return submenu;
+  }
+
+  /** Click a **Download Records** option and return the downloaded file. */
+  async clickBulkDownloadRecordsOption(
+    submenu: Locator,
+    optionLabel: string
+  ): Promise<InvoiceFileDownloadResponse> {
+    const item = submenu
+      .locator('.sub-list-item[role="presentation"]')
+      .filter({ hasText: new RegExp(`^\\s*${escapeRegExp(optionLabel)}\\s*$`, "i") })
+      .first();
+    await expect(item).toBeVisible({ timeout: 10_000 });
+
+    return this.waitForInvoiceDownloadAfterClick(() => item.click(), {
+      timeoutMs: 120_000,
+      waitForBulkExport: true,
+    });
   }
 
   /**

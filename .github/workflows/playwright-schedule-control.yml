@@ -1,4 +1,4 @@
-# One-click Stop/Start for the next 05:45 IST morning queue in playwright.yml.
+# One-click Stop/Start for the next 05:00 IST morning queue in playwright.yml.
 # Stop does not cancel a suite that is already running and does not affect
 # one-off manual Playwright runs (scheduled_wave off).
 name: Oman E-Invoice — Schedule control
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Stop: do not start the next scheduled morning queue until Start. Start: allow the 05:45 IST queue again. Does not cancel a suite that is already running. Does not affect one-off manual Playwright runs."
+        description: "Stop: do not start the next scheduled morning queue until Start. Start: allow the 05:00 IST queue again. Does not cancel a suite that is already running. Does not affect one-off manual Playwright runs."
         required: true
         default: stop
         type: choice

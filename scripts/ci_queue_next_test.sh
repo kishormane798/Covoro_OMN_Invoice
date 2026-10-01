@@ -19,6 +19,8 @@ expect() {
   fi
 }
 
+expect sanity true covoro_formula true
+expect sanity false "" false
 expect covoro_formula true covoro_conditional true
 expect covoro_conditional true covoro_ui_create true
 expect covoro_ui_create true covoro_ui_conditional_create true
