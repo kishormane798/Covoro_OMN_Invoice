@@ -204,6 +204,28 @@ export function buildOversizeAttachmentPath(): string {
   return writeTempBlob("oversize-11mb.pdf", 11 * MB);
 }
 
+/** Two separate uploads that land on exactly 10 MB (6 + 4). */
+export function buildSequentialAtLimitAttachmentPaths(): Array<{
+  path: string;
+  name: string;
+}> {
+  return [
+    { path: writeTempBlob("seq-6mb.pdf", 6 * MB), name: "seq-6mb.pdf" },
+    { path: writeTempBlob("seq-4mb.pdf", 4 * MB), name: "seq-4mb.pdf" },
+  ];
+}
+
+/** Two separate uploads that cross 10 MB (6 + 5 = 11 MB). */
+export function buildSequentialOverLimitAttachmentPaths(): Array<{
+  path: string;
+  name: string;
+}> {
+  return [
+    { path: writeTempBlob("seq-over-6mb.pdf", 6 * MB), name: "seq-over-6mb.pdf" },
+    { path: writeTempBlob("seq-over-5mb.pdf", 5 * MB), name: "seq-over-5mb.pdf" },
+  ];
+}
+
 /** Two files whose sizes sum over 10 MB (6 + 5 = 11 MB — reject). */
 export function buildCombinedOversizeAttachmentPaths(): [string, string] {
   return [

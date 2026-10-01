@@ -268,6 +268,11 @@ export class OMN_UIInvoiceManualPage {
     await this.dashboard.expectCreateInvoiceEditModeLoaded();
   }
 
+  /** Uploaded invoice Edit page. Sections stay read-only; attachment does not need `#invNum`. */
+  async expectUploadedEditPageVisible(): Promise<void> {
+    await this.dashboard.expectCreateInvoiceEditorLoaded();
+  }
+
   async expectDocumentEditorVisible(): Promise<void> {
     await this.expectEditorVisible();
   }
@@ -1192,30 +1197,36 @@ export class OMN_UIInvoiceManualPage {
 
   /**
    * Section **7. Attachment Details** (`section[data-id="7"]`).
-   * Locators match UAE Edit Invoice Attachment Details (verified there).
+   * Upload zone and file list are siblings under `.attachment-main`.
    */
   attachmentSection(): Locator {
     return this.page.locator('section.invoice-content-section[data-id="7"]');
   }
 
-  attachmentFileInput(): Locator {
-    return this.attachmentSection().locator("#file-input");
+  private attachmentMain(): Locator {
+    return this.attachmentSection().locator(".attachment-container .attachment-main");
   }
 
+  /** Drag & Drop / Add Files zone (`div.upload-section[draggable="true"]`). */
   attachmentUploadZone(): Locator {
-    return this.attachmentSection().locator(".upload-section:not(.uploaded-files)");
+    return this.attachmentMain().locator('> .upload-section[draggable="true"]');
   }
 
-  attachmentUploadedFiles(): Locator {
-    return this.attachmentSection().locator(".uploaded-files.upload-section");
-  }
-
-  attachmentFileRows(): Locator {
-    return this.attachmentUploadedFiles().locator(".file-details");
+  attachmentFileInput(): Locator {
+    return this.attachmentUploadZone().locator("input#file-input.hidden-input");
   }
 
   attachmentAddFilesLabel(): Locator {
-    return this.attachmentSection().locator('label.file-button[for="file-input"]');
+    return this.attachmentUploadZone().locator('label.file-button[for="file-input"]');
+  }
+
+  /** Listed attachment chips (`div.uploaded-files`). */
+  attachmentUploadedFiles(): Locator {
+    return this.attachmentMain().locator("> .uploaded-files");
+  }
+
+  attachmentFileRows(): Locator {
+    return this.attachmentUploadedFiles().locator("> .file-details");
   }
 
   private documentMainScope(): Locator {
@@ -1232,7 +1243,7 @@ export class OMN_UIInvoiceManualPage {
   async openFromUploadedInvoice(invoiceNumber: string): Promise<void> {
     await this.dashboard.refreshDashboardForInvoiceTable(invoiceNumber);
     await this.dashboard.openInvoiceEdit(invoiceNumber);
-    await this.expectEditorVisible();
+    await this.expectUploadedEditPageVisible();
     await this.waitForCreateInvoiceIdle();
   }
 
@@ -1265,15 +1276,22 @@ export class OMN_UIInvoiceManualPage {
     ).toBeVisible({ timeout: 30_000 });
   }
 
-  async expectAttachmentUploadZoneVisible(): Promise<void> {
-    await expect(this.attachmentUploadZone()).toBeVisible({ timeout: 15_000 });
+  /**
+   * Oman keeps Drag & Drop / Add Files visible after files are listed,
+   * so another file can be added until the 10 MB total is reached.
+   */
+  async expectAttachmentUploadControlVisible(): Promise<void> {
+    const zone = this.attachmentUploadZone();
+    await expect(zone).toBeVisible({ timeout: 15_000 });
+    await expect(zone.getByText("Drag & Drop", { exact: true })).toBeVisible();
     await expect(this.attachmentAddFilesLabel()).toBeVisible();
   }
 
-  async expectAttachmentUploadZoneHidden(): Promise<void> {
-    await expect(this.attachmentUploadZone()).toBeHidden({ timeout: 15_000 });
-    await expect(this.attachmentAddFilesLabel()).toBeHidden({ timeout: 15_000 });
-    await expect(this.attachmentUploadedFiles()).toBeVisible({ timeout: 15_000 });
+  /** Empty Attachment Details: upload control shown and no file rows. */
+  async expectAttachmentUploadZoneVisible(): Promise<void> {
+    await this.expectAttachmentUploadControlVisible();
+    await expect(this.attachmentUploadedFiles()).toHaveCount(0);
+    await expect(this.attachmentFileRows()).toHaveCount(0);
   }
 
   attachedFileRow(fileName: string): Locator {
@@ -1281,7 +1299,9 @@ export class OMN_UIInvoiceManualPage {
   }
 
   attachedFileName(fileName: string): Locator {
-    return this.attachedFileRow(fileName).locator(".ellipsis-text");
+    return this.attachedFileRow(fileName).locator(".ellipsis-container .ellipsis-text", {
+      hasText: fileName,
+    });
   }
 
   async expectAttachedFilesListed(fileNames: string[]): Promise<void> {
@@ -1365,15 +1385,24 @@ export class OMN_UIInvoiceManualPage {
     ).toBeVisible({ timeout: 20_000 });
   }
 
-  async selectAttachmentFiles(...filePaths: string[]): Promise<void> {
+  /**
+   * Choose attachment files. Returns the toast text when one appears.
+   * Returns null when no toast is visible — callers must not fail on that.
+   * Several paths in one call are one bulk upload and produce one toast.
+   */
+  async selectAttachmentFiles(...filePaths: string[]): Promise<string | null> {
     if (!filePaths.length) {
       throw new Error("selectAttachmentFiles: at least one file path is required");
     }
     await this.scrollToAttachmentSection();
-    await this.expectAttachmentUploadZoneVisible();
+    await this.expectAttachmentUploadControlVisible();
     const input = this.attachmentFileInput();
     await expect(input).toBeAttached({ timeout: 15_000 });
+    await input.evaluate((element: HTMLInputElement) => {
+      element.value = "";
+    });
     await input.setInputFiles(filePaths);
+    return this.dashboard.peekVisibleToastMessage({ timeoutMs: 3_000 });
   }
 
   createInvoicePageUpdateButton(): Locator {

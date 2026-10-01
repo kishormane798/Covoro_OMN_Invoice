@@ -62,6 +62,10 @@ case "$MODE" in
     SPEC="tests/OMAN_UI_SPEC/OMN_UIInvoice_Conditional_Create_Test.spec.ts"
     PROJECT="chromium-ui"
     ;;
+  covoro_ui_attachment)
+    SPEC="tests/OMAN_UI_SPEC/OMN_UIInvoice_Attachment_Test.spec.ts"
+    PROJECT="chromium-ui"
+    ;;
   covoro_ui_edit|covoro_ui_edit_[12])
     SPEC="tests/OMAN_UI_SPEC/OMN_UIInvoice_Edit_Test.spec.ts"
     PROJECT="chromium-ui"

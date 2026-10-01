@@ -3,6 +3,16 @@ import {
   runOmnUiEditAttachmentAtLimitSingleCase,
   runOmnUiEditAttachmentAtLimitSubmitCase,
   runOmnUiEditAttachmentCombinedOversizeCase,
+  runOmnUiEditAttachmentRemoveOneThenAddCase,
+  runOmnUiEditAttachmentSameFileTwiceCase,
+  runOmnUiEditAttachmentSecondInvalidFormatCase,
+  runOmnUiEditAttachmentSecondUploadCase,
+  runOmnUiEditAttachmentSequentialAtLimitCase,
+  runOmnUiEditAttachmentSequentialOverLimitCase,
+  runOmnUiEditAttachmentSequentialPersistCase,
+  runOmnUiEditAttachmentSequentialUnderLimitCase,
+  runOmnUiEditAttachmentThirdUploadCase,
+  runOmnUiEditAttachmentUploadStaysAfterOneFileCase,
   runOmnUiEditAttachmentMultiSubmitCase,
   runOmnUiEditAttachmentNearLimitMultiCase,
   runOmnUiEditAttachmentNearLimitMultiPersistCase,
@@ -36,7 +46,8 @@ import {
 
 /**
  * Excel upload → Options → Edit → Attachment Details
- * (formats / multi / 10 MB / remove / Update+View / submit+delivery).
+ * (formats / multi / 10 MB / remove / Update+View / submit+delivery /
+ * Add Files stays so another file can be added).
  */
 test.describe("Edit Invoice — Attachment Details", () => {
   test.describe.configure({ mode: "parallel" });
@@ -171,5 +182,87 @@ test.describe("Edit Invoice — Attachment Details", () => {
       test.setTimeout(OMN_UI_ATTACHMENT_LARGE_SUBMIT_TIMEOUT_MS);
       await runOmnUiEditAttachmentAtLimitSubmitCase(page);
     });
+  });
+
+  test.describe("Add Files stays after a file is attached", () => {
+    test(
+      "A single PDF should stay listed and Add Files should remain available. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+        await runOmnUiEditAttachmentUploadStaysAfterOneFileCase(page);
+      }
+    );
+
+    test(
+      "The same PDF added twice should both be listed and Add Files should remain available. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSameFileTwiceCase(page);
+      }
+    );
+
+    test(
+      "A PDF and then a PNG added separately should both be listed and Add Files should remain available. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSecondUploadCase(page);
+      }
+    );
+
+    test(
+      "A PDF, a PNG, and an XML added separately should all be listed and Add Files should remain available. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+        await runOmnUiEditAttachmentThirdUploadCase(page);
+      }
+    );
+
+    test(
+      "A 4 MB file and then a 5 MB file added separately should both be listed and Add Files should remain available. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSequentialUnderLimitCase(page);
+      }
+    );
+
+    test(
+      "A 6 MB file and then a 4 MB file added separately should both be listed and Add Files should remain available. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSequentialAtLimitCase(page);
+      }
+    );
+
+    test(
+      "A 6 MB file followed by a 5 MB file should be rejected with an error and only the 6 MB file should remain. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSequentialOverLimitCase(page);
+      }
+    );
+
+    test(
+      "A PDF followed by an unsupported text file should be rejected with an error and the PDF should remain. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSecondInvalidFormatCase(page);
+      }
+    );
+
+    test(
+      "After a PDF and a PNG are attached, removing the PNG and adding an XML should leave the PDF and the XML listed. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+        await runOmnUiEditAttachmentRemoveOneThenAddCase(page);
+      }
+    );
+
+    test(
+      "A PDF and then a PNG added separately should both be shown after Update and View. (Attachment Details)",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_PERSIST_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSequentialPersistCase(page);
+      }
+    );
   });
 });

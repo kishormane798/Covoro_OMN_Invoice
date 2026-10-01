@@ -1,4 +1,4 @@
-# Cron 05:45 IST Mon–Fri: Covoro formula → Covoro conditional → Create → Conditional Create → UI submit multi 1 → UI submit multi 2.
+# Cron 05:45 IST Mon–Fri: Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment → UI submit multi 1 → UI submit multi 2.
 # Only that sequence runs on the schedule. Other suites stay manual.
 # Covoro submit single is manual only (not queued). Run workflow offers submit 1 … submit 5 (at most 400 tests each).
 # Create Invoice UI submit single is the same split: ui submit 1 … ui submit 6 (at most 400 tests each). Zero rated rows are not in that spec.
@@ -40,6 +40,7 @@ on:
           - ui submit 4
           - ui submit 5
           - ui submit 6
+          - covoro_ui_attachment
           - ui submit multi 1
           - ui submit multi 2
           - covoro_submit_multi
@@ -47,13 +48,13 @@ on:
           - covoro_ui_conditional_create
           - covoro_ui_conditional_edit
       scheduled_wave:
-        description: "On Covoro formula: morning queue continues through Covoro conditional, Create, Conditional Create, then UI submit multi 1 and UI submit multi 2. Leave off for one family only. Submit 1–5 and UI submit 1–6 stay separate manual runs."
+        description: "On Covoro formula: morning queue continues through Covoro conditional, Create, Conditional Create, UI attachment, then UI submit multi 1 and UI submit multi 2. Leave off for one family only. Submit 1–5 and UI submit 1–6 stay separate manual runs."
         type: boolean
         required: false
         default: false
 
 run-name: >-
-  ${{ github.event_name == 'schedule' && 'Scheduled Covoro formula, conditional, Create, Conditional Create, UI submit multi'
+  ${{ github.event_name == 'schedule' && 'Scheduled Covoro formula, conditional, Create, Conditional Create, UI attachment, UI submit multi'
       || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'
       || github.event.inputs.suite == 'simplified_conditional' && 'Simplified conditional validation'
@@ -359,6 +360,7 @@ jobs:
             covoro_ui_conditional_copy) LABEL="UI conditional copy" ;;
             covoro_ui_create) LABEL="UI create" ;;
             covoro_ui_conditional_create) LABEL="UI conditional create" ;;
+            covoro_ui_attachment) LABEL="UI attachment" ;;
             covoro_ui_edit) LABEL="UI edit" ;;
             covoro_ui_conditional_edit) LABEL="UI conditional edit" ;;
             *) LABEL="Playwright ${MODE}" ;;

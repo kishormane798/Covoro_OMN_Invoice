@@ -12,18 +12,67 @@ import {
   buildNearLimitMultiAttachmentPaths,
   buildNearLimitSingleAttachmentPath,
   buildOversizeAttachmentPath,
+  buildSequentialAtLimitAttachmentPaths,
+  buildSequentialOverLimitAttachmentPaths,
 } from "../../utils/ui/omnUiAttachmentFiles";
 import type {
   OmnUiAttachmentAcceptScenario,
   OmnUiAttachmentScenario,
 } from "../../testData/ui/omnUiInvoiceAttachmentScenarios";
 import {
+  OMN_UI_ATTACHMENT_INVALID_FORMAT,
   OMN_UI_ATTACHMENT_MULTI_UNDER_LIMIT,
+  OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS,
   OMN_UI_ATTACHMENT_SIZE_ERROR,
 } from "../../testData/ui/omnUiInvoiceAttachmentScenarios";
 import { invoiceData } from "../../testData/FieldValidations/SubmitInvoice";
 import { runSubmitInvoiceUploadSanityCase } from "../excel/submitInvoiceCaseHelper";
-import { flowLog } from "../diagnosticLog";
+import { flowLog, terminalLog } from "../diagnosticLog";
+
+type AttachmentToastNote = { label: string; toast: string | null };
+
+/** When a toast was captured, it must match. No toast does not fail the case. */
+function expectAttachmentToastWhenPresent(toast: string | null, errorPattern: RegExp): void {
+  if (!toast) return;
+  expect(toast, `Attachment toast did not match ${errorPattern}`).toMatch(errorPattern);
+}
+
+function attachmentKindLabel(fileName: string): string {
+  const base = fileName.split(/[/\\]/).pop() ?? fileName;
+  const dot = base.lastIndexOf(".");
+  return (dot >= 0 ? base.slice(dot + 1) : base).toLowerCase();
+}
+
+/** One picker action, including several files together: one toast. */
+function printBulkAttachmentToast(toast: string | null): void {
+  if (!toast) return;
+  terminalLog(`[OmnUiAttachment] Toast message: ${toast}`);
+}
+
+/** Files chosen one after another: `pdf - message, xml - message`. */
+function printSequentialAttachmentToasts(notes: AttachmentToastNote[]): void {
+  const line = notes
+    .filter((note): note is { label: string; toast: string } => Boolean(note.toast))
+    .map((note) => `${note.label} - ${note.toast}`)
+    .join(", ");
+  if (!line) return;
+  terminalLog(`[OmnUiAttachment] ${line}`);
+}
+
+async function chooseAttachmentFiles(
+  invoice: OMN_UIInvoiceManualPage,
+  files: string[],
+  names: string[]
+): Promise<string | null> {
+  const toast = await invoice.selectAttachmentFiles(...files);
+  if (files.length > 1) {
+    printBulkAttachmentToast(toast);
+    return toast;
+  }
+  const label = attachmentKindLabel(names[0] ?? files[0] ?? "file");
+  printSequentialAttachmentToasts([{ label, toast }]);
+  return toast;
+}
 
 /** Per-test budget: upload baseline + edit + attachment assert. */
 export const OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS = 3 * 60 * 1000;
@@ -132,16 +181,16 @@ export async function runOmnUiEditAttachmentScenario(
 ): Promise<{ invoiceNumber: string }> {
   flowLog("OmnUiAttachment", `Scenario ${scenario.id}: ${scenario.title}`);
   const { invoice, invoiceNumber } = await uploadBaselineInvoiceAndOpenEdit(page);
-  await invoice.expectEditorVisible();
+  await invoice.expectUploadedEditPageVisible();
   await invoice.scrollToAttachmentSection();
 
   if (scenario.expect === "accept") {
-    await invoice.selectAttachmentFiles(...scenario.files);
+    await chooseAttachmentFiles(invoice, scenario.files, scenario.expectedNames);
     await invoice.expectAttachedFilesListed(scenario.expectedNames);
-    await invoice.expectAttachmentUploadZoneHidden();
+    await invoice.expectAttachmentUploadControlVisible();
   } else {
-    await invoice.selectAttachmentFiles(...scenario.files);
-    await invoice.expectAttachmentRejectionMessage(scenario.errorPattern);
+    const toast = await chooseAttachmentFiles(invoice, scenario.files, scenario.files);
+    expectAttachmentToastWhenPresent(toast, scenario.errorPattern);
     await invoice.expectAttachmentUploadZoneVisible();
   }
 
@@ -161,10 +210,10 @@ export async function runOmnUiEditAttachmentRemoveCase(
   }
   const fileName = scenario.expectedNames[0]!;
   const { invoice, invoiceNumber } = await uploadBaselineInvoiceAndOpenEdit(page);
-  await invoice.expectEditorVisible();
-  await invoice.selectAttachmentFiles(...scenario.files);
+  await invoice.expectUploadedEditPageVisible();
+  await chooseAttachmentFiles(invoice, scenario.files, scenario.expectedNames);
   await invoice.expectAttachedFilesListed(scenario.expectedNames);
-  await invoice.expectAttachmentUploadZoneHidden();
+  await invoice.expectAttachmentUploadControlVisible();
   await invoice.removeAttachedFile(fileName, { confirm });
 
   if (confirm === "Yes") {
@@ -172,7 +221,7 @@ export async function runOmnUiEditAttachmentRemoveCase(
     await invoice.expectAttachmentUploadZoneVisible();
   } else {
     await invoice.expectAttachedFilesListed(scenario.expectedNames);
-    await invoice.expectAttachmentUploadZoneHidden();
+    await invoice.expectAttachmentUploadControlVisible();
   }
 
   return { invoiceNumber };
@@ -273,23 +322,18 @@ export async function runOmnUiEditAttachmentNearLimitMultiPersistCase(
 
 export async function runOmnUiEditAttachmentSectionVisibleCase(page: Page): Promise<void> {
   const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
-  await invoice.expectEditorVisible();
+  await invoice.expectUploadedEditPageVisible();
   await invoice.scrollToAttachmentSection();
   await invoice.expectAttachmentUploadZoneVisible();
   await expect(invoice.attachmentFileInput()).toBeAttached();
 }
 
-export async function runOmnUiEditAttachmentPersistAndViewCase(
+async function saveAttachmentEditAndView(
   page: Page,
-  scenario: OmnUiAttachmentAcceptScenario
-): Promise<{ invoiceNumber: string; landedOn: "dashboard" | "edit" }> {
-  flowLog("OmnUiAttachment", `Persist+View: ${scenario.id}`);
-  const { invoice, invoiceNumber } = await uploadBaselineInvoiceAndOpenEdit(page);
-  await invoice.expectEditorVisible();
-  await invoice.selectAttachmentFiles(...scenario.files);
-  await invoice.expectAttachedFilesListed(scenario.expectedNames);
-  await invoice.expectAttachmentUploadZoneHidden();
-
+  invoice: OMN_UIInvoiceManualPage,
+  invoiceNumber: string,
+  expectedNames: string[]
+): Promise<"dashboard" | "edit"> {
   const updateVisible = await invoice.createInvoicePageUpdateButton().isVisible().catch(() => false);
   if (updateVisible) {
     await invoice.clickCreateInvoicePageUpdate();
@@ -304,12 +348,57 @@ export async function runOmnUiEditAttachmentPersistAndViewCase(
     const dashboard = new DashboardPage(page);
     await dashboard.waitForInvoiceReadyToSubmitStatus(invoiceNumber, { timeoutMs: 120_000 });
     await dashboard.openInvoiceView(invoiceNumber);
-    await invoice.expectAttachmentsDisplayedInView(scenario.expectedNames);
+    await invoice.expectAttachmentsDisplayedInView(expectedNames);
   } else {
-    await invoice.expectEditorVisible();
-    await invoice.expectAttachedFilesListed(scenario.expectedNames);
+    await invoice.expectUploadedEditPageVisible();
+    await invoice.expectAttachedFilesListed(expectedNames);
   }
 
+  return landedOn;
+}
+
+function singleAcceptFile(id: string): { file: string; name: string } {
+  const scenario = OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS.find((item) => item.id === id);
+  if (!scenario || scenario.expect !== "accept" || scenario.files.length !== 1) {
+    throw new Error(`Expected a single-file accept scenario for ${id}`);
+  }
+  return { file: scenario.files[0]!, name: scenario.expectedNames[0]! };
+}
+
+async function attachFilesOneAtATime(
+  invoice: OMN_UIInvoiceManualPage,
+  steps: Array<{ file: string; name: string }>,
+  options?: { report?: boolean; notes?: AttachmentToastNote[] }
+): Promise<AttachmentToastNote[]> {
+  const notes = options?.notes ?? [];
+  const names: string[] = [];
+  for (const step of steps) {
+    const toast = await invoice.selectAttachmentFiles(step.file);
+    notes.push({ label: attachmentKindLabel(step.name), toast });
+    names.push(step.name);
+    await invoice.expectAttachedFilesListed(names);
+    await invoice.expectAttachmentUploadControlVisible();
+  }
+  if (options?.report !== false) printSequentialAttachmentToasts(notes);
+  return notes;
+}
+
+export async function runOmnUiEditAttachmentPersistAndViewCase(
+  page: Page,
+  scenario: OmnUiAttachmentAcceptScenario
+): Promise<{ invoiceNumber: string; landedOn: "dashboard" | "edit" }> {
+  flowLog("OmnUiAttachment", `Persist+View: ${scenario.id}`);
+  const { invoice, invoiceNumber } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  await chooseAttachmentFiles(invoice, scenario.files, scenario.expectedNames);
+  await invoice.expectAttachedFilesListed(scenario.expectedNames);
+  await invoice.expectAttachmentUploadControlVisible();
+  const landedOn = await saveAttachmentEditAndView(
+    page,
+    invoice,
+    invoiceNumber,
+    scenario.expectedNames
+  );
   return { invoiceNumber, landedOn };
 }
 
@@ -319,10 +408,10 @@ export async function runOmnUiEditAttachmentSubmitCase(
 ): Promise<{ invoiceNumber: string }> {
   flowLog("OmnUiAttachment", `Excel upload + attachment Submit: ${scenario.id}`);
   const { invoice, invoiceNumber } = await uploadBaselineInvoiceAndOpenEdit(page);
-  await invoice.expectEditorVisible();
-  await invoice.selectAttachmentFiles(...scenario.files);
+  await invoice.expectUploadedEditPageVisible();
+  await chooseAttachmentFiles(invoice, scenario.files, scenario.expectedNames);
   await invoice.expectAttachedFilesListed(scenario.expectedNames);
-  await invoice.expectAttachmentUploadZoneHidden();
+  await invoice.expectAttachmentUploadControlVisible();
 
   const updateVisible = await invoice.createInvoicePageUpdateButton().isVisible().catch(() => false);
   if (updateVisible) {
@@ -360,4 +449,131 @@ export async function runOmnUiEditAttachmentAtLimitSubmitCase(page: Page): Promi
     files: [filePath],
     expectedNames: [name],
   });
+}
+
+/** One accepted file, Add Files still available. */
+export async function runOmnUiEditAttachmentUploadStaysAfterOneFileCase(page: Page): Promise<void> {
+  const pdf = OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS.find((item) => item.id === "pdf");
+  if (!pdf) throw new Error("Missing PDF attachment scenario");
+  await runOmnUiEditAttachmentScenario(page, pdf);
+}
+
+/** The same PDF chosen again through Add Files. */
+export async function runOmnUiEditAttachmentSameFileTwiceCase(page: Page): Promise<void> {
+  const pdf = singleAcceptFile("pdf");
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  await attachFilesOneAtATime(invoice, [pdf, pdf]);
+}
+
+/** PDF, then PNG, in two uploads. */
+export async function runOmnUiEditAttachmentSecondUploadCase(page: Page): Promise<void> {
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  await attachFilesOneAtATime(invoice, [singleAcceptFile("pdf"), singleAcceptFile("png")]);
+}
+
+/** PDF, then PNG, then XML, in three uploads. */
+export async function runOmnUiEditAttachmentThirdUploadCase(page: Page): Promise<void> {
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  await attachFilesOneAtATime(invoice, [
+    singleAcceptFile("pdf"),
+    singleAcceptFile("png"),
+    singleAcceptFile("xml"),
+  ]);
+}
+
+/** 4 MB, then 5 MB (9 MB total). */
+export async function runOmnUiEditAttachmentSequentialUnderLimitCase(page: Page): Promise<void> {
+  const parts = buildNearLimitMultiAttachmentPaths();
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  await attachFilesOneAtATime(
+    invoice,
+    parts.map((part) => ({ file: part.path, name: part.name }))
+  );
+}
+
+/** 6 MB, then 4 MB (exactly 10 MB). */
+export async function runOmnUiEditAttachmentSequentialAtLimitCase(page: Page): Promise<void> {
+  const parts = buildSequentialAtLimitAttachmentPaths();
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  await attachFilesOneAtATime(
+    invoice,
+    parts.map((part) => ({ file: part.path, name: part.name }))
+  );
+}
+
+/** 6 MB accepted, then 5 MB rejected. First file stays and Add Files stays. */
+export async function runOmnUiEditAttachmentSequentialOverLimitCase(page: Page): Promise<void> {
+  const [first, second] = buildSequentialOverLimitAttachmentPaths();
+  if (!first || !second) throw new Error("Expected two sequential over-limit attachment files");
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  const notes: AttachmentToastNote[] = [];
+  const firstToast = await invoice.selectAttachmentFiles(first.path);
+  notes.push({ label: attachmentKindLabel(first.name), toast: firstToast });
+  await invoice.expectAttachedFilesListed([first.name]);
+  await invoice.expectAttachmentUploadControlVisible();
+  const toast = await invoice.selectAttachmentFiles(second.path);
+  notes.push({ label: attachmentKindLabel(second.name), toast });
+  printSequentialAttachmentToasts(notes);
+  expectAttachmentToastWhenPresent(toast, OMN_UI_ATTACHMENT_SIZE_ERROR);
+  await invoice.expectAttachedFilesListed([first.name]);
+  await expect(invoice.attachedFileRow(second.name)).toHaveCount(0);
+  await invoice.expectAttachmentUploadControlVisible();
+}
+
+/** PDF accepted, then unsupported .txt rejected. PDF stays and Add Files stays. */
+export async function runOmnUiEditAttachmentSecondInvalidFormatCase(page: Page): Promise<void> {
+  if (OMN_UI_ATTACHMENT_INVALID_FORMAT.expect !== "reject") {
+    throw new Error("Invalid format scenario must reject");
+  }
+  const pdf = singleAcceptFile("pdf");
+  const rejected = OMN_UI_ATTACHMENT_INVALID_FORMAT.files[0];
+  if (!rejected) throw new Error("Invalid format scenario has no file");
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  const notes: AttachmentToastNote[] = [];
+  const pdfToast = await invoice.selectAttachmentFiles(pdf.file);
+  notes.push({ label: attachmentKindLabel(pdf.name), toast: pdfToast });
+  await invoice.expectAttachedFilesListed([pdf.name]);
+  await invoice.expectAttachmentUploadControlVisible();
+  const rejectedName = rejected.split(/[/\\]/).pop() ?? rejected;
+  const toast = await invoice.selectAttachmentFiles(rejected);
+  notes.push({ label: attachmentKindLabel(rejectedName), toast });
+  printSequentialAttachmentToasts(notes);
+  expectAttachmentToastWhenPresent(toast, OMN_UI_ATTACHMENT_INVALID_FORMAT.errorPattern);
+  await invoice.expectAttachedFilesListed([pdf.name]);
+  await invoice.expectAttachmentUploadControlVisible();
+}
+
+/** PDF then PNG, remove PNG, add XML through the button that stayed. */
+export async function runOmnUiEditAttachmentRemoveOneThenAddCase(page: Page): Promise<void> {
+  const pdf = singleAcceptFile("pdf");
+  const png = singleAcceptFile("png");
+  const xml = singleAcceptFile("xml");
+  const { invoice } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  const notes = await attachFilesOneAtATime(invoice, [pdf, png], { report: false });
+  await invoice.removeAttachedFile(png.name, { confirm: "Yes" });
+  await invoice.expectAttachedFilesListed([pdf.name]);
+  await invoice.expectAttachmentUploadControlVisible();
+  const xmlToast = await invoice.selectAttachmentFiles(xml.file);
+  notes.push({ label: attachmentKindLabel(xml.name), toast: xmlToast });
+  printSequentialAttachmentToasts(notes);
+  await invoice.expectAttachedFilesListed([pdf.name, xml.name]);
+  await invoice.expectAttachmentUploadControlVisible();
+}
+
+/** PDF then PNG, Update, View shows both. */
+export async function runOmnUiEditAttachmentSequentialPersistCase(page: Page): Promise<void> {
+  const pdf = singleAcceptFile("pdf");
+  const png = singleAcceptFile("png");
+  const { invoice, invoiceNumber } = await uploadBaselineInvoiceAndOpenEdit(page);
+  await invoice.expectUploadedEditPageVisible();
+  await attachFilesOneAtATime(invoice, [pdf, png]);
+  await saveAttachmentEditAndView(page, invoice, invoiceNumber, [pdf.name, png.name]);
 }

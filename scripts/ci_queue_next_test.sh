@@ -22,7 +22,9 @@ expect() {
 expect covoro_formula true covoro_conditional true
 expect covoro_conditional true covoro_ui_create true
 expect covoro_ui_create true covoro_ui_conditional_create true
-expect covoro_ui_conditional_create true "ui submit multi 1" true
+expect covoro_ui_conditional_create true covoro_ui_attachment true
+expect covoro_ui_attachment true "ui submit multi 1" true
+expect covoro_ui_attachment false "" false
 expect covoro_ui_copy true covoro_ui_conditional_copy false
 expect simplified_field true simplified_formula false
 expect simplified_conditional true "" false
