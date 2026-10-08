@@ -39,9 +39,36 @@ export const dropdownInvalidOnCovoro = FV.mergeDropdownFieldConfigs(
   FV.hsCodeDropdownInvalidConfig
 );
 
+/** Simplified suites omit Import of Services (RCM). Covoro still includes it. */
+const SIMPLIFIED_SKIPPED_INVOICE_TXN_LABELS = new Set<string>([
+  FV.TXN_IMPORT_OF_SERVICES_RCM,
+]);
+
+export function omitImportOfServicesRcmScenarios<T>(scenarios: readonly T[]): T[] {
+  return scenarios.filter((scenario) => {
+    if (!scenario || typeof scenario !== "object") return true;
+    const record = scenario as {
+      invoiceTransactionTypeCode?: unknown;
+      conflictingTxnType?: unknown;
+    };
+    const labels = [record.invoiceTransactionTypeCode, record.conflictingTxnType]
+      .filter((value): value is string => typeof value === "string")
+      .flatMap((value) => value.split(",").map((part) => part.trim()));
+    return !labels.some((label) => SIMPLIFIED_SKIPPED_INVOICE_TXN_LABELS.has(label));
+  });
+}
+
 export const dropdownMasterOnSimplified = simplifiedFieldConfigs(
   dropdownMasterOnCovoro
-);
+).map((config) => {
+  if (config.field !== FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD) return config;
+  return {
+    ...config,
+    master: config.master.filter(
+      (entry) => !SIMPLIFIED_SKIPPED_INVOICE_TXN_LABELS.has(entry.label)
+    ),
+  };
+});
 export const dropdownInvalidOnSimplified = simplifiedFieldConfigs(
   dropdownInvalidOnCovoro
 );

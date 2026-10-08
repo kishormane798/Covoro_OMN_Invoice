@@ -33,7 +33,10 @@ import {
   applySimplifiedTemplateEnv,
   clearSimplifiedTemplateEnv,
 } from "../Helpers/excel/simplifiedTemplateContext";
-import { isSimplifiedIgnoredPartyField } from "../Helpers/excel/fieldValidationSpecSupport";
+import {
+  isSimplifiedIgnoredPartyField,
+  omitImportOfServicesRcmScenarios,
+} from "../Helpers/excel/fieldValidationSpecSupport";
 import { SIMPLIFIED_TEMPLATE_HEADER_LABELS } from "../testData/invoiceTemplateHeaders/invoiceColumnMapping";
 
 function headerOnSimplified(field: string): boolean {
@@ -47,10 +50,12 @@ function keepConditionalScenarios<T extends { expectedErrorField?: string }>(
   scenarios: readonly T[],
   fallbackField: string
 ): T[] {
-  return scenarios.filter((scenario) => {
-    const field = scenario.expectedErrorField ?? fallbackField;
-    return !isSimplifiedIgnoredPartyField(field) && headerOnSimplified(field);
-  });
+  return omitImportOfServicesRcmScenarios(
+    scenarios.filter((scenario) => {
+      const field = scenario.expectedErrorField ?? fallbackField;
+      return !isSimplifiedIgnoredPartyField(field) && headerOnSimplified(field);
+    })
+  );
 }
 
 const vatinPatternOnSimplified = FV.VATIN_PATTERN_SCENARIOS.filter(
@@ -893,8 +898,9 @@ test.describe("Conditional validation (Simplified)", () => {
       FV.INDUSTRIAL_CLASSIFICATION_REQUIRED_ALLOWED_SCENARIOS.length;
     const errorRowCount =
       FV.INDUSTRIAL_CLASSIFICATION_REQUIRED_NOT_ALLOWED_SCENARIOS.length;
-    const exceptionRowCount =
-      FV.INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS.length;
+    const exceptionRowCount = omitImportOfServicesRcmScenarios(
+      FV.INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS
+    ).length;
 
     test(
       `Given industrial classification is provided across required transaction types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-081-OM)`,

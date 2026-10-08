@@ -68,6 +68,18 @@ import {
   patchInvoiceTextCellsInFile,
   generateInvoiceFromSubmitData,
 } from "../../utils/excel/invoiceExcel";
+import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
+import { omitImportOfServicesRcmScenarios } from "./fieldValidationSpecSupport";
+
+function scenariosForCurrentTemplate<
+  T extends {
+    invoiceTransactionTypeCode?: string;
+    conflictingTxnType?: string;
+  },
+>(scenarios: readonly T[]): readonly T[] {
+  if (!isSimplifiedTemplateEnv()) return scenarios;
+  return omitImportOfServicesRcmScenarios(scenarios);
+}
 
 export type ConditionalErrorOptions = {
   checkEdit?: boolean;
@@ -450,6 +462,7 @@ export async function verifyAlignedIbrpE09OmAllowedBatch(
   page: Page,
   scenarios: readonly VatCategoryTaxAmountE09Scenario[] = VAT_CATEGORY_TAX_AMOUNT_E09_ALLOWED_SCENARIOS
 ): Promise<void> {
+  scenarios = scenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error("verifyAlignedIbrpE09OmAllowedBatch: no allowed scenarios");
   }
@@ -483,6 +496,7 @@ export async function verifyAlignedIbrpE09OmNotAllowedBatch(
   page: Page,
   scenarios: readonly VatCategoryTaxAmountE09Scenario[] = VAT_CATEGORY_TAX_AMOUNT_E09_NOT_ALLOWED_SCENARIOS
 ): Promise<void> {
+  scenarios = scenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error(
       "verifyAlignedIbrpE09OmNotAllowedBatch: no not-allowed scenarios"
@@ -522,6 +536,7 @@ export async function verifyAlignedIbrpO09OmAllowedBatch(
   page: Page,
   scenarios: readonly VatCategoryTaxAmountO09Scenario[] = VAT_CATEGORY_TAX_AMOUNT_O09_ALLOWED_SCENARIOS
 ): Promise<void> {
+  scenarios = scenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error("verifyAlignedIbrpO09OmAllowedBatch: no allowed scenarios");
   }
@@ -555,6 +570,7 @@ export async function verifyAlignedIbrpO09OmNotAllowedBatch(
   page: Page,
   scenarios: readonly VatCategoryTaxAmountO09Scenario[] = VAT_CATEGORY_TAX_AMOUNT_O09_NOT_ALLOWED_SCENARIOS
 ): Promise<void> {
+  scenarios = scenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error(
       "verifyAlignedIbrpO09OmNotAllowedBatch: no not-allowed scenarios"
@@ -594,6 +610,7 @@ export async function verifyAlignedIbrpZ09OmAllowedBatch(
   page: Page,
   scenarios: readonly VatCategoryTaxAmountZ09Scenario[] = VAT_CATEGORY_TAX_AMOUNT_Z09_ALLOWED_SCENARIOS
 ): Promise<void> {
+  scenarios = scenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error("verifyAlignedIbrpZ09OmAllowedBatch: no allowed scenarios");
   }
@@ -627,6 +644,7 @@ export async function verifyAlignedIbrpZ09OmNotAllowedBatch(
   page: Page,
   scenarios: readonly VatCategoryTaxAmountZ09Scenario[] = VAT_CATEGORY_TAX_AMOUNT_Z09_NOT_ALLOWED_SCENARIOS
 ): Promise<void> {
+  scenarios = scenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error(
       "verifyAlignedIbrpZ09OmNotAllowedBatch: no not-allowed scenarios"
@@ -1033,7 +1051,9 @@ export async function verifyIbr081OmNotAllowedBatch(
  * industrial classification empty → completed.
  */
 export async function verifyIbr081OmExceptionBatch(page: Page): Promise<void> {
-  const scenarios = INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS;
+  const scenarios = scenariosForCurrentTemplate(
+    INDUSTRIAL_CLASSIFICATION_EXCEPTION_SCENARIOS
+  );
   if (!scenarios.length) {
     throw new Error("verifyIbr081OmExceptionBatch: no exception scenarios");
   }

@@ -2,11 +2,9 @@
 # Resolve the next Playwright suite for CI queue-next.
 # Usage: ci_queue_next.sh <CURRENT> <WAVE> [SHARD_TOTAL]
 # WAVE=true: cron / scheduled_wave —
-# Sanity → Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment → UI submit multi 1 → UI submit multi 2.
+# Sanity → Simplified field → Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment.
 # Only that sequence is on the schedule. Other suites stay on their manual family.
-# Manual "submit N" chains to "submit N+1" while N+1 is within SHARD_TOTAL (400 tests each).
-# Manual "ui submit N" chains the same way.
-# Manual "ui submit multi 1" chains to "ui submit multi 2" (half, then the other half).
+# Submit is one job (not split into submit 1, submit 2, …) and does not chain.
 # Otherwise: family pair only (Create/Edit/Covoro/Simplified/Copy pair). Unknown → empty next.
 set -euo pipefail
 
@@ -16,42 +14,14 @@ SHARD_TOTAL="${3:-}"
 NEXT=""
 DISPATCH_WAVE="false"
 
-if [[ "$CURRENT" =~ ^ui\ submit\ multi\ ([12])$ ]]; then
-  if [ "${BASH_REMATCH[1]}" = "1" ]; then
-    NEXT="ui submit multi 2"
-  fi
-  echo "next=${NEXT}"
-  echo "dispatch_wave=${DISPATCH_WAVE}"
-  if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo "next=${NEXT}" >> "$GITHUB_OUTPUT"
-    echo "dispatch_wave=${DISPATCH_WAVE}" >> "$GITHUB_OUTPUT"
-  fi
-  exit 0
-fi
-
-if [[ "$CURRENT" =~ ^(ui )?submit\ ([1-9][0-9]*)$ ]]; then
-  PREFIX="${BASH_REMATCH[1]}"
-  NEXT_N=$(( ${BASH_REMATCH[2]} + 1 ))
-  if [[ "$SHARD_TOTAL" =~ ^[1-9][0-9]*$ ]] && [ "$NEXT_N" -le "$SHARD_TOTAL" ]; then
-    NEXT="${PREFIX}submit ${NEXT_N}"
-  fi
-  echo "next=${NEXT}"
-  echo "dispatch_wave=${DISPATCH_WAVE}"
-  if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo "next=${NEXT}" >> "$GITHUB_OUTPUT"
-    echo "dispatch_wave=${DISPATCH_WAVE}" >> "$GITHUB_OUTPUT"
-  fi
-  exit 0
-fi
-
 cron_next() {
   case "$1" in
-    sanity) echo "covoro_formula" ;;
+    sanity) echo "simplified_field" ;;
+    simplified_field) echo "covoro_formula" ;;
     covoro_formula) echo "covoro_conditional" ;;
     covoro_conditional) echo "covoro_ui_create" ;;
     covoro_ui_create) echo "covoro_ui_conditional_create" ;;
     covoro_ui_conditional_create) echo "covoro_ui_attachment" ;;
-    covoro_ui_attachment) echo "ui submit multi 1" ;;
     *) echo "" ;;
   esac
 }
