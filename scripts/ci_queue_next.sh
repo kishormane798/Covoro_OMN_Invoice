@@ -2,7 +2,7 @@
 # Resolve the next Playwright suite for CI queue-next.
 # Usage: ci_queue_next.sh <CURRENT> <WAVE> [SHARD_TOTAL]
 # WAVE=true: cron / scheduled_wave —
-# Sanity → Simplified field → Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment.
+# Sanity → Simplified field → Simplified formula → Simplified conditional → Create → Conditional Create → UI attachment.
 # Only that sequence is on the schedule. Other suites stay on their manual family.
 # Submit is one job (not split into submit 1, submit 2, …) and does not chain.
 # Otherwise: family pair only (Create/Edit/Covoro/Simplified/Copy pair). Unknown → empty next.
@@ -17,9 +17,9 @@ DISPATCH_WAVE="false"
 cron_next() {
   case "$1" in
     sanity) echo "simplified_field" ;;
-    simplified_field) echo "covoro_formula" ;;
-    covoro_formula) echo "covoro_conditional" ;;
-    covoro_conditional) echo "covoro_ui_create" ;;
+    simplified_field) echo "simplified_formula" ;;
+    simplified_formula) echo "simplified_conditional" ;;
+    simplified_conditional) echo "covoro_ui_create" ;;
     covoro_ui_create) echo "covoro_ui_conditional_create" ;;
     covoro_ui_conditional_create) echo "covoro_ui_attachment" ;;
     *) echo "" ;;

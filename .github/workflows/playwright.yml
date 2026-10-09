@@ -1,4 +1,4 @@
-# Cron 05:00 IST Mon–Fri: Sanity → Simplified field → Covoro formula → Covoro conditional → Create → Conditional Create → UI attachment.
+# Cron 05:00 IST Mon–Fri: Sanity → Simplified field → Simplified formula → Simplified conditional → Create → Conditional Create → UI attachment.
 # Only that sequence runs on the schedule. Other suites stay manual.
 # Submit is manual and one job: submit, ui submit, ui submit multi. Not split into submit 1, submit 2, …
 # Manual Run: Create → Conditional Create; Edit → Conditional Edit; Covoro field → formula → conditional
@@ -37,13 +37,13 @@ on:
           - covoro_ui_conditional_create
           - covoro_ui_conditional_edit
       scheduled_wave:
-        description: "On Sanity: morning queue continues through Simplified field, Covoro formula, Covoro conditional, Create, Conditional Create, and UI attachment. Leave off for Sanity only. Other suites stay manual. Submit runs as one job."
+        description: "On Sanity: morning queue continues through Simplified field, Simplified formula, Simplified conditional, Create, Conditional Create, and UI attachment. Leave off for Sanity only. Other suites stay manual. Submit runs as one job."
         type: boolean
         required: false
         default: false
 
 run-name: >-
-  ${{ github.event_name == 'schedule' && 'Scheduled Sanity, Simplified field, Covoro formula, conditional, Create, Conditional Create, UI attachment'
+  ${{ github.event_name == 'schedule' && 'Scheduled Sanity, Simplified field, Simplified formula, Simplified conditional, Create, Conditional Create, UI attachment'
       || github.event.inputs.suite == 'sanity' && 'Sanity'
       || github.event.inputs.suite == 'simplified_field' && 'Simplified field validation'
       || github.event.inputs.suite == 'simplified_formula' && 'Simplified formula validation'

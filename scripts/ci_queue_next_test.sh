@@ -21,18 +21,18 @@ expect() {
 
 expect sanity true simplified_field true
 expect sanity false "" false
-expect simplified_field true covoro_formula true
-expect covoro_formula true covoro_conditional true
-expect covoro_conditional true covoro_ui_create true
+expect simplified_field true simplified_formula true
+expect simplified_formula true simplified_conditional true
+expect simplified_conditional true covoro_ui_create true
+expect covoro_formula true covoro_conditional false
+expect covoro_conditional true "" false
 expect covoro_ui_create true covoro_ui_conditional_create true
 expect covoro_ui_conditional_create true covoro_ui_attachment true
 expect covoro_ui_attachment true "" false
 expect covoro_ui_attachment false "" false
 expect covoro_ui_copy true covoro_ui_conditional_copy false
-expect simplified_conditional true "" false
 expect covoro_ui_edit true covoro_ui_conditional_edit false
 expect covoro_submit_single true "" false
-expect simplified_formula true simplified_conditional false
 expect covoro_ui_copy false covoro_ui_conditional_copy false
 expect covoro_ui_conditional_copy false "" false
 expect covoro_ui_create false covoro_ui_conditional_create false
