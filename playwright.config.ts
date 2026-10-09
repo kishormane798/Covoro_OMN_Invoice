@@ -27,6 +27,17 @@ import { resolveBaseUrl } from './utils/appConfig';
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 const resolvedBaseUrl = resolveBaseUrl();
 
+/**
+ * Local runs use installed Google Chrome (`channel: 'chrome'`).
+ * CI installs Playwright Chromium (`npx playwright install chromium`).
+ * Jenkins agents on Ubuntu ports (ARM) have no `/opt/google/chrome/chrome`.
+ */
+function chromiumProjectUse() {
+  const desktop = devices['Desktop Chrome'];
+  if (process.env.CI) return desktop;
+  return { ...desktop, channel: 'chrome' as const };
+}
+
 function resolveWorkerCount(): number {
   const raw = process.env.PW_WORKERS?.trim();
   if (raw) {
@@ -84,12 +95,12 @@ export default defineConfig({
     {
       name: 'chromium',
       testIgnore: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/, /previous-code/],
-      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+      use: chromiumProjectUse(),
     },
     {
       name: 'chromium-ui',
       testMatch: [/UI.*\.spec\.ts$/, /UIMaster.*\.spec\.ts$/],
-      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+      use: chromiumProjectUse(),
     },
   ],
 });
