@@ -4,7 +4,6 @@
  */
 
 import { Page } from '@playwright/test';
-import { waitForLocatorWithPageRefresh } from '../Helpers/waitForWithPageRefresh';
 import { resolveBaseUrl } from '../utils/appConfig';
 
 const SELECTORS = {
@@ -37,6 +36,8 @@ export class LoginPage {
      * - `.language-selection-modal` wrapper often has height 0 → Playwright "hidden"
      * - Visible dialog is `[data-testid="modalBody"]` (contains #language-en + Continue)
      * - `#language-en` radio can be opacity:0 → use force check/click
+     * - Do not `.or()` this dialog with the email field. Both are visible together, and
+     *   Playwright strict mode then fails the wait before Continue is clicked.
      * - Do not `.or()` the zero-height wrapper with modalBody — `.first()` can pick the
      *   hidden wrapper and skip dismiss entirely (global login never reaches password).
      */
@@ -76,13 +77,46 @@ export class LoginPage {
         await modal.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
     }
 
-    /** Blank first paint on /login: wait for email (or language modal), then refresh if still empty. */
+    /**
+     * Blank first paint on /login: if Select Language is open, click Continue, then wait for email.
+     * Refresh when neither shows. Do not combine the two with `.or()` — both are visible at once.
+     */
     private async waitForLoginFormReady(): Promise<void> {
-        await waitForLocatorWithPageRefresh(this.page, this.emailInput(), {
-            attemptTimeoutMs: 30_000,
-            maxRefreshes: 2,
-            orLocators: [this.languageModal()],
-        });
+        const attemptTimeoutMs = 30_000;
+        const maxRefreshes = 2;
+
+        for (let refreshesDone = 0; ; refreshesDone++) {
+            const deadline = Date.now() + attemptTimeoutMs;
+            let emailReady = false;
+
+            while (Date.now() < deadline) {
+                if (await this.languageModal().isVisible().catch(() => false)) {
+                    await this.dismissLanguageModalIfPresent();
+                }
+                if (await this.emailInput().first().isVisible().catch(() => false)) {
+                    emailReady = true;
+                    break;
+                }
+                await this.page.waitForTimeout(300);
+            }
+
+            if (emailReady) {
+                if (await this.languageModal().isVisible().catch(() => false)) {
+                    await this.dismissLanguageModalIfPresent();
+                }
+                return;
+            }
+
+            if (refreshesDone >= maxRefreshes) {
+                throw new Error(
+                    `Element never became visible (row/button missing, wrong TIN, or UI still loading). After ${refreshesDone} re-navigation(s). URL: ${this.page.url()}`
+                );
+            }
+
+            const current = this.page.url();
+            const loginUrl = current.includes('/login') ? current : `${resolveBaseUrl()}/login`;
+            await this.page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+        }
     }
 
     private async clickSignIn(): Promise<void> {
