@@ -242,11 +242,28 @@ def find_column(sheet, field_name):
     return None
 
 
+# Covoro: "Errors" on header row 4. Simplified: "ERROR DETAILS" merged across rows 1–5
+# (value is stored on the top-left cell only, so row 4 of that column is blank).
+_ERROR_COLUMN_KEYS = frozenset({"errors", "error details"})
+
+
+def find_errors_column(sheet):
+    """Column that lists rejected fields. Accepts both template header layouts."""
+    col = find_column(sheet, "Errors")
+    if col is not None:
+        return col
+    for row in range(1, HEADER_ROW + 1):
+        for cell in sheet[row]:
+            if normalize_key(cell.value) in _ERROR_COLUMN_KEYS:
+                return cell.column
+    return None
+
+
 def read_comment(file_path, field_name, data_row):
     wb, sheet, cleanup_path = get_sheet(file_path)
     try:
         target_col = find_column(sheet, field_name)
-        errors_col = find_column(sheet, "Errors")
+        errors_col = find_errors_column(sheet)
 
         if target_col is None:
             fail(f"Column '{field_name}' not found in row {HEADER_ROW}")
@@ -349,7 +366,7 @@ def list_comments(file_path, data_row):
     """JSON: Errors column field names (comma-separated) and each field's cell comment."""
     wb, sheet, cleanup_path = get_sheet(file_path)
     try:
-        errors_col = find_column(sheet, "Errors")
+        errors_col = find_errors_column(sheet)
         resolved_row = data_row
         errors_text = ""
         if errors_col is not None:
@@ -413,9 +430,9 @@ def list_comments(file_path, data_row):
 def validate_field(file_path, expected_field, data_row):
     wb, sheet, cleanup_path = get_sheet(file_path)
     try:
-        errors_col = find_column(sheet, "Errors")
+        errors_col = find_errors_column(sheet)
         if errors_col is None:
-            fail("Errors column not found in downloaded error file")
+            fail("Errors / ERROR DETAILS column not found in downloaded error file")
 
         error_cell = sheet.cell(row=data_row, column=errors_col)
         if not error_cell.value:
@@ -448,7 +465,7 @@ def count_error_rows(file_path, start_row, expected_count):
     """
     wb, sheet, cleanup_path = get_sheet(file_path)
     try:
-        errors_col = find_column(sheet, "Errors")
+        errors_col = find_errors_column(sheet)
         rows_with_errors = []
         if errors_col is not None:
             last_row = max(int(sheet.max_row or start_row), int(start_row))
