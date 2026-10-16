@@ -1,4 +1,4 @@
-export * from "./InvoiceIssueDateValidation";
+export * from "./InvoiceIssueDateTimeValidation";
 export * from "./Min_max_field_validation";
 export * from "./TestDataConfig";
 export * from "./submitInvoiceExcelHeaderMap";

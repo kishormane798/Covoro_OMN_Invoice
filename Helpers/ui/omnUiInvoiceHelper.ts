@@ -98,7 +98,7 @@ import {
   ZERO_RATED_TAX_CATEGORY_CODE,
   splitOmanTxnMasterLabels,
 } from "../../testData/FieldValidations/ConditionalValidation";
-import { createInvoiceIssueDateScenarios } from "../../testData/FieldValidations/InvoiceIssueDateValidation";
+import { createInvoiceIssueDateScenarios } from "../../testData/FieldValidations/InvoiceIssueDateTimeValidation";
 import {
   invoiceFormulaTestData,
   type InvoiceFormulaScenario,

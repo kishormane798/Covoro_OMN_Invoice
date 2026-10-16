@@ -113,6 +113,27 @@ test.describe(`Field validation (${TEMPLATE})`, () => {
     }
   });
 
+  test.describe("Invoice Issue Time", () => {
+    for (const scenario of FV.createInvoiceIssueTimeScenarios()) {
+      test(scenario.title, async ({ page }) => {
+        const { filePath, invoiceNumber } = await generateOmanSeededFieldExcel(
+          FV.INVOICE_ISSUE_TIME_FIELD,
+          scenario.value
+        );
+        if (scenario.shouldError) {
+          await runErrorValidation(page, {
+            filePath,
+            field: FV.INVOICE_ISSUE_TIME_FIELD,
+            invoiceNumber,
+            checkEdit: true,
+          });
+          return;
+        }
+        await uploadAndVerifyFieldAccepted(page, filePath);
+      });
+    }
+  });
+
   if (mandatoryOnSimplified.length) {
     test.describe("Mandatory fields — valid length", () => {
       for (const config of mandatoryOnSimplified) {

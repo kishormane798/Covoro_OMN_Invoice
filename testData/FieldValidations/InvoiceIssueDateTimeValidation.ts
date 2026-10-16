@@ -105,3 +105,88 @@ export const invoiceIssueDateEmpty = {
   issueDateValue: "" as const,
   issueDateFormat: "yyyy-mm-dd",
 };
+
+export const INVOICE_ISSUE_TIME_FIELD = "Invoice Issue Time";
+
+export type InvoiceIssueTimeScenario = {
+  title: string;
+  /** Empty string leaves the cell blank (optional field). */
+  value: string;
+  shouldError: boolean;
+};
+
+/**
+ * Optional `hh:mm:ss` (00–23 : 00–59 : 00–59).
+ * Valid time and a blank cell are accepted. Hour 24, minute 60, second 60,
+ * a minus sign, and a special symbol on the hour, minute, or second are rejected.
+ */
+export function createInvoiceIssueTimeScenarios(): InvoiceIssueTimeScenario[] {
+  return [
+    {
+      title:
+        "Invoice Issue Time 08:30:15 should be accepted. (Invoice Issue Time)",
+      value: "08:30:15",
+      shouldError: false,
+    },
+    {
+      title:
+        "A blank Invoice Issue Time should be accepted. (Invoice Issue Time)",
+      value: "",
+      shouldError: false,
+    },
+    {
+      title:
+        "Invoice Issue Time 24:00:00 should be rejected with an error. (Invoice Issue Time)",
+      value: "24:00:00",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time 12:60:00 should be rejected with an error. (Invoice Issue Time)",
+      value: "12:60:00",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time 12:00:60 should be rejected with an error. (Invoice Issue Time)",
+      value: "12:00:60",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time -08:30:15 should be rejected with an error. (Invoice Issue Time)",
+      value: "-08:30:15",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time 08:-30:15 should be rejected with an error. (Invoice Issue Time)",
+      value: "08:-30:15",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time 08:30:-15 should be rejected with an error. (Invoice Issue Time)",
+      value: "08:30:-15",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time @8:30:15 should be rejected with an error. (Invoice Issue Time)",
+      value: "@8:30:15",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time 08:@0:15 should be rejected with an error. (Invoice Issue Time)",
+      value: "08:@0:15",
+      shouldError: true,
+    },
+    {
+      title:
+        "Invoice Issue Time 08:30:@5 should be rejected with an error. (Invoice Issue Time)",
+      value: "08:30:@5",
+      shouldError: true,
+    },
+  ];
+}
