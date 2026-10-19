@@ -120,7 +120,7 @@ function formatLabel(scenario: OmnUiAttachmentScenario): string {
 }
 
 export function omnUiAttachmentSectionVisibleTitle(): string {
-  return "Verify Edit Invoice attachment section is visible after Excel upload and Edit with the Add Files zone shown.";
+  return "Verify Invoice attachment section is visible after Excel upload and Edit with the Add Files zone shown.";
 }
 
 export function omnUiAttachmentListTitle(scenario: OmnUiAttachmentScenario): string {
@@ -129,9 +129,9 @@ export function omnUiAttachmentListTitle(scenario: OmnUiAttachmentScenario): str
       scenario.expectedNames.length > 1
         ? "the attachments should be listed"
         : "the attachment should be listed";
-    return `Verify Edit Invoice attachment with ${formatLabel(scenario)} is accepted and ${listed}.`;
+    return `Verify Invoice attachment with ${formatLabel(scenario)} is accepted and ${listed}.`;
   }
-  return `Verify Edit Invoice attachment with ${formatLabel(scenario)} is rejected and an error should be shown.`;
+  return `Verify Invoice attachment with ${formatLabel(scenario)} is rejected and an error should be shown.`;
 }
 
 export function omnUiAttachmentRemoveTitle(
@@ -139,9 +139,9 @@ export function omnUiAttachmentRemoveTitle(
   confirm: "Yes" | "No"
 ): string {
   if (confirm === "Yes") {
-    return `Verify Edit Invoice attachment with ${formatLabel(scenario)} can be removed when confirm is Yes and the attachment should be removed.`;
+    return `Verify Invoice attachment with ${formatLabel(scenario)} can be removed when confirm is Yes and the attachment should be removed.`;
   }
-  return `Verify Edit Invoice attachment with ${formatLabel(scenario)} remains listed when remove is cancelled with No.`;
+  return `Verify Invoice attachment with ${formatLabel(scenario)} remains listed when remove is cancelled with No.`;
 }
 
 export function omnUiAttachmentPersistTitle(
@@ -151,7 +151,7 @@ export function omnUiAttachmentPersistTitle(
     typeof scenarioOrDetail === "string"
       ? scenarioOrDetail
       : formatLabel(scenarioOrDetail);
-  return `Verify Edit Invoice attachment with ${detail} using Update reaches Ready to Submit and View shows the attachment.`;
+  return `Verify Invoice attachment with ${detail} using Update reaches Ready to Submit and View shows the attachment.`;
 }
 
 export function omnUiAttachmentSubmitTitle(
@@ -161,7 +161,7 @@ export function omnUiAttachmentSubmitTitle(
     typeof scenarioOrDetail === "string"
       ? scenarioOrDetail
       : formatLabel(scenarioOrDetail);
-  return `Verify Edit Invoice attachment with ${detail} using Submit functionality and the invoice should be delivered.`;
+  return `Verify Invoice attachment with ${detail} using Submit functionality and the invoice should be delivered.`;
 }
 
 async function uploadBaselineInvoiceAndOpenEdit(page: Page): Promise<{

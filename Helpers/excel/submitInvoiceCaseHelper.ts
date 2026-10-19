@@ -152,6 +152,52 @@ export async function runSubmitInvoiceCase(
   flowLog("SubmitInvoice", `Delivery confirmed for ${invoiceNumber}.`);
 }
 
+/**
+ * Same upload as {@link runSubmitInvoiceCase}, then Options → Submit as PDF.
+ * Toast must match Submit ("Success : Invoice submission has been initiated."), then delivery status.
+ */
+export async function runSubmitInvoiceAsPdfCase(
+  page: Page,
+  data: Record<string, string>
+) {
+  const submissionData = mergeSubmitInvoiceOverrides(
+    applySubmitTaxCategoryAndRateRules(data)
+  );
+
+  const { filePath, invoiceNumber } = await generateInvoiceFromSubmitData(
+    submissionData
+  );
+  flowLog("SubmitInvoice", `Generated workbook for ${invoiceNumber} → upload (Submit as PDF).`);
+
+  const table = new DashboardPage(page);
+  const uploadPage = await openUploadPage(page);
+  await uploadPage.uploadFile(filePath);
+  const uploadStatus = await uploadPage.waitForAnyStatus();
+
+  if (uploadStatus === "error") {
+    const errorHint = await page
+      .locator(".content span.error, .content span.failed")
+      .first()
+      .innerText()
+      .catch(() => "");
+    const suffix = errorHint.trim() ? ` Parser/UI: ${errorHint.trim()}` : "";
+    throw new Error(
+      `Upload failed for ${invoiceNumber}.${suffix} Uploaded file attached in report.`
+    );
+  }
+
+  flowLog(
+    "SubmitInvoice",
+    `Upload completed for ${invoiceNumber} — Submit as PDF from dashboard.`
+  );
+  await table.refreshDashboardForInvoiceTable(invoiceNumber);
+  await table.submitInvoiceAsPdfFromTable(invoiceNumber);
+  await table.waitForInvoiceDeliveryStatus(invoiceNumber, {
+    timeoutMs: SUBMIT_INVOICE_DELIVERY_TIMEOUT_MS,
+  });
+  flowLog("SubmitInvoice", `Delivery confirmed for ${invoiceNumber} (Submit as PDF).`);
+}
+
 export async function runSubmitInvoiceMultiItemCase(
   page: Page,
   rows: Array<Record<string, string>>

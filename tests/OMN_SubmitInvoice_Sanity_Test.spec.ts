@@ -18,6 +18,7 @@ import { SIMPLIFIED_TEMPLATE_HEADER_LABELS } from "../testData/invoiceTemplateHe
 import {
   BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS,
   runBulkSubmitInvoiceCase,
+  runSubmitInvoiceAsPdfCase,
   runSubmitInvoiceCase,
 } from "../Helpers/excel/submitInvoiceCaseHelper";
 import {
@@ -213,6 +214,29 @@ test.describe("Bulk submit — 5 invoices and status", () => {
     test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
     await runBulkSubmitInvoiceCase(page, firstSingleRow(), { invoiceCount: 5 });
   });
+});
+
+test.describe("Submit as PDF", () => {
+  test.describe.configure({ mode: "parallel", retries: 0 });
+
+  test(
+    "Verify Invoice attachment using Submit as PDF on one uploaded invoice should show the same success message as Submit and the invoice should be delivered.",
+    async ({ page }) => {
+      test.setTimeout(SUBMIT_SANITY_TIMEOUT_MS);
+      await runSubmitInvoiceAsPdfCase(page, firstSingleRow());
+    }
+  );
+
+  test(
+    "Verify Invoice attachment using bulk Submit as PDF on five uploaded invoices should show the same success message as Submit and each invoice should be delivered.",
+    async ({ page }) => {
+      test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
+      await runBulkSubmitInvoiceCase(page, firstSingleRow(), {
+        invoiceCount: 5,
+        bulkAction: "Submit as PDF",
+      });
+    }
+  );
 });
 
 test.describe("Download error records", () => {

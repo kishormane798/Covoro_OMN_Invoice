@@ -1726,6 +1726,51 @@ export class DashboardPage {
   }
 
   /**
+   * Options → **Submit as PDF** for one Ready to Submit row.
+   * Confirms the same toast as Options → Submit, then the caller polls delivery status.
+   */
+  async submitInvoiceAsPdfFromTable(invoiceNumber: string): Promise<void> {
+    const row = this.invoiceTableRow(invoiceNumber);
+    await expect(row).toBeVisible({ timeout: 30000 });
+
+    const optionsButton = row.locator('button:has-text("Options")');
+    const submitOption = this.page
+      .locator('[id^="sub-item-"]')
+      .filter({ hasText: /^\s*Submit as PDF\s*$/i })
+      .or(this.page.getByRole("menuitem", { name: /^\s*Submit as PDF\s*$/i }))
+      .first();
+    let submitted = false;
+
+    for (let attempt = 1; attempt <= SUBMIT_MENU_ATTEMPTS; attempt++) {
+      await expect(optionsButton).toBeVisible();
+      await optionsButton.scrollIntoViewIfNeeded().catch(() => {});
+      try {
+        await optionsButton.click({ timeout: 4_000 });
+      } catch {
+        await optionsButton.click({ timeout: 4_000, force: true });
+      }
+
+      try {
+        await expect(submitOption).toBeVisible({ timeout: 4_000 });
+      } catch {
+        continue;
+      }
+
+      submitted = await this.clickSubmitOptionAndConfirmToast(submitOption, invoiceNumber);
+      if (submitted) break;
+    }
+
+    if (!submitted) {
+      throw new Error(
+        `Could not complete Options -> Submit as PDF click flow for invoice ${invoiceNumber} after ${SUBMIT_MENU_ATTEMPTS} attempts`
+      );
+    }
+
+    await expect(submitOption).toBeHidden({ timeout: 10000 });
+    await expect(row).toBeVisible();
+  }
+
+  /**
    * Search the invoice table (partial/prefix OK when the UI filters with contains).
    * Used for bulk flows so only the uploaded batch is visible before select-all.
    */

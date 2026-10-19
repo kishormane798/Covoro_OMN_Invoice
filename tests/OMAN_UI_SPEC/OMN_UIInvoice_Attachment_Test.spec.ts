@@ -1,5 +1,12 @@
 import { test } from "../../Src/baseTest";
 import {
+  BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS,
+  runBulkSubmitInvoiceCase,
+  runSubmitInvoiceAsPdfCase,
+} from "../../Helpers/excel/submitInvoiceCaseHelper";
+import { SUBMIT_INVOICE_TEST_TIMEOUT_MS } from "../../Helpers/excel/submitInvoiceSpecSupport";
+import { invoiceData } from "../../testData/FieldValidations/SubmitInvoice";
+import {
   runOmnUiEditAttachmentAtLimitSingleCase,
   runOmnUiEditAttachmentAtLimitSubmitCase,
   runOmnUiEditAttachmentCombinedOversizeCase,
@@ -71,7 +78,7 @@ test.describe("Edit Invoice — Attachment Details", () => {
   });
 
   test(
-    "Verify Edit Invoice attachment with all allowed document types (PDF, JPG, JPEG, PNG, XML, CSV, XLSX, and ODS) is accepted and the attachments should be listed.",
+    "Verify Invoice attachment with all allowed document types (PDF, JPG, JPEG, PNG, XML, CSV, XLSX, and ODS) is accepted and the attachments should be listed.",
     async ({ page }) => {
       test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
       await runOmnUiEditAttachmentScenario(page, OMN_UI_ATTACHMENT_ALL_FORMATS);
@@ -119,7 +126,7 @@ test.describe("Edit Invoice — Attachment Details", () => {
 
   test.describe("10 MB size limit", () => {
     test(
-      "Verify Edit Invoice attachment with a single ~9.5 MB file under 10 MB is accepted and the attachment should be listed.",
+      "Verify Invoice attachment with a single ~9.5 MB file under 10 MB is accepted and the attachment should be listed.",
       async ({ page }) => {
         test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
         await runOmnUiEditAttachmentNearLimitSingleCase(page);
@@ -127,7 +134,7 @@ test.describe("Edit Invoice — Attachment Details", () => {
     );
 
     test(
-      "Verify Edit Invoice attachment with a single exactly 10 MB file is accepted and the attachment should be listed.",
+      "Verify Invoice attachment with a single exactly 10 MB file is accepted and the attachment should be listed.",
       async ({ page }) => {
         test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
         await runOmnUiEditAttachmentAtLimitSingleCase(page);
@@ -135,7 +142,7 @@ test.describe("Edit Invoice — Attachment Details", () => {
     );
 
     test(
-      "Verify Edit Invoice attachment with multiple files combined ~9 MB under 10 MB is accepted and the attachments should be listed.",
+      "Verify Invoice attachment with multiple files combined ~9 MB under 10 MB is accepted and the attachments should be listed.",
       async ({ page }) => {
         test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
         await runOmnUiEditAttachmentNearLimitMultiCase(page);
@@ -143,7 +150,7 @@ test.describe("Edit Invoice — Attachment Details", () => {
     );
 
     test(
-      "Verify Edit Invoice attachment with a single file over 10 MB is rejected and an error should be shown.",
+      "Verify Invoice attachment with a single file over 10 MB is rejected and an error should be shown.",
       async ({ page }) => {
         test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
         await runOmnUiEditAttachmentOversizeCase(page);
@@ -151,7 +158,7 @@ test.describe("Edit Invoice — Attachment Details", () => {
     );
 
     test(
-      "Verify Edit Invoice attachment with multiple files combined over 10 MB is rejected and an error should be shown.",
+      "Verify Invoice attachment with multiple files combined over 10 MB is rejected and an error should be shown.",
       async ({ page }) => {
         test.setTimeout(OMN_UI_ATTACHMENT_SIZE_TIMEOUT_MS);
         await runOmnUiEditAttachmentCombinedOversizeCase(page);
@@ -188,7 +195,7 @@ test.describe("Edit Invoice — Attachment Details", () => {
     );
 
     test(
-      "Verify Edit Invoice attachment with all allowed document types (PDF, JPG, JPEG, PNG, XML, CSV, XLSX, and ODS) using Submit functionality and the invoice should be delivered.",
+      "Verify Invoice attachment with all allowed document types (PDF, JPG, JPEG, PNG, XML, CSV, XLSX, and ODS) using Submit functionality and the invoice should be delivered.",
       async ({ page }) => {
         test.setTimeout(OMN_UI_ATTACHMENT_SUBMIT_TIMEOUT_MS);
         await runOmnUiEditAttachmentSubmitCase(page, OMN_UI_ATTACHMENT_ALL_FORMATS);
@@ -282,4 +289,31 @@ test.describe("Edit Invoice — Attachment Details", () => {
       }
     );
   });
+});
+
+test.describe("Submit as PDF", () => {
+  test.describe.configure({ mode: "parallel" });
+
+  test(
+    "Verify Invoice attachment using Submit as PDF on one uploaded invoice should show the same success message as Submit and the invoice should be delivered.",
+    async ({ page }) => {
+      test.setTimeout(SUBMIT_INVOICE_TEST_TIMEOUT_MS);
+      const row = invoiceData[0];
+      if (!row) throw new Error("Submit as PDF: invoiceData[0] is missing");
+      await runSubmitInvoiceAsPdfCase(page, row);
+    }
+  );
+
+  test(
+    "Verify Invoice attachment using bulk Submit as PDF on five uploaded invoices should show the same success message as Submit and each invoice should be delivered.",
+    async ({ page }) => {
+      test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
+      const row = invoiceData[0];
+      if (!row) throw new Error("Submit as PDF: invoiceData[0] is missing");
+      await runBulkSubmitInvoiceCase(page, row, {
+        invoiceCount: 5,
+        bulkAction: "Submit as PDF",
+      });
+    }
+  );
 });
