@@ -31,6 +31,10 @@ export type ReusableDashboardInvoice = {
 };
 const SUBMIT_MENU_ATTEMPTS = 3;
 const INVOICE_DOWNLOAD_RESPONSE_TIMEOUT_MS = 30_000;
+/** Toast shown after Options → Submit or Bulk Action → Submit. */
+const INVOICE_SUBMISSION_INITIATED_TOAST = "Success : Invoice submission has been initiated.";
+const INVOICE_SUBMISSION_INITIATED_TOAST_RE =
+  /Success\s*:\s*Invoice submission has been initiated\./;
 
 /** UI labels in Options → Download submenu (`.sub-list-item`). */
 export const INVOICE_DOWNLOAD_FORMAT_LABEL = {
@@ -56,6 +60,17 @@ const SELECTORS = {
 } as const;
 
 const pageContextBusinessTin = new WeakMap<Page, string>();
+const submitToastCaptureByPage = new WeakMap<Page, string[]>();
+const submitToastBindingPages = new WeakSet<Page>();
+
+function submitToastCapture(page: Page): string[] {
+  let captured = submitToastCaptureByPage.get(page);
+  if (!captured) {
+    captured = [];
+    submitToastCaptureByPage.set(page, captured);
+  }
+  return captured;
+}
 
 function dashboardInvoiceDisplayInTable(invoiceNumber: string): string {
   return invoiceNumber === "" ? "-" : invoiceNumber;
@@ -1062,19 +1077,8 @@ export class DashboardPage {
         continue;
       }
 
-      try {
-        await submitOption.click({ timeout: 4_000 });
-      } catch {
-        await submitOption.click({ timeout: 4_000, force: true });
-      }
-
-      const hiddenAfterClick = await submitOption
-        .isHidden({ timeout: 5_000 })
-        .catch(() => false);
-      if (hiddenAfterClick) {
-        submitted = true;
-        break;
-      }
+      submitted = await this.clickSubmitOptionAndConfirmToast(submitOption, invoiceNumber);
+      if (submitted) break;
     }
 
     if (!submitted) {
@@ -1119,19 +1123,8 @@ export class DashboardPage {
         continue;
       }
 
-      try {
-        await submitOption.click({ timeout: 4_000 });
-      } catch {
-        await submitOption.click({ timeout: 4_000, force: true });
-      }
-
-      const hiddenAfterClick = await submitOption
-        .isHidden({ timeout: 5_000 })
-        .catch(() => false);
-      if (hiddenAfterClick) {
-        submitted = true;
-        break;
-      }
+      submitted = await this.clickSubmitOptionAndConfirmToast(submitOption, invoiceNumber);
+      if (submitted) break;
     }
 
     if (!submitted) {
@@ -1689,7 +1682,10 @@ export class DashboardPage {
    * Bulk Action → toolbar list item by exact label (e.g. Submit, Submit as PDF).
    * Call after {@link selectAllInvoiceRowsCheckbox} (or per-row selection).
    */
-  async clickBulkActionListItem(label: string): Promise<void> {
+  async clickBulkActionListItem(
+    label: string,
+    options?: { requireSubmissionToast?: boolean }
+  ): Promise<void> {
     await this.openBulkActionDropdown();
     const menu = this.page.locator("#bulk-actionable-dropdown .select-btn-container");
     const item = menu
@@ -1701,22 +1697,32 @@ export class DashboardPage {
       })
       .first();
     await expect(item).toBeVisible({ timeout: 10_000 });
+    if (options?.requireSubmissionToast) {
+      await this.beginSubmitToastCapture();
+    }
     try {
       await item.click({ timeout: 8_000 });
     } catch {
       await item.click({ timeout: 8_000, force: true });
+    }
+    if (options?.requireSubmissionToast) {
+      try {
+        await this.waitForCapturedSubmissionToast(`bulk action ${label}`);
+      } finally {
+        await this.endSubmitToastCapture();
+      }
     }
     await expect(menu).toBeHidden({ timeout: 15_000 }).catch(() => {});
   }
 
   /** Bulk Action → **Submit**. */
   async clickBulkActionSubmit(): Promise<void> {
-    await this.clickBulkActionListItem("Submit");
+    await this.clickBulkActionListItem("Submit", { requireSubmissionToast: true });
   }
 
   /** Bulk Action → **Submit as PDF** (submit with PDF attachment). */
   async clickBulkActionSubmitAsPdf(): Promise<void> {
-    await this.clickBulkActionListItem("Submit as PDF");
+    await this.clickBulkActionListItem("Submit as PDF", { requireSubmissionToast: true });
   }
 
   /**
@@ -1778,6 +1784,144 @@ export class DashboardPage {
       timeoutMs: 120_000,
       waitForBulkExport: true,
     });
+  }
+
+  /**
+   * Record the Submit toast the moment it is inserted.
+   * That toast is only on the Submit click. It is gone once the e-invoice list reloads.
+   */
+  private async beginSubmitToastCapture(): Promise<void> {
+    const captured = submitToastCapture(this.page);
+    captured.length = 0;
+
+    if (!submitToastBindingPages.has(this.page)) {
+      await this.page.exposeBinding("__omnRecordSubmitToast", (source, text: string) => {
+        const normalized = String(text ?? "").replace(/\s+/g, " ").trim();
+        if (!normalized || normalized.length > 400) return;
+        if (!/(Success|Error)\s*:/.test(normalized)) return;
+        submitToastCapture(source.page).push(normalized);
+      });
+      submitToastBindingPages.add(this.page);
+    }
+
+    await this.page.evaluate(() => {
+      const w = window as Window & { __omnSubmitToastObs?: MutationObserver };
+      w.__omnSubmitToastObs?.disconnect();
+      const seen = new Set<string>();
+      const record = (node: Node | null) => {
+        let el: HTMLElement | null =
+          node instanceof HTMLElement ? node : node?.parentElement ?? null;
+        for (let depth = 0; el && depth < 4; depth += 1, el = el.parentElement) {
+          const text = (el.innerText || "").replace(/\s+/g, " ").trim();
+          if (!text || text.length > 400 || !/(Success|Error)\s*:/.test(text)) continue;
+          if (seen.has(text)) return;
+          seen.add(text);
+          void (
+            window as unknown as { __omnRecordSubmitToast: (value: string) => Promise<void> }
+          ).__omnRecordSubmitToast(text);
+          return;
+        }
+      };
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === "childList") {
+            mutation.addedNodes.forEach((node) => record(node));
+          } else {
+            record(mutation.target);
+          }
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      w.__omnSubmitToastObs = observer;
+    });
+  }
+
+  private async endSubmitToastCapture(): Promise<void> {
+    await this.page
+      .evaluate(() => {
+        const w = window as Window & { __omnSubmitToastObs?: MutationObserver };
+        w.__omnSubmitToastObs?.disconnect();
+        w.__omnSubmitToastObs = undefined;
+      })
+      .catch(() => {});
+  }
+
+  /**
+   * Require "Success : Invoice submission has been initiated." from the Submit click.
+   * A different toast fails the case. Status polling starts only after this resolves.
+   */
+  private async waitForCapturedSubmissionToast(
+    contextLabel: string,
+    timeoutMs = 8_000
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    const successToast = this.page.getByText(INVOICE_SUBMISSION_INITIATED_TOAST_RE).first();
+    let lastSeen = "";
+
+    while (Date.now() < deadline) {
+      const captured = submitToastCapture(this.page);
+      if (await successToast.isVisible().catch(() => false)) {
+        const visibleText = (await successToast.innerText().catch(() => "")).replace(/\s+/g, " ").trim();
+        if (visibleText) captured.push(visibleText);
+      }
+
+      for (const raw of captured) {
+        const normalized = raw.replace(/\s+/g, " ").trim();
+        if (!normalized) continue;
+        lastSeen = normalized;
+        if (INVOICE_SUBMISSION_INITIATED_TOAST_RE.test(normalized)) {
+          flowLog("DashboardPage", `Submission toast confirmed for ${contextLabel}.`);
+          return;
+        }
+      }
+
+      const errorToast = captured.find((text) => /Error\s*:/.test(text));
+      if (errorToast) {
+        throw new Error(
+          `Invoice submission failed for ${contextLabel}. Expected toast "${INVOICE_SUBMISSION_INITIATED_TOAST}". Observed: "${errorToast.replace(/\s+/g, " ").trim()}".`
+        );
+      }
+
+      await this.page.waitForTimeout(100);
+    }
+
+    const shown = lastSeen || "(no toast message)";
+    throw new Error(
+      `Invoice submission failed for ${contextLabel}. Expected toast "${INVOICE_SUBMISSION_INITIATED_TOAST}". Observed: "${shown}".`
+    );
+  }
+
+  /**
+   * Click Options → Submit and read the toast on that click, before the caller
+   * returns to the e-invoice dashboard to check delivery status.
+   * Returns false when the menu click did not stick, so the caller can retry.
+   */
+  private async clickSubmitOptionAndConfirmToast(
+    submitOption: Locator,
+    invoiceNumber: string
+  ): Promise<boolean> {
+    await this.beginSubmitToastCapture();
+    try {
+      try {
+        await submitOption.click({ timeout: 4_000 });
+      } catch {
+        await submitOption.click({ timeout: 4_000, force: true });
+      }
+
+      try {
+        await this.waitForCapturedSubmissionToast(invoiceNumber);
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const menuStillOpen = await submitOption.isVisible().catch(() => false);
+        if (menuStillOpen && message.includes("(no toast message)")) {
+          return false;
+        }
+        throw error;
+      }
+    } finally {
+      await this.endSubmitToastCapture();
+    }
   }
 
   /**

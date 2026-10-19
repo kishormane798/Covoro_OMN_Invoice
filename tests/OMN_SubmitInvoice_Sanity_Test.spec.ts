@@ -26,16 +26,12 @@ import {
   openUploadPage,
 } from "../Helpers/excel/uploadHelper";
 import {
-  omnUiAttachmentSubmitTitle,
-  runOmnUiEditAttachmentMultiSubmitCase,
+  runOmnUiEditAttachmentScenario,
   runOmnUiEditAttachmentSubmitCase,
   OMN_UI_ATTACHMENT_SUBMIT_TIMEOUT_MS,
+  OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS,
 } from "../Helpers/ui/omnUiAttachmentHelper";
-import {
-  OMN_UI_ATTACHMENT_MULTI_UNDER_LIMIT,
-  OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS,
-  type OmnUiAttachmentAcceptScenario,
-} from "../testData/ui/omnUiInvoiceAttachmentScenarios";
+import { OMN_UI_ATTACHMENT_ALL_FORMATS } from "../testData/ui/omnUiInvoiceAttachmentScenarios";
 import { OMN_UIInvoiceManualPage } from "../pageObjects/OMN_UIInvoiceManualPage";
 import { openOmnUiInvoiceEditor } from "../Helpers/ui/omnUiInvoiceEntryHelper";
 import {
@@ -61,16 +57,10 @@ import {
 } from "../Helpers/ui/omnUiInvoiceFileDownloadHelper";
 
 /**
- * Post-deploy sanity — one case of each flow.
- * Full matrices stay in the Covoro / Simplified / UI specs. Run with `npm run test:sanity`.
+ * Post-deploy sanity. Attachments add every allowed document type on one invoice, then submit it.
+ * Per-document matrices stay in the UI attachment spec. Run with `npm run test:sanity`.
  */
 const SUBMIT_SANITY_TIMEOUT_MS = 6 * 60 * 1000;
-
-const ATTACHMENT_PDF = OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS.find(
-  (s): s is OmnUiAttachmentAcceptScenario => s.expect === "accept" && s.id === "pdf"
-)!;
-
-const ATTACHMENT_MULTI = OMN_UI_ATTACHMENT_MULTI_UNDER_LIMIT as OmnUiAttachmentAcceptScenario;
 
 function firstSingleRow(): Record<string, string> {
   const row = invoiceData[0];
@@ -105,7 +95,7 @@ async function withSimplifiedTemplate<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-test.describe("Excel upload — valid and negative (one case each)", () => {
+test.describe("Excel upload — valid and negative", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
   test("Covoro — valid Invoice Number should be accepted.", async ({ page }) => {
@@ -151,7 +141,7 @@ test.describe("Template mapping", () => {
   });
 });
 
-test.describe("Excel submit — Covoro and Simplified (one case)", () => {
+test.describe("Excel submit — Covoro and Simplified", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
   test("Covoro — one invoice should be submitted and delivered.", async ({ page }) => {
@@ -196,17 +186,21 @@ test.describe("Create Invoice UI — submit (one line and multiple lines)", () =
   });
 });
 
-test.describe("Submit with attachment", () => {
+test.describe("Attachment — all allowed documents", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test(omnUiAttachmentSubmitTitle(ATTACHMENT_PDF), async ({ page }) => {
-    test.setTimeout(OMN_UI_ATTACHMENT_SUBMIT_TIMEOUT_MS);
-    await runOmnUiEditAttachmentSubmitCase(page, ATTACHMENT_PDF);
+  test("Adding all allowed document types on one invoice should list every attachment. (Attachment Details)", async ({
+    page,
+  }) => {
+    test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+    await runOmnUiEditAttachmentScenario(page, OMN_UI_ATTACHMENT_ALL_FORMATS);
   });
 
-  test(omnUiAttachmentSubmitTitle(ATTACHMENT_MULTI), async ({ page }) => {
+  test("Submitting an invoice with all allowed document types attached should deliver the invoice. (Attachment Details)", async ({
+    page,
+  }) => {
     test.setTimeout(OMN_UI_ATTACHMENT_SUBMIT_TIMEOUT_MS);
-    await runOmnUiEditAttachmentMultiSubmitCase(page);
+    await runOmnUiEditAttachmentSubmitCase(page, OMN_UI_ATTACHMENT_ALL_FORMATS);
   });
 });
 
@@ -270,8 +264,16 @@ test.describe("Download delivered records — Excel, PDF, XML, JSON", () => {
 test("Post-deploy sanity fixtures should be present", () => {
   expect(invoiceData.length).toBeGreaterThan(0);
   expect(multiItemInvoiceCases[0]?.rows.length).toBe(4);
-  expect(ATTACHMENT_PDF).toBeTruthy();
-  expect(ATTACHMENT_MULTI.files.length).toBeGreaterThan(1);
+  expect(OMN_UI_ATTACHMENT_ALL_FORMATS.expectedNames).toEqual([
+    "ui-attachment-sample.pdf",
+    "sample.jpg",
+    "sample.jpeg",
+    "sample.png",
+    "sample.xml",
+    "sample.csv",
+    "sample.xlsx",
+    "sample.ods",
+  ]);
   expect(UPLOAD_TEMPLATE_LABEL_NORMAL).toBe("COVORO Template - Excel");
   expect(OMN_SANITY_SINGLE_DOWNLOAD_FORMATS).toEqual(["excel", "json", "pdf", "xml"]);
   expect(OMN_SANITY_BULK_DOWNLOAD_FORMATS).toEqual(["excel", "json", "pdf", "xml"]);

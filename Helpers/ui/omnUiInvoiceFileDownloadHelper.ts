@@ -37,9 +37,9 @@ const ERROR_CARD: SanityDownloadCard = {
 };
 
 const DELIVERED_CARD: SanityDownloadCard = {
-  card: "Delivered",
+  card: "Delivered to (C5 & C4)",
   status: "delivered",
-  subFilters: ["Delivered to C3", "Delivered to C5"],
+  subFilters: [],
 };
 
 export type OmnInvoiceDownloadFormat = InvoiceDownloadFormatUi;
@@ -191,9 +191,7 @@ async function rethrowWithToast(
 async function prepareDownloadCard(page: Page, target: SanityDownloadCard): Promise<DashboardPage> {
   const dashboard = new DashboardPage(page);
   await dashboard.openEinvoiceInvoiceList();
-  if (await dashboard.hasStatisticsCard(target.card)) {
-    await dashboard.clickStatisticsCard(target.card);
-  }
+  await dashboard.clickStatisticsCard(target.card);
   for (const filterLabel of target.subFilters) {
     await dashboard.dismissSubFilterIfPresent(filterLabel);
   }

@@ -36,6 +36,7 @@ import {
   OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS,
 } from "../../Helpers/ui/omnUiAttachmentHelper";
 import {
+  OMN_UI_ATTACHMENT_ALL_FORMATS,
   OMN_UI_ATTACHMENT_INVALID_FORMAT,
   OMN_UI_ATTACHMENT_MULTI_UNDER_LIMIT,
   OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS,
@@ -68,6 +69,14 @@ test.describe("Edit Invoice — Attachment Details", () => {
     test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
     await runOmnUiEditAttachmentScenario(page, OMN_UI_ATTACHMENT_MULTI_UNDER_LIMIT);
   });
+
+  test(
+    "Verify Edit Invoice attachment with all allowed document types (PDF, JPG, JPEG, PNG, XML, CSV, XLSX, and ODS) is accepted and the attachments should be listed.",
+    async ({ page }) => {
+      test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
+      await runOmnUiEditAttachmentScenario(page, OMN_UI_ATTACHMENT_ALL_FORMATS);
+    }
+  );
 
   for (const scenario of OMN_UI_ATTACHMENT_REMOVE_YES_SCENARIOS) {
     test(omnUiAttachmentRemoveTitle(scenario, "Yes"), async ({ page }) => {
@@ -175,6 +184,14 @@ test.describe("Edit Invoice — Attachment Details", () => {
       async ({ page }) => {
         test.setTimeout(OMN_UI_ATTACHMENT_SUBMIT_TIMEOUT_MS);
         await runOmnUiEditAttachmentMultiSubmitCase(page);
+      }
+    );
+
+    test(
+      "Verify Edit Invoice attachment with all allowed document types (PDF, JPG, JPEG, PNG, XML, CSV, XLSX, and ODS) using Submit functionality and the invoice should be delivered.",
+      async ({ page }) => {
+        test.setTimeout(OMN_UI_ATTACHMENT_SUBMIT_TIMEOUT_MS);
+        await runOmnUiEditAttachmentSubmitCase(page, OMN_UI_ATTACHMENT_ALL_FORMATS);
       }
     );
 

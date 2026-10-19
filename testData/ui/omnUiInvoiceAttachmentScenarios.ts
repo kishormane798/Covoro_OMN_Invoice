@@ -136,6 +136,19 @@ export type OmnUiAttachmentAcceptScenario = Extract<
   { expect: "accept" }
 >;
 
+/** Every accepted format on one invoice; combined size stays under 10 MB. */
+const OMN_UI_ATTACHMENT_ALL_ACCEPTED = OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS.filter(
+  (scenario): scenario is OmnUiAttachmentAcceptScenario => scenario.expect === "accept"
+);
+
+export const OMN_UI_ATTACHMENT_ALL_FORMATS: OmnUiAttachmentAcceptScenario = {
+  id: "all-accepted-formats",
+  title: "all allowed document types on one invoice → listed",
+  expect: "accept",
+  files: OMN_UI_ATTACHMENT_ALL_ACCEPTED.flatMap((scenario) => scenario.files),
+  expectedNames: OMN_UI_ATTACHMENT_ALL_ACCEPTED.flatMap((scenario) => scenario.expectedNames),
+};
+
 export const OMN_UI_ATTACHMENT_REMOVE_YES_SCENARIOS: OmnUiAttachmentAcceptScenario[] =
   OMN_UI_ATTACHMENT_POSITIVE_FORMAT_SCENARIOS.filter(
     (s): s is OmnUiAttachmentAcceptScenario => s.expect === "accept"
