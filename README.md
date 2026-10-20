@@ -4,9 +4,11 @@ End-to-end tests for the OMN E-Invoice web application. The suite uses **Playwri
 
 ## What this framework does
 
-- **Field validation** — Upload invoice workbooks with invalid or edge-case values; assert UI and downloadable error files match expectations (Covoro / full template).
+- **Field validation** — Upload invoice workbooks with invalid or edge-case values; assert UI and downloadable error files match expectations (Covoro and Simplified templates).
+- **Conditional validation** — Oman PINT-OM if-then rules on Excel upload.
 - **Formula validation** — Exercise spreadsheet formulas and totals against the app’s validation pipeline.
 - **Submit flows** — Generate workbooks from structured test data, upload, submit, and wait for delivery status (longer timeouts for backend processing).
+- **Create Invoice UI** — Manual create, edit, copy, and attachment flows under `tests/OMAN_UI_SPEC/` (Playwright project `chromium-ui`). Excel upload specs run on project `chromium`.
 
 Authentication runs once in **global setup**; tests reuse `storageState.json` and inject **session storage** so the SPA starts in a logged-in state. Failed runs attach generated **`.xlsx`** files to Playwright and Allure when useful.
 
@@ -18,7 +20,7 @@ Authentication runs once in **global setup**; tests reuse `storageState.json` an
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/`                           | Playwright spec files (`*.spec.ts`). Grouped by scenario (field, formula, submit, UI).                                                                                                                                        |
 | `Src/baseTest.ts`                  | Extended `test` fixture: session bootstrap, dashboard navigation, parallel worker identity, generated Excel cleanup, attachments, site-unavailable handling. **Import `test` from here**, not from `@playwright/test` directly. |
-| `pageObjects/`                     | Page Object Model: `LoginPage`, `DashboardPage`, `UploadInvoicePage`, etc.                                                                                                                                                      |
+| `pageObjects/`                     | Page Object Model: `OMN_LoginPage`, `OMN_DashboardPage`, `OMN_UploadInvoicePage`, `OMN_UIInvoiceManualPage`.                                                                                                                    |
 | `Helpers/`                         | Flow helpers (`uploadHelper`, `fieldValidationHelper`, `submitInvoiceCaseHelper`, …), reporting, and parallel TIN mapping.                                                                                                      |
 | `utils/`                           | Shared: `pythonRunner.ts`, `appConfig.ts`, `global-setup.ts`, `siteUnavailableMarker.ts`. Excel: `utils/excel/` (`invoiceExcel.ts`, writer/reader `.py`). UI: `utils/ui/`. |
 | `testData/`                        | Field-validation configs, submit payloads, template headers, and static templates under `testData/uploads/`. **Generated workbooks** go to `testData/generated/` (gitignored).                                                  |
@@ -27,7 +29,7 @@ Authentication runs once in **global setup**; tests reuse `storageState.json` an
 
 ## Prerequisites
 
-- **Node.js** (LTS recommended; see `.node-version` if present)
+- **Node.js 22.14.x** (see `.node-version` and `package.json` `engines`: `>=22.14.0 <23`)
 - **Python 3.x** with packages from `requirements.txt` (openpyxl for Excel scripts)
 - **Java 17+** on `PATH` if you generate Allure HTML locally (`npm run allure:generate`)
 
@@ -86,7 +88,10 @@ Useful **npm** scripts:
 | `npm run test:all`                                          | All tests, **chromium** project only.                                       |
 | `npm run test:covoro`                                       | Specs matching `*CovoroTemplate*`.                                          |
 | `npm run test:covoro:headed`                                | Same with browser visible.                                                  |
-| `npm run test:covoro:parallel`                              | Example with `--workers=4`.                                                 |
+| `npm run test:covoro:parallel`                              | Covoro specs with `--workers=4`.                                            |
+| `npm run test:covoro:debug`                                 | Covoro specs in Playwright debug mode.                                     |
+| `npm run test:simplified`                                   | Specs matching `*SimplifiedTemplate*`.                                      |
+| `npm run test:sanity`                                       | `tests/OMN_SubmitInvoice_Sanity_Test.spec.ts` with `--workers=5`.           |
 | `npm run report`                                            | Open the **HTML** report (use this so `data/` attachments resolve).         |
 | `npm run allure:generate`                                   | Build single-file Allure report under `allure-report/`.                     |
 | `npm run allure:serve`                                      | Serve Allure from `allure-results` without a permanent folder.              |
@@ -98,7 +103,7 @@ Useful **npm** scripts:
 
 ## Parallel workers and TIN identity
 
-- Default **5** local workers map to TIN slots **1779700001–1779700005** (wrapping if more than five workers).
+- Default **5** local workers (1 when `CI=true`). Each slot uses the matching Oman VATIN from `OMN_EINVOICE_SELLER_TIN_SLOTS` in `.env` (comma-separated, one per worker; extra workers wrap).
 - Each worker writes generated Excel under `testData/generated/excel/pw-<worker>/` so files are not deleted by another worker’s `beforeEach` cleanup.
 - **`UAE_EINVOICE_WORKER_INDEX`** is derived from `TEST_PARALLEL_INDEX` or Playwright’s `parallelIndex` (see `Helpers/worker/parallelWorkerSubmitIdentity.ts`).
 
@@ -119,8 +124,8 @@ Use this flow for any new QA engineer so changes stay reviewable and `main` rema
 ### 1) Clone and first-time setup
 
 ```bash
-git clone https://bitbucket.org/perennialsys/covoro-uae-invoice-automation.git
-cd covoro-uae-invoice-automation
+git clone https://bitbucket.org/perennialsys/covoro-oman-automation.git
+cd covoro-oman-automation
 npm ci
 pip install -r requirements.txt
 npx playwright install chromium
@@ -132,6 +137,8 @@ Create `.env` in the repo root:
 BASE_URL=https://dev.covoro.ai
 TEST_USER_EMAIL=your-test-user@example.com
 TEST_USER_PASSWORD=your-password
+# One real Oman VATIN per worker slot (OM + 10 digits)
+OMN_EINVOICE_SELLER_TIN_SLOTS=OM##########,OM##########,OM##########,OM##########,OM##########
 ```
 
 ### 2) Sync latest `main` before starting work

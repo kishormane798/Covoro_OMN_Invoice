@@ -1,6 +1,6 @@
 # QA workflow — Cursor + Bitbucket (L4 playbook)
 
-Governed workflow for writing and reviewing UAE E-Invoice tests with Cursor while controlling token cost and review risk.
+Governed workflow for writing and reviewing Oman E-Invoice tests with Cursor while controlling token cost and review risk.
 
 ## Principles
 

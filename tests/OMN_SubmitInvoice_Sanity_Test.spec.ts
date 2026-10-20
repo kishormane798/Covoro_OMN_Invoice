@@ -23,7 +23,6 @@ import {
 } from "../Helpers/excel/submitInvoiceCaseHelper";
 import {
   UPLOAD_TEMPLATE_LABEL_NORMAL,
-  UPLOAD_TEMPLATE_LABEL_SIMPLIFIED,
   openUploadPage,
 } from "../Helpers/excel/uploadHelper";
 import {
@@ -33,6 +32,7 @@ import {
   OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS,
 } from "../Helpers/ui/omnUiAttachmentHelper";
 import { OMN_UI_ATTACHMENT_ALL_FORMATS } from "../testData/ui/omnUiInvoiceAttachmentScenarios";
+import { INVOICE_DOWNLOAD_FORMAT_LABEL } from "../pageObjects/OMN_DashboardPage";
 import { OMN_UIInvoiceManualPage } from "../pageObjects/OMN_UIInvoiceManualPage";
 import { openOmnUiInvoiceEditor } from "../Helpers/ui/omnUiInvoiceEntryHelper";
 import {
@@ -99,20 +99,20 @@ async function withSimplifiedTemplate<T>(run: () => Promise<T>): Promise<T> {
 test.describe("Excel upload — valid and negative", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Covoro — valid Invoice Number should be accepted.", async ({ page }) => {
+  test("Entering the shortest allowed Invoice Number on the Covoro template should be accepted. (Invoice Number)", async ({ page }) => {
     const config = FV.fieldInvoice_number[0]!;
     const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
     await uploadAndVerifyFieldAccepted(page, filePath);
   });
 
-  test("Covoro — negative empty Invoice Number should be rejected and the error file should download.", async ({
+  test("Leaving Invoice Number empty on the Covoro template should be rejected with an error. (Invoice Number)", async ({
     page,
   }) => {
     const { filePath } = await generateOmanSeededFieldExcel("Invoice Number", "");
     await runErrorValidation(page, { filePath, field: "Invoice Number", checkEdit: false });
   });
 
-  test("Simplified — valid Invoice Number should be accepted.", async ({ page }) => {
+  test("Entering the shortest allowed Invoice Number on the simplified template should be accepted. (Invoice Number)", async ({ page }) => {
     await withSimplifiedTemplate(async () => {
       const config = FV.fieldInvoice_number[0]!;
       const { filePath } = await generateOmanFieldLengthExcel(config.field, config.min);
@@ -120,7 +120,7 @@ test.describe("Excel upload — valid and negative", () => {
     });
   });
 
-  test("Simplified — negative empty Invoice Number should be rejected and the error file should download.", async ({
+  test("Leaving Invoice Number empty on the simplified template should be rejected with an error. (Invoice Number)", async ({
     page,
   }) => {
     await withSimplifiedTemplate(async () => {
@@ -133,11 +133,11 @@ test.describe("Excel upload — valid and negative", () => {
 test.describe("Template mapping", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test(`Covoro upload maps to ${UPLOAD_TEMPLATE_LABEL_NORMAL}.`, async ({ page }) => {
+  test("The upload screen should be mapped to the Covoro template. (Upload template)", async ({ page }) => {
     await openUploadPage(page);
   });
 
-  test(`Simplified upload maps to ${UPLOAD_TEMPLATE_LABEL_SIMPLIFIED}.`, async ({ page }) => {
+  test("The upload screen should be mapped to the simplified template. (Upload template)", async ({ page }) => {
     await withSimplifiedTemplate(() => openUploadPage(page));
   });
 });
@@ -145,12 +145,12 @@ test.describe("Template mapping", () => {
 test.describe("Excel submit — Covoro and Simplified", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Covoro — one invoice should be submitted and delivered.", async ({ page }) => {
+  test("Submitting one invoice from the Covoro template should deliver the invoice. (Submit)", async ({ page }) => {
     test.setTimeout(SUBMIT_SANITY_TIMEOUT_MS);
     await runSubmitInvoiceCase(page, firstSingleRow());
   });
 
-  test("Simplified — one invoice should be submitted and delivered.", async ({ page }) => {
+  test("Submitting one invoice from the simplified template should deliver the invoice. (Submit)", async ({ page }) => {
     test.setTimeout(SUBMIT_SANITY_TIMEOUT_MS);
     await withSimplifiedTemplate(() => runSubmitInvoiceCase(page, firstSimplifiedSingleRow()));
   });
@@ -159,14 +159,14 @@ test.describe("Excel submit — Covoro and Simplified", () => {
 test.describe("Create and Copy Invoice UI", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Create Invoice form should open.", async ({ page }) => {
+  test("The Create Invoice screen should open. (Create Invoice)", async ({ page }) => {
     test.setTimeout(OMN_UI_INVOICE_TEST_TIMEOUT_MS);
     const invoice = new OMN_UIInvoiceManualPage(page);
     await invoice.openCreate();
     await invoice.expectEditorVisible();
   });
 
-  test("Copy Invoice form should open.", async ({ page }) => {
+  test("The Copy Invoice screen should open from an existing invoice. (Copy Invoice)", async ({ page }) => {
     test.setTimeout(OMN_UI_INVOICE_EDIT_COPY_TIMEOUT_MS);
     const invoice = await openOmnUiInvoiceEditor(page, "copy");
     await invoice.expectEditorVisible();
@@ -176,12 +176,12 @@ test.describe("Create and Copy Invoice UI", () => {
 test.describe("Create Invoice UI — submit (one line and multiple lines)", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Create Invoice — one line should be submitted and delivered.", async ({ page }) => {
+  test("Creating an invoice with one line and submitting it should deliver the invoice. (Create Invoice)", async ({ page }) => {
     test.setTimeout(OMN_UI_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
     await runOmnUiSubmitInvoiceMultiItemCase(page, [firstSingleRow()]);
   });
 
-  test("Create Invoice — four lines should be submitted and delivered.", async ({ page }) => {
+  test("Creating an invoice with four lines and submitting it should deliver the invoice. (Create Invoice)", async ({ page }) => {
     test.setTimeout(OMN_UI_SUBMIT_INVOICE_MULTI_TEST_TIMEOUT_MS);
     await runOmnUiSubmitInvoiceMultiItemCase(page, firstMultiRows());
   });
@@ -190,14 +190,14 @@ test.describe("Create Invoice UI — submit (one line and multiple lines)", () =
 test.describe("Attachment — all allowed documents", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Adding all allowed document types on one invoice should list every attachment. (Attachment Details)", async ({
+  test("Adding a PDF, JPG, JPEG, PNG, XML, CSV, Excel, and ODS file on one invoice should list all eight attachments. (Attachment Details)", async ({
     page,
   }) => {
     test.setTimeout(OMN_UI_ATTACHMENT_TEST_TIMEOUT_MS);
     await runOmnUiEditAttachmentScenario(page, OMN_UI_ATTACHMENT_ALL_FORMATS);
   });
 
-  test("Submitting an invoice with all allowed document types attached should deliver the invoice. (Attachment Details)", async ({
+  test("Submitting an invoice that has a PDF, JPG, JPEG, PNG, XML, CSV, Excel, and ODS file attached should deliver the invoice. (Attachment Details)", async ({
     page,
   }) => {
     test.setTimeout(OMN_UI_ATTACHMENT_SUBMIT_TIMEOUT_MS);
@@ -208,7 +208,7 @@ test.describe("Attachment — all allowed documents", () => {
 test.describe("Bulk submit — 5 invoices and status", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Five uploaded invoices — bulk Submit — each status should be delivered.", async ({
+  test("Selecting five uploaded invoices and choosing Submit should deliver each invoice. (Bulk Submit)", async ({
     page,
   }) => {
     test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
@@ -220,7 +220,7 @@ test.describe("Submit as PDF", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
   test(
-    "Verify Invoice attachment using Submit as PDF on one uploaded invoice should show the same success message as Submit and the invoice should be delivered.",
+    "Choosing Submit as PDF for one uploaded invoice should show the same success message as Submit, and the invoice should be delivered. (Submit as PDF)",
     async ({ page }) => {
       test.setTimeout(SUBMIT_SANITY_TIMEOUT_MS);
       await runSubmitInvoiceAsPdfCase(page, firstSingleRow());
@@ -228,7 +228,7 @@ test.describe("Submit as PDF", () => {
   );
 
   test(
-    "Verify Invoice attachment using bulk Submit as PDF on five uploaded invoices should show the same success message as Submit and each invoice should be delivered.",
+    "Choosing Submit as PDF for five uploaded invoices should show the same success message as Submit, and each invoice should be delivered. (Submit as PDF)",
     async ({ page }) => {
       test.setTimeout(BULK_SUBMIT_INVOICE_TEST_TIMEOUT_MS);
       await runBulkSubmitInvoiceCase(page, firstSingleRow(), {
@@ -242,12 +242,12 @@ test.describe("Submit as PDF", () => {
 test.describe("Download error records", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Download one Error in Records invoice as Excel.", async ({ page }) => {
+  test("Downloading one invoice from Error in Records as Excel should save the file. (Error in Records)", async ({ page }) => {
     test.setTimeout(OMN_UI_INVOICE_FILE_DOWNLOAD_TEST_TIMEOUT_MS);
     await runOmnSanityErrorRecordDownload(page);
   });
 
-  test("Bulk download Error Records.", async ({ page }) => {
+  test("Selecting every invoice in Error in Records and downloading Error Records should save an Excel file. (Error Records)", async ({ page }) => {
     test.setTimeout(OMN_UI_INVOICE_BULK_DOWNLOAD_TEST_TIMEOUT_MS);
     await runOmnSanityBulkErrorRecordsDownload(page);
   });
@@ -256,12 +256,12 @@ test.describe("Download error records", () => {
 test.describe("Download success records", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
-  test("Download one Ready to Submit invoice as Excel.", async ({ page }) => {
+  test("Downloading one invoice that is Ready to Submit as Excel should save the file. (Ready to Submit)", async ({ page }) => {
     test.setTimeout(OMN_UI_INVOICE_FILE_DOWNLOAD_TEST_TIMEOUT_MS);
     await runOmnSanitySuccessRecordDownload(page);
   });
 
-  test("Bulk download Valid Records.", async ({ page }) => {
+  test("Selecting every invoice that is Ready to Submit and downloading Valid Records should save an Excel file. (Valid Records)", async ({ page }) => {
     test.setTimeout(OMN_UI_INVOICE_BULK_DOWNLOAD_TEST_TIMEOUT_MS);
     await runOmnSanityBulkSuccessRecordsDownload(page);
   });
@@ -271,21 +271,21 @@ test.describe("Download delivered records — Excel, PDF, XML, JSON", () => {
   test.describe.configure({ mode: "parallel", retries: 0 });
 
   for (const format of OMN_SANITY_SINGLE_DOWNLOAD_FORMATS) {
-    test(`Download one Delivered invoice as ${format.toUpperCase()}.`, async ({ page }) => {
+    test(`Downloading one delivered invoice as ${INVOICE_DOWNLOAD_FORMAT_LABEL[format]} should save the file. (Delivered)`, async ({ page }) => {
       test.setTimeout(OMN_UI_INVOICE_FILE_DOWNLOAD_TEST_TIMEOUT_MS);
       await runOmnSanityInvoiceFileDownloadCase(page, format);
     });
   }
 
   for (const format of OMN_SANITY_BULK_DOWNLOAD_FORMATS) {
-    test(`Bulk download Delivered invoices as ${format.toUpperCase()}.`, async ({ page }) => {
+    test(`Selecting every delivered invoice and downloading them as ${INVOICE_DOWNLOAD_FORMAT_LABEL[format]} should save the file. (Delivered)`, async ({ page }) => {
       test.setTimeout(OMN_UI_INVOICE_BULK_DOWNLOAD_TEST_TIMEOUT_MS);
       await runOmnSanityBulkDownloadFormatCase(page, format);
     });
   }
 });
 
-test("Post-deploy sanity fixtures should be present", () => {
+test("The sanity sample data should include invoices, a four-line invoice, all eight attachment types, both upload template names, and Excel, JSON, PDF, and XML downloads. (Sanity data)", () => {
   expect(invoiceData.length).toBeGreaterThan(0);
   expect(multiItemInvoiceCases[0]?.rows.length).toBe(4);
   expect(OMN_UI_ATTACHMENT_ALL_FORMATS.expectedNames).toEqual([

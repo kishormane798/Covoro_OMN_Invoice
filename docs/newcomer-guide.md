@@ -1,10 +1,10 @@
-# Newcomer Guide — UAE E‑Invoice Playwright Framework
+# Newcomer Guide — Oman E-Invoice Playwright Framework
 
 This guide is for someone who is new to this repository and wants to **read, understand, and safely change** the framework without needing AI help.
 
 ## What this repo is
 
-This is an **end-to-end (E2E) UI automation framework** for the UAE E‑Invoice web application.
+This is an **end-to-end (E2E) UI automation framework** for the Oman E-Invoice web application (Covoro and Simplified templates, plus Create Invoice UI).
 
 - **Playwright + TypeScript**: browser automation and assertions
 - **Python (openpyxl)**: generates and inspects Excel workbooks used by the app (uploads + downloaded error files)
@@ -163,7 +163,7 @@ The important part: submit flow uses `generateInvoiceFromSubmitData` which **for
 - **Changing `utils/excel/invoiceExcel.ts`**:
   - Safe: adding a new helper that reuses existing writer calls
   - Risky: changing rounding rules, tax-category “effective rate” logic, header normalization, or the two generation pipelines
-- **Changing template mapping logic** (`UploadInvoicePage.ensureExpectedTemplateMapping`):
+- **Changing template mapping logic** (`OMN_UploadInvoicePage.ensureExpectedTemplateMapping`):
   - Safe: adding a missing locator fallback
   - Risky: removing recovery steps (Edit button enable, back arrow return, loose option matching)
 

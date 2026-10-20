@@ -1,21 +1,30 @@
 # Framework Overview
 
-This repository is a Playwright + TypeScript automation framework for the UAE E-Invoice web app, with Python helpers for Excel generation and validation.
+This repository is a Playwright + TypeScript automation framework for the Oman (OMN) E-Invoice web app, with Python helpers for Excel generation and validation.
 
 ## Goals
 
-- Validate upload behavior, error handling, and submit/delivery outcomes for both template modes.
+- Validate upload behavior, error handling, and submit/delivery outcomes for the Covoro and Simplified templates.
+- Cover Create / Edit / Copy invoice UI, including attachments.
 - Keep tests deterministic across parallel workers.
 - Capture strong failure evidence (console, API traffic, generated workbooks, screenshots, reports).
 
 ## High-Level Architecture
 
-- `tests/`: spec entry points. Specs are data-driven and call helper flows.
-- `Src/baseTest.ts`: shared Playwright fixture and test lifecycle controls.
-- `pageObjects/`: UI interaction layer (`LoginPage`, `DashboardPage`, `UploadInvoicePage`).
-- `Helpers/`: business flows — `excel/` (upload/submit/validation packs), `ui/`, `worker/`, plus shared root helpers.
-- `utils/`: shared infra (`pythonRunner`, `appConfig`, setup) plus `utils/excel/` (TS↔Python Excel) and `utils/ui/` (UI helpers).
-- `testData/`: static templates and structured test datasets.
+- `tests/`: spec entry points. Excel suites live at `tests/OMN_*.spec.ts`. Create Invoice UI suites live under `tests/OMAN_UI_SPEC/`. Specs are data-driven and call helper flows.
+- `Src/baseTest.ts`: shared Playwright fixture and test lifecycle controls. Specs import `test` from here.
+- `pageObjects/`: UI interaction layer — `OMN_LoginPage`, `OMN_DashboardPage`, `OMN_UploadInvoicePage`, `OMN_UIInvoiceManualPage`.
+- `Helpers/`: business flows — `excel/` (upload, submit, field, formula, and conditional validation), `ui/` (Create Invoice), `worker/` (parallel seller identity), plus shared root helpers.
+- `utils/`: shared infra (`pythonRunner`, `appConfig`, `global-setup`) plus `utils/excel/` (TS↔Python Excel) and `utils/ui/` (UI helpers).
+- `testData/`: static templates (`testData/uploads/`) and structured datasets (`testData/FieldValidations/`). Generated workbooks go to `testData/generated/excel/pw-<index>/`.
+
+## Playwright projects
+
+- `chromium`: Excel upload specs (field, formula, conditional, submit). `npm run test:all`, `test:covoro`, and `test:simplified` use this project only.
+- `chromium-ui`: specs whose names match `UI*.spec.ts` (Create / Edit / Copy / attachment).
+- `npm test` runs both projects: Excel specs on `chromium`, UI specs on `chromium-ui`.
+- Local runs use installed Google Chrome. CI uses Playwright Chromium.
+- Default workers: **5** locally, **1** when `CI=true`, unless `PW_WORKERS` is set (1–32).
 
 ## Execution Model
 
@@ -46,16 +55,16 @@ This repository is a Playwright + TypeScript automation framework for the UAE E-
 
 ## Parallel Worker Strategy
 
-- Worker slot is derived from Playwright worker index.
+- Worker slot is derived from Playwright worker index (`TEST_PARALLEL_INDEX`, then `UAE_EINVOICE_WORKER_INDEX` in `baseTest`).
 - Generated files are isolated per worker (`testData/generated/excel/pw-<index>/`).
-- TIN identity selection can be mapped per worker.
+- Seller VATIN for each slot comes from `OMN_EINVOICE_SELLER_TIN_SLOTS` in `.env` (one Oman VATIN per worker). The legacy `UAE_EINVOICE_SELLER_TIN_SLOTS` name is still read if the Oman key is empty.
 - `beforeEach` and `afterEach` cleanup is designed to avoid cross-worker file deletion races.
 
 ## Environment and Configuration
 
 - `playwright.config.ts` controls worker defaults, retries, reporters, and `baseURL` normalization.
-- `.env` provides app URL and credentials.
-- Optional env vars tune delivery/upload timeouts, worker count, and debug logging.
+- `.env` provides `BASE_URL`, `TEST_USER_EMAIL`, `TEST_USER_PASSWORD`, and `OMN_EINVOICE_SELLER_TIN_SLOTS`.
+- Optional env vars tune delivery/upload timeouts, counterparty electronic addresses, worker count, and debug logging (`UAE_EINVOICE_DEBUG_DASHBOARD`).
 
 ## Reporting
 
@@ -67,6 +76,6 @@ This repository is a Playwright + TypeScript automation framework for the UAE E-
 1. Read `README.md`.
 2. Read `Src/baseTest.ts` lifecycle.
 3. Read one submit spec + `Helpers/excel/submitInvoiceCaseHelper.ts`.
-4. Read `pageObjects/OMN_UploadInvoicePage.ts` and `pageObjects/OMN_DashboardPage.ts`.
+4. Read `pageObjects/OMN_UploadInvoicePage.ts`, `pageObjects/OMN_DashboardPage.ts`, and `pageObjects/OMN_UIInvoiceManualPage.ts`.
 5. Read `utils/excel/invoiceExcel.ts` and Python writer expectations.
 6. QA using Cursor: `docs/qa-cursor-workflow.md` (Headroom, graphify, diff review, Bitbucket PR flow).
