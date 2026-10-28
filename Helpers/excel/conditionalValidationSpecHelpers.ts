@@ -213,7 +213,9 @@ function patchIbr038EmptyLineVatAfterGenerate(
  * (dropdown-style batch), VAT present (or Simplified omit) → completed.
  */
 export async function verifyIbr038OmAllowedBatch(page: Page): Promise<void> {
-  const scenarios = LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS;
+  const scenarios = scenariosForCurrentTemplate(
+    LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS
+  );
   if (!scenarios.length) {
     throw new Error("verifyIbr038OmAllowedBatch: no allowed scenarios");
   }
@@ -252,7 +254,9 @@ export async function verifyIbr038OmNotAllowedBatch(
   page: Page,
   invoiceTypes: readonly string[]
 ): Promise<void> {
-  const scenarios = ibr038NotAllowedScenariosForTypes(invoiceTypes);
+  const scenarios = scenariosForCurrentTemplate(
+    ibr038NotAllowedScenariosForTypes(invoiceTypes)
+  );
   if (!scenarios.length) {
     throw new Error(
       `verifyIbr038OmNotAllowedBatch: no not-allowed scenarios for ${invoiceTypes.join(", ")}`
@@ -314,7 +318,9 @@ export function patchLineItemVatAmountFromRow(
  * (dropdown-style batch), Exempt + VAT 0 → completed.
  */
 export async function verifyIbr039OmAllowedBatch(page: Page): Promise<void> {
-  const scenarios = LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS;
+  const scenarios = scenariosForCurrentTemplate(
+    LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS
+  );
   if (!scenarios.length) {
     throw new Error("verifyIbr039OmAllowedBatch: no allowed scenarios");
   }
@@ -349,7 +355,9 @@ export async function verifyIbr039OmNotAllowedBatch(
   page: Page,
   invoiceTypes: readonly string[]
 ): Promise<void> {
-  const scenarios = ibr039NotAllowedScenariosForTypes(invoiceTypes);
+  const scenarios = scenariosForCurrentTemplate(
+    ibr039NotAllowedScenariosForTypes(invoiceTypes)
+  );
   if (!scenarios.length) {
     throw new Error(
       `verifyIbr039OmNotAllowedBatch: no not-allowed scenarios for ${invoiceTypes.join(", ")}`

@@ -672,8 +672,9 @@ test.describe("Conditional validation (Simplified)", () => {
   });
 
   test.describe("Line item VAT amount required (IBR-038-OM)", () => {
-    const acceptedRowCount =
-      FV.LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS.length;
+    const acceptedRowCount = omitImportOfServicesRcmScenarios(
+      FV.LINE_ITEM_VAT_AMOUNT_REQUIRED_ALLOWED_SCENARIOS
+    ).length;
 
     test(
       `Given line VAT amount is provided across invoice types and transaction types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-038-OM)`,
@@ -684,13 +685,14 @@ test.describe("Conditional validation (Simplified)", () => {
     );
 
     for (const invoiceTypes of FV.LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS) {
-      const errorRowCount =
+      const errorRowCount = omitImportOfServicesRcmScenarios(
         FV.LINE_ITEM_VAT_AMOUNT_REQUIRED_NOT_ALLOWED_SCENARIOS.filter(
           (scenario) =>
             invoiceTypes.includes(
               scenario.invoiceTypeCode ?? FV.INVOICE_TYPE_COMMERCIAL_INVOICE
             )
-        ).length;
+        )
+      ).length;
       const typeList = invoiceTypes.join(" / ");
 
       test(
@@ -704,8 +706,9 @@ test.describe("Conditional validation (Simplified)", () => {
   });
 
   test.describe("Line VAT amount zero for Exempt (IBR-039-OM)", () => {
-    const acceptedRowCount =
-      FV.LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS.length;
+    const acceptedRowCount = omitImportOfServicesRcmScenarios(
+      FV.LINE_ITEM_VAT_AMOUNT_ZERO_E_ALLOWED_SCENARIOS
+    ).length;
 
     test(
       `Given Exempt line VAT amount is 0 across invoice types and transaction types (${acceptedRowCount} rows) — When uploaded in one Excel — Then the invoice should be accepted. (IBR-039-OM)`,
@@ -716,14 +719,15 @@ test.describe("Conditional validation (Simplified)", () => {
     );
 
     for (const invoiceTypes of FV.LINE_ITEM_VAT_AMOUNT_NEGATIVE_INVOICE_TYPE_GROUPS) {
-      const errorRowCount =
+      const errorRowCount = omitImportOfServicesRcmScenarios(
         FV.LINE_ITEM_VAT_AMOUNT_ZERO_E_NOT_ALLOWED_SCENARIOS.filter(
           (scenario) =>
             invoiceTypes.includes(
               scenario.invoiceTypeCode ??
                 FV.INVOICE_TYPE_CODE_INVOICE_OUT_OF_SCOPE_OF_TAX
             )
-        ).length;
+        )
+      ).length;
       const typeList = invoiceTypes.join(" / ");
 
       test(

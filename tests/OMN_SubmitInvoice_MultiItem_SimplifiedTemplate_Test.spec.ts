@@ -7,18 +7,21 @@ import {
   applySimplifiedTemplateEnv,
   clearSimplifiedTemplateEnv,
 } from "../Helpers/excel/simplifiedTemplateContext";
+import { omitImportOfServicesRcmScenarios } from "../Helpers/excel/fieldValidationSpecSupport";
 import { filterSubmitInvoiceRowsByTemplateHeaders } from "../utils/excel/invoiceExcel";
 import { SIMPLIFIED_TEMPLATE_HEADER_LABELS } from "../testData/invoiceTemplateHeaders/invoiceColumnMapping";
 
 const TEMPLATE = "Simplified";
 
-const multiItemInvoiceCasesOnSimplified = multiItemInvoiceCases.map((tc) => ({
-  ...tc,
-  rows: filterSubmitInvoiceRowsByTemplateHeaders(
-    tc.rows,
-    SIMPLIFIED_TEMPLATE_HEADER_LABELS
-  ),
-}));
+const multiItemInvoiceCasesOnSimplified = omitImportOfServicesRcmScenarios(
+  multiItemInvoiceCases.map((tc) => ({
+    ...tc,
+    rows: filterSubmitInvoiceRowsByTemplateHeaders(
+      tc.rows,
+      SIMPLIFIED_TEMPLATE_HEADER_LABELS
+    ),
+  }))
+);
 
 test.describe(`Submit invoice multi-item (${TEMPLATE})`, () => {
   test.describe.configure({ mode: "parallel", retries: 0 });

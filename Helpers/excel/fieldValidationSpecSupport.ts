@@ -44,18 +44,27 @@ const SIMPLIFIED_SKIPPED_INVOICE_TXN_LABELS = new Set<string>([
   FV.TXN_IMPORT_OF_SERVICES_RCM,
 ]);
 
+function scenarioUsesImportOfServicesRcm(scenario: unknown): boolean {
+  if (!scenario || typeof scenario !== "object") return false;
+  const record = scenario as Record<string, unknown>;
+  const labels = [
+    record.invoiceTransactionTypeCode,
+    record.conflictingTxnType,
+    record[FV.INVOICE_TRANSACTION_TYPE_CODE_FIELD],
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => value.split(",").map((part) => part.trim()));
+  if (labels.some((label) => SIMPLIFIED_SKIPPED_INVOICE_TXN_LABELS.has(label))) {
+    return true;
+  }
+  return (
+    Array.isArray(record.rows) &&
+    record.rows.some((row) => scenarioUsesImportOfServicesRcm(row))
+  );
+}
+
 export function omitImportOfServicesRcmScenarios<T>(scenarios: readonly T[]): T[] {
-  return scenarios.filter((scenario) => {
-    if (!scenario || typeof scenario !== "object") return true;
-    const record = scenario as {
-      invoiceTransactionTypeCode?: unknown;
-      conflictingTxnType?: unknown;
-    };
-    const labels = [record.invoiceTransactionTypeCode, record.conflictingTxnType]
-      .filter((value): value is string => typeof value === "string")
-      .flatMap((value) => value.split(",").map((part) => part.trim()));
-    return !labels.some((label) => SIMPLIFIED_SKIPPED_INVOICE_TXN_LABELS.has(label));
-  });
+  return scenarios.filter((scenario) => !scenarioUsesImportOfServicesRcm(scenario));
 }
 
 export const dropdownMasterOnSimplified = simplifiedFieldConfigs(

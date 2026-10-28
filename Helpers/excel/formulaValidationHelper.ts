@@ -35,6 +35,7 @@ import {
 } from "../../utils/envPartyIdentity";
 import { omanElectronicAddressFromWorkerTin } from "../worker/parallelWorkerSubmitIdentity";
 import { isSimplifiedTemplateEnv } from "./simplifiedTemplateContext";
+import { omitImportOfServicesRcmScenarios } from "./fieldValidationSpecSupport";
 import {
   taxExemptionReasonExemptValidTestData,
   taxExemptionReasonZeroRatedValidTestData,
@@ -1181,6 +1182,17 @@ function clearSimplifiedTxnCompanions(
   );
 }
 
+/** Simplified template drops Import of Services (RCM). Covoro keeps the full matrix. */
+function formulaScenariosForCurrentTemplate<
+  T extends {
+    invoiceTransactionTypeCode?: string;
+    conflictingTxnType?: string;
+  },
+>(scenarios: readonly T[]): T[] {
+  if (!isSimplifiedTemplateEnv()) return [...scenarios];
+  return omitImportOfServicesRcmScenarios(scenarios);
+}
+
 /**
  * ALIGNED-IBRP-E-08-OM Allowed: one workbook, one invoice row per scenario
  * (all non-Simplified txns + Full Tax line/allowance/charge + Simplified).
@@ -1189,6 +1201,7 @@ export async function verifyAlignedIbrpE08OmAllowedBatch(
   page: Page,
   scenarios: readonly AlignedIbrpE08OmCase[] = ALIGNED_IBRP_E_08_OM_ALLOWED_CASES
 ): Promise<void> {
+  scenarios = formulaScenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error("verifyAlignedIbrpE08OmAllowedBatch: no allowed scenarios");
   }
@@ -1217,6 +1230,7 @@ export async function verifyAlignedIbrpE08OmNotAllowedBatch(
   page: Page,
   scenarios: readonly AlignedIbrpE08OmCase[] = ALIGNED_IBRP_E_08_OM_NOT_ALLOWED_CASES
 ): Promise<void> {
+  scenarios = formulaScenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error(
       "verifyAlignedIbrpE08OmNotAllowedBatch: no not-allowed scenarios"
@@ -1454,6 +1468,7 @@ export async function verifyAlignedIbrpO08OmAllowedBatch(
   page: Page,
   scenarios: readonly AlignedIbrpO08OmCase[] = ALIGNED_IBRP_O_08_OM_ALLOWED_CASES
 ): Promise<void> {
+  scenarios = formulaScenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error("verifyAlignedIbrpO08OmAllowedBatch: no allowed scenarios");
   }
@@ -1482,6 +1497,7 @@ export async function verifyAlignedIbrpO08OmNotAllowedBatch(
   page: Page,
   scenarios: readonly AlignedIbrpO08OmCase[] = ALIGNED_IBRP_O_08_OM_NOT_ALLOWED_CASES
 ): Promise<void> {
+  scenarios = formulaScenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error(
       "verifyAlignedIbrpO08OmNotAllowedBatch: no not-allowed scenarios"
@@ -1829,6 +1845,7 @@ export async function verifyAlignedIbrpZ08OmAllowedBatch(
   page: Page,
   scenarios: readonly AlignedIbrpZ08OmCase[] = ALIGNED_IBRP_Z_08_OM_ALLOWED_CASES
 ): Promise<void> {
+  scenarios = formulaScenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error("verifyAlignedIbrpZ08OmAllowedBatch: no allowed scenarios");
   }
@@ -1857,6 +1874,7 @@ export async function verifyAlignedIbrpZ08OmNotAllowedBatch(
   page: Page,
   scenarios: readonly AlignedIbrpZ08OmCase[] = ALIGNED_IBRP_Z_08_OM_NOT_ALLOWED_CASES
 ): Promise<void> {
+  scenarios = formulaScenariosForCurrentTemplate(scenarios);
   if (!scenarios.length) {
     throw new Error(
       "verifyAlignedIbrpZ08OmNotAllowedBatch: no not-allowed scenarios"

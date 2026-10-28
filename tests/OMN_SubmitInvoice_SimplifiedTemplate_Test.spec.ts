@@ -6,14 +6,17 @@ import {
   applySimplifiedTemplateEnv,
   clearSimplifiedTemplateEnv,
 } from "../Helpers/excel/simplifiedTemplateContext";
+import { omitImportOfServicesRcmScenarios } from "../Helpers/excel/fieldValidationSpecSupport";
 import { filterSubmitInvoiceRowsByTemplateHeaders } from "../utils/excel/invoiceExcel";
 import { SIMPLIFIED_TEMPLATE_HEADER_LABELS } from "../testData/invoiceTemplateHeaders/invoiceColumnMapping";
 
 const TEMPLATE = "Simplified";
 
-const invoiceDataOnSimplified = filterSubmitInvoiceRowsByTemplateHeaders(
-  invoiceData,
-  SIMPLIFIED_TEMPLATE_HEADER_LABELS
+const invoiceDataOnSimplified = omitImportOfServicesRcmScenarios(
+  filterSubmitInvoiceRowsByTemplateHeaders(
+    invoiceData,
+    SIMPLIFIED_TEMPLATE_HEADER_LABELS
+  )
 );
 
 test.describe(`Submit invoice (${TEMPLATE})`, () => {
