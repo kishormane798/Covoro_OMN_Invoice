@@ -27,9 +27,24 @@ import {
 } from "../../testData/ui/omnUiInvoiceAttachmentScenarios";
 import { invoiceData } from "../../testData/FieldValidations/SubmitInvoice";
 import { runSubmitInvoiceUploadSanityCase } from "../excel/submitInvoiceCaseHelper";
-import { flowLog, terminalLog } from "../diagnosticLog";
+import { flowLog } from "../diagnosticLog";
+import { test } from "../../Src/baseTest";
 
 type AttachmentToastNote = { label: string; toast: string | null };
+
+/** Toast text for the failure report only. Cleared every test; never written to stdout. */
+const attachmentToastReportLines: string[] = [];
+
+test.afterEach(async ({}, testInfo) => {
+  const testFailed = testInfo.status !== "passed" && testInfo.status !== "skipped";
+  if (testFailed && attachmentToastReportLines.length > 0) {
+    await testInfo.attach("attachment-toast.txt", {
+      body: `${attachmentToastReportLines.join("\n")}\n`,
+      contentType: "text/plain; charset=utf-8",
+    });
+  }
+  attachmentToastReportLines.length = 0;
+});
 
 /** When a toast was captured, it must match. No toast does not fail the case. */
 function expectAttachmentToastWhenPresent(toast: string | null, errorPattern: RegExp): void {
@@ -46,7 +61,7 @@ function attachmentKindLabel(fileName: string): string {
 /** One picker action, including several files together: one toast. */
 function printBulkAttachmentToast(toast: string | null): void {
   if (!toast) return;
-  terminalLog(`[OmnUiAttachment] Toast message: ${toast}`);
+  attachmentToastReportLines.push(`[OmnUiAttachment] Toast message: ${toast}`);
 }
 
 /** Files chosen one after another: `pdf - message, xml - message`. */
@@ -56,7 +71,7 @@ function printSequentialAttachmentToasts(notes: AttachmentToastNote[]): void {
     .map((note) => `${note.label} - ${note.toast}`)
     .join(", ");
   if (!line) return;
-  terminalLog(`[OmnUiAttachment] ${line}`);
+  attachmentToastReportLines.push(`[OmnUiAttachment] ${line}`);
 }
 
 async function chooseAttachmentFiles(
