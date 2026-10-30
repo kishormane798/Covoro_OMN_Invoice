@@ -287,6 +287,15 @@ def write_common(sheet, data_row: int, date_col: int, invoice_col: int) -> str:
     return invoice_number
 
 
+def current_invoice_issue_time() -> str:
+    """Local clock as hh:mm:ss (00–23), the Invoice Issue Time shape submit accepts."""
+    return datetime.now().strftime("%H:%M:%S")
+
+
+def _stamp_invoice_issue_time(ws, header_row: int, row_number: int, issue_time: str) -> None:
+    _set_by_header_name(ws, header_row, row_number, "Invoice Issue Time", issue_time)
+
+
 def _safe_invoice_workbook_filename(invoice_number: str) -> str:
     """
     Disk name for the saved clone. Empty invoice # must not become ``.xlsx`` (invalid / breaks openpyxl on Windows).
@@ -1246,6 +1255,9 @@ def cmd_write_row_json(args: list[str]) -> None:
     parsed_date = datetime.fromisoformat(issue_date_iso.replace("Z", "+00:00"))
     ws.cell(row=data_row, column=date_col).value = datetime(parsed_date.year, parsed_date.month, parsed_date.day)
     ws.cell(row=data_row, column=date_col).number_format = issue_date_format
+    # Submit clears the template row, so stamp issue time here. Formula/field
+    # merges (clear_row=0) keep whatever the payload or template already has.
+    issue_time = current_invoice_issue_time() if clear_row else ""
 
     try:
         row_json = base64.b64decode(row_json_base64.encode("utf-8")).decode("utf-8")
@@ -1275,6 +1287,9 @@ def cmd_write_row_json(args: list[str]) -> None:
             header_map,
             preserve_tax_rate=_payload_preserves_exempt_tax_rate(values),
         )
+
+    if clear_row:
+        _stamp_invoice_issue_time(ws, header_row, data_row, issue_time)
 
     _maybe_apply_parallel_worker_identity_row(ws, header_row, data_row)
     save_result(wb, resolve_write_row_output_dir(), file_name, invoice_number)
@@ -1331,6 +1346,8 @@ def cmd_write_rows_json(args: list[str]) -> None:
 
     parsed_date = datetime.fromisoformat(issue_date_iso.replace("Z", "+00:00"))
     issue_date = datetime(parsed_date.year, parsed_date.month, parsed_date.day)
+    # One clock time for every line of the same invoice.
+    issue_time = current_invoice_issue_time() if clear_row else ""
 
     for i, values in enumerate(rows_values):
         if not isinstance(values, dict):
@@ -1375,6 +1392,8 @@ def cmd_write_rows_json(args: list[str]) -> None:
                 header_map,
                 preserve_tax_rate=_payload_preserves_exempt_tax_rate(values),
             )
+        if clear_row:
+            _stamp_invoice_issue_time(ws, header_row, row_number, issue_time)
 
     # IMPORTANT:
     # Do NOT apply `apply_invoice_calculations_to_data_row` here. Multi-line submit cases can include

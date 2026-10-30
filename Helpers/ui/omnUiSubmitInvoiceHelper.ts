@@ -355,8 +355,8 @@ function cl12DropdownOption(value: string): string {
 }
 
 /**
- * Goods and Service lines both use Service Accounting Code (#serviceAccCode).
- * Classification scheme stays on its own dropdown.
+ * Excel Service Type Code is the CL-12 label. On Create Invoice that control is
+ * Service Accounting Code (#serviceAccCode), for goods and services.
  */
 function serviceAccountingTarget(
   field: UiSubmitField

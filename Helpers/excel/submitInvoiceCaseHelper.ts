@@ -200,15 +200,17 @@ export async function runSubmitInvoiceAsPdfCase(
 
 export async function runSubmitInvoiceMultiItemCase(
   page: Page,
-  rows: Array<Record<string, string>>
+  rows: Array<Record<string, string>>,
+  options?: { inputOverrides?: Record<string, string> }
 ) {
   if (!rows.length) {
     throw new Error("runSubmitInvoiceMultiItemCase: rows cannot be empty");
   }
 
-  const submissionRows = rows.map((r) =>
-    mergeSubmitInvoiceOverrides(applySubmitTaxCategoryAndRateRules(r))
-  );
+  const submissionRows = rows.map((r) => ({
+    ...mergeSubmitInvoiceOverrides(applySubmitTaxCategoryAndRateRules(r)),
+    ...options?.inputOverrides,
+  }));
 
   const { filePath, invoiceNumber } = await generateInvoiceFromSubmitRows(
     submissionRows

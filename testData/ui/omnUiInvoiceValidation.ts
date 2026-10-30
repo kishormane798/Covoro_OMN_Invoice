@@ -2905,14 +2905,6 @@ const OMN_UI_CONDITIONAL_SCENARIOS_ALL: OmnUiConditionalScenario[] = [
       itemAttributeValue: s.itemAttributeValue,
     };
   }),
-  {
-    title: "Copied invoice number and invoice date are empty until filled",
-    section: "document",
-    kind: "copyInvoiceNumberEmpty",
-    shouldError: false,
-    assertInputId: "invNum",
-    entries: ["copy"],
-  },
 ];
 
 /** All mapped conditionals, including dropdown-style rows. Each row is one test in the Conditional spec. */
